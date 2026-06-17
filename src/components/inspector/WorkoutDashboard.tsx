@@ -142,11 +142,15 @@ export function WorkoutDashboard({ workoutId }: { workoutId: string }) {
                 <span style={{ fontSize: '13px', color: 'var(--accent-color)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '12px', display: 'block' }}>
                   {b.block.title}
                 </span>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   {b.exercises.map(ex => (
-                    <div key={ex!.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', background: 'var(--bg-secondary)', borderRadius: '8px' }}>
-                      <span style={{ fontSize: '15px', fontWeight: 500 }}>{ex!.title}</span>
-                      <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{ex!.metadata?.equipment || 'Any'}</span>
+                    <div key={ex!.id} style={{ padding: '16px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ fontSize: '15px', fontWeight: 500, color: 'var(--text-primary)' }}>{ex!.title}</div>
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                        {ex!.metadata?.muscles?.map((m: string) => (
+                          <span key={m} style={{ padding: '4px 8px', background: 'var(--bg-tertiary)', borderRadius: '6px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted)' }}>{m}</span>
+                        ))}
+                      </div>
                     </div>
                   ))}
                 </div>

@@ -4,7 +4,8 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: var(--bg-primary);
+  background: #15171E; /* Forced Dark Mode */
+  color: #F8FAFC;
   z-index: 100;
   display: flex;
   flex-direction: column;
@@ -15,10 +16,10 @@
   justify-content: space-between;
   align-items: center;
   padding: env(safe-area-inset-top, 16px) 16px 16px;
-  background: rgba(28, 28, 30, 0.95);
+  background: rgba(21, 23, 30, 0.95);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
   z-index: 10;
 }
 
@@ -54,11 +55,10 @@
 }
 
 .builder-block {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 16px;
-  margin-bottom: 24px;
+  background: transparent;
+  padding: 0;
+  margin-bottom: 32px;
+  position: relative;
 }
 
 .builder-block-header {
@@ -81,7 +81,7 @@
 .remove-btn {
   background: transparent;
   border: none;
-  color: var(--text-muted);
+  color: #64748B;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -104,11 +104,12 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: var(--bg-tertiary);
-  padding: 10px 12px;
-  border-radius: 8px;
-  font-size: 14px;
+  background: #1D2029;
+  padding: 16px;
+  border-radius: 16px;
+  font-size: 15px;
   font-weight: 500;
+  position: relative;
 }
 
 .add-exercise-btn {
@@ -135,12 +136,12 @@
 .add-block-btn {
   width: 100%;
   padding: 16px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.1);
+  color: #E2E8F0;
   font-size: 15px;
   font-weight: 600;
-  border-radius: 12px;
+  border-radius: 16px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -160,9 +161,9 @@
 }
 
 .exercise-modal-content {
-  background: var(--bg-primary);
-  height: 85vh;
-  border-radius: 20px 20px 0 0;
+  background: #15171E;
+  height: 90vh;
+  border-radius: 24px 24px 0 0;
   display: flex;
   flex-direction: column;
 }
@@ -171,8 +172,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px;
-  border-bottom: 1px solid var(--border-color);
+  padding: 24px 20px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
 }
 
 .exercise-modal-header h3 {
@@ -191,7 +192,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background: var(--bg-secondary);
+  background: #1D2029;
   margin: 16px;
   padding: 12px 16px;
   border-radius: 12px;
@@ -216,8 +217,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px;
-  border-bottom: 1px solid var(--border-color);
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
   cursor: pointer;
 }
 

@@ -6,6 +6,7 @@ import { logActivity } from '../db/actions';
 import { v4 as uuidv4 } from 'uuid';
 import { Check, ArrowLeft, Plus } from 'lucide-react';
 import { RestTimer } from '../components/common/RestTimer';
+import { getMuscleImage } from '../utils/workout';
 import './active-workout.css';
 
 export function ActiveWorkout() {
@@ -90,6 +91,10 @@ export function ActiveWorkout() {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
+  const targetedMuscles = Array.from(new Set(
+    blocks.flatMap(b => b.exercise?.metadata?.muscles || [])
+  )).filter(Boolean);
+
   const handleUpdateSet = async (setId: string, field: 'reps' | 'weight', value: number) => {
     await db.setEntries.update(setId, { [field]: value });
   };
@@ -164,92 +169,123 @@ export function ActiveWorkout() {
       </div>
 
       {/* Body */}
-      <div className="active-workout-body">
-        {blocks.map((block, bIndex) => {
-          const isActive = bIndex === activeExerciseIndex;
-          
-          if (!isActive) {
-            return (
-              <div 
-                key={block.exerciseSession.id} 
-                className="accordion-header"
-                onClick={() => setActiveExerciseIndex(bIndex)}
-              >
-                <div className="accordion-title-row">
-                  <span style={{ color: 'var(--text-muted)', fontSize: '14px', fontWeight: 600 }}>{bIndex + 1}</span>
-                  <span style={{ fontSize: '16px', fontWeight: 500 }}>{block.exercise?.title || 'Unknown Exercise'}</span>
+      <div className="active-workout-body" style={{ padding: '24px 16px' }}>
+        
+        {/* Muscle Overview */}
+        {targetedMuscles.length > 0 && (
+          <div style={{ marginBottom: '32px', textAlign: 'center' }}>
+            <div style={{ fontSize: '15px', fontWeight: 600, color: '#F8FAFC', marginBottom: '16px' }}>{targetedMuscles.join(', ')}</div>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              {targetedMuscles.map(m => (
+                <div key={m} style={{ width: '64px', height: '64px', borderRadius: '16px', background: '#1D2029', overflow: 'hidden', position: 'relative' }}>
+                  <img src={getMuscleImage([m as string])} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.8 }} />
+                  <div style={{ position: 'absolute', bottom: '4px', left: 0, right: 0, textAlign: 'center', fontSize: '10px', fontWeight: 700, color: '#FFF' }}>100%</div>
                 </div>
-                <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                  {block.sets.filter(s => s.completed).length} / {block.sets.length} sets
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div style={{ position: 'relative' }}>
+          {/* Vertical Timeline Line */}
+          {blocks.length > 0 && <div style={{ position: 'absolute', top: '24px', bottom: '24px', left: '23px', width: '2px', background: '#334155', zIndex: 0 }}></div>}
+
+          {blocks.map((block, bIndex) => {
+            const isActive = bIndex === activeExerciseIndex;
+            
+            if (!isActive) {
+              return (
+                <div 
+                  key={block.exerciseSession.id} 
+                  className="accordion-header"
+                  onClick={() => setActiveExerciseIndex(bIndex)}
+                  style={{ position: 'relative', zIndex: 1, background: '#15171E', marginBottom: '16px', display: 'flex', alignItems: 'center' }}
+                >
+                  <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: '#1D2029', overflow: 'hidden', flexShrink: 0, marginRight: '16px' }}>
+                    <img src={getMuscleImage(block.exercise?.metadata?.muscles)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.5 }} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '16px', fontWeight: 500, color: '#F8FAFC' }}>{block.exercise?.title || 'Unknown Exercise'}</div>
+                    <div style={{ fontSize: '13px', color: '#64748B' }}>
+                      {block.sets.filter(s => s.completed).length} / {block.sets.length} sets
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
+            return (
+              <div key={block.exerciseSession.id} className="exercise-block" style={{ position: 'relative', zIndex: 1, background: '#15171E', marginBottom: '32px' }}>
+                <div className="accordion-header active" style={{ display: 'flex', alignItems: 'center', padding: '0 0 16px' }}>
+                  <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: '#1D2029', overflow: 'hidden', flexShrink: 0, marginRight: '16px', border: '2px solid #0EA5E9' }}>
+                    <img src={getMuscleImage(block.exercise?.metadata?.muscles)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <h3 className="exercise-title" style={{ margin: 0, color: '#F8FAFC', fontSize: '18px' }}>
+                      {block.exercise?.title || 'Unknown Exercise'}
+                    </h3>
+                  </div>
+                </div>
+              
+                <div className="exercise-history-preview" style={{ marginLeft: '64px', marginBottom: '16px' }}>
+                  {block.bestStr && <span>Best: {block.bestStr}</span>}
+                </div>
+              
+                {/* Headers */}
+                <div className="set-header-row" style={{ marginLeft: '64px' }}>
+                  <div style={{ width: '32px', textAlign: 'center' }}>Set</div>
+                  <div style={{ flex: 1, textAlign: 'center' }}>kg</div>
+                  <div style={{ flex: 1, textAlign: 'center' }}>Reps</div>
+                  <div style={{ width: '48px', textAlign: 'center' }}>✓</div>
+                </div>
+
+                {/* Sets */}
+                <div style={{ marginLeft: '64px' }}>
+                  {block.sets.map((set, sIndex) => (
+                    <div key={set.id} className={`set-row ${set.completed ? 'completed' : ''}`}>
+                      <div className="set-number">{sIndex + 1}</div>
+                      
+                      <div className="set-input-group">
+                        <input 
+                          type="number" 
+                          className="set-input"
+                          value={set.weight || ''} 
+                          onChange={e => handleUpdateSet(set.id, 'weight', Number(e.target.value))} 
+                          placeholder="-"
+                        />
+                      </div>
+
+                      <div className="set-input-group">
+                        <input 
+                          type="number" 
+                          className="set-input"
+                          value={set.reps || ''} 
+                          onChange={e => handleUpdateSet(set.id, 'reps', Number(e.target.value))} 
+                          placeholder="-"
+                        />
+                      </div>
+
+                      <button 
+                        className={`set-check-btn ${set.completed ? 'active' : ''}`}
+                        onClick={() => handleToggleSet(set.id, set.completed)}
+                      >
+                        <Check size={18} strokeWidth={3} />
+                      </button>
+                    </div>
+                  ))}
+
+                  <button 
+                    className="add-set-btn"
+                    style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#E2E8F0', marginTop: '8px' }}
+                    onClick={() => handleAddSet(block.exerciseSession.id, block.sets.length)}
+                  >
+                    <Plus size={16} /> Add Set
+                  </button>
                 </div>
               </div>
             );
-          }
-
-          return (
-            <div key={block.exerciseSession.id} className="exercise-block">
-              <div className="accordion-header active">
-                <h3 className="exercise-title">
-                  <span style={{ color: 'var(--text-muted)', marginRight: '8px' }}>{bIndex + 1}</span>
-                  {block.exercise?.title || 'Unknown Exercise'}
-                </h3>
-              </div>
-              
-              <div className="exercise-history-preview">
-                {block.bestStr && <span>Best: {block.bestStr}</span>}
-              </div>
-              
-              {/* Headers */}
-              <div className="set-header-row">
-                <div style={{ width: '32px', textAlign: 'center' }}>Set</div>
-                <div style={{ flex: 1, textAlign: 'center' }}>kg</div>
-                <div style={{ flex: 1, textAlign: 'center' }}>Reps</div>
-                <div style={{ width: '48px', textAlign: 'center' }}>✓</div>
-              </div>
-
-              {/* Sets */}
-              {block.sets.map((set, sIndex) => (
-                <div key={set.id} className={`set-row ${set.completed ? 'completed' : ''}`}>
-                  <div className="set-number">{sIndex + 1}</div>
-                  
-                  <div className="set-input-group">
-                    <input 
-                      type="number" 
-                      className="set-input"
-                      value={set.weight || ''} 
-                      onChange={e => handleUpdateSet(set.id, 'weight', Number(e.target.value))} 
-                      placeholder="-"
-                    />
-                  </div>
-
-                  <div className="set-input-group">
-                    <input 
-                      type="number" 
-                      className="set-input"
-                      value={set.reps || ''} 
-                      onChange={e => handleUpdateSet(set.id, 'reps', Number(e.target.value))} 
-                      placeholder="-"
-                    />
-                  </div>
-
-                  <button 
-                    className={`set-check-btn ${set.completed ? 'active' : ''}`}
-                    onClick={() => handleToggleSet(set.id, set.completed)}
-                  >
-                    <Check size={18} strokeWidth={3} />
-                  </button>
-                </div>
-              ))}
-
-              <button 
-                className="add-set-btn"
-                onClick={() => handleAddSet(block.exerciseSession.id, block.sets.length)}
-              >
-                <Plus size={16} /> Add Set
-              </button>
-            </div>
-          );
-        })}
+          })}
+        </div>
       </div>
 
       {/* Finish Summary Modal */}

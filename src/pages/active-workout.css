@@ -4,7 +4,8 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: var(--bg-primary);
+  background: #15171E;
+  color: #F8FAFC;
   z-index: 100;
   display: flex;
   flex-direction: column;
@@ -15,10 +16,10 @@
   justify-content: space-between;
   align-items: center;
   padding: env(safe-area-inset-top, 16px) 16px 16px;
-  background: rgba(28, 28, 30, 0.95);
+  background: rgba(21, 23, 30, 0.95);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
   z-index: 10;
 }
 
@@ -163,7 +164,7 @@
 .set-row {
   display: flex;
   align-items: center;
-  background: var(--bg-secondary);
+  background: #1D2029;
   border-radius: 12px;
   padding: 8px;
   margin-bottom: 8px;
@@ -216,7 +217,7 @@
   width: 40px;
   height: 40px;
   border-radius: 10px;
-  background: #3A3A3C;
+  background: #2C303F;
   border: none;
   color: transparent;
   display: flex;
