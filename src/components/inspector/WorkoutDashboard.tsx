@@ -39,9 +39,9 @@ export function WorkoutDashboard({ workoutId }: { workoutId: string }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             {exercises.map((ex, index) => (
               <div key={ex.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 0', borderBottom: '1px solid var(--border-color)' }}>
-                <span style={{ color: 'var(--text-muted)', fontSize: '14px', width: '20px' }}>{index + 1}</span>
-                <span style={{ fontSize: '14px', fontWeight: 500 }}>{ex.title}</span>
-                <span style={{ marginLeft: 'auto', fontSize: '12px', color: 'var(--text-muted)' }}>{ex.metadata?.equipment || 'Any'}</span>
+                <span style={{ color: 'var(--text-muted)', fontSize: '14px', width: '20px', flexShrink: 0 }}>{index + 1}</span>
+                <span style={{ fontSize: '14px', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>{ex.title}</span>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)', flexShrink: 0 }}>{ex.metadata?.equipment || 'Any'}</span>
               </div>
             ))}
           </div>

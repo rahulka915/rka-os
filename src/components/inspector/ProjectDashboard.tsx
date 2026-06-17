@@ -82,12 +82,12 @@ export function ProjectDashboard({ projectId }: { projectId: string }) {
                 onClick={() => inspectEntity(item.id, item.type)}
                 style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '15px', cursor: 'pointer', padding: '12px', borderRadius: '12px', background: 'var(--bg-tertiary)' }}
               >
-                <div style={{ width: '18px', height: '18px', borderRadius: '50%', border: '2px solid var(--border-color)' }} />
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <span style={{ color: '#FFF' }}>{item.title}</span>
+                <div style={{ width: '18px', height: '18px', borderRadius: '50%', border: '2px solid var(--border-color)', flexShrink: 0 }} />
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0 }}>
+                  <span style={{ color: '#FFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.title}</span>
                   {item.metadata?.dueDate && <span style={{ fontSize: '12px', color: 'var(--warning)' }}>Due {item.metadata.dueDate}</span>}
                 </div>
-                <ChevronRight size={16} color="var(--text-muted)" />
+                <ChevronRight size={16} color="var(--text-muted)" style={{ flexShrink: 0 }} />
               </div>
             ))}
           </div>
@@ -112,8 +112,8 @@ export function ProjectDashboard({ projectId }: { projectId: string }) {
                 onClick={() => inspectEntity(item.id, item.type)}
                 style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '14px', cursor: 'pointer', padding: '10px 12px', borderRadius: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}
               >
-                <CheckCircle2 size={16} color="var(--accent-color)" />
-                <span style={{ color: 'var(--text-muted)', textDecoration: 'line-through', flex: 1 }}>
+                <CheckCircle2 size={16} color="var(--accent-color)" style={{ flexShrink: 0 }} />
+                <span style={{ color: 'var(--text-muted)', textDecoration: 'line-through', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {item.title}
                 </span>
               </div>
