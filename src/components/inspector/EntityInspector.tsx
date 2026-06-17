@@ -141,7 +141,7 @@ export function EntityInspector({ entityId, entityType, onClose }: EntityInspect
                 {entityType === 'workout-template' && <WorkoutDashboard workoutId={entityId} />}
                 {entityType === 'exercise' && <ExerciseDetail exerciseId={entityId} />}
                 
-                {entityType !== 'exercise' && schema.fields.filter(f => !['title', 'scheduledDate', 'timeOfDay', 'rrule', 'tags'].includes(f.id) && f.type !== 'entity-linker').map(renderField)}
+                {entityType !== 'exercise' && entityType !== 'workout-template' && schema.fields.filter(f => !['title', 'scheduledDate', 'timeOfDay', 'rrule', 'tags'].includes(f.id) && f.type !== 'entity-linker').map(renderField)}
               </div>
             </section>
 
@@ -154,7 +154,7 @@ export function EntityInspector({ entityId, entityType, onClose }: EntityInspect
               </section>
             )}
 
-            {entityType !== 'exercise' && (
+            {entityType !== 'exercise' && entityType !== 'workout-template' && (
             <section style={{ marginBottom: '32px' }}>
               <h3 style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '16px', letterSpacing: '0.5px' }}>Relationships</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -164,19 +164,21 @@ export function EntityInspector({ entityId, entityType, onClose }: EntityInspect
             </section>
             )}
 
-            {entityType !== 'exercise' && (
+            {entityType !== 'exercise' && entityType !== 'workout-template' && (
             <section style={{ marginBottom: '48px' }}>
               <h3 style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '16px', letterSpacing: '0.5px' }}>Activity / History</h3>
               <EntityActivity entityId={entityId} />
             </section>
             )}
 
+            {entityType !== 'workout-template' && (
             <section>
               <h3 style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '16px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Advanced</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {schema.fields.filter(f => ['tags'].includes(f.id)).map(renderField)}
               </div>
             </section>
+            )}
 
           </div>
         </div>

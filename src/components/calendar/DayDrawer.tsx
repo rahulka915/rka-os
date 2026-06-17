@@ -29,12 +29,14 @@ export function DayDrawer({ date, onClose }: DayDrawerProps) {
   const dueItems = items.filter(i => i.metadata?.dueDate === date && !scheduledItemIds.includes(i.id));
 
   const handleQuickAdd = async (type: ItemType) => {
+
     const defaultTitles: Record<ItemType, string> = {
       task: 'New Task',
       habit: 'New Habit',
       medication: 'New Medication',
       exercise: 'New Exercise',
       'workout-template': 'New Workout',
+      'workout-block': 'New Workout Block',
       project: 'New Project',
       area: 'New Area',
       meal: 'New Meal'

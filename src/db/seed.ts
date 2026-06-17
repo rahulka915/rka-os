@@ -134,30 +134,48 @@ export async function seedMockData() {
   const rdlId = await createEntity('exercise', 'Romanian Deadlift', { muscles: ['legs', 'back'], equipment: 'barbell' });
   const calfRaiseId = await createEntity('exercise', 'Calf Raises', { muscles: ['legs'], equipment: 'machine' });
 
-  const pushDay = await createEntity('workout-template', 'Push Day', { duration: '1h', timeOfDay: 'morning', exercises: [benchId, inclinePressId, ohpId, lateralRaiseId, tricepPushdownId] }, 'active', undefined, ['Gym']);
+  const pushDay = await createEntity('workout-template', 'Push Day', { duration: '1h', timeOfDay: 'morning' }, 'active', undefined, ['Gym']);
   await linkEntities(hypertrophyProject, pushDay, 'contains');
-  await linkEntities(pushDay, benchId, 'includes_exercise');
-  await linkEntities(pushDay, inclinePressId, 'includes_exercise');
-  await linkEntities(pushDay, ohpId, 'includes_exercise');
-  await linkEntities(pushDay, lateralRaiseId, 'includes_exercise');
-  await linkEntities(pushDay, tricepPushdownId, 'includes_exercise');
+  const pushChest = await createEntity('workout-block', 'Chest Block', { order: 0 }, 'active');
+  await linkEntities(pushDay, pushChest, 'contains');
+  await linkEntities(pushChest, benchId, 'includes_exercise');
+  await linkEntities(pushChest, inclinePressId, 'includes_exercise');
+  
+  const pushShoulder = await createEntity('workout-block', 'Shoulder Block', { order: 1 }, 'active');
+  await linkEntities(pushDay, pushShoulder, 'contains');
+  await linkEntities(pushShoulder, ohpId, 'includes_exercise');
+  await linkEntities(pushShoulder, lateralRaiseId, 'includes_exercise');
 
-  const pullDay = await createEntity('workout-template', 'Pull Day', { duration: '1h', timeOfDay: 'morning', exercises: [pullupId, latPulldownId, barbellRowId, deadliftId, curlId] }, 'active', undefined, ['Gym']);
+  const pushTricep = await createEntity('workout-block', 'Triceps Block', { order: 2 }, 'active');
+  await linkEntities(pushDay, pushTricep, 'contains');
+  await linkEntities(pushTricep, tricepPushdownId, 'includes_exercise');
+
+  const pullDay = await createEntity('workout-template', 'Pull Day', { duration: '1h', timeOfDay: 'morning' }, 'active', undefined, ['Gym']);
   await linkEntities(hypertrophyProject, pullDay, 'contains');
-  await linkEntities(pullDay, pullupId, 'includes_exercise');
-  await linkEntities(pullDay, latPulldownId, 'includes_exercise');
-  await linkEntities(pullDay, barbellRowId, 'includes_exercise');
-  await linkEntities(pullDay, deadliftId, 'includes_exercise');
-  await linkEntities(pullDay, curlId, 'includes_exercise');
+  const pullBack = await createEntity('workout-block', 'Back Block', { order: 0 }, 'active');
+  await linkEntities(pullDay, pullBack, 'contains');
+  await linkEntities(pullBack, pullupId, 'includes_exercise');
+  await linkEntities(pullBack, latPulldownId, 'includes_exercise');
+  await linkEntities(pullBack, barbellRowId, 'includes_exercise');
+  await linkEntities(pullBack, deadliftId, 'includes_exercise');
 
-  const legsDay = await createEntity('workout-template', 'Legs Day', { duration: '1h', timeOfDay: 'morning', exercises: [squatId, legPressId, rdlId, legExtensionId, legCurlId, calfRaiseId] }, 'active', undefined, ['Gym']);
+  const pullBiceps = await createEntity('workout-block', 'Biceps Block', { order: 1 }, 'active');
+  await linkEntities(pullDay, pullBiceps, 'contains');
+  await linkEntities(pullBiceps, curlId, 'includes_exercise');
+
+  const legsDay = await createEntity('workout-template', 'Legs Day', { duration: '1h', timeOfDay: 'morning' }, 'active', undefined, ['Gym']);
   await linkEntities(hypertrophyProject, legsDay, 'contains');
-  await linkEntities(legsDay, squatId, 'includes_exercise');
-  await linkEntities(legsDay, legPressId, 'includes_exercise');
-  await linkEntities(legsDay, rdlId, 'includes_exercise');
-  await linkEntities(legsDay, legExtensionId, 'includes_exercise');
-  await linkEntities(legsDay, legCurlId, 'includes_exercise');
-  await linkEntities(legsDay, calfRaiseId, 'includes_exercise');
+  const legsMain = await createEntity('workout-block', 'Main Lifts', { order: 0 }, 'active');
+  await linkEntities(legsDay, legsMain, 'contains');
+  await linkEntities(legsMain, squatId, 'includes_exercise');
+  await linkEntities(legsMain, rdlId, 'includes_exercise');
+
+  const legsAccessory = await createEntity('workout-block', 'Accessories', { order: 1 }, 'active');
+  await linkEntities(legsDay, legsAccessory, 'contains');
+  await linkEntities(legsAccessory, legPressId, 'includes_exercise');
+  await linkEntities(legsAccessory, legExtensionId, 'includes_exercise');
+  await linkEntities(legsAccessory, legCurlId, 'includes_exercise');
+  await linkEntities(legsAccessory, calfRaiseId, 'includes_exercise');
 
   // Log workout history for the past 2 weeks (Push on Mon/Thu, Pull on Tue/Fri, Legs on Wed/Sat)
   for (let i = -14; i <= 0; i++) {

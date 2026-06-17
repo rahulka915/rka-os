@@ -111,6 +111,26 @@ export const EXERCISE_SCHEMA: EntitySchema = {
       { id: 'cable', label: 'Cable' },
       { id: 'bodyweight', label: 'Bodyweight' }
     ]},
+    { id: 'movementPattern', label: 'Movement Pattern', type: 'single-select', advanced: true, options: [
+      { id: 'push', label: 'Push' },
+      { id: 'pull', label: 'Pull' },
+      { id: 'squat', label: 'Squat' },
+      { id: 'hinge', label: 'Hinge' },
+      { id: 'carry', label: 'Carry' }
+    ]},
+    { id: 'forceType', label: 'Force Type', type: 'single-select', advanced: true, options: [
+      { id: 'compound', label: 'Compound' },
+      { id: 'isolation', label: 'Isolation' }
+    ]},
+    { id: 'mechanic', label: 'Mechanic', type: 'single-select', advanced: true, options: [
+      { id: 'bilateral', label: 'Bilateral' },
+      { id: 'unilateral', label: 'Unilateral' }
+    ]},
+    { id: 'difficulty', label: 'Difficulty', type: 'single-select', advanced: true, options: [
+      { id: 'beginner', label: 'Beginner' },
+      { id: 'intermediate', label: 'Intermediate' },
+      { id: 'advanced', label: 'Advanced' }
+    ]},
     { id: 'notes', label: 'Notes', type: 'textarea', advanced: true }
   ]
 };

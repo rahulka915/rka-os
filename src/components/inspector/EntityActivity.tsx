@@ -20,6 +20,9 @@ export function EntityActivity({ entityId }: { entityId: string }) {
         const dateStr = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
         if (log.actionType === 'workout-session' && log.details?.sessionId) {
+          const durationStr = log.details.duration ? `${Math.floor(log.details.duration / 60)} min` : '';
+          const volumeStr = log.details.volume ? `${log.details.volume}kg Volume` : '';
+
           return (
             <div key={log.id} style={{ display: 'flex', gap: '12px', background: 'var(--bg-secondary)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
               <div style={{ background: 'var(--accent-color)', color: '#fff', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -28,11 +31,25 @@ export function EntityActivity({ entityId }: { entityId: string }) {
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                   <span style={{ fontWeight: 600, color: '#fff', fontSize: '15px' }}>Completed Session</span>
-                  <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{dateStr} at {timeStr}</span>
+                  <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{dateStr}</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px', color: 'var(--accent-color)', marginBottom: '8px' }}>
-                  <Clock size={12} />
-                  <span>Logged Workout</span>
+                
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px', color: 'var(--accent-color)', marginBottom: '12px' }}>
+                  {durationStr && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Clock size={12} />
+                      <span>{durationStr}</span>
+                    </div>
+                  )}
+                  {volumeStr && (
+                    <span style={{ background: 'rgba(255,149,0,0.1)', padding: '2px 6px', borderRadius: '4px' }}>{volumeStr}</span>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button style={{ flex: 1, padding: '8px', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}>
+                    View Session
+                  </button>
                 </div>
               </div>
             </div>

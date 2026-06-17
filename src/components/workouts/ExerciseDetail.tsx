@@ -47,8 +47,12 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
       };
     }).filter(Boolean).sort((a, b) => b!.date - a!.date);
 
+    const variationsLinks = await db.entityLinks.where({ sourceId: exerciseId, linkType: 'contains' }).toArray();
+    const variations = await Promise.all(variationsLinks.map(l => db.items.get(l.targetId)));
+
     return {
       exercise,
+      variations: variations.filter(Boolean),
       stats: {
         sessionsCount: workouts.length,
         totalCompletedSets,
@@ -74,6 +78,14 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
       
+      {/* Media Carousel Placeholder */}
+      <div style={{ height: '200px', background: 'var(--bg-secondary)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed var(--border-color)', color: 'var(--text-muted)' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '24px', marginBottom: '8px' }}>📷</div>
+          <div style={{ fontSize: '13px' }}>Media Carousel (Images / Video)</div>
+        </div>
+      </div>
+
       {/* Properties */}
       <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
         {meta.muscles && meta.muscles.length > 0 && (
@@ -110,6 +122,41 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
           </div>
         )}
       </div>
+
+      {/* Variations */}
+      {data.variations.length > 0 && (
+        <section>
+          <h3 style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '16px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Variations</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {data.variations.map(v => (
+              <div key={v!.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', background: 'var(--bg-secondary)', borderRadius: '8px' }}>
+                <span style={{ fontSize: '15px', fontWeight: 500 }}>{v!.title}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Technique & Execution */}
+      <section>
+        <h3 style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '16px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Technique & Execution</h3>
+        <div style={{ background: 'var(--bg-secondary)', borderRadius: '12px', padding: '16px', fontSize: '14px', color: 'var(--text-primary)', lineHeight: '1.5' }}>
+          {meta.notes || <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>No coaching cues added yet.</span>}
+        </div>
+      </section>
+
+      {/* Progression Graphs Placeholder */}
+      <section>
+        <h3 style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '16px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Progression</h3>
+        <div style={{ display: 'flex', gap: '16px', overflowX: 'auto', paddingBottom: '8px' }}>
+          <div style={{ minWidth: '200px', height: '120px', background: 'var(--bg-secondary)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-color)', color: 'var(--text-muted)', fontSize: '13px' }}>
+            📈 Estimated 1RM Trend
+          </div>
+          <div style={{ minWidth: '200px', height: '120px', background: 'var(--bg-secondary)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-color)', color: 'var(--text-muted)', fontSize: '13px' }}>
+            📊 Volume History
+          </div>
+        </div>
+      </section>
 
       {/* Recent Progression */}
       <section>

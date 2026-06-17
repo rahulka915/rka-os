@@ -7,6 +7,7 @@ import { HealthSearch } from './pages/Health';
 import { ActiveWorkout } from './pages/ActiveWorkout';
 import { Inbox } from './pages/Inbox';
 import { Calendar } from './pages/Calendar';
+import { TemplateBuilder } from './pages/TemplateBuilder';
 import { InspectorProvider } from './components/shell/InspectorContext';
 
 function App() {
@@ -24,6 +25,7 @@ function App() {
           <Route path="calendar" element={<Calendar />} />
         </Route>
         <Route path="/active-workout/:id" element={<ActiveWorkout />} />
+        <Route path="/template-builder/:id" element={<TemplateBuilder />} />
       </Routes>
       </InspectorProvider>
     </BrowserRouter>

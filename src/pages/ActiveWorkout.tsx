@@ -14,6 +14,9 @@ export function ActiveWorkout() {
   
   const [duration, setDuration] = useState(0);
   const [showRestTimer, setShowRestTimer] = useState(false);
+  const [activeExerciseIndex, setActiveExerciseIndex] = useState(0);
+  const [showSummary, setShowSummary] = useState(false);
+  const [sessionNotes, setSessionNotes] = useState('');
 
   // Load the full session graph
   const sessionData = useLiveQuery(async () => {
@@ -33,14 +36,37 @@ export function ActiveWorkout() {
       db.setEntries.where({ exerciseSessionId: es.id }).toArray()
     ));
 
+    const enhancedBlocks = await Promise.all(exSessions.map(async (es, index) => {
+      const sets = allSets[index].sort((a, b) => a.setNumber - b.setNumber);
+      let bestStr = '';
+      let lastStr = '';
+      
+      const previousExSessions = await db.exerciseSessions.where('exerciseId').equals(es.exerciseId).toArray();
+      const pastExSessions = previousExSessions.filter(p => p.workoutSessionId !== id);
+      
+      if (pastExSessions.length > 0) {
+        const pastSets = await Promise.all(pastExSessions.map(p => db.setEntries.where({ exerciseSessionId: p.id }).toArray()));
+        const allPastSets = pastSets.flat().filter(s => s.completed);
+        
+        if (allPastSets.length > 0) {
+          const bestSet = allPastSets.reduce((best, current) => (current.weight || 0) > (best.weight || 0) ? current : best, allPastSets[0]);
+          bestStr = `${bestSet.weight}kg × ${bestSet.reps}`;
+        }
+      }
+
+      return {
+        exerciseSession: es,
+        exercise: exercises.find(e => e.id === es.exerciseId),
+        sets,
+        bestStr,
+        lastStr
+      };
+    }));
+
     return {
       session,
       template,
-      blocks: exSessions.map((es, index) => ({
-        exerciseSession: es,
-        exercise: exercises.find(e => e.id === es.exerciseId),
-        sets: allSets[index].sort((a, b) => a.setNumber - b.setNumber)
-      }))
+      blocks: enhancedBlocks
     };
   }, [id]);
 
@@ -101,8 +127,23 @@ export function ActiveWorkout() {
   };
 
   const handleFinish = async () => {
-    await db.workoutSessions.update(session.id, { duration });
-    await logActivity(session.templateId, 'workout-session', { sessionId: session.id });
+    setShowSummary(true);
+  };
+
+  const handleSaveSummary = async () => {
+    await db.workoutSessions.update(session.id, { duration, notes: sessionNotes });
+    
+    // Calculate total volume
+    let totalVolume = 0;
+    blocks.forEach(b => {
+      b.sets.forEach(s => {
+        if (s.completed) {
+          totalVolume += (s.weight || 0) * (s.reps || 0);
+        }
+      });
+    });
+
+    await logActivity(session.templateId, 'workout-session', { sessionId: session.id, volume: totalVolume, duration, prs: [] });
     navigate('/home');
   };
 
@@ -124,61 +165,132 @@ export function ActiveWorkout() {
 
       {/* Body */}
       <div className="active-workout-body">
-        {blocks.map((block) => (
-          <div key={block.exerciseSession.id} className="exercise-block">
-            <h3 className="exercise-title">{block.exercise?.title || 'Unknown Exercise'}</h3>
-            
-            {/* Headers */}
-            <div className="set-header-row">
-              <div style={{ width: '32px', textAlign: 'center' }}>Set</div>
-              <div style={{ flex: 1, textAlign: 'center' }}>kg</div>
-              <div style={{ flex: 1, textAlign: 'center' }}>Reps</div>
-              <div style={{ width: '48px', textAlign: 'center' }}>✓</div>
+        {blocks.map((block, bIndex) => {
+          const isActive = bIndex === activeExerciseIndex;
+          
+          if (!isActive) {
+            return (
+              <div 
+                key={block.exerciseSession.id} 
+                className="accordion-header"
+                onClick={() => setActiveExerciseIndex(bIndex)}
+              >
+                <div className="accordion-title-row">
+                  <span style={{ color: 'var(--text-muted)', fontSize: '14px', fontWeight: 600 }}>{bIndex + 1}</span>
+                  <span style={{ fontSize: '16px', fontWeight: 500 }}>{block.exercise?.title || 'Unknown Exercise'}</span>
+                </div>
+                <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                  {block.sets.filter(s => s.completed).length} / {block.sets.length} sets
+                </div>
+              </div>
+            );
+          }
+
+          return (
+            <div key={block.exerciseSession.id} className="exercise-block">
+              <div className="accordion-header active">
+                <h3 className="exercise-title">
+                  <span style={{ color: 'var(--text-muted)', marginRight: '8px' }}>{bIndex + 1}</span>
+                  {block.exercise?.title || 'Unknown Exercise'}
+                </h3>
+              </div>
+              
+              <div className="exercise-history-preview">
+                {block.bestStr && <span>Best: {block.bestStr}</span>}
+              </div>
+              
+              {/* Headers */}
+              <div className="set-header-row">
+                <div style={{ width: '32px', textAlign: 'center' }}>Set</div>
+                <div style={{ flex: 1, textAlign: 'center' }}>kg</div>
+                <div style={{ flex: 1, textAlign: 'center' }}>Reps</div>
+                <div style={{ width: '48px', textAlign: 'center' }}>✓</div>
+              </div>
+
+              {/* Sets */}
+              {block.sets.map((set, sIndex) => (
+                <div key={set.id} className={`set-row ${set.completed ? 'completed' : ''}`}>
+                  <div className="set-number">{sIndex + 1}</div>
+                  
+                  <div className="set-input-group">
+                    <input 
+                      type="number" 
+                      className="set-input"
+                      value={set.weight || ''} 
+                      onChange={e => handleUpdateSet(set.id, 'weight', Number(e.target.value))} 
+                      placeholder="-"
+                    />
+                  </div>
+
+                  <div className="set-input-group">
+                    <input 
+                      type="number" 
+                      className="set-input"
+                      value={set.reps || ''} 
+                      onChange={e => handleUpdateSet(set.id, 'reps', Number(e.target.value))} 
+                      placeholder="-"
+                    />
+                  </div>
+
+                  <button 
+                    className={`set-check-btn ${set.completed ? 'active' : ''}`}
+                    onClick={() => handleToggleSet(set.id, set.completed)}
+                  >
+                    <Check size={18} strokeWidth={3} />
+                  </button>
+                </div>
+              ))}
+
+              <button 
+                className="add-set-btn"
+                onClick={() => handleAddSet(block.exerciseSession.id, block.sets.length)}
+              >
+                <Plus size={16} /> Add Set
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Finish Summary Modal */}
+      {showSummary && (
+        <div className="finish-modal-overlay">
+          <div className="finish-modal-content">
+            <h2 style={{ fontSize: '24px', fontWeight: 700, marginBottom: '8px', textAlign: 'center' }}>{template?.title} Completed</h2>
+            <div style={{ fontSize: '15px', color: 'var(--accent-color)', fontWeight: 600, textAlign: 'center', marginBottom: '24px' }}>
+              {formatDuration(duration)}
             </div>
 
-            {/* Sets */}
-            {block.sets.map((set, sIndex) => (
-              <div key={set.id} className={`set-row ${set.completed ? 'completed' : ''}`}>
-                <div className="set-number">{sIndex + 1}</div>
-                
-                <div className="set-input-group">
-                  <input 
-                    type="number" 
-                    className="set-input"
-                    value={set.weight || ''} 
-                    onChange={e => handleUpdateSet(set.id, 'weight', Number(e.target.value))} 
-                    placeholder="-"
-                  />
-                </div>
-
-                <div className="set-input-group">
-                  <input 
-                    type="number" 
-                    className="set-input"
-                    value={set.reps || ''} 
-                    onChange={e => handleUpdateSet(set.id, 'reps', Number(e.target.value))} 
-                    placeholder="-"
-                  />
-                </div>
-
-                <button 
-                  className={`set-check-btn ${set.completed ? 'active' : ''}`}
-                  onClick={() => handleToggleSet(set.id, set.completed)}
-                >
-                  <Check size={18} strokeWidth={3} />
-                </button>
+            <div style={{ display: 'flex', gap: '16px', marginBottom: '24px' }}>
+              <div className="finish-stat-box">
+                <div className="finish-stat-label">Exercises</div>
+                <div className="finish-stat-value">{blocks.length}</div>
               </div>
-            ))}
+              <div className="finish-stat-box">
+                <div className="finish-stat-label">Volume</div>
+                <div className="finish-stat-value">
+                  {blocks.reduce((acc, b) => acc + b.sets.reduce((sAcc, s) => sAcc + (s.completed ? (s.weight || 0) * (s.reps || 0) : 0), 0), 0)} kg
+                </div>
+              </div>
+            </div>
 
-            <button 
-              className="add-set-btn"
-              onClick={() => handleAddSet(block.exerciseSession.id, block.sets.length)}
-            >
-              <Plus size={16} /> Add Set
-            </button>
+            <div style={{ marginBottom: '24px' }}>
+              <label style={{ fontSize: '13px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px', display: 'block', fontWeight: 600 }}>Notes</label>
+              <textarea 
+                value={sessionNotes}
+                onChange={e => setSessionNotes(e.target.value)}
+                placeholder="How did it feel?"
+                style={{ width: '100%', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '12px', color: '#FFF', fontSize: '15px', minHeight: '80px', outline: 'none', resize: 'none' }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button onClick={() => setShowSummary(false)} style={{ flex: 1, padding: '16px', background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-primary)', borderRadius: '12px', fontSize: '16px', fontWeight: 600 }}>Cancel</button>
+              <button onClick={handleSaveSummary} style={{ flex: 1, padding: '16px', background: 'var(--accent-color)', border: 'none', color: '#FFF', borderRadius: '12px', fontSize: '16px', fontWeight: 600 }}>Save Session</button>
+            </div>
           </div>
-        ))}
-      </div>
+        </div>
+      )}
 
       {/* Floating Rest Timer */}
       {showRestTimer && (

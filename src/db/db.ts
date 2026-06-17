@@ -47,7 +47,7 @@ export interface WorkoutMetadata {
   exercises?: any[];
 }
 
-export type ItemType = 'area' | 'project' | 'task' | 'habit' | 'medication' | 'workout-template' | 'exercise' | 'meal';
+export type ItemType = 'area' | 'project' | 'task' | 'habit' | 'medication' | 'workout-template' | 'workout-block' | 'exercise' | 'meal';
 export type ItemStatus = 'inbox' | 'active' | 'scheduled' | 'due-today' | 'overdue' | 'completed' | 'skipped' | 'archived' | 'cancelled';
 
 export interface Tag {
