@@ -11,8 +11,8 @@ import { InspectorProvider } from './components/shell/InspectorContext';
 
 function App() {
   return (
-    <InspectorProvider>
-      <BrowserRouter>
+    <BrowserRouter>
+      <InspectorProvider>
         <Routes>
           <Route path="/" element={<AppShell />}>
           <Route index element={<Navigate to="/home" replace />} />
@@ -25,8 +25,8 @@ function App() {
         </Route>
         <Route path="/active-workout/:id" element={<ActiveWorkout />} />
       </Routes>
-      </BrowserRouter>
-    </InspectorProvider>
+      </InspectorProvider>
+    </BrowserRouter>
   );
 }
 
