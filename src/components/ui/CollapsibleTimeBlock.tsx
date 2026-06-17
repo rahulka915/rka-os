@@ -33,7 +33,7 @@ export function CollapsibleTimeBlock({ id, label, icon, items, defaultExpanded =
     <div style={{ marginBottom: '16px' }}>
       <div 
         onClick={() => setIsExpanded(!isExpanded)}
-        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 0', marginLeft: '-4px', paddingLeft: '4px', borderRadius: '8px', WebkitTapHighlightColor: 'transparent' }}
       >
         <SectionChip label={label} icon={icon} count={items.length} />
         {isExpanded ? <ChevronDown size={16} color="var(--text-muted)" /> : <ChevronRight size={16} color="var(--text-muted)" />}

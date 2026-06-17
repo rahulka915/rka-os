@@ -53,6 +53,12 @@
   gap: 16px;
 }
 
+.project-stats {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .project-metric {
   display: flex;
   flex-direction: column;

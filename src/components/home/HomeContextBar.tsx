@@ -1,5 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/db';
+import type { MedicationMetadata } from '../../db/db';
 import { Pill } from '../ui/Pill';
 
 export function HomeContextBar() {
@@ -20,8 +21,11 @@ export function HomeContextBar() {
       if (daysAgo === 0) {
         lastWorkoutText = `${item.title} completed today`;
         workoutColor = '#10B981';
+      } else if (daysAgo === 1) {
+        lastWorkoutText = `${item.title} completed yesterday`;
+        workoutColor = '#10B981';
       } else {
-        lastWorkoutText = `${item.title} - ${daysAgo} day${daysAgo > 1 ? 's' : ''} ago`;
+        lastWorkoutText = `${item.title} - ${daysAgo} days ago`;
       }
     }
   }
@@ -32,17 +36,35 @@ export function HomeContextBar() {
   let medColor = 'var(--text-muted)';
   if (medLogs.length > 0) {
     const lastMed = medLogs[0];
-    const isToday = new Date(lastMed.timestamp).toDateString() === new Date().toDateString();
-    if (isToday) {
-      medText = 'Medication logged today';
-      medColor = '#3B82F6';
+    const item = items.find(i => i.id === lastMed.entityId);
+    if (item) {
+      const hoursAgo = Math.floor((Date.now() - lastMed.timestamp) / (1000 * 60 * 60));
+      if (hoursAgo < 24) {
+        medText = `Last ${item.title} taken ${hoursAgo}h ago`;
+        medColor = '#3B82F6';
+      } else {
+        const daysAgo = Math.floor(hoursAgo / 24);
+        medText = `Last ${item.title} taken ${daysAgo}d ago`;
+      }
     }
   }
 
+  // Check for refill alerts
+  const meds = items.filter(i => i.type === 'medication');
+  let refillAlertText = '';
+  const lowMeds = meds.filter(m => {
+    const meta = m.metadata as MedicationMetadata;
+    return meta.stockRemaining !== undefined && meta.stockRemaining <= (meta.refillThreshold || 5);
+  });
+  if (lowMeds.length > 0) {
+    refillAlertText = `${lowMeds[0].title} refill due soon`;
+  }
+
   return (
-    <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', overflowX: 'auto', paddingBottom: '4px' }}>
+    <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', overflowX: 'auto', paddingBottom: '4px', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
       <Pill label={`💪 ${lastWorkoutText}`} variant="outline" color={workoutColor} />
       <Pill label={`💊 ${medText}`} variant="outline" color={medColor} />
+      {refillAlertText && <Pill label={`⚠️ ${refillAlertText}`} variant="outline" color="#EF4444" />}
     </div>
   );
 }

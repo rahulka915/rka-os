@@ -39,19 +39,10 @@ export function Projects() {
                   <h3 className="project-title">{p.title}</h3>
                 </div>
                 
-                <div className="project-stats mt-4">
-                  <div className="stat">
-                    <span className="stat-label">Tasks</span>
-                    <span className="stat-value">{projectItems.length}</span>
-                  </div>
-                  <div className="stat">
-                    <span className="stat-label">Active</span>
-                    <Pill label={`${activeCount}`} color={p.metadata?.color || '#555'} variant="solid" />
-                  </div>
-                  <div className="stat">
-                    <span className="stat-label">Done</span>
-                    <Pill label={`${completedCount}`} color={p.metadata?.color || '#555'} variant="outline" />
-                  </div>
+                <div className="project-stats mt-3" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <Pill label={`${projectItems.length} Tasks`} variant="outline" />
+                  <Pill label={`${activeCount} Active`} variant="solid" color={p.metadata?.color || '#555'} />
+                  {completedCount > 0 && <Pill label={`${completedCount} Done`} variant="outline" />}
                 </div>
               </div>
             );
