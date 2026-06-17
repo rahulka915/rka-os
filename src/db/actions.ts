@@ -1,43 +1,133 @@
-import { v4 as uuidv4 } from 'uuid';
 import { db } from './db';
-import type { Item, ItemInstance } from './db';
+import type { ItemType, ItemStatus } from './db';
+import { v4 as uuidv4 } from 'uuid';
+import { parseActionInput } from '../utils/nlp';
 
-// Format Date as YYYY-MM-DD
 export function formatDate(date: Date): string {
   return date.toISOString().split('T')[0];
 }
 
-export async function createAction(title: string, date: Date | null, projectId?: string) {
-  const itemId = uuidv4();
+// ------------------------------------------------------------------
+// Core Graph & Activity Helpers
+// ------------------------------------------------------------------
+
+export async function linkEntities(sourceId: string, targetId: string, linkType: string) {
+  await db.entityLinks.add({
+    id: uuidv4(),
+    sourceId,
+    targetId,
+    linkType,
+    createdAt: Date.now()
+  });
+}
+
+export async function unlinkEntities(sourceId: string, targetId: string, linkType: string) {
+  const link = await db.entityLinks.where({ sourceId, targetId, linkType }).first();
+  if (link) {
+    await db.entityLinks.delete(link.id);
+  }
+}
+
+export async function logActivity(entityId: string, actionType: string, details?: any) {
+  await db.activityLogs.add({
+    id: uuidv4(),
+    entityId,
+    actionType,
+    timestamp: Date.now(),
+    details
+  });
+}
+
+export async function attachTags(itemId: string, tags: string[]) {
+  const now = Date.now();
+  for (const tagName of tags) {
+    let tag = await db.tags.where('name').equalsIgnoreCase(tagName).first();
+    if (!tag) {
+      tag = { id: uuidv4(), name: tagName, color: '#3B82F6', createdAt: now };
+      await db.tags.add(tag);
+    }
+    await db.itemTags.add({ itemId, tagId: tag.id });
+  }
+}
+
+// ------------------------------------------------------------------
+// Generic Entity Creation
+// ------------------------------------------------------------------
+
+export async function createEntity(type: ItemType, title: string, metadata: any = {}, status: ItemStatus = 'active', scheduledDate?: string, tags: string[] = []) {
+  const now = Date.now();
+  const id = uuidv4();
   
-  const newItem: Item = {
-    id: itemId,
-    type: 'task',
-    title,
-    projectId,
-  };
+  await db.transaction('rw', db.items, db.tags, db.itemTags, db.activityLogs, async () => {
+    await db.items.add({
+      id,
+      type,
+      title,
+      status,
+      scheduledDate,
+      rrule: metadata.rrule, // Extract rrule to top level
+      metadata,
+      createdAt: now,
+      updatedAt: now
+    });
 
-  // Run in transaction to ensure both are created
-  await db.transaction('rw', db.items, db.itemInstances, async () => {
-    await db.items.add(newItem);
+    await attachTags(id, tags);
+    await logActivity(id, 'created');
+  });
 
-    // If a date is provided, create a specific occurrence
-    if (date) {
-      const instance: ItemInstance = {
-        id: uuidv4(),
-        itemId,
-        scheduledDate: formatDate(date),
-        status: 'pending'
-      };
-      await db.itemInstances.add(instance);
+  return id;
+}
+
+// ------------------------------------------------------------------
+// Update Entity
+// ------------------------------------------------------------------
+
+export async function updateEntity(id: string, data: any) {
+  await db.transaction('rw', db.items, db.tags, db.itemTags, async () => {
+    const item = await db.items.get(id);
+    if (!item) return;
+
+    const { title, status, scheduledDate, dueDate, rrule, tags, ...restMetadata } = data;
+    
+    const updates: any = { updatedAt: Date.now() };
+
+    if (title !== undefined) updates.title = title;
+    if (status !== undefined) updates.status = status;
+    if (scheduledDate !== undefined) updates.scheduledDate = scheduledDate;
+    if (dueDate !== undefined) updates.dueDate = dueDate;
+    if (rrule !== undefined) updates.rrule = rrule;
+    
+    if (Object.keys(restMetadata).length > 0) {
+      updates.metadata = { ...(item.metadata || {}), ...restMetadata };
+    }
+
+    await db.items.update(id, updates);
+
+    if (tags !== undefined && Array.isArray(tags)) {
+      await db.itemTags.where('itemId').equals(id).delete();
+      await attachTags(id, tags);
     }
   });
 }
 
-export async function completeActionInstance(instanceId: string) {
-  await db.itemInstances.update(instanceId, {
-    status: 'completed',
-    completedAt: Date.now()
+// ------------------------------------------------------------------
+// Action Logging & Checking (v2)
+// ------------------------------------------------------------------
+
+export async function logMedicationTaken(itemId: string, dose: string, amountTaken: number = 1) {
+  await db.transaction('rw', db.items, db.activityLogs, async () => {
+    const item = await db.items.get(itemId);
+    if (!item || item.type !== 'medication') return;
+
+    // Decrement stock
+    const meta = item.metadata || {};
+    meta.initialStock = Math.max(0, (meta.initialStock || 0) - amountTaken);
+    meta.lastTakenAt = Date.now();
+    
+    await db.items.update(itemId, { metadata: meta, updatedAt: Date.now() });
+
+    // Record formal log
+    await logActivity(itemId, 'medication-taken', { dose, amountTaken });
   });
 }
 
@@ -45,81 +135,13 @@ export async function toggleActionInstance(instanceId: string, currentStatus: st
   const newStatus = currentStatus === 'completed' ? 'pending' : 'completed';
   await db.itemInstances.update(instanceId, {
     status: newStatus as any,
-    completedAt: newStatus === 'completed' ? Date.now() : undefined
+    completedAt: newStatus === 'completed' ? Date.now() : undefined,
+    updatedAt: Date.now()
   });
 }
 
-export async function takeMedication(instanceId: string) {
-  await db.transaction('rw', db.items, db.itemInstances, async () => {
-    const instance = await db.itemInstances.get(instanceId);
-    if (!instance || instance.status === 'completed') return;
-
-    const item = await db.items.get(instance.itemId);
-    if (item && item.type === 'medication' && item.metadata) {
-      const meta = item.metadata;
-      meta.stock -= 1;
-      await db.items.update(item.id, { metadata: meta });
-    }
-
-    await db.itemInstances.update(instanceId, {
-      status: 'completed',
-      completedAt: Date.now()
-    });
-  });
-}
-
-export async function completeHabit(instanceId: string) {
-  await db.transaction('rw', db.items, db.itemInstances, async () => {
-    const instance = await db.itemInstances.get(instanceId);
-    if (!instance || instance.status === 'completed') return;
-
-    const item = await db.items.get(instance.itemId);
-    if (item && item.type === 'habit' && item.metadata) {
-      const meta = item.metadata;
-      meta.currentStreak = (meta.currentStreak || 0) + 1;
-      if (meta.currentStreak > (meta.longestStreak || 0)) {
-        meta.longestStreak = meta.currentStreak;
-      }
-      await db.items.update(item.id, { metadata: meta });
-    }
-
-    await db.itemInstances.update(instanceId, {
-      status: 'completed',
-      completedAt: Date.now()
-    });
-  });
-}
-
-export async function saveWorkoutInstance(instanceId: string, instanceMetadata: any) {
-  await db.itemInstances.update(instanceId, {
-    instanceMetadata
-  });
-}
-
-export async function completeWorkout(instanceId: string) {
-  await db.itemInstances.update(instanceId, {
-    status: 'completed',
-    completedAt: Date.now()
-  });
-}
-
-// For Inbox (Items without a scheduled date and no project)
-export async function getInboxItems() {
-  const allItems = await db.items.toArray();
-  const allInstances = await db.itemInstances.toArray();
-  
-  const itemIdsWithInstances = new Set(allInstances.map(i => i.itemId));
-  
-  return allItems.filter(item => !itemIdsWithInstances.has(item.id) && !item.projectId);
-}
-
-export async function completeInboxItem(item: Item) {
-  const instanceId = uuidv4();
-  await db.itemInstances.add({
-    id: instanceId,
-    itemId: item.id,
-    scheduledDate: formatDate(new Date()),
-    status: 'completed',
-    completedAt: Date.now()
-  });
+// Quick action
+export async function createAction(text: string) {
+  const parsed = parseActionInput(text);
+  await createEntity('task', parsed.title, {}, parsed.scheduledDate ? 'scheduled' : 'inbox', parsed.scheduledDate || undefined, parsed.tags);
 }

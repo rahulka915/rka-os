@@ -1,73 +1,45 @@
-# React + TypeScript + Vite
+# RKA OS
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A highly opinionated, local-first Personal Operating System Progressive Web App (PWA) designed to reduce the friction between knowing what should be done and actually doing it.
 
-Currently, two official plugins are available:
+## Product Vision
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+The app is built around the unified philosophy: **Everything is an Action.**
+Tasks, Habits, Medications, and Workouts are not separate siloed modules. They are unified `Items` built upon a single local-first architecture (Dexie.js). 
 
-## React Compiler
+It embraces the elegance and speed of Things 3, combined with the underlying flexibility of a modular database.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Architecture & Data Model
 
-## Expanding the ESLint configuration
+The application leverages **Dexie (IndexedDB)** for extremely fast, offline-first execution.
+The architecture uses a unified Item lifecycle:
+- **Project/Area**: Top-level containers (Medicine, Fitness, Study, Admin, Personal).
+- **Item**: The parent master record (`task`, `habit`, `medication`, `workout`). Contains polymorphic `metadata`.
+- **ItemInstance**: The materialized occurrence of an Item scheduled for a specific date.
+- **Tags**: M:N relational tags parsed via natural language (`#tag`).
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Setup Instructions
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+1. **Install Dependencies:**
+   ```bash
+   npm install
+   ```
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+2. **Run Development Server:**
+   ```bash
+   npm run dev
+   ```
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+3. **Build for Production:**
+   ```bash
+   npm run build
+   ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## Current Features
+- **Home Command Centre**: Unified dashboard of all active areas of responsibility.
+- **Execution View (Today)**: Distraction-free daily hit-list.
+- **Natural Language Quick Add**: Add tasks, schedule dates, and apply `#tags` instantly.
+- **Habit Streaks**: Automatic recurrence and streak tracking via `rrule`.
+- **Medication Inventory**: Track stock, deduct doses automatically, and alert on low refills.
+- **Active Workout Mode**: Full-screen distraction-free workout logging.
+- **PWA Ready**: Installs to your iOS/Android home screen seamlessly, handling safe-area insets correctly.

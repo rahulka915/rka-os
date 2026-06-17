@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Item, ItemInstance, HabitMetadata } from '../../db/db';
-import { completeHabit, toggleActionInstance } from '../../db/actions';
+import { toggleActionInstance, logActivity } from '../../db/actions';
 import { Flame } from 'lucide-react';
 import '../actions/actions.css';
 
@@ -16,18 +16,16 @@ export function HabitItem({ item, instance }: HabitItemProps) {
   
   const streak = meta?.currentStreak || 0;
 
-  const handleToggle = () => {
-    if (navigator.vibrate) navigator.vibrate(40);
+  const handleToggle = async (e: React.MouseEvent) => {
+    e.stopPropagation();
     setIsAnimating(true);
     
-    setTimeout(async () => {
-      if (isCompleted) {
-        await toggleActionInstance(instance.id, instance.status);
-      } else {
-        await completeHabit(instance.id);
-      }
-      setIsAnimating(false);
-    }, 150);
+    await toggleActionInstance(instance.id, instance.status);
+    if (!isCompleted) {
+      await logActivity(item.id, 'habit-completed');
+    }
+    
+    setIsAnimating(false);
   };
 
   return (

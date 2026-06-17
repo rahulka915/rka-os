@@ -1,0 +1,281 @@
+/* Entity Creator Styles */
+
+.creator-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 200;
+  display: flex;
+  align-items: flex-end;
+}
+
+.creator-sheet {
+  background: #1C1C1E; /* iOS native dark menu */
+  width: 100%;
+  border-radius: 20px 20px 0 0;
+  padding: 0;
+  box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.4);
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  color: #FFFFFF;
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+}
+
+.creator-header {
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #2C2C2E;
+}
+
+.creator-header-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.creator-body {
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-bottom: calc(20px + env(safe-area-inset-bottom));
+}
+
+.creator-footer {
+  padding: 16px 20px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  border-top: 1px solid #2C2C2E;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  background: #1C1C1E;
+}
+
+/* Field Layouts */
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field-label {
+  font-size: 13px;
+  color: #8E8E93;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+/* Base Inputs */
+.creator-input, .creator-textarea, .creator-select {
+  width: 100%;
+  background: #2C2C2E;
+  border: 1px solid #3A3A3C;
+  border-radius: 10px;
+  padding: 12px 14px;
+  color: #FFFFFF;
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.creator-input:focus, .creator-textarea:focus, .creator-select:focus {
+  border-color: var(--accent-color);
+  background: #323234;
+}
+
+.creator-input::placeholder, .creator-textarea::placeholder {
+  color: #666666;
+}
+
+.creator-textarea {
+  resize: vertical;
+  min-height: 80px;
+  font-family: inherit;
+}
+
+/* Number Selector Chips */
+.number-selector-wrapper {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.number-chip {
+  padding: 8px 16px;
+  border-radius: 20px;
+  background: #2C2C2E;
+  border: 1px solid #3A3A3C;
+  color: #FFFFFF;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.number-chip.selected {
+  background: var(--accent-color);
+  border-color: var(--accent-color);
+  color: white;
+}
+
+.number-chip:active {
+  transform: scale(0.96);
+}
+
+/* Multi-Select Tokens */
+.multi-select-container {
+  background: #2C2C2E;
+  border: 1px solid #3A3A3C;
+  border-radius: 10px;
+  padding: 8px 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.token-chip {
+  background: #3A3A3C;
+  color: #FFFFFF;
+  font-size: 13px;
+  padding: 4px 10px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.token-remove {
+  background: none;
+  border: none;
+  color: #8E8E93;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.token-remove:hover {
+  color: #FFFFFF;
+}
+
+.multi-select-input {
+  background: none;
+  border: none;
+  color: #FFFFFF;
+  font-size: 14px;
+  outline: none;
+  flex: 1;
+  min-width: 60px;
+}
+
+.inline-create-btn {
+  background: none;
+  border: none;
+  color: var(--accent-color);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+/* Dropdown styling for multi-select matches */
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: #2C2C2E;
+  border: 1px solid #3A3A3C;
+  border-radius: 10px;
+  margin-top: 4px;
+  z-index: 10;
+  max-height: 200px;
+  overflow-y: auto;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+}
+
+.dropdown-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #FFFFFF;
+  border-bottom: 1px solid #3A3A3C;
+}
+.dropdown-item:last-child {
+  border-bottom: none;
+}
+.dropdown-item:hover {
+  background: #3A3A3C;
+}
+
+/* Advanced Toggle */
+.advanced-toggle {
+  background: none;
+  border: none;
+  color: var(--accent-color);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 8px 0;
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Buttons */
+.btn-secondary {
+  background: #2C2C2E;
+  color: #FFFFFF;
+  border: 1px solid #3A3A3C;
+  padding: 10px 20px;
+  border-radius: 16px;
+  font-weight: 500;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.btn-primary {
+  background: var(--accent-color);
+  color: white;
+  border: none;
+  padding: 10px 24px;
+  border-radius: 16px;
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (min-width: 768px) {
+  .creator-overlay {
+    align-items: center;
+    justify-content: center;
+  }
+  .creator-sheet {
+    width: 480px;
+    border-radius: 16px;
+    animation: zoomIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .creator-body {
+    padding-bottom: 20px;
+  }
+  .creator-footer {
+    padding-bottom: 16px;
+    border-radius: 0 0 16px 16px;
+  }
+}

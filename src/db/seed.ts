@@ -1,0 +1,230 @@
+import { db } from './db';
+import { createEntity, linkEntities, logActivity } from './actions';
+import { v4 as uuidv4 } from 'uuid';
+
+export async function seedMockData() {
+  const now = new Date();
+  
+  // Clear the DB since it's a V2 upgrade
+  await db.items.clear();
+  await db.itemInstances.clear();
+  await db.tags.clear();
+  await db.itemTags.clear();
+  await db.entityLinks.clear();
+  await db.activityLogs.clear();
+
+  // Helper: Get a date string offset by days
+  const getDateStr = (offsetDays: number) => {
+    const d = new Date(now);
+    d.setDate(d.getDate() + offsetDays);
+    return d.toISOString().split('T')[0];
+  };
+
+  // ==========================================
+  // 1. Areas
+  // ==========================================
+  const healthArea = await createEntity('area', 'Health & Fitness', { color: '#10B981' }, 'active');
+  const personalArea = await createEntity('area', 'Personal Growth', { color: '#8B5CF6' }, 'active');
+  const workArea = await createEntity('area', 'Work & Career', { color: '#3B82F6' }, 'active');
+
+  // ==========================================
+  // 2. Projects
+  // ==========================================
+  const hypertrophyProject = await createEntity('project', 'Hypertrophy Block 1', { color: '#10B981' }, 'active');
+  await linkEntities(healthArea, hypertrophyProject, 'contains');
+
+  const readingProject = await createEntity('project', 'Read 12 Books', { color: '#8B5CF6' }, 'active');
+  await linkEntities(personalArea, readingProject, 'contains');
+
+  const startupProject = await createEntity('project', 'Launch MVP', { color: '#3B82F6' }, 'active');
+  await linkEntities(workArea, startupProject, 'contains');
+
+  // ==========================================
+  // 3. Medications & History (Past 14 Days)
+  // ==========================================
+  const elvanse = await createEntity('medication', 'Elvanse', { dose: '50mg', frequency: 'daily', maxPerDay: 1, initialStock: 45, refillThreshold: 5 }, 'active', undefined, ['ADHD', 'Medicine']);
+  const vitaminD = await createEntity('medication', 'Vitamin D3', { dose: '4000 IU', frequency: 'daily', maxPerDay: 1, initialStock: 90, refillThreshold: 10 }, 'active', undefined, ['Supplements']);
+
+  // Log medication history for the past 14 days
+  for (let i = -14; i <= 0; i++) {
+    const d = new Date(now);
+    d.setDate(d.getDate() + i);
+    d.setHours(8, 30, 0, 0); // taken around 8:30am
+    
+    // Elvanse
+    await db.activityLogs.add({
+      id: uuidv4(),
+      entityId: elvanse,
+      actionType: 'medication-taken',
+      timestamp: d.getTime(),
+      details: { dose: '50mg', amountTaken: 1 }
+    });
+    
+    // Vitamin D (skipped a few days)
+    if (i !== -5 && i !== -2) {
+      await db.activityLogs.add({
+        id: uuidv4(),
+        entityId: vitaminD,
+        actionType: 'medication-taken',
+        timestamp: d.getTime() + 1000 * 60 * 5, // taken 5 mins later
+        details: { dose: '4000 IU', amountTaken: 1 }
+      });
+    }
+  }
+
+  // ==========================================
+  // 4. Habits & Instances (Past 14 Days)
+  // ==========================================
+  const habitReading = await createEntity('habit', 'Read 20 pages', { rrule: 'FREQ=DAILY', timeOfDay: 'evening' }, 'active', undefined, ['Reading']);
+  const habitWater = await createEntity('habit', 'Drink 2.5L Water', { rrule: 'FREQ=DAILY' }, 'active', undefined, ['Health']);
+
+  for (let i = -14; i <= 0; i++) {
+    const d = new Date(now);
+    d.setDate(d.getDate() + i);
+    const dateStr = d.toISOString().split('T')[0];
+
+    // Read 20 pages (completed most days)
+    const readInstance = uuidv4();
+    await db.itemInstances.add({
+      id: readInstance,
+      itemId: habitReading,
+      scheduledDate: dateStr,
+      status: i !== -3 ? 'completed' : 'skipped',
+      createdAt: d.getTime(),
+      updatedAt: d.getTime()
+    });
+    if (i !== -3) await logActivity(habitReading, 'habit-completed', { date: dateStr });
+
+    // Water (completed every day)
+    const waterInstance = uuidv4();
+    await db.itemInstances.add({
+      id: waterInstance,
+      itemId: habitWater,
+      scheduledDate: dateStr,
+      status: 'completed',
+      createdAt: d.getTime(),
+      updatedAt: d.getTime()
+    });
+    await logActivity(habitWater, 'habit-completed', { date: dateStr });
+  }
+
+  // ==========================================
+  // 5. Workout Templates, Exercises & History
+  // ==========================================
+  // Comprehensive Exercise Database
+  const benchId = await createEntity('exercise', 'Bench Press', { muscles: ['chest', 'shoulders', 'triceps'], equipment: 'barbell' });
+  const inclinePressId = await createEntity('exercise', 'Incline Dumbbell Press', { muscles: ['chest', 'shoulders', 'triceps'], equipment: 'dumbbell' });
+  const ohpId = await createEntity('exercise', 'Overhead Press', { muscles: ['shoulders', 'triceps'], equipment: 'barbell' });
+  const lateralRaiseId = await createEntity('exercise', 'Lateral Raises', { muscles: ['shoulders'], equipment: 'dumbbell' });
+  const tricepPushdownId = await createEntity('exercise', 'Tricep Pushdown', { muscles: ['triceps'], equipment: 'cable' });
+  
+  const pullupId = await createEntity('exercise', 'Pull Up', { muscles: ['back', 'biceps'], equipment: 'bodyweight' });
+  const latPulldownId = await createEntity('exercise', 'Lat Pulldown', { muscles: ['back', 'biceps'], equipment: 'cable' });
+  const barbellRowId = await createEntity('exercise', 'Barbell Row', { muscles: ['back', 'biceps'], equipment: 'barbell' });
+  const curlId = await createEntity('exercise', 'Bicep Curl', { muscles: ['biceps'], equipment: 'dumbbell' });
+  
+  const squatId = await createEntity('exercise', 'Squat', { muscles: ['legs', 'core'], equipment: 'barbell' });
+  const legPressId = await createEntity('exercise', 'Leg Press', { muscles: ['legs'], equipment: 'machine' });
+  const legExtensionId = await createEntity('exercise', 'Leg Extension', { muscles: ['legs'], equipment: 'machine' });
+  const legCurlId = await createEntity('exercise', 'Leg Curl', { muscles: ['legs'], equipment: 'machine' });
+  const deadliftId = await createEntity('exercise', 'Deadlift', { muscles: ['back', 'legs', 'core'], equipment: 'barbell' });
+  const rdlId = await createEntity('exercise', 'Romanian Deadlift', { muscles: ['legs', 'back'], equipment: 'barbell' });
+  const calfRaiseId = await createEntity('exercise', 'Calf Raises', { muscles: ['legs'], equipment: 'machine' });
+
+  const pushDay = await createEntity('workout-template', 'Push Day', { duration: '1h', timeOfDay: 'morning', exercises: [benchId, inclinePressId, ohpId, lateralRaiseId, tricepPushdownId] }, 'active', undefined, ['Gym']);
+  await linkEntities(hypertrophyProject, pushDay, 'contains');
+  await linkEntities(pushDay, benchId, 'includes_exercise');
+  await linkEntities(pushDay, inclinePressId, 'includes_exercise');
+  await linkEntities(pushDay, ohpId, 'includes_exercise');
+  await linkEntities(pushDay, lateralRaiseId, 'includes_exercise');
+  await linkEntities(pushDay, tricepPushdownId, 'includes_exercise');
+
+  const pullDay = await createEntity('workout-template', 'Pull Day', { duration: '1h', timeOfDay: 'morning', exercises: [pullupId, latPulldownId, barbellRowId, deadliftId, curlId] }, 'active', undefined, ['Gym']);
+  await linkEntities(hypertrophyProject, pullDay, 'contains');
+  await linkEntities(pullDay, pullupId, 'includes_exercise');
+  await linkEntities(pullDay, latPulldownId, 'includes_exercise');
+  await linkEntities(pullDay, barbellRowId, 'includes_exercise');
+  await linkEntities(pullDay, deadliftId, 'includes_exercise');
+  await linkEntities(pullDay, curlId, 'includes_exercise');
+
+  const legsDay = await createEntity('workout-template', 'Legs Day', { duration: '1h', timeOfDay: 'morning', exercises: [squatId, legPressId, rdlId, legExtensionId, legCurlId, calfRaiseId] }, 'active', undefined, ['Gym']);
+  await linkEntities(hypertrophyProject, legsDay, 'contains');
+  await linkEntities(legsDay, squatId, 'includes_exercise');
+  await linkEntities(legsDay, legPressId, 'includes_exercise');
+  await linkEntities(legsDay, rdlId, 'includes_exercise');
+  await linkEntities(legsDay, legExtensionId, 'includes_exercise');
+  await linkEntities(legsDay, legCurlId, 'includes_exercise');
+  await linkEntities(legsDay, calfRaiseId, 'includes_exercise');
+
+  // Log workout history for the past 2 weeks (Push on Mon/Thu, Pull on Tue/Fri, Legs on Wed/Sat)
+  for (let i = -14; i <= 0; i++) {
+    const d = new Date(now);
+    d.setDate(d.getDate() + i);
+    const dayOfWeek = d.getDay(); // 0 = Sun, 1 = Mon...
+    
+    if (dayOfWeek === 1 || dayOfWeek === 4) {
+      // Push Day completed
+      await logActivity(pushDay, 'workout-session', { 
+        duration: '55m', 
+        exercises: [{ name: 'Bench Press', sets: [{ reps: 8, weight: 80, completed: true }] }] 
+      });
+    } else if (dayOfWeek === 2 || dayOfWeek === 5) {
+      // Pull Day completed
+      await logActivity(pullDay, 'workout-session', { 
+        duration: '65m', 
+        exercises: [{ name: 'Pull Up', sets: [{ reps: 10, weight: 0, completed: true }] }] 
+      });
+    } else if (dayOfWeek === 3 || dayOfWeek === 6) {
+      // Legs Day completed
+      await logActivity(legsDay, 'workout-session', { 
+        duration: '60m', 
+        exercises: [{ name: 'Squat', sets: [{ reps: 5, weight: 100, completed: true }] }] 
+      });
+    }
+  }
+
+  // ==========================================
+  // 6. Calendar Tasks (Past, Today, Future)
+  // ==========================================
+  // Past tasks (completed)
+  for (let i = -7; i < 0; i++) {
+    const pastTask = await createEntity('task', `Task from ${Math.abs(i)} days ago`, { timeOfDay: 'afternoon' }, 'completed', getDateStr(i), ['Work']);
+    await linkEntities(startupProject, pastTask, 'contains');
+    
+    // Add instance
+    await db.itemInstances.add({
+      id: uuidv4(),
+      itemId: pastTask,
+      scheduledDate: getDateStr(i),
+      status: 'completed',
+      createdAt: now.getTime(),
+      updatedAt: now.getTime()
+    });
+  }
+
+  // Today tasks (mix of pending/completed)
+  const today1 = await createEntity('task', 'Draft Architecture Doc', { timeOfDay: 'morning', duration: '2h' }, 'scheduled', getDateStr(0), ['Work']);
+  await linkEntities(startupProject, today1, 'contains');
+  await db.itemInstances.add({ id: uuidv4(), itemId: today1, scheduledDate: getDateStr(0), status: 'pending', createdAt: now.getTime(), updatedAt: now.getTime() });
+
+  const today2 = await createEntity('task', 'Buy Groceries', { timeOfDay: 'afternoon', duration: '30m' }, 'scheduled', getDateStr(0), ['Personal']);
+  await db.itemInstances.add({ id: uuidv4(), itemId: today2, scheduledDate: getDateStr(0), status: 'completed', createdAt: now.getTime(), updatedAt: now.getTime() });
+
+  const today3 = await createEntity('task', 'Read Chapter 4', { timeOfDay: 'evening', duration: '1h' }, 'scheduled', getDateStr(0), ['Reading']);
+  await linkEntities(readingProject, today3, 'contains');
+  await db.itemInstances.add({ id: uuidv4(), itemId: today3, scheduledDate: getDateStr(0), status: 'pending', createdAt: now.getTime(), updatedAt: now.getTime() });
+
+  // Future tasks
+  for (let i = 1; i <= 14; i++) {
+    // 1-2 tasks per day
+    const future1 = await createEntity('task', `Future Action Item ${i}A`, { timeOfDay: 'morning' }, 'scheduled', getDateStr(i), ['Work']);
+    await linkEntities(startupProject, future1, 'contains');
+    
+    if (i % 3 === 0) {
+      const future2 = await createEntity('task', `Read Book Chapter ${i + 4}`, { timeOfDay: 'evening' }, 'scheduled', getDateStr(i), ['Reading']);
+      await linkEntities(readingProject, future2, 'contains');
+    }
+  }
+
+  console.log("Seeded DB with rich v2 graph objects & historical logs!");
+}

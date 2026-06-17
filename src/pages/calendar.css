@@ -1,0 +1,97 @@
+.calendar-container {
+  padding: 16px;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.calendar-nav {
+  display: flex;
+  gap: 12px;
+}
+
+.calendar-nav-btn {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.calendar-nav-btn:hover {
+  background: var(--bg-secondary);
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+}
+
+.calendar-day-header {
+  text-align: center;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  padding-bottom: 8px;
+}
+
+.calendar-cell {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  min-height: 100px;
+  padding: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+}
+
+.calendar-cell:hover {
+  border-color: var(--text-muted);
+}
+
+.calendar-cell.is-today {
+  border-color: var(--accent-color);
+  background: rgba(10, 132, 255, 0.05);
+}
+
+.calendar-cell.is-other-month {
+  opacity: 0.4;
+}
+
+.calendar-cell-date {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+  align-self: flex-end;
+}
+
+.calendar-cell.is-today .calendar-cell-date {
+  color: var(--accent-color);
+}
+
+.calendar-dots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: auto;
+}
+
+.calendar-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}

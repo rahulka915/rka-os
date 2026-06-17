@@ -1,5 +1,5 @@
 {
-  "name": "personal-os",
+  "name": "rka-os",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -10,6 +10,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "chrono-node": "^2.9.1",
     "dexie": "^4.4.3",
     "dexie-react-hooks": "^4.4.0",

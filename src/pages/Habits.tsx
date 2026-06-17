@@ -25,12 +25,16 @@ export function Habits() {
     };
     
     const id = uuidv4();
+    const now = Date.now();
     await db.items.add({
       id,
       type: 'habit',
       title,
+      status: 'active',
       rrule: rruleObj.toString(),
-      metadata: meta
+      metadata: meta,
+      createdAt: now,
+      updatedAt: now
     });
     
     await materializeInstances(id);

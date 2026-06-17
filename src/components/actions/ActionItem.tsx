@@ -1,34 +1,62 @@
 import { useState } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
 import type { Item, ItemInstance } from '../../db/db';
+import { db } from '../../db/db';
 import { toggleActionInstance } from '../../db/actions';
+import { Pill } from '../ui/Pill';
+import { Clock, Sun, Sunrise, Moon } from 'lucide-react';
+import { useInspector } from '../shell/InspectorContext';
 import './actions.css';
 
 interface ActionItemProps {
   item: Item;
-  instance?: ItemInstance; 
-  onInboxComplete?: (item: Item) => void;
+  instance?: ItemInstance;
 }
 
-export function ActionItem({ item, instance, onInboxComplete }: ActionItemProps) {
+export function ActionItem({ item, instance }: ActionItemProps) {
   const [isAnimating, setIsAnimating] = useState(false);
-  const isCompleted = instance?.status === 'completed';
+  const { inspectEntity } = useInspector();
+  
+  // Fetch tags for this item
+  const tags = useLiveQuery(async () => {
+    const mappings = await db.itemTags.where('itemId').equals(item.id).toArray();
+    if (mappings.length === 0) return [];
+    return db.tags.where('id').anyOf(mappings.map(m => m.tagId)).toArray();
+  }, [item.id]);
+
+  const isCompleted = instance ? instance.status === 'completed' : item.status === 'completed';
 
   const handleToggle = () => {
-    // Basic Haptic Feedback
-    if (navigator.vibrate) {
-      navigator.vibrate(40);
-    }
-    
+    if (navigator.vibrate) navigator.vibrate(40);
     setIsAnimating(true);
     
     setTimeout(async () => {
       if (instance) {
         await toggleActionInstance(instance.id, instance.status);
-      } else if (onInboxComplete) {
-        onInboxComplete(item);
+      } else {
+        const newStatus = item.status === 'completed' ? 'inbox' : 'completed';
+        await db.items.update(item.id, { status: newStatus, updatedAt: Date.now() });
       }
       setIsAnimating(false);
-    }, 150); // slight delay for visual feedback before DB update removes it or crosses it
+    }, 150);
+  };
+
+  const meta = item.metadata || {};
+  const timeOfDay = meta.timeOfDay;
+  const duration = meta.duration;
+
+  // Helpers for time of day icon
+  const getTimeIcon = (time: string) => {
+    switch (time) {
+      case 'morning': return <Sunrise size={12} />;
+      case 'afternoon': return <Sun size={12} />;
+      case 'evening': return <Moon size={12} />;
+      default: return null;
+    }
+  };
+
+  const getTimeLabel = (time: string) => {
+    return time.charAt(0).toUpperCase() + time.slice(1);
   };
 
   return (
@@ -40,8 +68,25 @@ export function ActionItem({ item, instance, onInboxComplete }: ActionItemProps)
            </svg>
         )}
       </button>
-      <div className="action-content">
+      <div 
+        className="action-content" 
+        style={{ display: 'flex', flexDirection: 'column', gap: '6px', cursor: 'pointer' }}
+        onClick={() => inspectEntity(item.id, item.type)}
+      >
         <span className="action-title">{item.title}</span>
+        
+        {/* Metadata Pills Row */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+          {duration && (
+            <Pill label={duration} icon={<Clock size={12} />} variant="outline" />
+          )}
+          {timeOfDay && timeOfDay !== 'anytime' && (
+            <Pill label={getTimeLabel(timeOfDay)} icon={getTimeIcon(timeOfDay)} variant="outline" />
+          )}
+          {tags?.map(tag => (
+            <Pill key={tag.id} label={tag.name} color={tag.color} variant="solid" />
+          ))}
+        </div>
       </div>
     </div>
   );

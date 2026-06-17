@@ -4,13 +4,12 @@ import './actions.css';
 
 interface ActionListProps {
   items: { item: Item; instance?: ItemInstance }[];
-  onInboxComplete?: (item: Item) => void;
   emptyMessage?: string;
 }
 
-export function ActionList({ items, onInboxComplete, emptyMessage = 'Nothing to do here.' }: ActionListProps) {
+export function ActionList({ items, emptyMessage = 'No actions scheduled.' }: ActionListProps) {
   if (items.length === 0) {
-    return <div className="empty-state">{emptyMessage}</div>;
+    return <div className="empty-state text-muted">{emptyMessage}</div>;
   }
 
   return (
@@ -20,7 +19,6 @@ export function ActionList({ items, onInboxComplete, emptyMessage = 'Nothing to 
           key={instance?.id || item.id} 
           item={item} 
           instance={instance} 
-          onInboxComplete={onInboxComplete}
         />
       ))}
     </div>

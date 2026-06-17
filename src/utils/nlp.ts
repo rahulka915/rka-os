@@ -1,34 +1,44 @@
 import * as chrono from 'chrono-node';
 
-export interface ParsedInput {
-  cleanText: string;
-  date: Date | null;
-  projectOrTag: string | null;
+export interface ParsedAction {
+  title: string;
+  scheduledDate: string | null;
+  tags: string[];
 }
 
-export function parseActionInput(input: string): ParsedInput {
-  let cleanText = input;
-  let date: Date | null = null;
-  let projectOrTag: string | null = null;
+export function parseActionInput(input: string): ParsedAction {
+  let title = input;
+  let scheduledDate: string | null = null;
+  const tags: string[] = [];
+  
+  // Extract #tags
+  const tagRegex = /#(\w+)/g;
+  let match;
+  while ((match = tagRegex.exec(title)) !== null) {
+    tags.push(match[1]);
+  }
+  // Remove tags from title
+  title = title.replace(tagRegex, '').trim();
 
-  // 1. Extract Project/Tag (anything starting with #)
-  const tagMatch = input.match(/#(\w+)/);
-  if (tagMatch) {
-    projectOrTag = tagMatch[1];
-    cleanText = cleanText.replace(tagMatch[0], '');
+  // Extract natural language date
+  const parsedDate = chrono.parseDate(title);
+  if (parsedDate) {
+    // Format to YYYY-MM-DD
+    scheduledDate = parsedDate.toISOString().split('T')[0];
+    
+    // Remove the date text from the title
+    const chronoResults = chrono.parse(title);
+    if (chronoResults.length > 0) {
+      title = title.replace(chronoResults[0].text, '').trim();
+    }
   }
 
-  // 2. Extract Date using chrono
-  const results = chrono.parse(cleanText);
-  if (results.length > 0) {
-    const result = results[0];
-    date = result.start.date();
-    // Remove the date text from the clean string
-    cleanText = cleanText.replace(result.text, '');
-  }
+  // Clean up extra spaces
+  title = title.replace(/\s+/g, ' ');
 
-  // Cleanup extra spaces
-  cleanText = cleanText.trim().replace(/\s+/g, ' ');
-
-  return { cleanText, date, projectOrTag };
+  return {
+    title: title || 'New Action',
+    scheduledDate,
+    tags
+  };
 }

@@ -4,20 +4,13 @@
   --bg-secondary: #111111;
   --bg-tertiary: #222222;
   
-  --text-primary: #ffffff;
-  --text-secondary: #a0a0a0;
-  --text-muted: #666666;
-  
-  --accent-color: #3b82f6; /* Things 3 Blue */
-  --accent-hover: #2563eb;
-  
-  --danger: #ef4444;
-  --success: #10b981;
-  --warning: #f59e0b;
-
-  --border-color: #2a2a2a;
-  
-  --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --bg-tertiary: #1A1A1A;
+  --border-color: #222222;
+  --text-primary: #FFFFFF;
+  --text-muted: #888888;
+  --accent-color: #3B82F6;
+  --warning: #EF4444;
+  --success: #10B981;
 }
 
 * {
@@ -28,8 +21,8 @@
 }
 
 body {
-  font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  line-height: 1.4;
   font-weight: 400;
   margin: 0;
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);

@@ -1,0 +1,43 @@
+.ui-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.ui-pill.clickable {
+  cursor: pointer;
+}
+
+.ui-pill.clickable:active {
+  transform: scale(0.95);
+}
+
+.variant-solid {
+  background: rgba(255, 255, 255, 0.1);
+  color: #FFFFFF;
+}
+
+.variant-outline {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--text-muted);
+}
+
+.variant-ghost {
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.pill-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

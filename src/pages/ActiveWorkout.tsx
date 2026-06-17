@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
 import type { WorkoutInstanceMetadata, WorkoutMetadata } from '../db/db';
-import { saveWorkoutInstance, completeWorkout } from '../db/actions';
+import { logActivity, toggleActionInstance } from '../db/actions';
 import { Check, ArrowLeft } from 'lucide-react';
 
 export function ActiveWorkout() {
@@ -28,31 +28,36 @@ export function ActiveWorkout() {
           }))
         };
         setLiveData(initialInstanceData);
-        saveWorkoutInstance(instance.id, initialInstanceData);
+        db.itemInstances.update(instance.id, { instanceMetadata: initialInstanceData });
       }
     }
   }, [instance, item, liveData]);
 
   if (!instance || !item || !liveData) return <div className="p-4">Loading workout...</div>;
 
-  const handleUpdateSet = async (exIndex: number, setIndex: number, field: 'reps' | 'weight', value: number) => {
-    const newData = { ...liveData };
-    newData.exercises[exIndex].sets[setIndex][field] = value;
-    setLiveData(newData);
-    await saveWorkoutInstance(instance.id, newData);
+  const handleUpdateSet = (exIndex: number, setIndex: number, field: 'reps' | 'weight', value: number) => {
+    const newExercises = [...liveData.exercises];
+    newExercises[exIndex].sets[setIndex] = { ...newExercises[exIndex].sets[setIndex], [field]: value };
+    setLiveData({ exercises: newExercises });
   };
 
-  const handleToggleSet = async (exIndex: number, setIndex: number) => {
-    const newData = { ...liveData };
-    newData.exercises[exIndex].sets[setIndex].completed = !newData.exercises[exIndex].sets[setIndex].completed;
-    setLiveData(newData);
-    await saveWorkoutInstance(instance.id, newData);
+  const handleAddExercise = () => {
+    const newExercises = [...liveData.exercises];
+    newExercises.push({ name: 'New Exercise', sets: [] });
+    setLiveData({ exercises: newExercises });
+  };
+
+  const handleToggleSet = (exIndex: number, setIndex: number) => {
+    const newExercises = [...liveData.exercises];
+    newExercises[exIndex].sets[setIndex].completed = !newExercises[exIndex].sets[setIndex].completed;
+    setLiveData({ exercises: newExercises });
     if (navigator.vibrate) navigator.vibrate(30);
   };
 
   const handleFinish = async () => {
-    await completeWorkout(instance.id);
-    navigate(-1);
+    await logActivity(instance.itemId, 'workout-session', { exercises: liveData.exercises });
+    await toggleActionInstance(instance.id, 'pending');
+    navigate('/');
   };
 
   return (
@@ -92,6 +97,12 @@ export function ActiveWorkout() {
             </div>
           </div>
         ))}
+        <button 
+          onClick={handleAddExercise}
+          style={{ width: '100%', padding: '12px', background: 'transparent', border: '1px dashed var(--border-color)', color: 'var(--text-muted)', borderRadius: '8px', cursor: 'pointer' }}
+        >
+          + Add Exercise
+        </button>
       </div>
     </div>
   );

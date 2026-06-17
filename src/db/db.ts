@@ -1,15 +1,13 @@
-import Dexie, { type EntityTable } from 'dexie';
-
-export interface Project {
-  id: string;
-  name: string;
-  color: string;
-}
+import Dexie from 'dexie';
 
 export interface MedicationMetadata {
-  dosage: string;
-  stock: number;
+  dose: string;
+  stockRemaining: number;
   stockUnit: string;
+  refillThreshold: number;
+  lastTakenAt?: number;
+  maxPerDay?: number;
+  frequency?: string;
 }
 
 export interface HabitMetadata {
@@ -23,27 +21,62 @@ export interface WorkoutSet {
   completed: boolean;
 }
 
-export interface Exercise {
+export interface ExerciseData {
   name: string;
   sets: WorkoutSet[];
 }
 
 export interface WorkoutMetadata {
-  exercises: Exercise[];
+  exercises: ExerciseData[];
 }
 
 export interface WorkoutInstanceMetadata {
-  exercises: Exercise[];
+  exercises: ExerciseData[];
+}
+
+export type ItemType = 'area' | 'project' | 'task' | 'habit' | 'medication' | 'workout-template' | 'exercise' | 'meal';
+export type ItemStatus = 'inbox' | 'active' | 'scheduled' | 'due-today' | 'overdue' | 'completed' | 'skipped' | 'archived' | 'cancelled';
+
+export interface Tag {
+  id: string;
+  name: string;
+  color: string;
+  createdAt: number;
+}
+
+export interface ItemTag {
+  itemId: string;
+  tagId: string;
+}
+
+export interface EntityLink {
+  id: string;
+  sourceId: string;
+  targetId: string;
+  linkType: string; // e.g. 'contains', 'includes_exercise', 'belongs_to'
+  createdAt: number;
+}
+
+export interface ActivityLog {
+  id: string;
+  entityId: string;
+  actionType: string; // e.g. 'medication-taken', 'workout-logged', 'status-changed', 'created'
+  timestamp: number;
+  details?: any; // arbitrary JSON for things like sets/reps performed, or dose taken
 }
 
 export interface Item {
   id: string;
-  type: 'task' | 'habit' | 'medication' | 'workout' | 'meal';
+  type: ItemType;
   title: string;
+  status: ItemStatus;
   notes?: string;
-  projectId?: string;
-  rrule?: string;
-  metadata?: MedicationMetadata | HabitMetadata | WorkoutMetadata | any;
+  scheduledDate?: string; // YYYY-MM-DD
+  dueDate?: string; // YYYY-MM-DD
+  rrule?: string; // Unified recurrence
+  metadata?: any;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface ItemInstance {
@@ -52,19 +85,27 @@ export interface ItemInstance {
   scheduledDate: string; // YYYY-MM-DD
   completedAt?: number; // timestamp
   status: 'pending' | 'completed' | 'skipped' | 'partial';
-  instanceMetadata?: WorkoutInstanceMetadata | any;
+  instanceMetadata?: any;
+  createdAt: number;
+  updatedAt: number;
 }
 
-const db = new Dexie('PersonalOSDB') as Dexie & {
-  projects: EntityTable<Project, 'id'>;
-  items: EntityTable<Item, 'id'>;
-  itemInstances: EntityTable<ItemInstance, 'id'>;
+const db = new Dexie('PersonalOS_v3') as Dexie & {
+  items: Dexie.Table<Item, string>;
+  itemInstances: Dexie.Table<ItemInstance, string>;
+  tags: Dexie.Table<Tag, string>;
+  itemTags: Dexie.Table<ItemTag, number>;
+  entityLinks: Dexie.Table<EntityLink, string>;
+  activityLogs: Dexie.Table<ActivityLog, string>;
 };
 
 db.version(1).stores({
-  projects: 'id, name',
-  items: 'id, type, projectId',
-  itemInstances: 'id, itemId, scheduledDate, status'
+  items: 'id, type, status, scheduledDate, dueDate',
+  itemInstances: 'id, itemId, scheduledDate, status',
+  tags: 'id, name',
+  itemTags: '++, itemId, tagId',
+  entityLinks: 'id, sourceId, targetId, linkType, [sourceId+linkType], [targetId+linkType]',
+  activityLogs: 'id, entityId, actionType, timestamp'
 });
 
 export { db };

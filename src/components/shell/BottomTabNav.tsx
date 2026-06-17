@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Calendar, Repeat, Plus, Activity, Dumbbell } from 'lucide-react';
+import { Home, Calendar, FolderOpen, Plus, Inbox, Heart } from 'lucide-react';
 
 interface BottomTabNavProps {
   onQuickAdd: () => void;
@@ -8,30 +8,35 @@ interface BottomTabNavProps {
 export function BottomTabNav({ onQuickAdd }: BottomTabNavProps) {
   return (
     <nav className="bottom-nav">
-      <NavLink to="/today" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-        <Calendar size={20} />
-        <span>Today</span>
+      <NavLink to="/inbox" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+        <Inbox size={22} strokeWidth={1.5} />
+        <span style={{ fontSize: '10px', marginTop: '4px' }}>Inbox</span>
       </NavLink>
 
-      <NavLink to="/workouts" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-        <Dumbbell size={20} />
-        <span>Workouts</span>
+      <NavLink to="/" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+        <Home size={22} strokeWidth={1.5} />
+        <span style={{ fontSize: '10px', marginTop: '4px' }}>Today</span>
+      </NavLink>
+
+      <NavLink to="/calendar" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+        <Calendar size={22} strokeWidth={1.5} />
+        <span style={{ fontSize: '10px', marginTop: '4px' }}>Calendar</span>
       </NavLink>
 
       <div className="fab-container">
         <button className="fab-button" onClick={onQuickAdd} aria-label="Quick Add">
-          <Plus size={28} />
+          <Plus size={24} strokeWidth={2} />
         </button>
       </div>
 
-      <NavLink to="/habits" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-        <Repeat size={20} />
-        <span>Habits</span>
+      <NavLink to="/projects" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+        <FolderOpen size={22} strokeWidth={1.5} />
+        <span style={{ fontSize: '10px', marginTop: '4px' }}>Projects</span>
       </NavLink>
 
-      <NavLink to="/health" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-        <Activity size={20} />
-        <span>Health</span>
+      <NavLink to="/health-search" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+        <Heart size={22} strokeWidth={1.5} />
+        <span style={{ fontSize: '10px', marginTop: '4px' }}>Health</span>
       </NavLink>
     </nav>
   );

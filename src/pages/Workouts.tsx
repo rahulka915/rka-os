@@ -1,39 +1,31 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
+import { createEntity } from '../db/actions';
 import type { WorkoutMetadata } from '../db/db';
 import { v4 as uuidv4 } from 'uuid';
 import { formatDate } from '../db/actions';
 import { Dumbbell } from 'lucide-react';
 
 export function Workouts() {
-  const templates = useLiveQuery(() => db.items.where('type').equals('workout').toArray());
+  const templates = useLiveQuery(() => db.items.where('type').equals('workout-template').toArray());
 
   const handleCreateTemplate = async () => {
     const title = prompt('Workout Name (e.g. Pull Day):');
     if (!title) return;
     
     // Quick demo template creation since complex UI form is out of scope for phase 4 initial build
-    const meta: WorkoutMetadata = {
-      exercises: [
-        { name: 'Lat Pulldown', sets: [{ reps: 10, weight: 50, completed: false }, { reps: 10, weight: 50, completed: false }, { reps: 10, weight: 50, completed: false }] },
-        { name: 'Barbell Row', sets: [{ reps: 8, weight: 60, completed: false }, { reps: 8, weight: 60, completed: false }] }
-      ]
-    };
-    
-    await db.items.add({
-      id: uuidv4(),
-      type: 'workout',
-      title,
-      metadata: meta
-    });
+    await createEntity('workout-template', title);
   };
 
   const handleScheduleToday = async (id: string) => {
+    const now = Date.now();
     await db.itemInstances.add({
       id: uuidv4(),
       itemId: id,
       scheduledDate: formatDate(new Date()),
-      status: 'pending'
+      status: 'pending',
+      createdAt: now,
+      updatedAt: now
     });
   };
 

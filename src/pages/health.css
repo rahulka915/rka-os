@@ -1,0 +1,20 @@
+.health-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.health-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+@media (min-width: 768px) {
+  .health-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    align-items: start;
+  }
+}

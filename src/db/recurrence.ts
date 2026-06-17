@@ -18,13 +18,16 @@ export async function materializeInstances(itemId: string) {
   const existing = await db.itemInstances.where('itemId').equals(itemId).toArray();
   const existingDates = new Set(existing.map(i => i.scheduledDate));
   
+  const nowTime = Date.now();
   const newInstances = dates
     .filter(d => !existingDates.has(formatDate(d)))
     .map(d => ({
       id: uuidv4(),
       itemId: item.id,
       scheduledDate: formatDate(d),
-      status: 'pending' as const
+      status: 'pending' as const,
+      createdAt: nowTime,
+      updatedAt: nowTime
     }));
   
   if (newInstances.length > 0) {

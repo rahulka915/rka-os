@@ -1,0 +1,93 @@
+.subitems-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.subitem-card {
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 8px 12px;
+  gap: 12px;
+  background-color: #2C2C2E; /* solid for drag overlay */
+}
+
+.subitem-drag-handle {
+  cursor: grab;
+  color: #666;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.subitem-drag-handle:active {
+  cursor: grabbing;
+}
+
+.subitem-checkbox {
+  width: 20px;
+  height: 20px;
+  border-radius: 10px;
+  border: 1.5px solid #666;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.subitem-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #FFFFFF;
+  font-size: 15px;
+  min-width: 0;
+}
+
+.subitem-input::placeholder {
+  color: #666;
+}
+
+.subitem-remove {
+  background: transparent;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+}
+
+.subitem-remove:hover {
+  color: #FF453A;
+}
+
+.subitem-add-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px dashed var(--border-color);
+  color: var(--text-muted);
+  border-radius: 12px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  width: 100%;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.subitem-add-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #FFF;
+}
