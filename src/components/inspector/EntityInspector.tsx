@@ -16,6 +16,7 @@ import { EntityRelationships } from './EntityRelationships';
 import { EntityActivity } from './EntityActivity';
 import { ProjectDashboard } from './ProjectDashboard';
 import { WorkoutDashboard } from './WorkoutDashboard';
+import { ExerciseDetail } from '../workouts/ExerciseDetail';
 import './inspector.css';
 
 interface EntityInspectorProps {
@@ -138,8 +139,9 @@ export function EntityInspector({ entityId, entityType, onClose }: EntityInspect
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {entityType === 'project' && <ProjectDashboard projectId={entityId} />}
                 {entityType === 'workout-template' && <WorkoutDashboard workoutId={entityId} />}
+                {entityType === 'exercise' && <ExerciseDetail exerciseId={entityId} />}
                 
-                {schema.fields.filter(f => !['title', 'scheduledDate', 'timeOfDay', 'rrule', 'tags'].includes(f.id) && f.type !== 'entity-linker').map(renderField)}
+                {entityType !== 'exercise' && schema.fields.filter(f => !['title', 'scheduledDate', 'timeOfDay', 'rrule', 'tags'].includes(f.id) && f.type !== 'entity-linker').map(renderField)}
               </div>
             </section>
 
@@ -152,18 +154,22 @@ export function EntityInspector({ entityId, entityType, onClose }: EntityInspect
               </section>
             )}
 
-            <section>
-              <h3 style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '16px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Relationships</h3>
+            {entityType !== 'exercise' && (
+            <section style={{ marginBottom: '32px' }}>
+              <h3 style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '16px', letterSpacing: '0.5px' }}>Relationships</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <EntityRelationships entityId={entityId} />
                 {schema.fields.filter(f => f.type === 'entity-linker').map(renderField)}
               </div>
             </section>
+            )}
 
-            <section>
-              <h3 style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '16px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Activity / History</h3>
+            {entityType !== 'exercise' && (
+            <section style={{ marginBottom: '48px' }}>
+              <h3 style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '16px', letterSpacing: '0.5px' }}>Activity / History</h3>
               <EntityActivity entityId={entityId} />
             </section>
+            )}
 
             <section>
               <h3 style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '16px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Advanced</h3>

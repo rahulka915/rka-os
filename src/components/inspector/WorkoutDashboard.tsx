@@ -1,8 +1,14 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/db';
 import { Pill } from '../ui/Pill';
+import { useNavigate } from 'react-router-dom';
+import { v4 as uuidv4 } from 'uuid';
+import { useInspector } from '../shell/InspectorContext';
 
 export function WorkoutDashboard({ workoutId }: { workoutId: string }) {
+  const navigate = useNavigate();
+  const { closeInspector } = useInspector();
+
   const exercises = useLiveQuery(async () => {
     const links = await db.entityLinks.where({ sourceId: workoutId, linkType: 'includes_exercise' }).toArray();
     const itemIds = links.map(l => l.targetId);
@@ -48,8 +54,48 @@ export function WorkoutDashboard({ workoutId }: { workoutId: string }) {
         </div>
       )}
 
-      <button style={{ marginTop: '16px', padding: '12px', background: 'var(--accent-color)', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}>
+      <button 
+        onClick={async () => {
+          const sessionId = uuidv4();
+          await db.workoutSessions.add({
+            id: sessionId,
+            templateId: workoutId,
+            date: Date.now(),
+            duration: 0,
+            createdAt: Date.now()
+          });
+          
+          if (exercises && exercises.length > 0) {
+            let order = 0;
+            for (const ex of exercises) {
+              const exSessionId = uuidv4();
+              await db.exerciseSessions.add({
+                id: exSessionId,
+                workoutSessionId: sessionId,
+                exerciseId: ex.id,
+                order: order++
+              });
+              // Add one empty set by default
+              await db.setEntries.add({
+                id: uuidv4(),
+                exerciseSessionId: exSessionId,
+                setNumber: 1,
+                reps: 0,
+                weight: 0,
+                completed: false
+              });
+            }
+          }
+          closeInspector();
+          navigate(`/active-workout/${sessionId}`);
+        }}
+        style={{ marginTop: '16px', padding: '16px', background: 'var(--accent-color)', color: '#fff', border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: 600, cursor: 'pointer' }}
+      >
         Start Workout Session
+      </button>
+
+      <button style={{ padding: '12px', background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '12px', fontSize: '14px', fontWeight: 600, cursor: 'pointer', marginTop: '8px' }}>
+        Edit Template
       </button>
 
     </div>

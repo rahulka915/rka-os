@@ -48,7 +48,7 @@ export function Workouts() {
                 <button onClick={() => handleScheduleToday(t.id)} style={{background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-primary)', padding: '4px 8px', borderRadius: '4px'}}>+ Today</button>
               </div>
               <div className="text-muted mt-2" style={{fontSize: '0.85rem'}}>
-                {meta.exercises.length} Exercises: {meta.exercises.map(e => e.name).join(', ')}
+                {meta.exercises && meta.exercises.length > 0 && `${meta.exercises.length} Exercises: ${meta.exercises.map((e: any) => e.name).join(', ')}`}
               </div>
             </div>
           );

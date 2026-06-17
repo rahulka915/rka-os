@@ -12,6 +12,9 @@ export async function seedMockData() {
   await db.itemTags.clear();
   await db.entityLinks.clear();
   await db.activityLogs.clear();
+  await db.workoutSessions.clear();
+  await db.exerciseSessions.clear();
+  await db.setEntries.clear();
 
   // Helper: Get a date string offset by days
   const getDateStr = (offsetDays: number) => {
@@ -164,22 +167,34 @@ export async function seedMockData() {
     
     if (dayOfWeek === 1 || dayOfWeek === 4) {
       // Push Day completed
-      await logActivity(pushDay, 'workout-session', { 
-        duration: '55m', 
-        exercises: [{ name: 'Bench Press', sets: [{ reps: 8, weight: 80, completed: true }] }] 
-      });
+      const sessionId = uuidv4();
+      await db.workoutSessions.add({ id: sessionId, templateId: pushDay, date: d.getTime(), duration: 55 * 60, createdAt: now.getTime() });
+      const exSessionId = uuidv4();
+      await db.exerciseSessions.add({ id: exSessionId, workoutSessionId: sessionId, exerciseId: benchId, order: 0 });
+      await db.setEntries.add({ id: uuidv4(), exerciseSessionId: exSessionId, setNumber: 1, reps: 8, weight: 80, completed: true });
+      await db.setEntries.add({ id: uuidv4(), exerciseSessionId: exSessionId, setNumber: 2, reps: 8, weight: 80, completed: true });
+      await db.setEntries.add({ id: uuidv4(), exerciseSessionId: exSessionId, setNumber: 3, reps: 6, weight: 85, completed: true });
     } else if (dayOfWeek === 2 || dayOfWeek === 5) {
       // Pull Day completed
-      await logActivity(pullDay, 'workout-session', { 
-        duration: '65m', 
-        exercises: [{ name: 'Pull Up', sets: [{ reps: 10, weight: 0, completed: true }] }] 
-      });
+      const sessionId = uuidv4();
+      await db.workoutSessions.add({ id: sessionId, templateId: pullDay, date: d.getTime(), duration: 65 * 60, createdAt: now.getTime() });
+      const exSessionId = uuidv4();
+      await db.exerciseSessions.add({ id: exSessionId, workoutSessionId: sessionId, exerciseId: pullupId, order: 0 });
+      await db.setEntries.add({ id: uuidv4(), exerciseSessionId: exSessionId, setNumber: 1, reps: 10, weight: 0, completed: true });
+      await db.setEntries.add({ id: uuidv4(), exerciseSessionId: exSessionId, setNumber: 2, reps: 9, weight: 0, completed: true });
     } else if (dayOfWeek === 3 || dayOfWeek === 6) {
       // Legs Day completed
-      await logActivity(legsDay, 'workout-session', { 
-        duration: '60m', 
-        exercises: [{ name: 'Squat', sets: [{ reps: 5, weight: 100, completed: true }] }] 
-      });
+      const sessionId = uuidv4();
+      await db.workoutSessions.add({ id: sessionId, templateId: legsDay, date: d.getTime(), duration: 60 * 60, createdAt: now.getTime() });
+      const exSessionId = uuidv4();
+      await db.exerciseSessions.add({ id: exSessionId, workoutSessionId: sessionId, exerciseId: squatId, order: 0 });
+      await db.setEntries.add({ id: uuidv4(), exerciseSessionId: exSessionId, setNumber: 1, reps: 5, weight: 100, completed: true });
+      await db.setEntries.add({ id: uuidv4(), exerciseSessionId: exSessionId, setNumber: 2, reps: 5, weight: 105, completed: true });
+      await db.setEntries.add({ id: uuidv4(), exerciseSessionId: exSessionId, setNumber: 3, reps: 5, weight: 110, completed: true });
+      
+      const exSession2Id = uuidv4();
+      await db.exerciseSessions.add({ id: exSession2Id, workoutSessionId: sessionId, exerciseId: legPressId, order: 1 });
+      await db.setEntries.add({ id: uuidv4(), exerciseSessionId: exSession2Id, setNumber: 1, reps: 10, weight: 120, completed: true });
     }
   }
 

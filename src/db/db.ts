@@ -15,23 +15,36 @@ export interface HabitMetadata {
   longestStreak: number;
 }
 
-export interface WorkoutSet {
+export interface WorkoutSession {
+  id: string;
+  templateId: string; // references 'workout-template' item
+  date: number; // timestamp
+  duration: number; // seconds
+  notes?: string;
+  createdAt: number;
+}
+
+export interface ExerciseSession {
+  id: string;
+  workoutSessionId: string;
+  exerciseId: string; // references 'exercise' item
+  order: number;
+  notes?: string;
+}
+
+export interface SetEntry {
+  id: string;
+  exerciseSessionId: string;
+  setNumber: number;
   reps: number;
   weight: number;
+  rir?: number;
+  rpe?: number;
   completed: boolean;
 }
 
-export interface ExerciseData {
-  name: string;
-  sets: WorkoutSet[];
-}
-
 export interface WorkoutMetadata {
-  exercises: ExerciseData[];
-}
-
-export interface WorkoutInstanceMetadata {
-  exercises: ExerciseData[];
+  exercises?: any[];
 }
 
 export type ItemType = 'area' | 'project' | 'task' | 'habit' | 'medication' | 'workout-template' | 'exercise' | 'meal';
@@ -90,13 +103,16 @@ export interface ItemInstance {
   updatedAt: number;
 }
 
-const db = new Dexie('PersonalOS_v3') as Dexie & {
+const db = new Dexie('PersonalOS_v4') as Dexie & {
   items: Dexie.Table<Item, string>;
   itemInstances: Dexie.Table<ItemInstance, string>;
   tags: Dexie.Table<Tag, string>;
   itemTags: Dexie.Table<ItemTag, number>;
   entityLinks: Dexie.Table<EntityLink, string>;
   activityLogs: Dexie.Table<ActivityLog, string>;
+  workoutSessions: Dexie.Table<WorkoutSession, string>;
+  exerciseSessions: Dexie.Table<ExerciseSession, string>;
+  setEntries: Dexie.Table<SetEntry, string>;
 };
 
 db.version(1).stores({
@@ -105,7 +121,10 @@ db.version(1).stores({
   tags: 'id, name',
   itemTags: '++, itemId, tagId',
   entityLinks: 'id, sourceId, targetId, linkType, [sourceId+linkType], [targetId+linkType]',
-  activityLogs: 'id, entityId, actionType, timestamp'
+  activityLogs: 'id, entityId, actionType, timestamp',
+  workoutSessions: 'id, templateId, date',
+  exerciseSessions: 'id, workoutSessionId, exerciseId',
+  setEntries: 'id, exerciseSessionId'
 });
 
 export { db };
