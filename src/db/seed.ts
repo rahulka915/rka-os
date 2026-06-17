@@ -1,6 +1,7 @@
 import { db } from './db';
 import { createEntity, linkEntities, logActivity } from './actions';
 import { v4 as uuidv4 } from 'uuid';
+import generatedExercises from './generated-exercises.json';
 
 export async function seedMockData() {
   const now = new Date();
@@ -114,25 +115,48 @@ export async function seedMockData() {
   // ==========================================
   // 5. Workout Templates, Exercises & History
   // ==========================================
-  // Comprehensive Exercise Database
-  const benchId = await createEntity('exercise', 'Bench Press', { muscles: ['chest', 'shoulders', 'triceps'], equipment: 'barbell' });
-  const inclinePressId = await createEntity('exercise', 'Incline Dumbbell Press', { muscles: ['chest', 'shoulders', 'triceps'], equipment: 'dumbbell' });
-  const ohpId = await createEntity('exercise', 'Overhead Press', { muscles: ['shoulders', 'triceps'], equipment: 'barbell' });
-  const lateralRaiseId = await createEntity('exercise', 'Lateral Raises', { muscles: ['shoulders'], equipment: 'dumbbell' });
-  const tricepPushdownId = await createEntity('exercise', 'Tricep Pushdown', { muscles: ['triceps'], equipment: 'cable' });
+  // Load comprehensive exercise database from JSON
+  const exerciseIds = new Map<string, string>();
+  for (const ex of generatedExercises) {
+    const id = await createEntity('exercise', ex.title, { 
+      muscles: ex.metadata.muscles, 
+      equipment: ex.metadata.equipment,
+      image: ex.image
+    });
+    exerciseIds.set(ex.title, id);
+  }
+
+  // Fallbacks for the mock templates if not exactly matched in the generated list
+  const getExId = async (title: string, fallbackMuscles: string[], fallbackEquipment: string) => {
+    if (exerciseIds.has(title)) return exerciseIds.get(title)!;
+    // Try to find a partial match
+    for (const [key, id] of exerciseIds.entries()) {
+      if (key.toLowerCase().includes(title.toLowerCase())) return id;
+    }
+    // Create it if totally missing
+    const id = await createEntity('exercise', title, { muscles: fallbackMuscles, equipment: fallbackEquipment });
+    exerciseIds.set(title, id);
+    return id;
+  };
+
+  const benchId = await getExId('Barbell Bench Press', ['chest', 'shoulders', 'triceps'], 'barbell');
+  const inclinePressId = await getExId('Incline Dumbbell Bench Press', ['chest', 'shoulders', 'triceps'], 'dumbbell');
+  const ohpId = await getExId('Barbell Overhead', ['shoulders', 'triceps'], 'barbell');
+  const lateralRaiseId = await getExId('Lateral Raise', ['shoulders'], 'dumbbell');
+  const tricepPushdownId = await getExId('Tricep Pushdown Machine', ['triceps'], 'cable');
   
-  const pullupId = await createEntity('exercise', 'Pull Up', { muscles: ['back', 'biceps'], equipment: 'bodyweight' });
-  const latPulldownId = await createEntity('exercise', 'Lat Pulldown', { muscles: ['back', 'biceps'], equipment: 'cable' });
-  const barbellRowId = await createEntity('exercise', 'Barbell Row', { muscles: ['back', 'biceps'], equipment: 'barbell' });
-  const curlId = await createEntity('exercise', 'Bicep Curl', { muscles: ['biceps'], equipment: 'dumbbell' });
+  const pullupId = await getExId('Pull Ups', ['back', 'biceps'], 'bodyweight');
+  const latPulldownId = await getExId('Lat Pulldown', ['back', 'biceps'], 'cable');
+  const barbellRowId = await getExId('Barbell Bent Over Row', ['back', 'biceps'], 'barbell');
+  const curlId = await getExId('Dumbbell Biceps Curl', ['biceps'], 'dumbbell');
   
-  const squatId = await createEntity('exercise', 'Squat', { muscles: ['legs', 'core'], equipment: 'barbell' });
-  const legPressId = await createEntity('exercise', 'Leg Press', { muscles: ['legs'], equipment: 'machine' });
-  const legExtensionId = await createEntity('exercise', 'Leg Extension', { muscles: ['legs'], equipment: 'machine' });
-  const legCurlId = await createEntity('exercise', 'Leg Curl', { muscles: ['legs'], equipment: 'machine' });
-  const deadliftId = await createEntity('exercise', 'Deadlift', { muscles: ['back', 'legs', 'core'], equipment: 'barbell' });
-  const rdlId = await createEntity('exercise', 'Romanian Deadlift', { muscles: ['legs', 'back'], equipment: 'barbell' });
-  const calfRaiseId = await createEntity('exercise', 'Calf Raises', { muscles: ['legs'], equipment: 'machine' });
+  const squatId = await getExId('Squat', ['legs', 'core'], 'barbell');
+  const legPressId = await getExId('Leg Press', ['legs'], 'machine');
+  const legExtensionId = await getExId('Leg Extension', ['legs'], 'machine');
+  const legCurlId = await getExId('Leg Curl', ['legs'], 'machine');
+  const deadliftId = await getExId('Deadlift', ['back', 'legs', 'core'], 'barbell');
+  const rdlId = await getExId('Romanian Deadlift', ['legs', 'back'], 'barbell');
+  const calfRaiseId = await getExId('Calf Raises', ['legs'], 'machine');
 
   const pushDay = await createEntity('workout-template', 'Push Day', { duration: '1h', timeOfDay: 'morning' }, 'active', undefined, ['Gym']);
   await linkEntities(hypertrophyProject, pushDay, 'contains');

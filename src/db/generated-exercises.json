@@ -1,0 +1,1973 @@
+[
+  {
+    "title": "Archer Push Up",
+    "image": "/images/exercises/ArcherPushUp.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Assisted Pull Up",
+    "image": "/images/exercises/AssistedPullUp.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "back",
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Aztec Push Up",
+    "image": "/images/exercises/AztecPushUp.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Band Assisted Dip",
+    "image": "/images/exercises/BandAssistedDip.png",
+    "metadata": {
+      "equipment": "band",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Band Bicep Curl",
+    "image": "/images/exercises/BandBicepCurl.png",
+    "metadata": {
+      "equipment": "band",
+      "muscles": [
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Band Tricep Kickback",
+    "image": "/images/exercises/BandTricepKickback.png",
+    "metadata": {
+      "equipment": "band",
+      "muscles": [
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Banded Push Up",
+    "image": "/images/exercises/BandedPushUp.png",
+    "metadata": {
+      "equipment": "band",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Barbell Bench Press",
+    "image": "/images/exercises/BarbellBenchPressfinal.png",
+    "metadata": {
+      "equipment": "barbell",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Barbell Decline Bench Press",
+    "image": "/images/exercises/BarbellDeclineBenchPress.png",
+    "metadata": {
+      "equipment": "barbell",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Barbell Overhead Tricep Extension",
+    "image": "/images/exercises/BarbellOverheadTricepExtension.png",
+    "metadata": {
+      "equipment": "barbell",
+      "muscles": [
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Barbell Pendlay Row",
+    "image": "/images/exercises/BarbellPendlayRow.png",
+    "metadata": {
+      "equipment": "barbell",
+      "muscles": [
+        "back",
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Barbell Pullover",
+    "image": "/images/exercises/BarbellPullover.png",
+    "metadata": {
+      "equipment": "barbell",
+      "muscles": [
+        "back",
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Barbell Reverse Wrist Curl",
+    "image": "/images/exercises/BarbellReverseWristCurl.png",
+    "metadata": {
+      "equipment": "barbell",
+      "muscles": [
+        "biceps",
+        "forearms"
+      ]
+    }
+  },
+  {
+    "title": "Barbell Seal Row",
+    "image": "/images/exercises/BarbellSealRow.png",
+    "metadata": {
+      "equipment": "barbell",
+      "muscles": [
+        "back",
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Bayesian Curl",
+    "image": "/images/exercises/BayesianCurl.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Bird Dog",
+    "image": "/images/exercises/BirdDog.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "core"
+      ]
+    }
+  },
+  {
+    "title": "Bodyweight Bicep Curl",
+    "image": "/images/exercises/BodyweightBicepCurl.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Bodyweight Inner Wrist Curl",
+    "image": "/images/exercises/BodyweightInnerWristCurl.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "biceps",
+        "forearms"
+      ]
+    }
+  },
+  {
+    "title": "Bodyweight Reverse Wrist Curl",
+    "image": "/images/exercises/BodyweightReverseWristCurl.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "biceps",
+        "forearms"
+      ]
+    }
+  },
+  {
+    "title": "Bodyweight Singleleg Deadlifts",
+    "image": "/images/exercises/BodyweightSinglelegDeadlifts.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "legs"
+      ]
+    }
+  },
+  {
+    "title": "Burpees",
+    "image": "/images/exercises/Burpees.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "core"
+      ]
+    }
+  },
+  {
+    "title": "Cable Bicep Curl",
+    "image": "/images/exercises/CableBicepCurl.png",
+    "metadata": {
+      "equipment": "cable",
+      "muscles": [
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Cable Crossover Reverse Fly",
+    "image": "/images/exercises/CableCrossoverReverseFly.png",
+    "metadata": {
+      "equipment": "cable",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Cable Hammer Curl",
+    "image": "/images/exercises/CableHammerCurl.png",
+    "metadata": {
+      "equipment": "cable",
+      "muscles": [
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Cable Lying Triceps Extension",
+    "image": "/images/exercises/CableLyingTricepsExtension.png",
+    "metadata": {
+      "equipment": "cable",
+      "muscles": [
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Cable Middle Fly Chest",
+    "image": "/images/exercises/CableMiddleFlyChest.png",
+    "metadata": {
+      "equipment": "cable",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Cable Preacher Curl",
+    "image": "/images/exercises/CablePreacherCurl.png",
+    "metadata": {
+      "equipment": "cable",
+      "muscles": [
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Cable Reverse Curl",
+    "image": "/images/exercises/CableReverseCurl.png",
+    "metadata": {
+      "equipment": "cable",
+      "muscles": [
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Cable Seated Row",
+    "image": "/images/exercises/CableSeatedRowimage.png",
+    "metadata": {
+      "equipment": "cable",
+      "muscles": [
+        "back",
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Cable Tricep Kickback",
+    "image": "/images/exercises/CableTricepKickback.png",
+    "metadata": {
+      "equipment": "cable",
+      "muscles": [
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Chair Chest Dip",
+    "image": "/images/exercises/ChairChestDip.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Chair Inverted Rows",
+    "image": "/images/exercises/ChairInvertedRows.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "back",
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Chair Tricep Dips",
+    "image": "/images/exercises/ChairTricepDips.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Childs Pose",
+    "image": "/images/exercises/ChildsPose.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "core"
+      ]
+    }
+  },
+  {
+    "title": "Chinup",
+    "image": "/images/exercises/Chinup.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "back",
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Clap Push Ups",
+    "image": "/images/exercises/ClapPushUps.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Close Grip Chin Up",
+    "image": "/images/exercises/CloseGripChinUp.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "back",
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Close Grip Lat Pulldown",
+    "image": "/images/exercises/CloseGripLatPulldown .png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "back",
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Close Grip Lat Pulldown",
+    "image": "/images/exercises/CloseGripLatPulldown.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "back",
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Crab Walk",
+    "image": "/images/exercises/CrabWalk.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "core"
+      ]
+    }
+  },
+  {
+    "title": "Crucifix Curl",
+    "image": "/images/exercises/CrucifixCurl.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Decline Dumbbell Tricep Extension",
+    "image": "/images/exercises/DeclineDumbbellTricepExtension.png",
+    "metadata": {
+      "equipment": "dumbbell",
+      "muscles": [
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Decline Push Ups",
+    "image": "/images/exercises/DeclinePushUps.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Deficit Push Up",
+    "image": "/images/exercises/DeficitPushUp.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Diamond Push Ups",
+    "image": "/images/exercises/DiamondPushUps.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Doorway Chest Stretch",
+    "image": "/images/exercises/DoorwayChestStretch.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "core"
+      ]
+    }
+  },
+  {
+    "title": "Dumbbell Alternating Bicep Curl",
+    "image": "/images/exercises/DumbbellAlternatingBicepCurl.png",
+    "metadata": {
+      "equipment": "dumbbell",
+      "muscles": [
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Dumbbell Back Wrist Curl",
+    "image": "/images/exercises/DumbbellBackWristCurl.png",
+    "metadata": {
+      "equipment": "dumbbell",
+      "muscles": [
+        "biceps",
+        "forearms"
+      ]
+    }
+  },
+  {
+    "title": "Dumbbell Bench Press",
+    "image": "/images/exercises/DumbbellBenchPress.png",
+    "metadata": {
+      "equipment": "dumbbell",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Dumbbell Bent Over Row",
+    "image": "/images/exercises/DumbbellBentOverRow.png",
+    "metadata": {
+      "equipment": "dumbbell",
+      "muscles": [
+        "back",
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Dumbbell Decline Bench Press",
+    "image": "/images/exercises/DumbbellDeclineBenchPressfinal.png",
+    "metadata": {
+      "equipment": "dumbbell",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Dumbbell Floor Press",
+    "image": "/images/exercises/DumbbellFloorPress.png",
+    "metadata": {
+      "equipment": "dumbbell",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Dumbbell Hammer Wrist Curl",
+    "image": "/images/exercises/DumbbellHammerWristCurl.png",
+    "metadata": {
+      "equipment": "dumbbell",
+      "muscles": [
+        "biceps",
+        "forearms"
+      ]
+    }
+  },
+  {
+    "title": "Dumbbell Incline Bicep Curl",
+    "image": "/images/exercises/DumbbellInclineBicepCurl.png",
+    "metadata": {
+      "equipment": "dumbbell",
+      "muscles": [
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Dumbbell Lunge With Bicep Curl",
+    "image": "/images/exercises/DumbbellLungeWithBicepCurl.png",
+    "metadata": {
+      "equipment": "dumbbell",
+      "muscles": [
+        "legs",
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Dumbbell One Arm Zottman Preacher Curl",
+    "image": "/images/exercises/DumbbellOneArmZottmanPreacherCurl.png",
+    "metadata": {
+      "equipment": "dumbbell",
+      "muscles": [
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Dumbbell Single Arm Tricep Extension",
+    "image": "/images/exercises/DumbbellSingleArmTricepExtension.png",
+    "metadata": {
+      "equipment": "dumbbell",
+      "muscles": [
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Dumbbell Standing Overhead Tricep Extension",
+    "image": "/images/exercises/DumbbellStandingOverheadTricepExtension.png",
+    "metadata": {
+      "equipment": "dumbbell",
+      "muscles": [
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Dumbbell Standing Single Arm Tricep Kickback",
+    "image": "/images/exercises/DumbbellStandingSingleArmTricepKickback.png",
+    "metadata": {
+      "equipment": "dumbbell",
+      "muscles": [
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Dumbbell Sumo Squat",
+    "image": "/images/exercises/DumbbellSumoSquat.png",
+    "metadata": {
+      "equipment": "dumbbell",
+      "muscles": [
+        "legs"
+      ]
+    }
+  },
+  {
+    "title": "Dumbbell Svend Press",
+    "image": "/images/exercises/DumbbellSvendPress.png",
+    "metadata": {
+      "equipment": "dumbbell",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Dumbbell Tate Press",
+    "image": "/images/exercises/DumbbellTatePress.png",
+    "metadata": {
+      "equipment": "dumbbell",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Dumbbell Wrist Twist",
+    "image": "/images/exercises/DumbbellWristTwist.png",
+    "metadata": {
+      "equipment": "dumbbell",
+      "muscles": [
+        "forearms"
+      ]
+    }
+  },
+  {
+    "title": "Dumbbell Zottman Curl",
+    "image": "/images/exercises/DumbbellZottmanCurl.png",
+    "metadata": {
+      "equipment": "dumbbell",
+      "muscles": [
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Dumbbell Zottman Preacher Curl",
+    "image": "/images/exercises/DumbbellZottmanPreacherCurl.png",
+    "metadata": {
+      "equipment": "dumbbell",
+      "muscles": [
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Dynamic Arm Swings",
+    "image": "/images/exercises/DynamicArmSwings.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "core"
+      ]
+    }
+  },
+  {
+    "title": "E Z Bar Reverse Wrist Curl",
+    "image": "/images/exercises/EZBarReverseWristCurl.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "biceps",
+        "forearms"
+      ]
+    }
+  },
+  {
+    "title": "Ez Bar Lying Triceps Extension",
+    "image": "/images/exercises/EzBarLyingTricepsExtensionImg.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Finger Down Forearm Stretch",
+    "image": "/images/exercises/FingerDownForearmStretch.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "forearms"
+      ]
+    }
+  },
+  {
+    "title": "Fingertip Push Up",
+    "image": "/images/exercises/FingertipPushUp.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Forearm Push Up",
+    "image": "/images/exercises/ForearmPushUp.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps",
+        "forearms"
+      ]
+    }
+  },
+  {
+    "title": "Grasshopper Push Ups",
+    "image": "/images/exercises/GrasshopperPushUps.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Hand Release Push Up",
+    "image": "/images/exercises/HandReleasePushUp.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Hindu Push Up",
+    "image": "/images/exercises/HinduPushUp.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Incline Barbell Bench Press",
+    "image": "/images/exercises/InclineBarbellBenchPress.png",
+    "metadata": {
+      "equipment": "barbell",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Incline Dumbbell Row",
+    "image": "/images/exercises/InclineDumbbellRow.png",
+    "metadata": {
+      "equipment": "dumbbell",
+      "muscles": [
+        "back",
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Inverted Row",
+    "image": "/images/exercises/InvertedRow.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "back",
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Kettlebell Plank Drag",
+    "image": "/images/exercises/KettlebellPlankDrag.png",
+    "metadata": {
+      "equipment": "kettlebell",
+      "muscles": [
+        "core"
+      ]
+    }
+  },
+  {
+    "title": "Knee Close Grip Push Up",
+    "image": "/images/exercises/KneeCloseGripPushUp.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Kneeled Diamond Push Ups",
+    "image": "/images/exercises/KneeledDiamondPushUps.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Kneeled Push Ups",
+    "image": "/images/exercises/KneeledPushUps.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Kneeling Band Lat Pulldown",
+    "image": "/images/exercises/KneelingBandLatPulldown.png",
+    "metadata": {
+      "equipment": "band",
+      "muscles": [
+        "back",
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Kneeling Overhead Tricep Extension",
+    "image": "/images/exercises/KneelingOverheadTricepExtension.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Landmine One Arm Bent Over Row",
+    "image": "/images/exercises/LandmineOneArmBentOverRow.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "back",
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Lever Seated Fly Chest",
+    "image": "/images/exercises/LeverSeatedFlyChest.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Medicine Ball Push Up",
+    "image": "/images/exercises/MedicineBallPushUp.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Mike Tyson Push Up",
+    "image": "/images/exercises/MikeTysonPushUp.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Narrow Push Ups",
+    "image": "/images/exercises/NarrowPushUps.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps",
+        "back",
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Negative Push Up",
+    "image": "/images/exercises/NegativePushUp.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "One Arm Push Up",
+    "image": "/images/exercises/OneArmPushUp.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Overhead Triceps Stretch",
+    "image": "/images/exercises/OverheadTricepsStretch.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Planche Push Up",
+    "image": "/images/exercises/PlanchePushUp.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Plyo Push Ups",
+    "image": "/images/exercises/PlyoPushUps.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Pull Ups",
+    "image": "/images/exercises/PullUps.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "back",
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Push Ups",
+    "image": "/images/exercises/PushUps.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Push Upto Shoulder Tap",
+    "image": "/images/exercises/PushUptoShoulderTap.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "shoulders"
+      ]
+    }
+  },
+  {
+    "title": "Rack Pull",
+    "image": "/images/exercises/RackPull.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "back",
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Renegaderows",
+    "image": "/images/exercises/Renegaderows.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "back",
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Resistance Band Tricep Pushdown",
+    "image": "/images/exercises/ResistanceBandTricepPushdown.png",
+    "metadata": {
+      "equipment": "band",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Reverse Grip Lat Pulldown",
+    "image": "/images/exercises/ReverseGripLatPulldown.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "back",
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Reverse Plank",
+    "image": "/images/exercises/ReversePlank.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "core"
+      ]
+    }
+  },
+  {
+    "title": "Reverse Push Up",
+    "image": "/images/exercises/ReversePushUp.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Ring Push Up",
+    "image": "/images/exercises/RingPushUp.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Scapular Push Ups",
+    "image": "/images/exercises/ScapularPushUps.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Seal Push Up",
+    "image": "/images/exercises/SealPushUp.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Seated Cable Extension",
+    "image": "/images/exercises/SeatedCableExtension.png",
+    "metadata": {
+      "equipment": "cable",
+      "muscles": [
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Seated Single Arm Cable Row",
+    "image": "/images/exercises/SeatedSingleArmCableRow.png",
+    "metadata": {
+      "equipment": "cable",
+      "muscles": [
+        "back",
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Seated Wide Grip Cable Row",
+    "image": "/images/exercises/SeatedWideGripCableRow.png",
+    "metadata": {
+      "equipment": "cable",
+      "muscles": [
+        "back",
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Side Lying Tricep Press",
+    "image": "/images/exercises/SideLyingTricepPress.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Side Push Up",
+    "image": "/images/exercises/SidePushUp.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Single Arm Overhead Tricep Extension",
+    "image": "/images/exercises/SingleArmOverheadTricepExtension.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Single Arm T Bar Row",
+    "image": "/images/exercises/SingleArmTBarRow.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "back",
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Smith Machine Bench Press",
+    "image": "/images/exercises/SmithMachineBenchPressimage.png",
+    "metadata": {
+      "equipment": "machine",
+      "muscles": [
+        "chest",
+        "triceps",
+        "back",
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Spider Push Ups",
+    "image": "/images/exercises/SpiderPushUps.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Standing Banded Overhead Tricep Extension",
+    "image": "/images/exercises/StandingBandedOverheadTricepExtension.png",
+    "metadata": {
+      "equipment": "band",
+      "muscles": [
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Standing Banded Single Arm Overhead Tricep Extension",
+    "image": "/images/exercises/StandingBandedSingleArmOverheadTricepExtension.png",
+    "metadata": {
+      "equipment": "band",
+      "muscles": [
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Standing One Arm Chest Stretch",
+    "image": "/images/exercises/StandingOneArmChestStretch.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "core"
+      ]
+    }
+  },
+  {
+    "title": "Superman Push Up",
+    "image": "/images/exercises/SupermanPushUp.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Supine Kettlebell Arm Bar",
+    "image": "/images/exercises/SupineKettlebellArmBar.png",
+    "metadata": {
+      "equipment": "kettlebell",
+      "muscles": [
+        "core"
+      ]
+    }
+  },
+  {
+    "title": "T Bar Row",
+    "image": "/images/exercises/TBarRow.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "back",
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "T Push Up",
+    "image": "/images/exercises/TPushUp.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "T R X Close Grip Push Ups",
+    "image": "/images/exercises/TRXCloseGripPushUps.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "T R X Tricep Extension",
+    "image": "/images/exercises/TRXTricepExtension.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Tricep Dip On Bench",
+    "image": "/images/exercises/TricepDipOnBench.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Tricep Dumbbell Kickback",
+    "image": "/images/exercises/TricepDumbbellKickback.png",
+    "metadata": {
+      "equipment": "dumbbell",
+      "muscles": [
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Tricep Pushdown Machine",
+    "image": "/images/exercises/TricepPushdownMachine.png",
+    "metadata": {
+      "equipment": "machine",
+      "muscles": [
+        "chest",
+        "triceps",
+        "back",
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Triceps Dip",
+    "image": "/images/exercises/TricepsDipfinal.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Walking Push Up",
+    "image": "/images/exercises/WalkingPushUp.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Wall Push Up",
+    "image": "/images/exercises/WallPushUp.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Wall Tricep Press",
+    "image": "/images/exercises/WallTricepPress.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Weighted Chin Up",
+    "image": "/images/exercises/WeightedChinUp.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "back",
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Weighted Pull Up",
+    "image": "/images/exercises/WeightedPullUp.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "back",
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Weighted Push Up",
+    "image": "/images/exercises/WeightedPushUp.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Wide Grip Pull Ups",
+    "image": "/images/exercises/WideGripPullUps.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "back",
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Wide Push Ups",
+    "image": "/images/exercises/WidePushUps.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Assistedchinup",
+    "image": "/images/exercises/assistedchinup.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "back",
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Barbellbentoverrow",
+    "image": "/images/exercises/barbellbentoverrow.png",
+    "metadata": {
+      "equipment": "barbell",
+      "muscles": [
+        "back",
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Barbellbicepscurl",
+    "image": "/images/exercises/barbellbicepscurl.png",
+    "metadata": {
+      "equipment": "barbell",
+      "muscles": [
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Barbellclosegripbenchpress",
+    "image": "/images/exercises/barbellclosegripbenchpress.png",
+    "metadata": {
+      "equipment": "barbell",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Barbelllyingtricepsextension",
+    "image": "/images/exercises/barbelllyingtricepsextension.png",
+    "metadata": {
+      "equipment": "barbell",
+      "muscles": [
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Barbellpreachercurl",
+    "image": "/images/exercises/barbellpreachercurl.png",
+    "metadata": {
+      "equipment": "barbell",
+      "muscles": [
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Barbellreversecurl",
+    "image": "/images/exercises/barbellreversecurl.png",
+    "metadata": {
+      "equipment": "barbell",
+      "muscles": [
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Barbellseatedgoodmorning",
+    "image": "/images/exercises/barbellseatedgoodmorning.png",
+    "metadata": {
+      "equipment": "barbell",
+      "muscles": [
+        "core"
+      ]
+    }
+  },
+  {
+    "title": "Barbellshrug",
+    "image": "/images/exercises/barbellshrug.png",
+    "metadata": {
+      "equipment": "barbell",
+      "muscles": [
+        "shoulders"
+      ]
+    }
+  },
+  {
+    "title": "Barbellsumodeadlift",
+    "image": "/images/exercises/barbellsumodeadlift.png",
+    "metadata": {
+      "equipment": "barbell",
+      "muscles": [
+        "legs"
+      ]
+    }
+  },
+  {
+    "title": "Barbellwristcurl",
+    "image": "/images/exercises/barbellwristcurl.png",
+    "metadata": {
+      "equipment": "barbell",
+      "muscles": [
+        "biceps",
+        "forearms"
+      ]
+    }
+  },
+  {
+    "title": "Cablefacepull",
+    "image": "/images/exercises/cablefacepull.png",
+    "metadata": {
+      "equipment": "cable",
+      "muscles": [
+        "back",
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Cablereversegriptriceppushdown",
+    "image": "/images/exercises/cablereversegriptriceppushdown.png",
+    "metadata": {
+      "equipment": "cable",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Cabletriceppushdown",
+    "image": "/images/exercises/cabletriceppushdown.png",
+    "metadata": {
+      "equipment": "cable",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Chestdip",
+    "image": "/images/exercises/chestdip.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Chestpressmachine",
+    "image": "/images/exercises/chestpressmachine.png",
+    "metadata": {
+      "equipment": "machine",
+      "muscles": [
+        "chest",
+        "triceps",
+        "back",
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Crossbodytricepextension",
+    "image": "/images/exercises/crossbodytricepextension.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Dumbbellbicepscurl",
+    "image": "/images/exercises/dumbbellbicepscurl.png",
+    "metadata": {
+      "equipment": "dumbbell",
+      "muscles": [
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Dumbbellchestfly",
+    "image": "/images/exercises/dumbbellchestfly.png",
+    "metadata": {
+      "equipment": "dumbbell",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Dumbbellclosegrippress",
+    "image": "/images/exercises/dumbbellclosegrippress.png",
+    "metadata": {
+      "equipment": "dumbbell",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Dumbbellconcentrationcurl",
+    "image": "/images/exercises/dumbbellconcentrationcurl.png",
+    "metadata": {
+      "equipment": "dumbbell",
+      "muscles": [
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Dumbbellcrossbodyhammercurl",
+    "image": "/images/exercises/dumbbellcrossbodyhammercurl.png",
+    "metadata": {
+      "equipment": "dumbbell",
+      "muscles": [
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Dumbbellfingercurl",
+    "image": "/images/exercises/dumbbellfingercurl.png",
+    "metadata": {
+      "equipment": "dumbbell",
+      "muscles": [
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Dumbbellhammercurl",
+    "image": "/images/exercises/dumbbellhammercurl.png",
+    "metadata": {
+      "equipment": "dumbbell",
+      "muscles": [
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Dumbbellpreachercurl",
+    "image": "/images/exercises/dumbbellpreachercurl.png",
+    "metadata": {
+      "equipment": "dumbbell",
+      "muscles": [
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Dumbbellpullover",
+    "image": "/images/exercises/dumbbellpullover.png",
+    "metadata": {
+      "equipment": "dumbbell",
+      "muscles": [
+        "back",
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Dumbbellreversecurl",
+    "image": "/images/exercises/dumbbellreversecurl.png",
+    "metadata": {
+      "equipment": "dumbbell",
+      "muscles": [
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Dumbbellshrug",
+    "image": "/images/exercises/dumbbellshrug.png",
+    "metadata": {
+      "equipment": "dumbbell",
+      "muscles": [
+        "shoulders"
+      ]
+    }
+  },
+  {
+    "title": "Dumbbellsinglearmbentoverrow",
+    "image": "/images/exercises/dumbbellsinglearmbentoverrow.png",
+    "metadata": {
+      "equipment": "dumbbell",
+      "muscles": [
+        "back",
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Dumbbellskullcrusher",
+    "image": "/images/exercises/dumbbellskullcrusher.png",
+    "metadata": {
+      "equipment": "dumbbell",
+      "muscles": [
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Ezbarpreachercurl",
+    "image": "/images/exercises/ezbarpreachercurl.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Ezbarwristcurl",
+    "image": "/images/exercises/ezbarwristcurl.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "biceps",
+        "forearms"
+      ]
+    }
+  },
+  {
+    "title": "Hyperextension",
+    "image": "/images/exercises/hyperextension.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Inclinedumbbellbenchpress",
+    "image": "/images/exercises/inclinedumbbellbenchpress.png",
+    "metadata": {
+      "equipment": "dumbbell",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Inclinemachinepress",
+    "image": "/images/exercises/inclinemachinepress.png",
+    "metadata": {
+      "equipment": "machine",
+      "muscles": [
+        "chest",
+        "triceps",
+        "back",
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Inclinepushup",
+    "image": "/images/exercises/inclinepushup.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Latpulldown",
+    "image": "/images/exercises/latpulldown.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "back",
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Overheadcabletricepextension",
+    "image": "/images/exercises/overheadcabletricepextension.png",
+    "metadata": {
+      "equipment": "cable",
+      "muscles": [
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Pseudoplanchepushup",
+    "image": "/images/exercises/pseudoplanchepushup.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Reardeltflymachine",
+    "image": "/images/exercises/reardeltflymachine.png",
+    "metadata": {
+      "equipment": "machine",
+      "muscles": [
+        "chest",
+        "triceps",
+        "back",
+        "biceps",
+        "shoulders"
+      ]
+    }
+  },
+  {
+    "title": "Ringdip",
+    "image": "/images/exercises/ringdip.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "chest",
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Ropetricepextension",
+    "image": "/images/exercises/ropetricepextension.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "triceps"
+      ]
+    }
+  },
+  {
+    "title": "Smithmachineclosegrippress",
+    "image": "/images/exercises/smithmachineclosegrippress.png",
+    "metadata": {
+      "equipment": "machine",
+      "muscles": [
+        "chest",
+        "triceps",
+        "back",
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Standingcablelatpulldown",
+    "image": "/images/exercises/standingcablelatpulldown.png",
+    "metadata": {
+      "equipment": "cable",
+      "muscles": [
+        "back",
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Straightarmlatpulldown",
+    "image": "/images/exercises/straightarmlatpulldown.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "back",
+        "biceps"
+      ]
+    }
+  },
+  {
+    "title": "Trapbarshrug",
+    "image": "/images/exercises/trapbarshrug.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "shoulders"
+      ]
+    }
+  },
+  {
+    "title": "Wrist",
+    "image": "/images/exercises/wrist.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "forearms"
+      ]
+    }
+  },
+  {
+    "title": "Wristadduction",
+    "image": "/images/exercises/wristadduction.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "forearms"
+      ]
+    }
+  },
+  {
+    "title": "Wristcurl",
+    "image": "/images/exercises/wristcurl.png",
+    "metadata": {
+      "equipment": "bodyweight",
+      "muscles": [
+        "biceps",
+        "forearms"
+      ]
+    }
+  }
+]

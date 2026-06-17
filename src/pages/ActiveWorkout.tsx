@@ -202,7 +202,7 @@ export function ActiveWorkout() {
                   style={{ position: 'relative', zIndex: 1, background: '#15171E', marginBottom: '16px', display: 'flex', alignItems: 'center' }}
                 >
                   <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: '#1D2029', overflow: 'hidden', flexShrink: 0, marginRight: '16px' }}>
-                    <img src={getMuscleImage(block.exercise?.metadata?.muscles)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.5 }} />
+                    <img src={block.exercise?.metadata?.image || getMuscleImage(block.exercise?.metadata?.muscles)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.5 }} />
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: '16px', fontWeight: 500, color: '#F8FAFC' }}>{block.exercise?.title || 'Unknown Exercise'}</div>
@@ -218,7 +218,7 @@ export function ActiveWorkout() {
               <div key={block.exerciseSession.id} className="exercise-block" style={{ position: 'relative', zIndex: 1, background: '#15171E', marginBottom: '32px' }}>
                 <div className="accordion-header active" style={{ display: 'flex', alignItems: 'center', padding: '0 0 16px' }}>
                   <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: '#1D2029', overflow: 'hidden', flexShrink: 0, marginRight: '16px', border: '2px solid #0EA5E9' }}>
-                    <img src={getMuscleImage(block.exercise?.metadata?.muscles)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={block.exercise?.metadata?.image || getMuscleImage(block.exercise?.metadata?.muscles)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
                   <div style={{ flex: 1 }}>
                     <h3 className="exercise-title" style={{ margin: 0, color: '#F8FAFC', fontSize: '18px' }}>

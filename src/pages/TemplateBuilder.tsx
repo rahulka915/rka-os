@@ -244,7 +244,7 @@ export function TemplateBuilder() {
                   <div key={ex.id} className="builder-exercise-item" style={{ marginLeft: '48px', zIndex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       <div style={{ width: '40px', height: '40px', borderRadius: '8px', background: '#15171E', overflow: 'hidden', flexShrink: 0 }}>
-                        <img src={getMuscleImage(ex.metadata?.muscles)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <img src={ex.metadata?.image || getMuscleImage(ex.metadata?.muscles)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       </div>
                       <div>
                         <div style={{ color: '#F8FAFC', fontWeight: 500 }}>{ex.name}</div>
@@ -314,7 +314,7 @@ export function TemplateBuilder() {
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                         <div style={{ width: '48px', height: '48px', borderRadius: '24px', background: '#15171E', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          <img src={getMuscleImage(ex.metadata?.muscles)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          <img src={ex.metadata?.image || getMuscleImage(ex.metadata?.muscles)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         </div>
                         <div>
                           <div style={{ fontWeight: 500, fontSize: '15px' }}>{ex.title}</div>
