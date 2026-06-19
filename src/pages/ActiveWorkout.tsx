@@ -96,7 +96,7 @@ export function ActiveWorkout() {
   )).filter(Boolean);
 
   const handleUpdateSet = async (setId: string, field: 'reps' | 'weight', value: number) => {
-    await db.setEntries.update(setId, { [field]: value });
+    await db.setEntries.update(setId, { [field]: value } as any);
   };
 
   const handleToggleSet = async (setId: string, currentCompleted: boolean) => {

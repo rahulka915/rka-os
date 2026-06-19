@@ -46,7 +46,7 @@ export async function attachTags(itemId: string, tags: string[]) {
       tag = { id: uuidv4(), name: tagName, color: '#3B82F6', createdAt: now };
       await db.tags.add(tag);
     }
-    await db.itemTags.add({ itemId, tagId: tag.id });
+    await db.itemTags.add({ id: uuidv4(), itemId, tagId: tag.id });
   }
 }
 
@@ -104,7 +104,10 @@ export async function updateEntity(id: string, data: any) {
     await db.items.update(id, updates);
 
     if (tags !== undefined && Array.isArray(tags)) {
-      await db.itemTags.where('itemId').equals(id).delete();
+      const existingTags = await db.itemTags.where('itemId').equals(id).toArray();
+      for (const itemTag of existingTags) {
+        await db.itemTags.delete(itemTag.id);
+      }
       await attachTags(id, tags);
     }
   });

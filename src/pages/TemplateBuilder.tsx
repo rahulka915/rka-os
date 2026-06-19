@@ -148,10 +148,15 @@ export function TemplateBuilder() {
         const oldBlockLinks = await db.entityLinks.where({ sourceId: templateId, linkType: 'contains' }).toArray();
         for (const l of oldBlockLinks) {
           const blockId = l.targetId;
-          await db.entityLinks.where({ sourceId: blockId, linkType: 'includes_exercise' }).delete();
+          const blockExerciseLinks = await db.entityLinks.where({ sourceId: blockId, linkType: 'includes_exercise' }).toArray();
+          for (const link of blockExerciseLinks) {
+            await db.entityLinks.delete(link.id);
+          }
           await db.items.delete(blockId);
         }
-        await db.entityLinks.where({ sourceId: templateId, linkType: 'contains' }).delete();
+        for (const link of oldBlockLinks) {
+          await db.entityLinks.delete(link.id);
+        }
       }
 
       // 2. Create new blocks and links

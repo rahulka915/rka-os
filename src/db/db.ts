@@ -1,4 +1,5 @@
 import Dexie from 'dexie';
+import { installSupabaseSyncBridge } from '../data/sync';
 
 export interface MedicationMetadata {
   dose: string;
@@ -22,6 +23,11 @@ export interface WorkoutSession {
   duration: number; // seconds
   notes?: string;
   createdAt: number;
+  updatedAt?: number;
+  userId?: string;
+  archivedAt?: number;
+  deletedAt?: number;
+  metadata?: any;
 }
 
 export interface ExerciseSession {
@@ -30,6 +36,12 @@ export interface ExerciseSession {
   exerciseId: string; // references 'exercise' item
   order: number;
   notes?: string;
+  createdAt?: number;
+  updatedAt?: number;
+  userId?: string;
+  archivedAt?: number;
+  deletedAt?: number;
+  metadata?: any;
 }
 
 export interface SetEntry {
@@ -41,6 +53,12 @@ export interface SetEntry {
   rir?: number;
   rpe?: number;
   completed: boolean;
+  createdAt?: number;
+  updatedAt?: number;
+  userId?: string;
+  archivedAt?: number;
+  deletedAt?: number;
+  metadata?: any;
 }
 
 export interface WorkoutMetadata {
@@ -55,11 +73,22 @@ export interface Tag {
   name: string;
   color: string;
   createdAt: number;
+  userId?: string;
+  updatedAt?: number;
+  archivedAt?: number;
+  deletedAt?: number;
+  metadata?: any;
 }
 
 export interface ItemTag {
+  id: string;
   itemId: string;
   tagId: string;
+  createdAt?: number;
+  updatedAt?: number;
+  userId?: string;
+  archivedAt?: number;
+  deletedAt?: number;
 }
 
 export interface EntityLink {
@@ -68,6 +97,11 @@ export interface EntityLink {
   targetId: string;
   linkType: string; // e.g. 'contains', 'includes_exercise', 'belongs_to'
   createdAt: number;
+  updatedAt?: number;
+  userId?: string;
+  archivedAt?: number;
+  deletedAt?: number;
+  metadata?: any;
 }
 
 export interface ActivityLog {
@@ -76,6 +110,11 @@ export interface ActivityLog {
   actionType: string; // e.g. 'medication-taken', 'workout-logged', 'status-changed', 'created'
   timestamp: number;
   details?: any; // arbitrary JSON for things like sets/reps performed, or dose taken
+  createdAt?: number;
+  updatedAt?: number;
+  userId?: string;
+  archivedAt?: number;
+  deletedAt?: number;
 }
 
 export interface Item {
@@ -90,6 +129,9 @@ export interface Item {
   metadata?: any;
   createdAt: number;
   updatedAt: number;
+  userId?: string;
+  archivedAt?: number;
+  deletedAt?: number;
 }
 
 export interface ItemInstance {
@@ -101,18 +143,36 @@ export interface ItemInstance {
   instanceMetadata?: any;
   createdAt: number;
   updatedAt: number;
+  userId?: string;
+  archivedAt?: number;
+  deletedAt?: number;
+}
+
+export interface ExerciseMedia {
+  id: string;
+  exerciseId: string;
+  storagePath: string;
+  url: string;
+  mediaType: 'image' | 'video';
+  createdAt: number;
+  updatedAt?: number;
+  userId?: string;
+  archivedAt?: number;
+  deletedAt?: number;
+  metadata?: any;
 }
 
 const db = new Dexie('PersonalOS_v4') as Dexie & {
   items: Dexie.Table<Item, string>;
   itemInstances: Dexie.Table<ItemInstance, string>;
   tags: Dexie.Table<Tag, string>;
-  itemTags: Dexie.Table<ItemTag, number>;
+  itemTags: Dexie.Table<ItemTag, string>;
   entityLinks: Dexie.Table<EntityLink, string>;
   activityLogs: Dexie.Table<ActivityLog, string>;
   workoutSessions: Dexie.Table<WorkoutSession, string>;
   exerciseSessions: Dexie.Table<ExerciseSession, string>;
   setEntries: Dexie.Table<SetEntry, string>;
+  exerciseMedia: Dexie.Table<ExerciseMedia, string>;
 };
 
 db.version(1).stores({
@@ -126,5 +186,30 @@ db.version(1).stores({
   exerciseSessions: 'id, workoutSessionId, exerciseId',
   setEntries: 'id, exerciseSessionId'
 });
+
+db.version(2).stores({
+  items: 'id, type, status, scheduledDate, dueDate',
+  itemInstances: 'id, itemId, scheduledDate, status',
+  tags: 'id, name',
+  itemTags: 'id, itemId, tagId',
+  entityLinks: 'id, sourceId, targetId, linkType, [sourceId+linkType], [targetId+linkType]',
+  activityLogs: 'id, entityId, actionType, timestamp',
+  workoutSessions: 'id, templateId, date',
+  exerciseSessions: 'id, workoutSessionId, exerciseId',
+  setEntries: 'id, exerciseSessionId',
+  exerciseMedia: 'id, exerciseId, mediaType, createdAt'
+}).upgrade(async tx => {
+  const table = tx.table('itemTags');
+  const rows = await table.toArray();
+  if (rows.length > 0) {
+    await table.clear();
+    await table.bulkAdd(rows.map((row: any) => ({
+      ...row,
+      id: row.id ?? crypto.randomUUID(),
+    })));
+  }
+});
+
+installSupabaseSyncBridge(db);
 
 export { db };

@@ -9,24 +9,43 @@ import { Inbox } from './pages/Inbox';
 import { Calendar } from './pages/Calendar';
 import { TemplateBuilder } from './pages/TemplateBuilder';
 import { InspectorProvider } from './components/shell/InspectorContext';
+import { AuthPage } from './pages/Auth';
+import { WelcomePage } from './pages/Welcome';
+import { RequireAuth } from './auth/RequireAuth';
 
 function App() {
   return (
     <BrowserRouter>
       <InspectorProvider>
         <Routes>
-          <Route path="/" element={<AppShell />}>
-          <Route index element={<Navigate to="/home" replace />} />
-          <Route path="home" element={<Home />} />
-          <Route path="today" element={<Today />} />
-          <Route path="projects" element={<Projects />} />
-          <Route path="health-search" element={<HealthSearch />} />
-          <Route path="inbox" element={<Inbox />} />
-          <Route path="calendar" element={<Calendar />} />
-        </Route>
-        <Route path="/active-workout/:id" element={<ActiveWorkout />} />
-        <Route path="/template-builder/:id" element={<TemplateBuilder />} />
-      </Routes>
+          <Route path="/auth" element={<AuthPage />} />
+          <Route
+            path="/welcome"
+            element={
+              <RequireAuth allowOnboarding>
+                <WelcomePage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/"
+            element={
+              <RequireAuth>
+                <AppShell />
+              </RequireAuth>
+            }
+          >
+            <Route index element={<Navigate to="/home" replace />} />
+            <Route path="home" element={<Home />} />
+            <Route path="today" element={<Today />} />
+            <Route path="projects" element={<Projects />} />
+            <Route path="health-search" element={<HealthSearch />} />
+            <Route path="inbox" element={<Inbox />} />
+            <Route path="calendar" element={<Calendar />} />
+          </Route>
+          <Route path="/active-workout/:id" element={<RequireAuth><ActiveWorkout /></RequireAuth>} />
+          <Route path="/template-builder/:id" element={<RequireAuth><TemplateBuilder /></RequireAuth>} />
+        </Routes>
       </InspectorProvider>
     </BrowserRouter>
   );

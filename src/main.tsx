@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
+import { AuthProvider } from './auth/AuthProvider'
 
 class ErrorBoundary extends Component<{children: ReactNode}, {error: unknown}> {
   state = { error: null as unknown };
@@ -23,7 +24,9 @@ class ErrorBoundary extends Component<{children: ReactNode}, {error: unknown}> {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
-      <App />
+      <AuthProvider>
+        <App />
+      </AuthProvider>
     </ErrorBoundary>
   </StrictMode>,
 )

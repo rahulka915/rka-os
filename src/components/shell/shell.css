@@ -110,6 +110,38 @@
     color: var(--rka-blue);
   }
 
+  .sidebar-footer {
+    margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .sidebar-account,
+  .sidebar-logout {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 40px;
+    border: 0;
+    border-radius: var(--rka-radius-control);
+    padding: 0 12px;
+    background: rgba(255, 255, 255, 0.54);
+    color: var(--rka-text-secondary);
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .sidebar-logout {
+    cursor: pointer;
+    color: var(--rka-text);
+  }
+
+  .sidebar-logout:hover {
+    background: rgba(255, 255, 255, 0.78);
+  }
+
   .main-content-wrapper {
     height: 100vh;
   }

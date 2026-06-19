@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom';
-import { Home, Calendar, FolderKanban, Activity, Plus } from 'lucide-react';
+import { Home, Calendar, FolderKanban, Activity, Plus, LogOut, User } from 'lucide-react';
+import { useAuth } from '../../auth/AuthProvider';
 import './shell.css';
 
 interface SidebarNavProps {
@@ -7,11 +8,14 @@ interface SidebarNavProps {
 }
 
 export function SidebarNav({ onQuickAdd }: SidebarNavProps) {
+  const { user, logout, localMode } = useAuth();
+  const accountLabel = user?.user_metadata?.name || user?.user_metadata?.full_name || user?.email || 'Signed in';
+
   return (
     <nav className="sidebar-nav">
       <div className="sidebar-header">
         <div className="sidebar-logo">RKA OS</div>
-        <button className="sidebar-fab" onClick={onQuickAdd}>
+        <button className="sidebar-fab" onClick={onQuickAdd} type="button">
           <Plus size={20} />
           <span>New</span>
         </button>
@@ -38,6 +42,19 @@ export function SidebarNav({ onQuickAdd }: SidebarNavProps) {
           <Activity size={18} />
           <span>Health</span>
         </NavLink>
+      </div>
+
+      <div className="sidebar-footer">
+        <div className="sidebar-account">
+          <User size={16} />
+          <span>{localMode ? 'Local mode' : accountLabel}</span>
+        </div>
+        {!localMode && (
+          <button className="sidebar-logout" onClick={logout} type="button">
+            <LogOut size={16} />
+            <span>Sign out</span>
+          </button>
+        )}
       </div>
     </nav>
   );
