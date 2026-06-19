@@ -13,7 +13,7 @@ export function BottomTabNav({ onQuickAdd }: BottomTabNavProps) {
         <span style={{ fontSize: '10px', marginTop: '4px' }}>Inbox</span>
       </NavLink>
 
-      <NavLink to="/" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+      <NavLink to="/home" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
         <Home size={22} strokeWidth={1.5} />
         <span style={{ fontSize: '10px', marginTop: '4px' }}>Today</span>
       </NavLink>

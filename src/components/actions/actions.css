@@ -1,67 +1,85 @@
 .action-list {
-  display: flex;
-  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--rka-radius-card);
+  background: var(--rka-surface);
+  box-shadow: var(--rka-shadow-soft);
 }
 
 .action-item {
   display: flex;
   align-items: flex-start;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--border-color);
   gap: 12px;
-  background: transparent;
-  transition: opacity 0.2s;
+  min-height: 64px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--rka-separator);
+  background: var(--rka-surface);
+  transition: background 140ms ease-out, opacity 140ms ease-out, transform 140ms ease-out;
 }
 
 .action-item:last-child {
-  border-bottom: none;
+  border-bottom: 0;
+}
+
+.action-item:hover {
+  background: var(--rka-surface-hover);
+}
+
+.action-item.animating {
+  transform: scale(0.985);
 }
 
 .action-checkbox {
-  width: 20px;
-  height: 20px;
-  border-radius: 4px;
-  border: 1.5px solid var(--text-muted);
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(60,60,67,0.32);
   background: transparent;
+  color: white;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   flex-shrink: 0;
   margin-top: 2px;
-  transition: all 0.15s ease-out;
+  transition: background 140ms ease-out, border-color 140ms ease-out, transform 140ms ease-out;
 }
 
-.action-checkbox svg {
-  color: var(--bg-primary);
+.action-checkbox:active {
+  transform: scale(0.92);
 }
 
 .action-item.completed .action-checkbox {
-  background: var(--accent-color);
-  border-color: var(--accent-color);
+  background: var(--rka-blue);
+  border-color: var(--rka-blue);
 }
 
 .action-content {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
+  gap: 6px;
 }
 
 .action-title {
-  font-size: 15px;
+  color: var(--rka-text);
+  font-size: 17px;
   font-weight: 500;
-  color: var(--text-primary);
-  line-height: 1.4;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
 }
 
 .action-item.completed .action-title {
-  color: var(--text-muted);
+  color: var(--rka-text-tertiary);
   text-decoration: line-through;
 }
 
 .empty-state {
   text-align: center;
-  padding: 32px 16px;
-  color: var(--text-muted);
+  padding: 28px 16px;
+  color: var(--rka-text-secondary);
   font-size: 14px;
+  border-radius: var(--rka-radius-card);
+  background: var(--rka-surface);
+  box-shadow: var(--rka-shadow-soft);
 }

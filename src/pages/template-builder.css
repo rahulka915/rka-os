@@ -4,8 +4,8 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: #15171E; /* Forced Dark Mode */
-  color: #F8FAFC;
+  background: linear-gradient(180deg, #06080c 0%, #050608 44%, #040506 100%);
+  color: var(--text-primary);
   z-index: 100;
   display: flex;
   flex-direction: column;
@@ -16,29 +16,21 @@
   justify-content: space-between;
   align-items: center;
   padding: env(safe-area-inset-top, 16px) 16px 16px;
-  background: rgba(21, 23, 30, 0.95);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  background: rgba(12, 16, 22, 0.88);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
   z-index: 10;
 }
 
-.template-title-input {
-  background: transparent;
-  border: none;
-  color: #FFF;
-  font-size: 18px;
-  font-weight: 600;
-  outline: none;
-  width: 100%;
-}
+.template-title-input { background: transparent; border: none; color: var(--text-primary); font-size: 18px; font-weight: 600; outline: none; width: 100%; }
 
 .save-btn {
   background: var(--accent-color);
   color: white;
   border: none;
-  padding: 8px 16px;
-  border-radius: 8px;
+  padding: 10px 16px;
+  border-radius: 18px;
   font-weight: 600;
   font-size: 14px;
   cursor: pointer;
@@ -55,10 +47,12 @@
 }
 
 .builder-block {
-  background: transparent;
-  padding: 0;
+  background: rgba(255,255,255,0.025);
+  padding: 16px;
   margin-bottom: 32px;
   position: relative;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 20px;
 }
 
 .builder-block-header {
@@ -104,20 +98,21 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #1D2029;
+  background: rgba(255,255,255,0.86);
   padding: 16px;
-  border-radius: 16px;
+  border-radius: 18px;
   font-size: 15px;
   font-weight: 500;
   position: relative;
+  color: #111318;
 }
 
 .add-exercise-btn {
   width: 100%;
   padding: 12px;
-  background: transparent;
-  border: 1px dashed var(--border-color);
-  color: var(--text-muted);
+  background: rgba(255,255,255,0.86);
+  border: 1px dashed rgba(17,19,24,0.12);
+  color: rgba(17,19,24,0.58);
   font-size: 14px;
   font-weight: 500;
   border-radius: 8px;
@@ -136,9 +131,9 @@
 .add-block-btn {
   width: 100%;
   padding: 16px;
-  background: transparent;
-  border: 1px solid rgba(255,255,255,0.1);
-  color: #E2E8F0;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: var(--text-primary);
   font-size: 15px;
   font-weight: 600;
   border-radius: 16px;
@@ -153,7 +148,7 @@
 .exercise-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.8);
+  background: rgba(2,4,8,0.68);
   z-index: 200;
   display: flex;
   flex-direction: column;
@@ -161,7 +156,7 @@
 }
 
 .exercise-modal-content {
-  background: #15171E;
+  background: linear-gradient(180deg, rgba(20, 26, 35, 0.98), rgba(13, 17, 24, 0.98));
   height: 90vh;
   border-radius: 24px 24px 0 0;
   display: flex;
@@ -173,7 +168,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 24px 20px 16px;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 
 .exercise-modal-header h3 {
@@ -192,7 +187,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background: #1D2029;
+  background: rgba(255,255,255,0.06);
   margin: 16px;
   padding: 12px 16px;
   border-radius: 12px;
@@ -202,7 +197,7 @@
   flex: 1;
   background: transparent;
   border: none;
-  color: #FFF;
+  color: var(--text-primary);
   font-size: 15px;
   outline: none;
 }
@@ -218,12 +213,12 @@
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
   cursor: pointer;
 }
 
 .exercise-result-item:hover {
-  background: var(--bg-secondary);
-  border-radius: 8px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 14px;
   border-bottom-color: transparent;
 }

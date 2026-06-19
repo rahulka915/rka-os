@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../../db/db';
 import type { FieldSchema } from '../../../schema/entitySchema';
 import { Pill } from '../../ui/Pill';
+import { Check } from 'lucide-react';
 
 interface EntityLinkerFieldProps {
   field: FieldSchema;
@@ -31,7 +32,7 @@ export function EntityLinkerField({ field, value = [], onChange }: EntityLinkerF
   return (
     <div style={{ position: 'relative' }}>
       <div 
-        style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', minHeight: '36px', alignItems: 'center', cursor: 'pointer' }}
+        style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', minHeight: '44px', alignItems: 'center', cursor: 'pointer' }}
         onClick={() => setIsOpen(!isOpen)}
       >
         {selectedEntities.length > 0 ? (
@@ -44,17 +45,20 @@ export function EntityLinkerField({ field, value = [], onChange }: EntityLinkerF
       </div>
 
       {isOpen && availableEntities && (
-        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '8px', marginTop: '4px', zIndex: 10, display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '200px', overflowY: 'auto' }}>
+        <div className="dropdown-menu">
           {availableEntities.map(e => {
             const isSelected = value.includes(e.id);
             return (
-              <div 
+              <button 
                 key={e.id}
+                type="button"
+                className="dropdown-item"
                 onClick={() => handleSelect(e.id)}
-                style={{ padding: '6px 12px', fontSize: '14px', borderRadius: '4px', cursor: 'pointer', background: isSelected ? 'var(--accent-color)' : 'transparent', color: isSelected ? '#fff' : 'var(--text-primary)' }}
+                style={{ background: isSelected ? 'var(--rka-blue-soft)' : 'transparent' }}
               >
-                {e.title}
-              </div>
+                <span style={{ flex: 1 }}>{e.title}</span>
+                {isSelected && <Check size={16} />}
+              </button>
             );
           })}
           {availableEntities.length === 0 && <div className="text-muted p-2" style={{ fontSize: '12px' }}>No {targetType}s found</div>}

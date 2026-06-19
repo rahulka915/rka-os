@@ -2,13 +2,13 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px;
-  border-radius: 12px;
+  padding: 3px 8px;
+  border-radius: 999px;
   font-size: 12px;
   font-weight: 500;
   line-height: 1;
   white-space: nowrap;
-  transition: all 0.2s ease;
+  transition: transform 160ms ease-out, background-color 160ms ease-out, border-color 160ms ease-out, color 160ms ease-out;
   border: 1px solid transparent;
 }
 
@@ -17,23 +17,23 @@
 }
 
 .ui-pill.clickable:active {
-  transform: scale(0.95);
+  transform: scale(0.97);
 }
 
 .variant-solid {
-  background: rgba(255, 255, 255, 0.1);
-  color: #FFFFFF;
+  background: var(--rka-blue-soft);
+  color: var(--rka-blue);
 }
 
 .variant-outline {
-  background: transparent;
-  border-color: rgba(255, 255, 255, 0.2);
-  color: var(--text-muted);
+  background: var(--rka-fill);
+  border-color: transparent;
+  color: var(--rka-text-secondary);
 }
 
 .variant-ghost {
   background: transparent;
-  color: var(--text-muted);
+  color: var(--rka-text-secondary);
 }
 
 .pill-icon {

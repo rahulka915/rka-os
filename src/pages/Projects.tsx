@@ -1,8 +1,8 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
-import { FolderOpen, FolderPlus } from 'lucide-react';
-import { Pill } from '../components/ui/Pill';
+import { ChevronRight, FolderOpen, FolderPlus } from 'lucide-react';
 import { useInspector } from '../components/shell/InspectorContext';
+import { EmptyState, ListRow, MetadataPill, PageHeader } from '../components/ui/primitives';
 import './projects.css';
 
 export function Projects() {
@@ -14,46 +14,51 @@ export function Projects() {
   const items = useLiveQuery(() => db.items.toArray());
 
   return (
-    <div className="projects-container">
-      <h1 className="mt-8 mb-4" style={{ fontSize: '1.6rem', fontWeight: 600 }}>Projects</h1>
+    <div className="rka-page projects-container">
+      <PageHeader
+        title="Projects"
+        subtitle="Keep related tasks, habits, and health routines moving together."
+      />
       
       {projects && projects.length > 0 ? (
-        <div className="projects-grid">
+        <section className="rka-section">
+          <div className="rka-list">
           {projects.map(p => {
             const projectLinkTargets = links?.filter(l => l.sourceId === p.id).map(l => l.targetId) || [];
             const projectItems = items?.filter(i => projectLinkTargets.includes(i.id)) || [];
             const activeCount = projectItems.filter(i => i.status !== 'completed').length;
             const completedCount = projectItems.filter(i => i.status === 'completed').length;
+            const progress = projectItems.length > 0 ? Math.round((completedCount / projectItems.length) * 100) : 0;
 
             return (
-              <div 
+              <ListRow
                 key={p.id} 
-                className="project-card"
-                style={{ cursor: 'pointer' }}
+                title={p.title}
+                subtitle={`${projectItems.length} task${projectItems.length === 1 ? '' : 's'} · ${progress}% complete`}
+                leading={
+                  <span className="project-icon-wrapper" style={{ background: `${p.metadata?.color || '#8E8E93'}20`, color: p.metadata?.color || '#8E8E93' }}>
+                    <FolderOpen size={18} />
+                  </span>
+                }
+                metadata={
+                  <>
+                    <MetadataPill label={`${activeCount} active`} tone="blue" />
+                    {completedCount > 0 && <MetadataPill label={`${completedCount} done`} tone="green" />}
+                  </>
+                }
+                trailing={<ChevronRight size={18} />}
                 onClick={() => inspectEntity(p.id, 'project')}
-              >
-                <div className="project-card-header">
-                  <div className="project-icon-wrapper" style={{ background: `${p.metadata?.color || '#555'}20`, color: p.metadata?.color || '#555' }}>
-                    <FolderOpen size={20} />
-                  </div>
-                  <h3 className="project-title">{p.title}</h3>
-                </div>
-                
-                <div className="project-stats mt-3" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  <Pill label={`${projectItems.length} Tasks`} variant="outline" />
-                  <Pill label={`${activeCount} Active`} variant="solid" color={p.metadata?.color || '#555'} />
-                  {completedCount > 0 && <Pill label={`${completedCount} Done`} variant="outline" />}
-                </div>
-              </div>
+              />
             );
           })}
-        </div>
+          </div>
+        </section>
       ) : (
-        <div className="empty-projects">
-          <FolderPlus size={32} style={{ margin: '0 auto 16px', opacity: 0.5 }} />
-          <div style={{ fontSize: '15px', marginBottom: '8px', color: '#FFF' }}>No projects yet.</div>
-          <div style={{ fontSize: '14px' }}>Create a project to organise related tasks and habits.</div>
-        </div>
+        <EmptyState
+          icon={<FolderPlus size={30} />}
+          title="No projects yet"
+          description="Create a project to organize related tasks and habits."
+        />
       )}
     </div>
   );

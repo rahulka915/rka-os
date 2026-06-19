@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, X } from 'lucide-react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { ENTITY_SCHEMAS } from '../../schema/entitySchema';
 import type { FieldSchema } from '../../schema/entitySchema';
+import { BottomSheet } from '../ui/primitives';
 import { TextField } from './fields/TextField';
 import { SingleSelectField } from './fields/SingleSelectField';
 import { NumberSelectorField } from './fields/NumberSelectorField';
@@ -75,45 +76,31 @@ export function EntityCreator({ entityType, onClose, onSave, initialData = {} }:
   });
 
   return (
-    <div className="creator-overlay" onClick={onClose}>
-      <div className="creator-sheet" onClick={e => e.stopPropagation()}>
-        
-        <div className="creator-header">
-          <div className="creator-header-title">
-            <span>New {schema.label}</span>
+    <BottomSheet
+      open
+      title={`New ${schema.label}`}
+      onDismiss={onClose}
+      secondaryAction={{ label: 'Cancel', onClick: onClose }}
+      primaryAction={{ label: isSaving ? 'Saving...' : 'Create', onClick: handleSave, disabled: !isValid || isSaving }}
+    >
+      <div className="creator-body">
+        {coreFields.map(renderField)}
+
+        {advancedFields.length > 0 && (
+          <div className="mt-2">
+            <button className="advanced-toggle" type="button" onClick={() => setShowAdvanced(!showAdvanced)}>
+              {showAdvanced ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+              Advanced Options
+            </button>
+            
+            {showAdvanced && (
+              <div className="advanced-fields">
+                {advancedFields.map(renderField)}
+              </div>
+            )}
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#8E8E93', cursor: 'pointer' }}>
-            <X size={20} />
-          </button>
-        </div>
-
-        <div className="creator-body">
-          {coreFields.map(renderField)}
-
-          {advancedFields.length > 0 && (
-            <div className="mt-2">
-              <button className="advanced-toggle" onClick={() => setShowAdvanced(!showAdvanced)}>
-                {showAdvanced ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                Advanced Options
-              </button>
-              
-              {showAdvanced && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginTop: '16px' }}>
-                  {advancedFields.map(renderField)}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="creator-footer">
-          <button className="btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn-primary" onClick={handleSave} disabled={!isValid || isSaving}>
-            {isSaving ? 'Saving...' : 'Create'}
-          </button>
-        </div>
-
+        )}
       </div>
-    </div>
+    </BottomSheet>
   );
 }

@@ -3,9 +3,9 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import type { Item, ItemInstance } from '../../db/db';
 import { db } from '../../db/db';
 import { toggleActionInstance } from '../../db/actions';
-import { Pill } from '../ui/Pill';
-import { Clock, Sun, Sunrise, Moon } from 'lucide-react';
+import { Check, Clock, Sun, Sunrise, Moon } from 'lucide-react';
 import { useInspector } from '../shell/InspectorContext';
+import { MetadataPill } from '../ui/primitives';
 import './actions.css';
 
 interface ActionItemProps {
@@ -61,30 +61,32 @@ export function ActionItem({ item, instance }: ActionItemProps) {
 
   return (
     <div className={`action-item ${isCompleted ? 'completed' : ''} ${isAnimating ? 'animating' : ''}`}>
-      <button className="action-checkbox" onClick={handleToggle} aria-label="Toggle completion">
-        {isCompleted && (
-           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
-             <polyline points="20 6 9 17 4 12"></polyline>
-           </svg>
-        )}
+      <button className="action-checkbox" onClick={handleToggle} aria-label="Toggle completion" type="button">
+        {isCompleted && <Check size={15} strokeWidth={3} />}
       </button>
       <div 
         className="action-content" 
-        style={{ display: 'flex', flexDirection: 'column', gap: '6px', cursor: 'pointer' }}
+        style={{ display: 'flex', flexDirection: 'column', gap: '8px', cursor: 'pointer' }}
         onClick={() => inspectEntity(item.id, item.type)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            inspectEntity(item.id, item.type);
+          }
+        }}
       >
         <span className="action-title">{item.title}</span>
         
         {/* Metadata Pills Row */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-          {duration && (
-            <Pill label={duration} icon={<Clock size={12} />} variant="outline" />
-          )}
+          {duration && <MetadataPill label={duration} icon={<Clock size={12} />} />}
           {timeOfDay && timeOfDay !== 'anytime' && (
-            <Pill label={getTimeLabel(timeOfDay)} icon={getTimeIcon(timeOfDay)} variant="outline" />
+            <MetadataPill label={getTimeLabel(timeOfDay)} icon={getTimeIcon(timeOfDay)} tone="blue" />
           )}
           {tags?.map(tag => (
-            <Pill key={tag.id} label={tag.name} color={tag.color} variant="solid" />
+            <MetadataPill key={tag.id} label={tag.name} tone="gray" />
           ))}
         </div>
       </div>

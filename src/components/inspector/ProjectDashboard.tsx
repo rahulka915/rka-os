@@ -2,7 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/db';
 import { CheckCircle2, ChevronRight, Folder } from 'lucide-react';
 import { useInspector } from '../shell/InspectorContext';
-import { Pill } from '../ui/Pill';
+import { EmptyState, InspectorSection, ListRow, MetadataPill, StatCard } from '../ui/primitives';
 
 export function ProjectDashboard({ projectId }: { projectId: string }) {
   const { inspectEntity } = useInspector();
@@ -34,92 +34,75 @@ export function ProjectDashboard({ projectId }: { projectId: string }) {
   const progress = total > 0 ? Math.round((completedItems.length / total) * 100) : 0;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '32px', marginBottom: '24px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', marginBottom: '24px' }}>
       
-      {/* Overview / Parents */}
       {parents.length > 0 && (
-        <section>
-          <h4 style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Linked Area</h4>
+        <InspectorSection title="Linked Area">
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             {parents.map(p => (
-              <div 
+              <button
                 key={p.id}
+                type="button"
                 onClick={() => inspectEntity(p.id, p.type)}
-                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', background: 'var(--bg-tertiary)', borderRadius: '8px', cursor: 'pointer', fontSize: '14px' }}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: 'transparent', border: '0', cursor: 'pointer' }}
               >
-                <Folder size={14} color="var(--accent-color)" />
-                {p.title}
-              </div>
+                <MetadataPill label={p.title} icon={<Folder size={12} />} tone="gray" />
+              </button>
             ))}
           </div>
-        </section>
+        </InspectorSection>
       )}
 
-      {/* Progress */}
       {total > 0 && (
-        <section>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', marginBottom: '12px' }}>
-            <h4 style={{ fontSize: '13px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Progress</h4>
-            <span style={{ fontWeight: 600 }}>{progress}%</span>
+        <InspectorSection title="Progress">
+          <div className="rka-stat-grid" style={{ gridTemplateColumns: '1fr' }}>
+            <StatCard label="Completion" value={`${progress}%`} trend={`${activeItems.length} active items`} />
           </div>
-          <div style={{ width: '100%', height: '8px', background: 'var(--bg-tertiary)', borderRadius: '4px', overflow: 'hidden' }}>
+          <div style={{ width: '100%', height: '8px', background: 'var(--bg-tertiary)', borderRadius: '999px', overflow: 'hidden', marginTop: '12px' }}>
             <div style={{ width: `${progress}%`, height: '100%', background: 'var(--accent-color)', transition: 'width 0.3s ease' }} />
           </div>
-        </section>
+        </InspectorSection>
       )}
 
-      {/* Upcoming / Active */}
-      <section>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <h4 style={{ fontSize: '13px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', margin: 0 }}>Active Items</h4>
-          <Pill label={`${activeItems.length}`} variant="solid" color="var(--accent-color)" />
+      <InspectorSection title="Active Items">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+          <MetadataPill label={`${activeItems.length} items`} tone="blue" />
         </div>
         {activeItems.length > 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div className="rka-list">
             {activeItems.map(item => (
-              <div 
+              <ListRow
                 key={item.id} 
+                title={item.title}
+                subtitle={item.metadata?.dueDate ? `Due ${item.metadata.dueDate}` : 'No due date'}
+                leading={<span style={{ width: 18, height: 18, borderRadius: 999, border: '2px solid var(--border-color)', flexShrink: 0, marginTop: 2 }} />}
+                trailing={<ChevronRight size={16} color="var(--text-muted)" />}
                 onClick={() => inspectEntity(item.id, item.type)}
-                style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '15px', cursor: 'pointer', padding: '12px', borderRadius: '12px', background: 'var(--bg-tertiary)' }}
-              >
-                <div style={{ width: '18px', height: '18px', borderRadius: '50%', border: '2px solid var(--border-color)', flexShrink: 0 }} />
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0 }}>
-                  <span style={{ color: '#FFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.title}</span>
-                  {item.metadata?.dueDate && <span style={{ fontSize: '12px', color: 'var(--warning)' }}>Due {item.metadata.dueDate}</span>}
-                </div>
-                <ChevronRight size={16} color="var(--text-muted)" style={{ flexShrink: 0 }} />
-              </div>
+              />
             ))}
           </div>
         ) : (
-          <div style={{ padding: '16px', background: 'var(--bg-tertiary)', borderRadius: '12px', color: 'var(--text-muted)', fontSize: '14px', textAlign: 'center' }}>
-            No active items.
-          </div>
+          <EmptyState title="No active items" description="This project is caught up for now." />
         )}
-      </section>
+      </InspectorSection>
 
-      {/* Recently Completed */}
       {completedItems.length > 0 && (
-        <section>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <h4 style={{ fontSize: '13px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', margin: 0 }}>Recently Completed</h4>
-            <Pill label={`${completedItems.length}`} variant="outline" />
+        <InspectorSection title="Recently Completed">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+            <MetadataPill label={`${completedItems.length} done`} tone="gray" />
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', opacity: 0.7 }}>
+          <div className="rka-list">
             {completedItems.slice(0, 5).map(item => (
-              <div 
+              <ListRow
                 key={item.id} 
+                title={item.title}
+                subtitle="Completed recently"
+                leading={<CheckCircle2 size={16} color="var(--accent-color)" />}
                 onClick={() => inspectEntity(item.id, item.type)}
-                style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '14px', cursor: 'pointer', padding: '10px 12px', borderRadius: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}
-              >
-                <CheckCircle2 size={16} color="var(--accent-color)" style={{ flexShrink: 0 }} />
-                <span style={{ color: 'var(--text-muted)', textDecoration: 'line-through', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {item.title}
-                </span>
-              </div>
+              />
             ))}
           </div>
-        </section>
+        </InspectorSection>
       )}
 
     </div>

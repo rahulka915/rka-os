@@ -28,10 +28,15 @@ export function SectionChip({
   };
 
   return (
-    <button className={`section-chip ${className}`} onClick={handleToggle}>
+    <button
+      className={`section-chip ${className}`}
+      onClick={handleToggle}
+      type="button"
+      aria-expanded={expanded}
+    >
       <div className="section-chip-left">
         {icon && <span className="section-chip-icon">{icon}</span>}
-        <span className="section-chip-label">{label.toUpperCase()}</span>
+        <span className="section-chip-label">{label}</span>
         <span className="section-chip-count">({count})</span>
       </div>
       <div className="section-chip-right">

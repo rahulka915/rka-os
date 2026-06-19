@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { CheckSquare, Repeat, Pill, Dumbbell } from 'lucide-react';
 import { EntityCreator } from '../creator/EntityCreator';
 import { createEntity } from '../../db/actions';
+import { BottomSheet, ListRow, MetadataPill } from '../ui/primitives';
 
 interface QuickAddSheetProps {
   onClose: () => void;
@@ -40,30 +41,37 @@ export function QuickAddSheet({ onClose }: QuickAddSheetProps) {
   }
 
   return (
-    <div className="creator-overlay" onClick={onClose}>
-      <div className="creator-sheet" onClick={e => e.stopPropagation()} style={{ padding: '24px 20px', paddingBottom: 'calc(24px + env(safe-area-inset-bottom))' }}>
-        <div className="action-sheet-header">
-           <span className="font-semibold" style={{ fontSize: '16px' }}>Create New</span>
-        </div>
-        <div className="action-sheet-menu">
-            <button className="action-sheet-option" onClick={() => setSelectedType('task')}>
-              <div className="action-icon-wrapper" style={{ backgroundColor: '#2563EB' }}><CheckSquare size={20} color="white" /></div>
-              <div className="action-text"><span className="title">Task</span><span className="subtitle">Single action with optional date</span></div>
-            </button>
-            <button className="action-sheet-option" onClick={() => setSelectedType('habit')}>
-              <div className="action-icon-wrapper" style={{ backgroundColor: '#10B981' }}><Repeat size={20} color="white" /></div>
-              <div className="action-text"><span className="title">Habit</span><span className="subtitle">Recurring action</span></div>
-            </button>
-            <button className="action-sheet-option" onClick={() => setSelectedType('medication')}>
-              <div className="action-icon-wrapper" style={{ backgroundColor: '#EF4444' }}><Pill size={20} color="white" /></div>
-              <div className="action-text"><span className="title">Medication</span><span className="subtitle">Track dosage and stock</span></div>
-            </button>
-            <button className="action-sheet-option" onClick={() => setSelectedType('workout')}>
-              <div className="action-icon-wrapper" style={{ backgroundColor: '#8B5CF6' }}><Dumbbell size={20} color="white" /></div>
-              <div className="action-text"><span className="title">Workout</span><span className="subtitle">Create a workout template</span></div>
-            </button>
-        </div>
+    <BottomSheet open title="Create New" onDismiss={onClose}>
+      <div className="quick-add-menu rka-list">
+        <ListRow
+          title="Task"
+          subtitle="Single action with optional date"
+          leading={<span className="action-icon-wrapper is-blue"><CheckSquare size={20} /></span>}
+          trailing={<MetadataPill label="Quick" tone="blue" />}
+          onClick={() => setSelectedType('task')}
+        />
+        <ListRow
+          title="Habit"
+          subtitle="Recurring action"
+          leading={<span className="action-icon-wrapper is-green"><Repeat size={20} /></span>}
+          trailing={<MetadataPill label="Repeat" tone="green" />}
+          onClick={() => setSelectedType('habit')}
+        />
+        <ListRow
+          title="Medication"
+          subtitle="Track dosage and stock"
+          leading={<span className="action-icon-wrapper is-red"><Pill size={20} /></span>}
+          trailing={<MetadataPill label="Health" tone="red" />}
+          onClick={() => setSelectedType('medication')}
+        />
+        <ListRow
+          title="Workout"
+          subtitle="Create a workout template"
+          leading={<span className="action-icon-wrapper is-orange"><Dumbbell size={20} /></span>}
+          trailing={<MetadataPill label="Train" tone="orange" />}
+          onClick={() => setSelectedType('workout-template')}
+        />
       </div>
-    </div>
+    </BottomSheet>
   );
 }

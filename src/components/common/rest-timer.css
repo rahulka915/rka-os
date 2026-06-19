@@ -1,84 +1,80 @@
 .rest-timer-container {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 16px;
-  padding: 16px;
   display: flex;
   flex-direction: column;
-  align-items: center;
   gap: 16px;
   width: 100%;
+  padding: 18px;
+  border-radius: var(--rka-radius-card);
+  background: var(--rka-surface);
+  box-shadow: var(--rka-shadow-soft);
 }
 
 .rest-timer-header {
   display: flex;
-  justify-content: space-between;
-  width: 100%;
   align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.rest-timer-label {
+  color: var(--rka-text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
 }
 
 .rest-timer-display {
-  font-size: 48px;
-  font-weight: 700;
+  color: var(--rka-text);
+  font-size: clamp(40px, 9vw, 56px);
   font-variant-numeric: tabular-nums;
+  font-weight: 700;
   line-height: 1;
+  letter-spacing: -0.03em;
+  text-align: center;
+}
+
+.rest-timer-display.is-finished {
+  color: var(--rka-blue);
 }
 
 .rest-timer-controls {
   display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.rest-btn {
-  background: var(--bg-tertiary);
-  color: #FFF;
-  border: none;
-  border-radius: 20px;
-  padding: 8px 16px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: opacity 0.2s;
-}
-
-.rest-btn:active {
-  opacity: 0.7;
-}
-
-.rest-btn.icon-btn {
-  padding: 10px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
   justify-content: center;
 }
 
-.rest-btn.primary {
-  background: var(--accent-color);
-  color: #FFF;
-  transform: scale(1.1);
+.rest-timer-controls .rka-button {
+  flex: 1 1 0;
 }
 
 .rest-timer-presets {
   display: flex;
-  gap: 8px;
-  width: 100%;
-  justify-content: center;
   flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
 }
 
 .rest-timer-presets button {
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
-  color: var(--text-muted);
-  border-radius: 8px;
-  padding: 6px 12px;
-  font-size: 13px;
+  min-height: 34px;
+  border: 0;
+  border-radius: 999px;
+  padding: 0 12px;
+  background: var(--rka-fill);
+  color: var(--rka-text-secondary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
   cursor: pointer;
+  transition: background 140ms ease, color 140ms ease, transform 140ms ease;
+}
+
+.rest-timer-presets button:active {
+  transform: scale(0.98);
 }
 
 .rest-timer-presets button:hover {
-  background: var(--bg-secondary);
-  color: #FFF;
+  background: var(--rka-surface-hover);
+  color: var(--rka-text);
 }

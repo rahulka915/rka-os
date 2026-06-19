@@ -4,6 +4,7 @@ import type { ItemType } from '../../db/db';
 import { createEntity } from '../../db/actions';
 import { useInspector } from '../shell/InspectorContext';
 import { ActionList } from '../actions/ActionList';
+import { Button, EmptyState, InspectorSection } from '../ui/primitives';
 import { X, CheckCircle2, Dumbbell, Pill, ArrowRightSquare } from 'lucide-react';
 import '../inspector/inspector.css';
 
@@ -78,39 +79,37 @@ export function DayDrawer({ date, onClose }: DayDrawerProps) {
         </div>
 
         <div className="inspector-body" style={{ padding: '24px' }}>
-          
-          <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', overflowX: 'auto', paddingBottom: '4px' }}>
-            <button onClick={() => handleQuickAdd('task')} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-primary)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-              <CheckCircle2 size={16} color="var(--accent-color)" /> Add Task
-            </button>
-            <button onClick={() => handleQuickAdd('workout-template')} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-primary)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-              <Dumbbell size={16} color="#10B981" /> Add Workout
-            </button>
-            <button onClick={() => handleQuickAdd('medication')} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-primary)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-              <Pill size={16} color="#EF4444" /> Add Meds
-            </button>
-            <button onClick={() => handleQuickAdd('habit')} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-primary)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-              <ArrowRightSquare size={16} color="#F59E0B" /> Add Habit
-            </button>
+
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '24px' }}>
+            <Button variant="secondary" icon={<CheckCircle2 size={16} />} onClick={() => handleQuickAdd('task')}>
+              Add Task
+            </Button>
+            <Button variant="secondary" icon={<Dumbbell size={16} />} onClick={() => handleQuickAdd('workout-template')}>
+              Add Workout
+            </Button>
+            <Button variant="secondary" icon={<Pill size={16} />} onClick={() => handleQuickAdd('medication')}>
+              Add Meds
+            </Button>
+            <Button variant="secondary" icon={<ArrowRightSquare size={16} />} onClick={() => handleQuickAdd('habit')}>
+              Add Habit
+            </Button>
           </div>
 
-          <section style={{ marginBottom: '32px' }}>
-            <h3 style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '16px', fontWeight: 600 }}>SCHEDULED</h3>
+          <InspectorSection title="Scheduled">
             {scheduledItems.length > 0 ? (
               <ActionList items={scheduledItems.map(item => {
                 const instance = instances.find(i => i.itemId === item.id);
                 return { item, instance };
               })} />
             ) : (
-              <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', fontStyle: 'italic' }}>Nothing scheduled for this day.</div>
+              <EmptyState title="Nothing scheduled" description="Add something to this day and it will appear here." />
             )}
-          </section>
+          </InspectorSection>
 
           {dueItems.length > 0 && (
-            <section>
-              <h3 style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '16px', fontWeight: 600 }}>DUE ON THIS DATE</h3>
+            <InspectorSection title="Due on this date">
               <ActionList items={dueItems.map(item => ({ item }))} />
-            </section>
+            </InspectorSection>
           )}
 
         </div>

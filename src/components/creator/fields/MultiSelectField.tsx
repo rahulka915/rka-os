@@ -104,15 +104,15 @@ export function MultiSelectField({ field, value, onChange }: MultiSelectFieldPro
         {isDropdownOpen && (inputValue || filteredTags.length > 0) && (
           <div className="dropdown-menu">
             {filteredTags.map(t => (
-              <div key={t.id} className="dropdown-item" onClick={() => handleSelect(t.name)}>
-                {t.name}
-              </div>
+              <button key={t.id} type="button" className="dropdown-item" onClick={() => handleSelect(t.name)}>
+                <span style={{ flex: 1 }}>{t.name}</span>
+              </button>
             ))}
             
             {inputValue.trim() && !exactMatch && field.allowInlineCreate && (
-              <div className="dropdown-item" style={{ color: 'var(--accent-color)', display: 'flex', alignItems: 'center' }} onClick={handleInlineCreate}>
+              <button type="button" className="dropdown-item" style={{ color: 'var(--accent-color)' }} onClick={handleInlineCreate}>
                 + Create "{inputValue.trim()}"
-              </div>
+              </button>
             )}
           </div>
         )}

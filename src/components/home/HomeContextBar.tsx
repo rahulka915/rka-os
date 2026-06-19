@@ -1,7 +1,8 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/db';
 import type { MedicationMetadata } from '../../db/db';
-import { Pill } from '../ui/Pill';
+import { CheckCircle2, Clock3, AlertTriangle } from 'lucide-react';
+import { MetadataPill } from '../ui/primitives';
 
 export function HomeContextBar() {
   const logs = useLiveQuery(() => db.activityLogs.reverse().toArray());
@@ -61,10 +62,24 @@ export function HomeContextBar() {
   }
 
   return (
-    <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', overflowX: 'auto', paddingBottom: '4px', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-      <Pill label={`💪 ${lastWorkoutText}`} variant="outline" color={workoutColor} />
-      <Pill label={`💊 ${medText}`} variant="outline" color={medColor} />
-      {refillAlertText && <Pill label={`⚠️ ${refillAlertText}`} variant="outline" color="#EF4444" />}
+    <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', overflowX: 'auto', paddingBottom: '4px', scrollbarWidth: 'none', msOverflowStyle: 'none', flexWrap: 'wrap' }}>
+      <MetadataPill
+        label={lastWorkoutText}
+        icon={<CheckCircle2 size={12} />}
+        tone={workoutColor === '#10B981' ? 'green' : 'gray'}
+      />
+      <MetadataPill
+        label={medText}
+        icon={<Clock3 size={12} />}
+        tone={medColor === '#3B82F6' ? 'blue' : 'gray'}
+      />
+      {refillAlertText && (
+        <MetadataPill
+          label={refillAlertText}
+          icon={<AlertTriangle size={12} />}
+          tone="red"
+        />
+      )}
     </div>
   );
 }

@@ -1,16 +1,17 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/db';
-import { Pill } from '../ui/Pill';
 import { useNavigate } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 import { useInspector } from '../shell/InspectorContext';
 import { EntityActivity } from './EntityActivity';
 import { EntityRelationships } from './EntityRelationships';
+import { Button, InspectorSection, ListRow, MetadataPill, StatCard, Tabs } from '../ui/primitives';
+import { Dumbbell, ChevronRight } from 'lucide-react';
 
 export function WorkoutDashboard({ workoutId }: { workoutId: string }) {
   const navigate = useNavigate();
-  const { closeInspector } = useInspector();
+  const { closeInspector, inspectEntity } = useInspector();
   const [activeTab, setActiveTab] = useState<'overview' | 'exercises' | 'history' | 'settings'>('overview');
 
   const template = useLiveQuery(() => db.items.get(workoutId), [workoutId]);
@@ -46,54 +47,41 @@ export function WorkoutDashboard({ workoutId }: { workoutId: string }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: '24px', borderBottom: '1px solid var(--border-color)', marginBottom: '24px', overflowX: 'auto', paddingBottom: '8px' }}>
-        {(['overview', 'exercises', 'history', 'settings'] as const).map(tab => (
-          <button 
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            style={{ 
-              background: 'transparent', border: 'none', color: activeTab === tab ? 'var(--text-primary)' : 'var(--text-muted)',
-              fontSize: '14px', fontWeight: 600, cursor: 'pointer', textTransform: 'capitalize', padding: 0,
-              borderBottom: activeTab === tab ? '2px solid var(--accent-color)' : 'none'
-            }}
-          >
-            {tab}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        value={activeTab}
+        options={[
+          { value: 'overview', label: 'Overview' },
+          { value: 'exercises', label: 'Exercises' },
+          { value: 'history', label: 'History' },
+          { value: 'settings', label: 'Settings' },
+        ]}
+        onChange={setActiveTab}
+      />
 
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {activeTab === 'overview' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              <div style={{ background: 'var(--bg-secondary)', padding: '16px', borderRadius: '12px' }}>
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px', display: 'block' }}>Duration</span>
-                <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>{template.metadata?.duration || '1h'}</div>
-              </div>
-              <div style={{ background: 'var(--bg-secondary)', padding: '16px', borderRadius: '12px' }}>
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px', display: 'block' }}>Exercises</span>
-                <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>{totalExercises}</div>
-              </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div className="rka-stat-grid">
+              <StatCard label="Duration" value={template.metadata?.duration || '1h'} trend="planned session length" />
+              <StatCard label="Exercises" value={totalExercises} trend="in template" />
             </div>
 
             {targetMuscles.length > 0 && (
-              <div>
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '12px', display: 'block' }}>Target Muscles</span>
+              <InspectorSection title="Target Muscles">
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                   {targetMuscles.map(m => (
-                    <Pill key={m} label={m} variant="solid" color="#10B981" />
+                    <MetadataPill key={m} label={m} tone="green" />
                   ))}
                 </div>
-              </div>
+              </InspectorSection>
             )}
 
-            <div>
-              <span style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '12px', display: 'block' }}>Parents</span>
+            <InspectorSection title="Parents">
               <EntityRelationships entityId={workoutId} />
-            </div>
+            </InspectorSection>
 
-            <button 
+            <Button
+              variant="primary"
               onClick={async () => {
                 const sessionId = uuidv4();
                 await db.workoutSessions.add({
@@ -128,43 +116,39 @@ export function WorkoutDashboard({ workoutId }: { workoutId: string }) {
                 closeInspector();
                 navigate(`/active-workout/${sessionId}`);
               }}
-              style={{ marginTop: '16px', padding: '16px', background: 'var(--accent-color)', color: '#fff', border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: 600, cursor: 'pointer', width: '100%' }}
             >
               Start Workout Session
-            </button>
+            </Button>
           </div>
         )}
 
         {activeTab === 'exercises' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             {blocksData.map((b) => (
-              <div key={b.block.id}>
-                <span style={{ fontSize: '13px', color: 'var(--accent-color)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '12px', display: 'block' }}>
-                  {b.block.title}
-                </span>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <InspectorSection key={b.block.id} title={b.block.title}>
+                <div className="rka-list">
                   {b.exercises.map(ex => (
-                    <div key={ex!.id} style={{ padding: '16px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <div style={{ fontSize: '15px', fontWeight: 500, color: 'var(--text-primary)' }}>{ex!.title}</div>
-                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                        {ex!.metadata?.muscles?.map((m: string) => (
-                          <span key={m} style={{ padding: '4px 8px', background: 'var(--bg-tertiary)', borderRadius: '6px', fontSize: '12px', fontWeight: 500, color: 'var(--text-muted)' }}>{m}</span>
-                        ))}
-                      </div>
-                    </div>
+                    <ListRow
+                      key={ex!.id}
+                      title={ex!.title}
+                      subtitle={ex!.metadata?.muscles?.length ? ex!.metadata.muscles.join(' · ') : 'No muscles set'}
+                      leading={<Dumbbell size={18} />}
+                      trailing={<ChevronRight size={16} color="var(--text-muted)" />}
+                      onClick={() => inspectEntity(ex!.id, ex!.type)}
+                    />
                   ))}
                 </div>
-              </div>
+              </InspectorSection>
             ))}
-            <button 
+            <Button
+              variant="secondary"
               onClick={() => {
                 closeInspector();
                 navigate(`/template-builder/${workoutId}`);
               }}
-              style={{ padding: '14px', background: 'transparent', color: 'var(--accent-color)', border: '1px dashed var(--accent-color)', borderRadius: '12px', fontSize: '15px', fontWeight: 600, cursor: 'pointer', width: '100%' }}
             >
               Edit Template
-            </button>
+            </Button>
           </div>
         )}
 
@@ -176,12 +160,8 @@ export function WorkoutDashboard({ workoutId }: { workoutId: string }) {
 
         {activeTab === 'settings' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <button style={{ padding: '16px', background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '12px', fontSize: '15px', fontWeight: 600, cursor: 'pointer', textAlign: 'left' }}>
-              Duplicate Template
-            </button>
-            <button style={{ padding: '16px', background: 'rgba(239, 68, 68, 0.1)', color: '#EF4444', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '12px', fontSize: '15px', fontWeight: 600, cursor: 'pointer', textAlign: 'left' }}>
-              Archive Template
-            </button>
+            <Button variant="secondary">Duplicate Template</Button>
+            <Button variant="danger">Archive Template</Button>
           </div>
         )}
       </div>

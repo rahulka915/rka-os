@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Play, Pause, RotateCcw, X } from 'lucide-react';
+import { Button, IconButton } from '../ui/primitives';
 import './rest-timer.css';
 
 interface RestTimerProps {
@@ -53,24 +54,28 @@ export function RestTimer({ initialSeconds = 60, onClose, autoStart = true }: Re
   return (
     <div className="rest-timer-container">
       <div className="rest-timer-header">
-        <span style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Rest Timer</span>
-        {onClose && (
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
-            <X size={16} />
-          </button>
-        )}
+        <div className="rest-timer-label">Rest timer</div>
+        {onClose && <IconButton label="Close rest timer" icon={<X size={18} />} onClick={onClose} />}
       </div>
 
-      <div className="rest-timer-display" style={{ color: timeLeft === 0 ? 'var(--accent-color)' : '#FFF' }}>
+      <div className={`rest-timer-display ${timeLeft === 0 ? 'is-finished' : ''}`}>
         {formatTime(timeLeft)}
       </div>
 
       <div className="rest-timer-controls">
-        <button className="rest-btn icon-btn" onClick={resetTimer}><RotateCcw size={18} /></button>
-        <button className="rest-btn icon-btn primary" onClick={toggleTimer}>
-          {isRunning ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
-        </button>
-        <button className="rest-btn" onClick={() => addTime(30)}>+30s</button>
+        <Button variant="secondary" icon={<RotateCcw size={18} />} onClick={resetTimer}>
+          Reset
+        </Button>
+        <Button
+          variant="primary"
+          icon={isRunning ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" />}
+          onClick={toggleTimer}
+        >
+          {isRunning ? 'Pause' : 'Start'}
+        </Button>
+        <Button variant="ghost" onClick={() => addTime(30)}>
+          +30s
+        </Button>
       </div>
 
       <div className="rest-timer-presets">

@@ -11,9 +11,9 @@ interface PillProps {
 
 export function Pill({ label, icon, color, variant = 'solid', onClick, className = '' }: PillProps) {
   const baseStyle = color ? {
-    backgroundColor: variant === 'solid' ? `${color}20` : 'transparent',
+    backgroundColor: variant === 'solid' ? `${color}18` : 'transparent',
     color: variant === 'solid' ? color : 'var(--text-muted)',
-    borderColor: variant === 'outline' ? `${color}40` : 'transparent',
+    borderColor: variant === 'outline' ? `${color}30` : 'transparent',
   } : {};
 
   return (

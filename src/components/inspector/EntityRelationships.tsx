@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/db';
-import { Pill } from '../ui/Pill';
 import { useInspector } from '../shell/InspectorContext';
+import { MetadataPill } from '../ui/primitives';
 
 interface EntityRelationshipsProps {
   entityId: string;
@@ -33,19 +33,19 @@ export function EntityRelationships({ entityId }: EntityRelationshipsProps) {
   }
 
   const renderRelationship = (label: string, item: any) => {
-    let color = 'var(--accent-color)';
-    if (item.type === 'project') color = item.metadata?.color || '#8B5CF6';
-    if (item.type === 'area') color = item.metadata?.color || '#3B82F6';
-    if (item.type === 'workout-template') color = '#10B981';
-    if (item.type === 'exercise') color = '#F59E0B';
+    let tone: 'gray' | 'blue' | 'green' | 'red' | 'orange' = 'gray';
+    if (item.type === 'project') tone = 'blue';
+    if (item.type === 'area') tone = 'blue';
+    if (item.type === 'workout-template') tone = 'green';
+    if (item.type === 'exercise') tone = 'orange';
 
     return (
       <div 
         key={item.id} 
-        style={{ cursor: 'pointer', display: 'inline-block' }}
+        style={{ cursor: 'pointer', display: 'inline-flex' }}
         onClick={() => inspectEntity(item.id, item.type)}
       >
-        <Pill label={`${label}: ${item.title}`} variant="solid" color={color} />
+        <MetadataPill label={`${label}: ${item.title}`} tone={tone} />
       </div>
     );
   };

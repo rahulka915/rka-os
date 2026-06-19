@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
 import type { ItemType } from '../db/db';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { CalendarDays, Check, ChevronLeft, ChevronRight, Dumbbell, Pill as PillIcon, Pin, Repeat2 } from 'lucide-react';
 import { useInspector } from '../components/shell/InspectorContext';
+import { EmptyState, IconButton, PageHeader, SegmentedControl } from '../components/ui/primitives';
 import './calendar.css';
 
 const DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -40,11 +41,11 @@ export function Calendar() {
 
   const getItemStyles = (type: ItemType) => {
     switch (type) {
-      case 'task': return { icon: '✓', color: '#3B82F6', bg: 'rgba(59, 130, 246, 0.15)' };
-      case 'workout-template': return { icon: '💪', color: '#10B981', bg: 'rgba(16, 185, 129, 0.15)' };
-      case 'medication': return { icon: '💊', color: '#EF4444', bg: 'rgba(239, 68, 68, 0.15)' };
-      case 'habit': return { icon: '🔁', color: '#F59E0B', bg: 'rgba(245, 158, 11, 0.15)' };
-      default: return { icon: '📌', color: '#888', bg: 'rgba(136, 136, 136, 0.15)' };
+      case 'task': return { icon: <Check size={12} />, color: 'var(--rka-blue)', bg: 'var(--rka-blue-soft)' };
+      case 'workout-template': return { icon: <Dumbbell size={12} />, color: 'var(--rka-green)', bg: 'var(--rka-green-soft)' };
+      case 'medication': return { icon: <PillIcon size={12} />, color: 'var(--rka-red)', bg: 'var(--rka-red-soft)' };
+      case 'habit': return { icon: <Repeat2 size={12} />, color: 'var(--rka-orange)', bg: 'var(--rka-orange-soft)' };
+      default: return { icon: <Pin size={12} />, color: 'var(--rka-text-secondary)', bg: 'var(--rka-fill)' };
     }
   };
 
@@ -174,9 +175,11 @@ export function Calendar() {
 
     if (agendaDays.length === 0) {
       return (
-        <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
-          No items scheduled for this month.
-        </div>
+        <EmptyState
+          icon={<CalendarDays size={28} />}
+          title="No scheduled items"
+          description="This month is clear. Scheduled tasks and routines will show up here."
+        />
       );
     }
 
@@ -184,27 +187,28 @@ export function Calendar() {
   };
 
   return (
-    <div className="calendar-container">
-      <div className="calendar-header" style={{ position: 'relative' }}>
+    <div className="rka-page calendar-container">
+      <div className="calendar-header">
         <div className="calendar-header-top">
-          <h1 style={{ fontSize: '1.6rem', fontWeight: 600, margin: 0 }}>
-            {currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
-          </h1>
+          <PageHeader
+            title={currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
+            subtitle="Scheduled tasks, habits, medications, and routines."
+          />
           <div className="calendar-nav">
-            <button className="calendar-nav-btn" onClick={prevPeriod}>
-              <ChevronLeft size={20} />
-            </button>
-            <button className="calendar-nav-btn" onClick={nextPeriod}>
-              <ChevronRight size={20} />
-            </button>
+            <IconButton label="Previous period" icon={<ChevronLeft size={20} />} onClick={prevPeriod} />
+            <IconButton label="Next period" icon={<ChevronRight size={20} />} onClick={nextPeriod} />
           </div>
         </div>
         
-        <div className="view-toggles">
-          <button className={`view-toggle-btn ${view === 'month' ? 'active' : ''}`} onClick={() => setView('month')}>Month</button>
-          <button className={`view-toggle-btn ${view === 'week' ? 'active' : ''}`} onClick={() => setView('week')}>Week</button>
-          <button className={`view-toggle-btn ${view === 'agenda' ? 'active' : ''}`} onClick={() => setView('agenda')}>Agenda</button>
-        </div>
+        <SegmentedControl
+          value={view}
+          options={[
+            { value: 'month', label: 'Month' },
+            { value: 'week', label: 'Week' },
+            { value: 'agenda', label: 'Agenda' },
+          ]}
+          onChange={setView}
+        />
       </div>
 
       {view !== 'agenda' && (

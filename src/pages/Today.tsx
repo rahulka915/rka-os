@@ -2,9 +2,12 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
 import { ActionList } from '../components/actions/ActionList';
 import { formatDate } from '../db/actions';
+import { CalendarCheck } from 'lucide-react';
+import { EmptyState, PageHeader } from '../components/ui/primitives';
 
 export function Today() {
   const todayDate = formatDate(new Date());
+  const readableDate = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
   const instances = useLiveQuery(
     () => db.itemInstances.where('scheduledDate').equals(todayDate).toArray(),
@@ -18,13 +21,21 @@ export function Today() {
   }, [instances]);
 
   return (
-    <div className="p-4 pb-20">
-      <h1 className="mt-4 mb-6">Today</h1>
-      
+    <div className="rka-page">
+      <PageHeader
+        kicker={readableDate}
+        title="Today"
+        subtitle="The few things that matter right now."
+      />
+
       {itemsWithInstances && itemsWithInstances.length > 0 ? (
         <ActionList items={itemsWithInstances} emptyMessage="" />
       ) : (
-        <p className="text-muted empty-state">No actions scheduled for today.</p>
+        <EmptyState
+          icon={<CalendarCheck size={28} />}
+          title="Nothing scheduled"
+          description="Today is clear. Add a task or plan from Calendar when something needs attention."
+        />
       )}
     </div>
   );
