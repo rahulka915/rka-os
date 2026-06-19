@@ -46,7 +46,15 @@ Supabase:
 npm run supabase:version
 npm run supabase:login
 npm run supabase:link
+npm run supabase:projects
 npm run supabase:db:push
+```
+
+GitHub:
+
+```bash
+npm run github:auth
+npm run github:repo
 ```
 
 ## Current linkage
