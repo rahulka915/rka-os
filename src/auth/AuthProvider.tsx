@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { hasSupabaseConfig, supabase } from '../lib/supabase';
-import { getAuthSession, signInWithEmail, signOut, updateUserProfile } from '../data/auth';
+import { getAuthSession, signOut, updateUserProfile } from '../data/auth';
 import { setCurrentAuthState } from '../data/runtime';
 import { setSupabaseSyncUser } from '../data/sync';
 
@@ -12,7 +12,6 @@ interface AuthContextValue {
   needsOnboarding: boolean;
   loading: boolean;
   localMode: boolean;
-  signIn: (email: string) => Promise<void>;
   logout: () => Promise<void>;
   completeProfile: (name: string) => Promise<void>;
 }
@@ -80,9 +79,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     needsOnboarding: Boolean(session && !displayName),
     loading,
     localMode: !hasSupabaseConfig,
-    signIn: async (email: string) => {
-      await signInWithEmail(email, '/home');
-    },
     logout: async () => {
       await signOut();
     },

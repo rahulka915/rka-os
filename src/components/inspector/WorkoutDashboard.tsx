@@ -56,6 +56,8 @@ export function WorkoutDashboard({ workoutId }: { workoutId: string }) {
           { value: 'settings', label: 'Settings' },
         ]}
         onChange={setActiveTab}
+        ariaLabelPrefix="Workout dashboard tab"
+        testIdPrefix="workout-dashboard-tab"
       />
 
       <div style={{ flex: 1, overflowY: 'auto' }}>

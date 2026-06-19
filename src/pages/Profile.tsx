@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, Mail, MessageCircle, MoreHorizontal, Phone, UserRound, LogOut } from 'lucide-react';
 import { useAuth } from '../auth/AuthProvider';
+import { IconButton } from '../components/ui/primitives';
 import './profile-settings.css';
 
 function formatJoinedDate(createdAt?: string | null) {
@@ -32,9 +33,7 @@ export function ProfilePage() {
 
   return (
     <main className="profile-page">
-      <button className="profile-menu-button" type="button" onClick={() => navigate('/settings')} aria-label="Open settings">
-        <MoreHorizontal size={28} />
-      </button>
+      <IconButton label="Open settings" icon={<MoreHorizontal size={28} />} onClick={() => navigate('/settings')} className="profile-menu-button" />
 
       <section className="profile-hero">
         <div className="profile-avatar" aria-hidden="true">
@@ -58,7 +57,7 @@ export function ProfilePage() {
         <div className="profile-row">
           <span className="profile-row-icon"><Mail size={28} strokeWidth={2.2} /></span>
           <div className="profile-row-content">
-          <div className="profile-row-title profile-row-title--email">{user?.email || 'No email yet'}</div>
+            <div className="profile-row-title profile-row-title--email">{user?.email || 'No email yet'}</div>
             <div className="profile-row-subtitle">Sign-in email</div>
           </div>
         </div>

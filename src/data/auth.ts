@@ -8,19 +8,6 @@ export async function getAuthSession(): Promise<Session | null> {
   return data.session ?? null;
 }
 
-export async function signInWithEmail(email: string, redirectPath = '/home') {
-  if (!supabase) return { disabled: true as const };
-  const redirectTo = `${window.location.origin}${redirectPath}`;
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    options: {
-      emailRedirectTo: redirectTo,
-    },
-  });
-  if (error) throw error;
-  return { disabled: false as const };
-}
-
 export async function signInWithPassword(email: string, password: string) {
   if (!supabase) return { disabled: true as const };
   const { data, error } = await supabase.auth.signInWithPassword({
@@ -32,17 +19,21 @@ export async function signInWithPassword(email: string, password: string) {
 }
 
 export async function signUpWithPassword(email: string, password: string) {
-  if (!supabase) return { disabled: true as const };
-  const redirectTo = `${window.location.origin}/welcome`;
+  if (!supabase) return { disabled: true as const, session: null, accountExists: false };
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: {
-      emailRedirectTo: redirectTo,
-    },
   });
   if (error) throw error;
-  return data.session ?? null;
+
+  // Supabase may hide an existing account behind an empty identities array to
+  // prevent email enumeration. Treat that separately from a new unconfirmed user.
+  const accountExists = Boolean(data.user && data.user.identities?.length === 0);
+  return {
+    disabled: false as const,
+    session: data.session ?? null,
+    accountExists,
+  };
 }
 
 export async function signOut() {

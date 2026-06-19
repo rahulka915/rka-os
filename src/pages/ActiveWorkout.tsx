@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Check, ArrowLeft, Plus } from 'lucide-react';
 import { RestTimer } from '../components/common/RestTimer';
 import { getMuscleImage } from '../utils/workout';
+import { Button, IconButton } from '../components/ui/primitives';
 import './active-workout.css';
 
 export function ActiveWorkout() {
@@ -157,15 +158,15 @@ export function ActiveWorkout() {
       {/* Header */}
       <div className="active-workout-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <button onClick={() => navigate(-1)} className="back-btn">
-            <ArrowLeft size={20} />
-          </button>
+          <IconButton label="Go back" icon={<ArrowLeft size={20} />} onClick={() => navigate(-1)} className="back-btn" />
           <div>
             <h2 className="workout-title">{template?.title || 'Workout'}</h2>
             <div className="workout-duration">{formatDuration(duration)}</div>
           </div>
         </div>
-        <button onClick={handleFinish} className="finish-btn">Finish</button>
+        <Button onClick={handleFinish} className="finish-btn" variant="primary">
+          Finish
+        </Button>
       </div>
 
       {/* Body */}
@@ -265,7 +266,7 @@ export function ActiveWorkout() {
                         />
                       </div>
 
-                      <button 
+                      <button
                         className={`set-check-btn ${set.completed ? 'active' : ''}`}
                         onClick={() => handleToggleSet(set.id, set.completed)}
                       >
@@ -274,13 +275,14 @@ export function ActiveWorkout() {
                     </div>
                   ))}
 
-                  <button 
-                    className="add-set-btn"
-                    style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#E2E8F0', marginTop: '8px' }}
+                  <Button
                     onClick={() => handleAddSet(block.exerciseSession.id, block.sets.length)}
+                    variant="secondary"
+                    icon={<Plus size={16} />}
+                    className="add-set-btn"
                   >
-                    <Plus size={16} /> Add Set
-                  </button>
+                    Add Set
+                  </Button>
                 </div>
               </div>
             );
@@ -291,17 +293,17 @@ export function ActiveWorkout() {
       {/* Finish Summary Modal */}
       {showSummary && (
         <div className="finish-modal-overlay">
-          <div className="finish-modal-content">
-            <h2 style={{ fontSize: '24px', fontWeight: 700, marginBottom: '8px', textAlign: 'center' }}>{template?.title} Completed</h2>
-            <div style={{ fontSize: '15px', color: 'var(--accent-color)', fontWeight: 600, textAlign: 'center', marginBottom: '24px' }}>
-              {formatDuration(duration)}
-            </div>
+        <div className="finish-modal-content">
+          <h2 style={{ fontSize: '24px', fontWeight: 700, marginBottom: '8px', textAlign: 'center' }}>{template?.title} Completed</h2>
+          <div style={{ fontSize: '15px', color: 'var(--accent-color)', fontWeight: 600, textAlign: 'center', marginBottom: '24px' }}>
+            {formatDuration(duration)}
+          </div>
 
-            <div style={{ display: 'flex', gap: '16px', marginBottom: '24px' }}>
-              <div className="finish-stat-box">
-                <div className="finish-stat-label">Exercises</div>
-                <div className="finish-stat-value">{blocks.length}</div>
-              </div>
+          <div style={{ display: 'flex', gap: '16px', marginBottom: '24px' }}>
+            <div className="finish-stat-box">
+              <div className="finish-stat-label">Exercises</div>
+              <div className="finish-stat-value">{blocks.length}</div>
+            </div>
               <div className="finish-stat-box">
                 <div className="finish-stat-label">Volume</div>
                 <div className="finish-stat-value">
@@ -321,8 +323,12 @@ export function ActiveWorkout() {
             </div>
 
             <div style={{ display: 'flex', gap: '12px' }}>
-              <button onClick={() => setShowSummary(false)} style={{ flex: 1, padding: '16px', background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-primary)', borderRadius: '12px', fontSize: '16px', fontWeight: 600 }}>Cancel</button>
-              <button onClick={handleSaveSummary} style={{ flex: 1, padding: '16px', background: 'var(--accent-color)', border: 'none', color: '#FFF', borderRadius: '12px', fontSize: '16px', fontWeight: 600 }}>Save Session</button>
+              <Button onClick={() => setShowSummary(false)} variant="secondary" className="summary-action-btn">
+                Cancel
+              </Button>
+              <Button onClick={handleSaveSummary} variant="primary" className="summary-action-btn">
+                Save Session
+              </Button>
             </div>
           </div>
         </div>

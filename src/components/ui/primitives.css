@@ -52,7 +52,10 @@
 }
 
 .rka-button,
-.rka-icon-button {
+.rka-icon-button,
+.rka-list-row,
+.rka-pill,
+.rka-section-chip {
   border: 0;
   font: inherit;
   cursor: pointer;
@@ -127,7 +130,7 @@
   min-height: 64px;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: start;
+  align-items: center;
   gap: 12px;
   padding: 12px 14px;
   border: 0;
@@ -136,6 +139,7 @@
   color: var(--rka-text);
   text-align: left;
   cursor: pointer;
+  appearance: none;
 }
 
 .rka-list-row:last-child {
@@ -159,6 +163,7 @@
 }
 
 .rka-list-trailing {
+  justify-self: end;
   margin-top: 2px;
 }
 
@@ -168,7 +173,7 @@
   width: 100%;
   flex-direction: column;
   align-items: flex-start;
-  gap: 4px;
+  gap: 2px;
 }
 
 .rka-list-title {
@@ -200,28 +205,121 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 8px;
+  margin-top: 6px;
 }
 
 .rka-pill {
   min-height: 24px;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
+  border: 1px solid var(--rka-pill-border, transparent);
   border-radius: 999px;
   padding: 3px 9px;
-  background: var(--rka-fill);
-  color: var(--rka-text-secondary);
+  background: var(--rka-pill-bg, var(--rka-fill));
+  color: var(--rka-pill-color, var(--rka-text-secondary));
   font-size: 12px;
   font-weight: 600;
   line-height: 1.1;
+  white-space: nowrap;
+  appearance: none;
 }
 
-.rka-pill-blue { background: var(--rka-blue-soft); color: var(--rka-blue); }
-.rka-pill-green { background: var(--rka-green-soft); color: var(--rka-green); }
-.rka-pill-red { background: var(--rka-red-soft); color: var(--rka-red); }
-.rka-pill-orange { background: var(--rka-orange-soft); color: var(--rka-orange); }
-.rka-pill-gray { background: var(--rka-fill); color: var(--rka-text-secondary); }
+.rka-pill-blue { --rka-pill-bg: var(--rka-blue-soft); --rka-pill-color: var(--rka-blue); }
+.rka-pill-green { --rka-pill-bg: var(--rka-green-soft); --rka-pill-color: var(--rka-green); }
+.rka-pill-red { --rka-pill-bg: var(--rka-red-soft); --rka-pill-color: var(--rka-red); }
+.rka-pill-orange { --rka-pill-bg: var(--rka-orange-soft); --rka-pill-color: var(--rka-orange); }
+.rka-pill-gray { --rka-pill-bg: var(--rka-fill); --rka-pill-color: var(--rka-text-secondary); }
+
+.rka-pill-variant-solid {
+  --rka-pill-bg: var(--rka-blue-soft);
+  --rka-pill-color: var(--rka-blue);
+}
+
+.rka-pill-variant-outline {
+  --rka-pill-bg: transparent;
+  --rka-pill-border: var(--rka-separator);
+  --rka-pill-color: var(--rka-text-secondary);
+}
+
+.rka-pill-variant-ghost {
+  --rka-pill-bg: transparent;
+  --rka-pill-color: var(--rka-text-secondary);
+}
+
+.rka-pill-clickable {
+  cursor: pointer;
+}
+
+.rka-pill-clickable:active {
+  transform: scale(0.97);
+}
+
+.rka-pill-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.rka-section-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 4px;
+  background: transparent;
+  border: none;
+  border-radius: var(--rka-radius-control);
+  color: var(--rka-text-secondary);
+  cursor: pointer;
+  margin-bottom: 8px;
+  transition: background 160ms ease-out, transform 160ms ease-out, color 160ms ease-out;
+  appearance: none;
+}
+
+.rka-section-chip:hover {
+  background: rgba(0, 0, 0, 0.035);
+  color: var(--rka-text);
+}
+
+.rka-section-chip:active {
+  transform: scale(0.98);
+}
+
+.rka-section-chip-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rka-section-chip-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--rka-text-secondary);
+}
+
+.rka-section-chip-label {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--rka-text);
+}
+
+.rka-section-chip-count {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--rka-text-secondary);
+}
+
+.rka-section-chip-right {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--rka-text-secondary);
+}
 
 .rka-empty-state {
   display: flex;
@@ -405,6 +503,14 @@
   background: var(--rka-bg);
   box-shadow: -16px 0 48px rgba(0,0,0,0.16);
   animation: rkaSlideInRight 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.rka-drawer-handle {
+  width: 54px;
+  height: 5px;
+  margin: 10px auto 6px;
+  border-radius: 999px;
+  background: var(--rka-separator);
 }
 
 .rka-inspector-section {

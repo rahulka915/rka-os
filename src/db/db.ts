@@ -162,7 +162,7 @@ export interface ExerciseMedia {
   metadata?: any;
 }
 
-const db = new Dexie('PersonalOS_v4') as Dexie & {
+const db = new Dexie('PersonalOS_v5') as Dexie & {
   items: Dexie.Table<Item, string>;
   itemInstances: Dexie.Table<ItemInstance, string>;
   tags: Dexie.Table<Tag, string>;
@@ -179,18 +179,6 @@ db.version(1).stores({
   items: 'id, type, status, scheduledDate, dueDate',
   itemInstances: 'id, itemId, scheduledDate, status',
   tags: 'id, name',
-  itemTags: '++, itemId, tagId',
-  entityLinks: 'id, sourceId, targetId, linkType, [sourceId+linkType], [targetId+linkType]',
-  activityLogs: 'id, entityId, actionType, timestamp',
-  workoutSessions: 'id, templateId, date',
-  exerciseSessions: 'id, workoutSessionId, exerciseId',
-  setEntries: 'id, exerciseSessionId'
-});
-
-db.version(2).stores({
-  items: 'id, type, status, scheduledDate, dueDate',
-  itemInstances: 'id, itemId, scheduledDate, status',
-  tags: 'id, name',
   itemTags: 'id, itemId, tagId',
   entityLinks: 'id, sourceId, targetId, linkType, [sourceId+linkType], [targetId+linkType]',
   activityLogs: 'id, entityId, actionType, timestamp',
@@ -198,16 +186,6 @@ db.version(2).stores({
   exerciseSessions: 'id, workoutSessionId, exerciseId',
   setEntries: 'id, exerciseSessionId',
   exerciseMedia: 'id, exerciseId, mediaType, createdAt'
-}).upgrade(async tx => {
-  const table = tx.table('itemTags');
-  const rows = await table.toArray();
-  if (rows.length > 0) {
-    await table.clear();
-    await table.bulkAdd(rows.map((row: any) => ({
-      ...row,
-      id: row.id ?? crypto.randomUUID(),
-    })));
-  }
 });
 
 installSupabaseSyncBridge(db);

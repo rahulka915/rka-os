@@ -5,7 +5,6 @@ import { updateEntity } from '../../db/actions';
 import { ENTITY_SCHEMAS } from '../../schema/entitySchema';
 import type { FieldSchema } from '../../schema/entitySchema';
 import { X, CheckCircle2 } from 'lucide-react';
-import { Pill } from '../ui/Pill';
 import { TextField } from '../creator/fields/TextField';
 import { SingleSelectField } from '../creator/fields/SingleSelectField';
 import { NumberSelectorField } from '../creator/fields/NumberSelectorField';
@@ -17,6 +16,7 @@ import { EntityActivity } from './EntityActivity';
 import { ProjectDashboard } from './ProjectDashboard';
 import { WorkoutDashboard } from './WorkoutDashboard';
 import { ExerciseDetail } from '../workouts/ExerciseDetail';
+import { MetadataPill } from '../ui/primitives';
 import './inspector.css';
 
 interface EntityInspectorProps {
@@ -46,11 +46,11 @@ export function EntityInspector({ entityId, entityType, onClose }: EntityInspect
     if (entity && tags !== undefined) {
       const e = entity as any;
       const initial: Record<string, any> = {
-        title: entityType === 'project' ? e.name : e.title,
+        title: e.title,
         scheduledDate: e.scheduledDate || '',
         tags: tags.map(t => t.name),
         ...(e.metadata || {}),
-        ...(entityType === 'project' ? { color: e.color } : {})
+        ...(entityType === 'project' ? { color: e.metadata?.color } : {})
       };
       setFormData(initial);
     }
@@ -78,6 +78,17 @@ export function EntityInspector({ entityId, entityType, onClose }: EntityInspect
   };
 
   if (!schema || !entity) return null;
+
+  const titleValue = formData.title ?? entity.title ?? '';
+  const titlePlaceholder = titleValue.trim().length === 0 ? 'Untitled' : '';
+
+  const statusTone = entity.status === 'completed'
+    ? 'green'
+    : entity.status === 'active'
+      ? 'blue'
+      : entity.status === 'inbox'
+        ? 'gray'
+        : 'orange';
 
   const renderField = (field: FieldSchema) => {
     if (field.id === 'title') return null; // Rendered specially at the top
@@ -113,7 +124,7 @@ export function EntityInspector({ entityId, entityType, onClose }: EntityInspect
         
         <div className="inspector-header">
           <div className="inspector-status" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Pill label={entity.status} variant="outline" />
+            <MetadataPill label={entity.status} tone={statusTone} />
             {saveStatus === 'saving' && <span style={{color: '#8E8E93'}}>Saving...</span>}
             {saveStatus === 'saved' && <span style={{color: '#10B981', display: 'flex', alignItems: 'center', gap: '4px'}}><CheckCircle2 size={14}/> Saved</span>}
             {saveStatus === 'error' && <span style={{color: '#FF453A'}}>Failed to save</span>}
@@ -127,9 +138,9 @@ export function EntityInspector({ entityId, entityType, onClose }: EntityInspect
           <input 
             type="text" 
             className="inspector-title-input" 
-            value={formData.title || ''} 
+            value={titleValue}
             onChange={e => handleFieldChange('title', e.target.value)} 
-            placeholder="Untitled"
+            placeholder={titlePlaceholder}
           />
 
           <div className="inspector-properties" style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>

@@ -164,9 +164,11 @@
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.04), 0 0 0 4px rgba(0, 122, 255, 0.08);
 }
 
-.auth-button {
+.auth-button.rka-button,
+.auth-welcome-button.rka-button {
+  width: 100%;
   min-height: 76px;
-  border: 0;
+  justify-content: center;
   border-radius: 28px;
   background: #111;
   color: #fff;
@@ -175,17 +177,16 @@
   letter-spacing: -0.01em;
 }
 
-.auth-button:disabled {
+.auth-button.rka-button:disabled,
+.auth-welcome-button.rka-button:disabled {
+  opacity: 1;
   background: rgba(243, 243, 246, 1);
   color: rgba(60, 60, 67, 0.46);
 }
 
-.auth-screen--sent {
+.auth-screen--password {
   background: #fff;
   color: #111;
-  padding: 22px 26px calc(28px + env(safe-area-inset-bottom));
-  display: flex;
-  flex-direction: column;
 }
 
 .auth-screen--white {
@@ -196,20 +197,13 @@
   flex-direction: column;
 }
 
-.auth-back-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  width: fit-content;
+.auth-back-icon.rka-icon-button {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
   color: #1c1c1e;
-  font-size: 18px;
-  font-weight: 500;
-  text-decoration: none;
-  margin-top: 4px;
-}
-
-.auth-back-link:hover {
-  text-decoration: none;
 }
 
 .auth-plain-topbar {
@@ -259,6 +253,13 @@
 
 .auth-password-field {
   display: block;
+}
+
+.auth-password-hint {
+  margin: -8px 8px 0;
+  color: var(--rka-text-secondary);
+  font-size: 14px;
+  line-height: 1.4;
 }
 
 .auth-password-input-wrap {
@@ -320,34 +321,23 @@
   padding: 0 8px;
 }
 
-.auth-mode-switch {
-  border: 0;
-  background: none;
+.auth-mode-switch.rka-button {
+  width: 100%;
+  min-height: auto;
+  justify-content: center;
+  padding: 0 8px;
+  background: transparent;
+  box-shadow: none;
   color: rgba(60, 60, 67, 0.66);
   font-size: 15px;
   font-weight: 600;
   line-height: 1.35;
-  padding: 0 8px;
   text-align: center;
 }
 
-.auth-link-button {
-  border: 0;
-  background: none;
-  color: #3244d6;
-  font-size: 15px;
-  font-weight: 700;
-  line-height: 1.35;
-  padding: 2px 8px 0;
-  text-align: center;
-}
-
-.auth-link-button:disabled {
+.auth-mode-switch.rka-button:disabled {
+  opacity: 1;
   color: rgba(60, 60, 67, 0.36);
-}
-
-.auth-link-button--dark {
-  color: #3244d6;
 }
 
 .sr-only {
@@ -360,69 +350,6 @@
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
-}
-
-.auth-sent-body {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  justify-content: flex-start;
-  padding-top: 96px;
-}
-
-.auth-sent-title {
-  margin: 0;
-  color: #111;
-  font-size: clamp(40px, 11vw, 54px);
-  line-height: 0.95;
-  font-weight: 800;
-  letter-spacing: -0.055em;
-}
-
-.auth-sent-copy {
-  margin-top: 80px;
-  color: #111;
-  font-size: 22px;
-  line-height: 1.2;
-  font-weight: 700;
-  max-width: 18ch;
-}
-
-.auth-email-chip {
-  display: inline-flex;
-  align-items: center;
-  min-height: 48px;
-  padding: 0 18px;
-  margin-top: 22px;
-  border-radius: 12px;
-  background: #f3f4f7;
-  color: #111;
-  font-size: 20px;
-  line-height: 1;
-  font-weight: 500;
-}
-
-.auth-sent-resend {
-  margin-top: 110px;
-  color: rgba(60, 60, 67, 0.72);
-  font-size: 20px;
-  line-height: 1.25;
-  font-weight: 600;
-}
-
-.auth-sent-resend button {
-  border: 0;
-  background: none;
-  color: #3244d6;
-  font: inherit;
-  font-weight: 700;
-  padding: 0;
-}
-
-.auth-sent-link {
-  margin-top: 24px;
 }
 
 .auth-welcome-screen {
@@ -486,30 +413,16 @@
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.04), 0 0 0 4px rgba(0, 0, 0, 0.06);
 }
 
-.auth-welcome-button {
-  min-height: 76px;
-  border: 0;
-  border-radius: 24px;
-  background: #000;
-  color: #fff;
-  font-size: 20px;
-  font-weight: 700;
-}
-
-.auth-welcome-button:disabled {
-  opacity: 0.55;
-}
-
 @media (min-width: 680px) {
   .auth-screen--email,
-  .auth-screen--sent,
+  .auth-screen--password,
   .auth-welcome-screen {
     max-width: 430px;
     margin: 0 auto;
   }
 
   .auth-screen--email,
-  .auth-screen--sent,
+  .auth-screen--password,
   .auth-welcome-screen {
     box-shadow: 0 0 0 100vmax #000;
     clip-path: inset(0 -100vmax);

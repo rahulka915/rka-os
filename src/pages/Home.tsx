@@ -1,8 +1,9 @@
+import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
 import { formatDate } from '../db/actions';
 import type { MedicationMetadata } from '../db/db';
-import { CheckCircle2, Pill, Dumbbell, Calendar as CalendarIcon, Sunrise, Sun, Moon, Clock, Database } from 'lucide-react';
+import { CheckCircle2, Pill, Dumbbell, Calendar as CalendarIcon, Sunrise, Sun, Moon, Clock, Database, Loader2 } from 'lucide-react';
 import { CollapsibleTimeBlock } from '../components/ui/CollapsibleTimeBlock';
 import { HomeContextBar } from '../components/home/HomeContextBar';
 import { useInspector } from '../components/shell/InspectorContext';
@@ -12,6 +13,8 @@ import './home.css';
 export function Home() {
   const { inspectEntity } = useInspector();
   const todayDate = formatDate(new Date());
+  const [seedStatus, setSeedStatus] = useState<'idle' | 'seeding' | 'done' | 'error'>('idle');
+  const [seedMessage, setSeedMessage] = useState<string | null>(null);
 
   const currentHour = new Date().getHours();
   const isMorning = currentHour >= 5 && currentHour < 12;
@@ -53,15 +56,35 @@ export function Home() {
         />
         <Button
           variant="secondary"
-          icon={<Database size={16} />}
+          icon={seedStatus === 'seeding' ? <Loader2 size={16} className="rka-spin" /> : <Database size={16} />}
+          disabled={seedStatus === 'seeding'}
           onClick={async () => {
-            const { seedMockData } = await import('../db/seed');
-            await seedMockData();
+            setSeedStatus('seeding');
+            setSeedMessage('Preparing seed...');
+            try {
+              const { seedMockData } = await import('../db/seed');
+              const result = await seedMockData(message => setSeedMessage(message));
+              setSeedStatus('done');
+              setSeedMessage(
+                result.remoteVerified
+                  ? `Seeded ${result.localCounts.items} items and confirmed Supabase sync.`
+                  : `Seeded locally, but Supabase counts did not match yet. Auth user: ${result.userId.slice(0, 8)}. Sync user: ${result.syncUserId?.slice(0, 8) ?? 'none'}. Suppression: ${result.remoteWriteSuppressionDepth}. Item writes: ${result.remoteWriteStats.items ?? 0}. Instance writes: ${result.remoteWriteStats.itemInstances ?? 0}. Log writes: ${result.remoteWriteStats.activityLogs ?? 0}. Items ${result.remoteCounts?.items ?? 0}/${result.localCounts.items}, instances ${result.remoteCounts?.itemInstances ?? 0}/${result.localCounts.itemInstances}, logs ${result.remoteCounts?.activityLogs ?? 0}/${result.localCounts.activityLogs}.`
+              );
+            } catch (error) {
+              setSeedStatus('error');
+              setSeedMessage(error instanceof Error ? error.message : 'Seed failed.');
+            }
           }}
         >
-          Seed
+          {seedStatus === 'seeding' ? 'Seeding...' : 'Seed'}
         </Button>
       </div>
+
+      {seedMessage && (
+        <p className={`home-seed-status is-${seedStatus}`}>
+          {seedMessage}
+        </p>
+      )}
 
       <div className="rka-stat-grid">
         <StatCard label="Today" value={todayActions.length} trend="scheduled actions" />

@@ -5,6 +5,7 @@ import { db } from '../db/db';
 import { ArrowLeft, Plus, Search, X, GripVertical, Save } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { getMuscleImage } from '../utils/workout';
+import { Button, IconButton } from '../components/ui/primitives';
 import './template-builder.css';
 
 interface BuilderExercise {
@@ -190,9 +191,7 @@ export function TemplateBuilder() {
       {/* Header */}
       <div className="builder-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <button onClick={() => navigate(-1)} className="back-btn">
-            <ArrowLeft size={20} />
-          </button>
+          <IconButton label="Go back" icon={<ArrowLeft size={20} />} onClick={() => navigate(-1)} className="back-btn" />
           <input 
             type="text" 
             value={title} 
@@ -201,9 +200,9 @@ export function TemplateBuilder() {
             placeholder="Template Name"
           />
         </div>
-        <button onClick={handleSave} className="save-btn" disabled={isSaving}>
-          {isSaving ? 'Saving...' : <><Save size={16} /> Save</>}
-        </button>
+        <Button onClick={handleSave} disabled={isSaving} icon={<Save size={16} />} className="save-btn">
+          {isSaving ? 'Saving...' : 'Save'}
+        </Button>
       </div>
 
       {/* Body */}
@@ -211,68 +210,67 @@ export function TemplateBuilder() {
         
         {/* Muscle Overview */}
         {targetedMuscles.length > 0 && (
-          <div style={{ marginBottom: '32px', textAlign: 'center' }}>
-            <div style={{ fontSize: '15px', fontWeight: 600, color: '#F8FAFC', marginBottom: '16px' }}>{targetedMuscles.join(', ')}</div>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <div className="builder-muscle-summary">
+            <div className="builder-muscle-title">{targetedMuscles.join(', ')}</div>
+            <div className="builder-muscle-grid">
               {targetedMuscles.map(m => (
-                <div key={m} style={{ width: '64px', height: '64px', borderRadius: '16px', background: '#1D2029', overflow: 'hidden', position: 'relative' }}>
-                  <img src={getMuscleImage([m])} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.8 }} />
-                  <div style={{ position: 'absolute', bottom: '4px', left: 0, right: 0, textAlign: 'center', fontSize: '10px', fontWeight: 700, color: '#FFF' }}>100%</div>
+                <div key={m} className="builder-muscle-card">
+                  <img src={getMuscleImage([m])} alt="" className="builder-muscle-image" />
+                  <div className="builder-muscle-percent">100%</div>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        <div style={{ position: 'relative' }}>
+        <div className="builder-block-stack">
           {/* Vertical Timeline Line */}
-          {blocks.length > 0 && <div style={{ position: 'absolute', top: '24px', bottom: '60px', left: '23px', width: '2px', background: '#334155', zIndex: 0 }}></div>}
+          {blocks.length > 0 && <div className="builder-timeline-line"></div>}
 
           {blocks.map((block) => (
             <div key={block.id} className="builder-block">
-              <div className="builder-block-header" style={{ position: 'relative', zIndex: 1, background: '#15171E', padding: '8px 0' }}>
-                <div style={{ width: '48px', display: 'flex', justifyContent: 'center' }}>
-                  <GripVertical size={16} color="var(--text-muted)" style={{ cursor: 'grab' }} />
+              <div className="builder-block-header">
+                <div className="builder-grip">
+                  <GripVertical size={16} color="var(--rka-text-tertiary)" />
                 </div>
                 <input 
                   type="text" 
                   value={block.title} 
                   onChange={e => handleUpdateBlockTitle(block.id, e.target.value)}
                   className="block-title-input"
-                  style={{ color: '#F8FAFC' }}
                 />
-                <button onClick={() => handleRemoveBlock(block.id)} className="remove-btn"><X size={16} /></button>
+                <IconButton label={`Remove block ${block.title}`} icon={<X size={16} />} onClick={() => handleRemoveBlock(block.id)} className="remove-btn" />
               </div>
 
               <div className="builder-exercise-list">
                 {block.exercises.map(ex => (
-                  <div key={ex.id} className="builder-exercise-item" style={{ marginLeft: '48px', zIndex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <div style={{ width: '40px', height: '40px', borderRadius: '8px', background: '#15171E', overflow: 'hidden', flexShrink: 0 }}>
-                        <img src={ex.metadata?.image || getMuscleImage(ex.metadata?.muscles)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <div key={ex.id} className="builder-exercise-item">
+                    <div className="builder-exercise-main">
+                      <div className="builder-exercise-thumb">
+                        <img src={ex.metadata?.image || getMuscleImage(ex.metadata?.muscles)} alt="" className="builder-exercise-thumb-image" />
                       </div>
-                      <div>
-                        <div style={{ color: '#F8FAFC', fontWeight: 500 }}>{ex.name}</div>
-                        <div style={{ color: '#64748B', fontSize: '12px' }}>{ex.metadata?.muscles?.[0] || 'Various'}</div>
+                      <div className="builder-exercise-copy">
+                        <div className="builder-exercise-name">{ex.name}</div>
+                        <div className="builder-exercise-meta">{ex.metadata?.muscles?.[0] || 'Various'}</div>
                       </div>
                     </div>
-                    <button onClick={() => handleRemoveExercise(block.id, ex.id)} className="remove-btn"><X size={14} /></button>
+                    <IconButton label={`Remove exercise ${ex.name}`} icon={<X size={14} />} onClick={() => handleRemoveExercise(block.id, ex.id)} className="remove-btn" />
                   </div>
                 ))}
               </div>
 
-              <div style={{ marginLeft: '48px', zIndex: 1, position: 'relative' }}>
-                <button onClick={() => setShowExerciseModal(block.id)} className="add-exercise-btn">
-                  <Plus size={16} color="#0EA5E9" /> <span style={{ color: '#0EA5E9' }}>Add an exercise</span>
-                </button>
+              <div className="builder-add-exercise-row">
+                <Button onClick={() => setShowExerciseModal(block.id)} variant="secondary" icon={<Plus size={16} />} className="add-exercise-btn">
+                  Add an exercise
+                </Button>
               </div>
             </div>
           ))}
         </div>
 
-        <button onClick={handleAddBlock} className="add-block-btn">
-          <Plus size={18} /> Add Block
-        </button>
+        <Button onClick={handleAddBlock} variant="secondary" icon={<Plus size={18} />} className="add-block-btn">
+          Add Block
+        </Button>
       </div>
 
       {/* Exercise Selection Modal */}
@@ -280,9 +278,18 @@ export function TemplateBuilder() {
         <div className="exercise-modal-overlay">
           <div className="exercise-modal-content">
             <div className="exercise-modal-header" style={{ padding: '20px 20px 12px' }}>
-              <button onClick={() => { setShowExerciseModal(null); setSelectedExercisesForModal([]); }} style={{ color: '#0EA5E9', background: 'none', border: 'none', fontSize: '16px', cursor: 'pointer' }}>Cancel</button>
-              <h3 style={{ fontSize: '17px', fontWeight: 600 }}>Add Exercise</h3>
-              <div style={{ width: '50px' }}></div> {/* Spacer */}
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setShowExerciseModal(null);
+                  setSelectedExercisesForModal([]);
+                }}
+                className="exercise-modal-cancel"
+              >
+                Cancel
+              </Button>
+              <h3 className="exercise-modal-title">Add Exercise</h3>
+              <div className="exercise-modal-spacer"></div>
             </div>
             
             <div className="search-bar">
@@ -296,13 +303,13 @@ export function TemplateBuilder() {
               />
             </div>
 
-            <div style={{ display: 'flex', gap: '8px', padding: '0 16px 12px' }}>
-              <button style={{ flex: 1, padding: '8px', background: '#1D2029', border: 'none', borderRadius: '8px', color: '#F8FAFC', fontSize: '13px', fontWeight: 500 }}>All Equipment</button>
-              <button style={{ flex: 1, padding: '8px', background: '#1D2029', border: 'none', borderRadius: '8px', color: '#F8FAFC', fontSize: '13px', fontWeight: 500 }}>All Muscles</button>
+            <div className="exercise-filter-row">
+              <Button variant="secondary" className="exercise-filter-btn">All Equipment</Button>
+              <Button variant="secondary" className="exercise-filter-btn">All Muscles</Button>
             </div>
 
-            <div className="exercise-results" style={{ paddingBottom: '80px' }}>
-              <div style={{ color: '#64748B', fontSize: '13px', fontWeight: 500, margin: '16px 0 8px' }}>Library</div>
+            <div className="exercise-results">
+              <div className="exercise-results-kicker">Library</div>
               {allExercises
                 .filter(e => e.title.toLowerCase().includes(searchQuery.toLowerCase()))
                 .map(ex => {
@@ -312,29 +319,21 @@ export function TemplateBuilder() {
                       key={ex.id} 
                       className="exercise-result-item"
                       onClick={() => handleToggleExerciseModal(ex.id, ex.title)}
-                      style={{ 
-                        borderLeft: isSelected ? '4px solid #0EA5E9' : '4px solid transparent',
-                        paddingLeft: '12px'
-                      }}
+                      data-selected={isSelected ? 'true' : 'false'}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                        <div style={{ width: '48px', height: '48px', borderRadius: '24px', background: '#15171E', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          <img src={ex.metadata?.image || getMuscleImage(ex.metadata?.muscles)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <div className="exercise-result-main">
+                        <div className="exercise-result-thumb">
+                          <img src={ex.metadata?.image || getMuscleImage(ex.metadata?.muscles)} alt="" className="exercise-result-thumb-image" />
                         </div>
-                        <div>
-                          <div style={{ fontWeight: 500, fontSize: '15px' }}>{ex.title}</div>
-                          <div style={{ fontSize: '13px', color: '#64748B', marginTop: '2px' }}>
+                        <div className="exercise-result-copy">
+                          <div className="exercise-result-name">{ex.title}</div>
+                          <div className="exercise-result-meta">
                             {ex.metadata?.muscles?.[0] || 'Full Body'} • {ex.metadata?.equipment || 'Bodyweight'}
                           </div>
                         </div>
                       </div>
-                      <div style={{ 
-                        width: '24px', height: '24px', borderRadius: '12px', 
-                        border: isSelected ? 'none' : '1px solid #334155',
-                        background: isSelected ? '#0EA5E9' : 'transparent',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center'
-                      }}>
-                        {isSelected && <div style={{ width: '10px', height: '10px', borderRadius: '5px', background: '#FFF' }}></div>}
+                      <div className="exercise-result-check">
+                        {isSelected && <div className="exercise-result-check-dot"></div>}
                       </div>
                     </div>
                   );
@@ -342,13 +341,14 @@ export function TemplateBuilder() {
             </div>
 
             {selectedExercisesForModal.length > 0 && (
-              <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '16px', background: '#15171E', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                <button 
+              <div className="exercise-modal-footer">
+                <Button 
                   onClick={handleConfirmExercises}
-                  style={{ width: '100%', padding: '16px', background: '#0EA5E9', border: 'none', borderRadius: '12px', color: '#FFF', fontSize: '16px', fontWeight: 600, cursor: 'pointer' }}
+                  variant="primary"
+                  className="exercise-confirm-btn"
                 >
                   Add {selectedExercisesForModal.length} exercise{selectedExercisesForModal.length > 1 ? 's' : ''}
-                </button>
+                </Button>
               </div>
             )}
           </div>

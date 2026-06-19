@@ -6,9 +6,27 @@ import { useInspector } from '../components/shell/InspectorContext';
 import { EmptyState, ListRow, MetadataPill, PageHeader, StatCard } from '../components/ui/primitives';
 import './health.css';
 
-export function HealthSearch() {
+export function Health() {
   const { inspectEntity } = useInspector();
   const allItems = useLiveQuery(() => db.items.toArray());
+  const workoutExerciseCounts = useLiveQuery(async () => {
+    const templates = await db.items.where('type').equals('workout-template').toArray();
+    const counts = new Map<string, number>();
+
+    for (const template of templates) {
+      const blockLinks = await db.entityLinks.where({ sourceId: template.id, linkType: 'contains' }).toArray();
+      let totalExercises = 0;
+
+      for (const blockLink of blockLinks) {
+        const exerciseLinks = await db.entityLinks.where({ sourceId: blockLink.targetId, linkType: 'includes_exercise' }).toArray();
+        totalExercises += exerciseLinks.length;
+      }
+
+      counts.set(template.id, totalExercises);
+    }
+
+    return counts;
+  }, []);
   const meds = allItems?.filter(i => i.type === 'medication') || [];
   const workouts = allItems?.filter(i => i.type === 'workout-template') || [];
   const exercises = allItems?.filter(i => i.type === 'exercise') || [];
@@ -80,8 +98,8 @@ export function HealthSearch() {
           {workouts.length > 0 ? (
             <div className="rka-list">
               {workouts.map(item => {
-                const meta = item.metadata as WorkoutMetadata;
-                const exercisesCount = meta?.exercises?.length || 0;
+                const fallbackMeta = item.metadata as WorkoutMetadata | undefined;
+                const exercisesCount = workoutExerciseCounts?.get(item.id) ?? fallbackMeta?.exercises?.length ?? 0;
                 return (
                   <ListRow
                     key={item.id} 
@@ -127,3 +145,5 @@ export function HealthSearch() {
     </div>
   );
 }
+
+export { Health as HealthSearch };

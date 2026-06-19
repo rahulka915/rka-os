@@ -2,11 +2,13 @@ import { useMemo, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../auth/AuthProvider';
-import { signInWithEmail, signInWithPassword, signUpWithPassword } from '../data/auth';
+import { signInWithPassword, signUpWithPassword } from '../data/auth';
+import { Button, IconButton } from '../components/ui/primitives';
 import './auth-flow.css';
 
-type AuthStep = 'email' | 'password' | 'verification';
+type AuthStep = 'email' | 'password';
 type AuthMode = 'signup' | 'login';
+const minimumPasswordLength = 6;
 
 function StatusIcons() {
   return (
@@ -31,18 +33,18 @@ function ModeSwitch({
   mode: AuthMode;
   setMode: (mode: AuthMode) => void;
   clearError?: () => void;
-}) {
+  }) {
   return (
-    <button
+    <Button
       className="auth-mode-switch"
-      type="button"
+      variant="ghost"
       onClick={() => {
         clearError?.();
         setMode(mode === 'signup' ? 'login' : 'signup');
       }}
     >
       {mode === 'signup' ? 'Already have a password? Log in' : 'Need a password? Create one'}
-    </button>
+    </Button>
   );
 }
 
@@ -54,16 +56,17 @@ export function AuthPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [sendingEmailLink, setSendingEmailLink] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const { session, displayName, needsOnboarding, localMode } = useAuth();
   const location = useLocation();
 
   const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname || '/home';
   const emailValue = email.trim();
-  const passwordValue = password.trim();
-  const confirmValue = confirmPassword.trim();
+  const passwordValue = password;
+  const confirmValue = confirmPassword;
   const canContinue = emailValue.length > 0;
+  const passwordSubmitDisabled =
+    submitting || passwordValue.length === 0 || (mode === 'signup' && confirmValue.length === 0);
 
   const pageTitle = useMemo(() => {
     if (step === 'email') return 'Log in or sign up';
@@ -96,26 +99,59 @@ export function AuthPage() {
           return;
         }
 
+        async function tryExistingAccountLogin() {
+          try {
+            await signInWithPassword(emailValue, passwordValue);
+            return true;
+          } catch (loginError) {
+            if (loginError instanceof Error && /invalid login credentials/i.test(loginError.message)) {
+              setMode('login');
+              setError('This email already has an account. Enter its password to log in.');
+              return false;
+            }
+            throw loginError;
+          }
+        }
+
+        async function tryShortPasswordLoginFallback() {
+          try {
+            await signInWithPassword(emailValue, passwordValue);
+            return true;
+          } catch (loginError) {
+            if (loginError instanceof Error && /invalid login credentials/i.test(loginError.message)) {
+              setError(`New accounts need at least ${minimumPasswordLength} characters in the password.`);
+              return false;
+            }
+            throw loginError;
+          }
+        }
+
         try {
-          const sessionResult = await signUpWithPassword(emailValue, passwordValue);
-          if (sessionResult) {
+          const result = await signUpWithPassword(emailValue, passwordValue);
+          if (result.session) {
             return;
           }
 
-          setStep('verification');
+          if (result.accountExists) {
+            await tryExistingAccountLogin();
+            return;
+          }
+
+          setError('Sign up could not start a session yet. Please try again.');
           return;
         } catch (signupError) {
+          if (
+            signupError instanceof Error
+            && /at least 6 characters/i.test(signupError.message)
+            && passwordValue.length < minimumPasswordLength
+          ) {
+            await tryShortPasswordLoginFallback();
+            return;
+          }
+
           if (signupError instanceof Error && /already registered|already been registered/i.test(signupError.message)) {
-            try {
-              await signInWithPassword(emailValue, passwordValue);
-              return;
-            } catch (loginFallbackError) {
-              if (loginFallbackError instanceof Error && /invalid login credentials/i.test(loginFallbackError.message)) {
-                await sendBackupEmailLink();
-                return;
-              }
-              throw loginFallbackError;
-            }
+            await tryExistingAccountLogin();
+            return;
           }
           throw signupError;
         }
@@ -124,9 +160,8 @@ export function AuthPage() {
       try {
         await signInWithPassword(emailValue, passwordValue);
       } catch (loginError) {
-        if (mode === 'login') {
-          setMode('signup');
-          setError('No existing password found. Create one to finish setup.');
+        if (loginError instanceof Error && /invalid login credentials/i.test(loginError.message)) {
+          setError('Email or password not recognised.');
           return;
         }
         throw loginError;
@@ -138,24 +173,8 @@ export function AuthPage() {
     }
   }
 
-  async function sendBackupEmailLink() {
-    if (!emailValue) return;
-
-    setError(null);
-    setSendingEmailLink(true);
-
-    try {
-      await signInWithEmail(emailValue, '/welcome');
-      setStep('verification');
-    } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : 'Unable to send the email link.');
-    } finally {
-      setSendingEmailLink(false);
-    }
-  }
-
   return (
-    <div className={`auth-screen auth-screen--${step === 'email' ? 'email' : 'sent'}`}>
+    <div className={`auth-screen auth-screen--${step === 'email' ? 'email' : 'password'}`}>
       {step === 'email' && (
         <>
           <div className="auth-topbar">
@@ -169,7 +188,7 @@ export function AuthPage() {
             <div className="auth-copy-block">
               <h1 className="auth-copy-title">{pageTitle}</h1>
               <p className="auth-copy-subtitle">
-                Use your email to get started. We&apos;ll take you to the right password screen next.
+                Continue with email and password. New accounts are created instantly with no verification link.
               </p>
             </div>
 
@@ -203,18 +222,9 @@ export function AuthPage() {
                 </div>
               )}
 
-              <button className="auth-button" type="submit" disabled={!canContinue}>
+              <Button className="auth-button" variant="primary" type="submit" disabled={!canContinue}>
                 Continue
-              </button>
-
-              <button
-                className="auth-link-button"
-                type="button"
-                onClick={sendBackupEmailLink}
-                disabled={!canContinue || sendingEmailLink}
-              >
-                {sendingEmailLink ? 'Sending email link…' : 'Use email link instead'}
-              </button>
+              </Button>
 
               <ModeSwitch mode={mode} setMode={setMode} clearError={() => setError(null)} />
             </form>
@@ -225,16 +235,15 @@ export function AuthPage() {
       {step === 'password' && (
         <main className="auth-screen auth-screen--white">
           <div className="auth-plain-topbar">
-              <button
-                className="auth-back-link"
-                type="button"
-                onClick={() => {
-                  setStep('email');
-                  setError(null);
-                }}
-              >
-              <ArrowLeft size={22} />
-            </button>
+            <IconButton
+              label="Back"
+              icon={<ArrowLeft size={22} />}
+              onClick={() => {
+                setStep('email');
+                setError(null);
+              }}
+              className="auth-back-icon"
+            />
             <div className="auth-plain-topbar-title">
               {mode === 'signup' ? 'Create Account' : 'Log In'}
             </div>
@@ -304,6 +313,10 @@ export function AuthPage() {
             )}
 
             {mode === 'signup' && (
+              <div className="auth-password-hint">Use at least {minimumPasswordLength} characters.</div>
+            )}
+
+            {mode === 'signup' && (
               <p className="auth-terms">
                 By continuing, you agree to our <button type="button">Terms of Service</button> and{' '}
                 <button type="button">Privacy Policy</button>.
@@ -312,49 +325,12 @@ export function AuthPage() {
 
             {error && <div className="auth-error">{error}</div>}
 
-            <button className="auth-welcome-button" type="submit" disabled={!passwordValue || submitting}>
+            <Button className="auth-welcome-button" variant="primary" type="submit" disabled={passwordSubmitDisabled}>
               {submitting ? 'Working…' : 'Continue'}
-            </button>
-
-            <button
-              className="auth-link-button auth-link-button--dark"
-              type="button"
-              onClick={sendBackupEmailLink}
-              disabled={!canContinue || sendingEmailLink}
-            >
-              {sendingEmailLink ? 'Sending email link…' : 'Use email link instead'}
-            </button>
+            </Button>
 
             <ModeSwitch mode={mode} setMode={setMode} clearError={() => setError(null)} />
           </form>
-        </main>
-      )}
-
-      {step === 'verification' && (
-        <main className="auth-screen auth-screen--white auth-verification-screen">
-          <button
-            className="auth-back-link"
-            type="button"
-            onClick={() => {
-              setStep('password');
-              setError(null);
-            }}
-          >
-            <ArrowLeft size={22} />
-            <span>back</span>
-          </button>
-
-          <div className="auth-sent-body">
-            <h1 className="auth-sent-title">Check your email</h1>
-            <div className="auth-sent-copy">We sent a verification email to:</div>
-            <div className="auth-email-chip">{emailValue}</div>
-            <div className="auth-sent-resend">
-              Once you verify, come back and log in with your password.
-            </div>
-            <button className="auth-link-button auth-link-button--dark auth-sent-link" type="button" onClick={sendBackupEmailLink}>
-              Resend email link
-            </button>
-          </div>
         </main>
       )}
     </div>

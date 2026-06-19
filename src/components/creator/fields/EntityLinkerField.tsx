@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../../db/db';
 import type { FieldSchema } from '../../../schema/entitySchema';
-import { Pill } from '../../ui/Pill';
 import { Check } from 'lucide-react';
+import { MetadataPill } from '../../ui/primitives';
 
 interface EntityLinkerFieldProps {
   field: FieldSchema;
@@ -37,7 +37,7 @@ export function EntityLinkerField({ field, value = [], onChange }: EntityLinkerF
       >
         {selectedEntities.length > 0 ? (
           selectedEntities.map(e => (
-            <Pill key={e.id} label={e.title} variant="solid" color="var(--accent-color)" />
+            <MetadataPill key={e.id} label={e.title} tone="blue" />
           ))
         ) : (
           <span className="text-muted" style={{ fontSize: '14px' }}>Select {targetType}s...</span>

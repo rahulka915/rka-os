@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import { SectionChip } from './SectionChip';
 import { ActionList } from '../actions/ActionList';
+import { MetadataPill } from './primitives';
 import type { Item, ItemInstance } from '../../db/db';
 
 interface CollapsibleTimeBlockProps {
@@ -33,9 +33,18 @@ export function CollapsibleTimeBlock({ id, label, icon, items, defaultExpanded =
     <div style={{ marginBottom: '16px' }}>
       <div 
         onClick={() => setIsExpanded(!isExpanded)}
-        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 0', marginLeft: '-4px', paddingLeft: '4px', borderRadius: '8px', WebkitTapHighlightColor: 'transparent' }}
+        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '6px 2px', marginLeft: '-2px', paddingLeft: '2px', borderRadius: '10px', WebkitTapHighlightColor: 'transparent' }}
       >
-        <SectionChip label={label} icon={icon} count={items.length} />
+        <MetadataPill
+          label={
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              {icon}
+              <span>{label}</span>
+              <span>({items.length})</span>
+            </span>
+          }
+          tone="gray"
+        />
         {isExpanded ? <ChevronDown size={16} color="var(--text-muted)" /> : <ChevronRight size={16} color="var(--text-muted)" />}
       </div>
       

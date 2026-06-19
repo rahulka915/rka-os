@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, LogOut, Settings2 } from 'lucide-react';
 import { useAuth } from '../auth/AuthProvider';
+import { IconButton } from '../components/ui/primitives';
 import './profile-settings.css';
 
 export function SettingsPage() {
@@ -12,13 +13,9 @@ export function SettingsPage() {
   return (
     <main className="settings-page">
       <div className="settings-topbar">
-        <button className="settings-back" type="button" onClick={() => navigate('/profile')} aria-label="Back to profile">
-          <ChevronLeft size={34} strokeWidth={1.8} />
-        </button>
+        <IconButton label="Back to profile" icon={<ChevronLeft size={34} strokeWidth={1.8} />} onClick={() => navigate('/profile')} className="settings-back" />
         <h1 className="settings-title">Settings</h1>
-        <button className="settings-menu" type="button" onClick={() => navigate('/profile')} aria-label="Profile">
-          <Settings2 size={22} />
-        </button>
+        <IconButton label="Profile" icon={<Settings2 size={22} />} onClick={() => navigate('/profile')} className="settings-menu" />
       </div>
 
       <section className="settings-list">

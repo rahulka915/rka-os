@@ -2,20 +2,151 @@ import { db } from './db';
 import { createEntity, linkEntities, logActivity } from './actions';
 import { v4 as uuidv4 } from 'uuid';
 import generatedExercises from './generated-exercises.json';
+import { getCurrentUserId } from '../data/runtime';
+import { hasSupabaseConfig, supabase } from '../lib/supabase';
+import {
+  awaitPendingRemoteWrites,
+  getRemoteWriteStats,
+  getRemoteWriteSuppressionDepth,
+  getSupabaseSyncUserId,
+  resetRemoteSyncDebugState,
+  withRemoteWritesSuppressedAsync,
+} from '../data/sync';
 
-export async function seedMockData() {
+type SeedCounts = {
+  items: number;
+  itemInstances: number;
+  tags: number;
+  itemTags: number;
+  entityLinks: number;
+  activityLogs: number;
+  workoutSessions: number;
+  exerciseSessions: number;
+  setEntries: number;
+  exerciseMedia: number;
+};
+
+export type SeedMockDataResult = {
+  userId: string;
+  syncUserId: string | null;
+  remoteWriteSuppressionDepth: number;
+  remoteWriteStats: Record<string, number>;
+  localCounts: SeedCounts;
+  remoteCounts: SeedCounts | null;
+  remoteVerified: boolean;
+};
+
+type SeedProgressCallback = (message: string) => void;
+
+const seedCountTables = [
+  { local: 'items', remote: 'items' },
+  { local: 'itemInstances', remote: 'item_instances' },
+  { local: 'tags', remote: 'tags' },
+  { local: 'itemTags', remote: 'item_tags' },
+  { local: 'entityLinks', remote: 'entity_links' },
+  { local: 'activityLogs', remote: 'activity_logs' },
+  { local: 'workoutSessions', remote: 'workout_sessions' },
+  { local: 'exerciseSessions', remote: 'exercise_sessions' },
+  { local: 'setEntries', remote: 'set_entries' },
+  { local: 'exerciseMedia', remote: 'exercise_media' },
+] as const;
+
+const remotePurgeOrder = [
+  'set_entries',
+  'exercise_sessions',
+  'workout_sessions',
+  'activity_logs',
+  'item_instances',
+  'item_tags',
+  'entity_links',
+  'exercise_media',
+  'tags',
+  'items',
+] as const;
+
+async function resolveSeedUserId() {
+  const currentUserId = getCurrentUserId();
+  if (currentUserId) return currentUserId;
+
+  if (supabase) {
+    const { data, error } = await supabase.auth.getUser();
+    if (error) throw error;
+    if (data.user?.id) {
+      throw new Error('You are signed into Supabase, but the app session has not hydrated yet. Please reload the app and try seeding again.');
+    }
+  }
+
+  throw new Error('Please sign in before seeding demo data so it can persist through Supabase.');
+}
+
+async function countLocalRows(): Promise<SeedCounts> {
+  const [items, itemInstances, tags, itemTags, entityLinks, activityLogs, workoutSessions, exerciseSessions, setEntries, exerciseMedia] = await Promise.all([
+    db.items.count(),
+    db.itemInstances.count(),
+    db.tags.count(),
+    db.itemTags.count(),
+    db.entityLinks.count(),
+    db.activityLogs.count(),
+    db.workoutSessions.count(),
+    db.exerciseSessions.count(),
+    db.setEntries.count(),
+    db.exerciseMedia.count(),
+  ]);
+
+  return { items, itemInstances, tags, itemTags, entityLinks, activityLogs, workoutSessions, exerciseSessions, setEntries, exerciseMedia };
+}
+
+async function countRemoteRows(userId: string): Promise<SeedCounts> {
+  const client = supabase;
+  if (!hasSupabaseConfig || !client) {
+    throw new Error('Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY before seeding.');
+  }
+
+  const results = await Promise.all(
+    seedCountTables.map(async ({ remote, local }) => {
+      const { count, error } = await client.from(remote).select('id', { count: 'exact', head: true }).eq('user_id', userId);
+      if (error) throw error;
+      return [local, count ?? 0] as const;
+    })
+  );
+
+  return Object.fromEntries(results) as SeedCounts;
+}
+
+async function purgeRemoteRows(userId: string) {
+  const client = supabase;
+  if (!hasSupabaseConfig || !client) return;
+
+  for (const table of remotePurgeOrder) {
+    const { error } = await client.from(table).delete().eq('user_id', userId);
+    if (error) throw error;
+  }
+}
+
+export async function seedMockData(onProgress?: SeedProgressCallback): Promise<SeedMockDataResult> {
+  const userId = await resolveSeedUserId();
   const now = new Date();
-  
-  // Clear the DB since it's a V2 upgrade
-  await db.items.clear();
-  await db.itemInstances.clear();
-  await db.tags.clear();
-  await db.itemTags.clear();
-  await db.entityLinks.clear();
-  await db.activityLogs.clear();
-  await db.workoutSessions.clear();
-  await db.exerciseSessions.clear();
-  await db.setEntries.clear();
+  const reportProgress = (message: string) => onProgress?.(message);
+
+  reportProgress('Preparing Supabase sync state...');
+  resetRemoteSyncDebugState();
+  await awaitPendingRemoteWrites();
+  reportProgress('Clearing previous demo data from Supabase...');
+  await purgeRemoteRows(userId);
+
+  reportProgress('Resetting local cache...');
+  await withRemoteWritesSuppressedAsync(async () => {
+    await db.items.clear();
+    await db.itemInstances.clear();
+    await db.tags.clear();
+    await db.itemTags.clear();
+    await db.entityLinks.clear();
+    await db.activityLogs.clear();
+    await db.workoutSessions.clear();
+    await db.exerciseSessions.clear();
+    await db.setEntries.clear();
+    await db.exerciseMedia.clear();
+  });
 
   // Helper: Get a date string offset by days
   const getDateStr = (offsetDays: number) => {
@@ -27,6 +158,7 @@ export async function seedMockData() {
   // ==========================================
   // 1. Areas
   // ==========================================
+  reportProgress('Seeding areas and projects...');
   const healthArea = await createEntity('area', 'Health & Fitness', { color: '#10B981' }, 'active');
   const personalArea = await createEntity('area', 'Personal Growth', { color: '#8B5CF6' }, 'active');
   const workArea = await createEntity('area', 'Work & Career', { color: '#3B82F6' }, 'active');
@@ -46,6 +178,7 @@ export async function seedMockData() {
   // ==========================================
   // 3. Medications & History (Past 14 Days)
   // ==========================================
+  reportProgress('Seeding medications and daily history...');
   const elvanse = await createEntity('medication', 'Elvanse', { dose: '50mg', frequency: 'daily', maxPerDay: 1, initialStock: 45, refillThreshold: 5 }, 'active', undefined, ['ADHD', 'Medicine']);
   const vitaminD = await createEntity('medication', 'Vitamin D3', { dose: '4000 IU', frequency: 'daily', maxPerDay: 1, initialStock: 90, refillThreshold: 10 }, 'active', undefined, ['Supplements']);
 
@@ -79,6 +212,7 @@ export async function seedMockData() {
   // ==========================================
   // 4. Habits & Instances (Past 14 Days)
   // ==========================================
+  reportProgress('Seeding habits and calendar instances...');
   const habitReading = await createEntity('habit', 'Read 20 pages', { rrule: 'FREQ=DAILY', timeOfDay: 'evening' }, 'active', undefined, ['Reading']);
   const habitWater = await createEntity('habit', 'Drink 2.5L Water', { rrule: 'FREQ=DAILY' }, 'active', undefined, ['Health']);
 
@@ -115,6 +249,7 @@ export async function seedMockData() {
   // ==========================================
   // 5. Workout Templates, Exercises & History
   // ==========================================
+  reportProgress('Seeding exercise library...');
   // Load comprehensive exercise database from JSON
   const exerciseIds = new Map<string, string>();
   for (const ex of generatedExercises) {
@@ -139,6 +274,7 @@ export async function seedMockData() {
     return id;
   };
 
+  reportProgress('Seeding workout templates and history...');
   const benchId = await getExId('Barbell Bench Press', ['chest', 'shoulders', 'triceps'], 'barbell');
   const inclinePressId = await getExId('Incline Dumbbell Bench Press', ['chest', 'shoulders', 'triceps'], 'dumbbell');
   const ohpId = await getExId('Barbell Overhead', ['shoulders', 'triceps'], 'barbell');
@@ -243,6 +379,7 @@ export async function seedMockData() {
   // ==========================================
   // 6. Calendar Tasks (Past, Today, Future)
   // ==========================================
+  reportProgress('Seeding tasks across past, present, and future...');
   // Past tasks (completed)
   for (let i = -7; i < 0; i++) {
     const pastTask = await createEntity('task', `Task from ${Math.abs(i)} days ago`, { timeOfDay: 'afternoon' }, 'completed', getDateStr(i), ['Work']);
@@ -283,5 +420,37 @@ export async function seedMockData() {
     }
   }
 
-  console.log("Seeded DB with rich v2 graph objects & historical logs!");
+  reportProgress('Waiting for pending sync writes...');
+  const localCounts = await countLocalRows();
+  await awaitPendingRemoteWrites();
+  reportProgress('Verifying Supabase row counts...');
+  const remoteCounts = await countRemoteRows(userId);
+  const remoteVerified = seedCountTables.every(({ local }) => localCounts[local] === remoteCounts[local]);
+
+  console.log('Seeded DB with rich v2 graph objects & historical logs!', {
+    userId,
+    localCounts,
+    remoteCounts,
+    remoteVerified,
+  });
+
+  if (!remoteVerified) {
+    console.warn('Seed finished, but local and remote counts do not match exactly yet.', { localCounts, remoteCounts });
+  }
+
+  reportProgress(
+    remoteVerified
+      ? `Seeded ${localCounts.items} items and confirmed Supabase sync.`
+      : 'Seed finished locally, but Supabase verification is still catching up.'
+  );
+
+  return {
+    userId,
+    syncUserId: getSupabaseSyncUserId(),
+    remoteWriteSuppressionDepth: getRemoteWriteSuppressionDepth(),
+    remoteWriteStats: getRemoteWriteStats(),
+    localCounts,
+    remoteCounts,
+    remoteVerified,
+  };
 }
