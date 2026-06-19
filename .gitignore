@@ -25,4 +25,9 @@ dist-ssr
 .env
 __MACOSX
 .vercel
+.vercel-cli
+.tooling-home
+.tooling-cache
 references
+.env.local
+.env.vercel.local

@@ -7,7 +7,23 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "cli:doctor": "./scripts/tooling-doctor.sh",
+    "cli:vercel": "./scripts/vercel-cli.sh",
+    "cli:supabase": "./scripts/supabase-cli.sh",
+    "vercel:whoami": "./scripts/vercel-cli.sh whoami",
+    "vercel:pull": "./scripts/vercel-cli.sh pull --yes",
+    "vercel:env:pull": "./scripts/vercel-cli.sh env pull .env.local --yes",
+    "vercel:env:list": "./scripts/vercel-cli.sh env list",
+    "vercel:deploy": "./scripts/vercel-cli.sh deploy",
+    "vercel:deploy:prod": "./scripts/vercel-cli.sh deploy --prod",
+    "supabase:version": "./scripts/supabase-cli.sh --version",
+    "supabase:login": "./scripts/supabase-cli.sh login",
+    "supabase:link": "./scripts/supabase-cli.sh link --project-ref iypkcadrxjwmvlkwhwku",
+    "supabase:projects": "./scripts/supabase-cli.sh projects list",
+    "supabase:db:push": "./scripts/supabase-cli.sh db push",
+    "supabase:start": "./scripts/supabase-cli.sh start",
+    "supabase:stop": "./scripts/supabase-cli.sh stop"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -38,8 +54,10 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.6.0",
+    "supabase": "^2.107.0",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.59.2",
+    "vercel": "^54.14.2",
     "vite": "^8.0.12"
   }
 }
