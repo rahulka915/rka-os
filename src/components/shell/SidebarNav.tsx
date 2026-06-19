@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { Home, Calendar, FolderKanban, Activity, Plus, LogOut, User } from 'lucide-react';
 import { useAuth } from '../../auth/AuthProvider';
 import './shell.css';
@@ -9,6 +9,7 @@ interface SidebarNavProps {
 
 export function SidebarNav({ onQuickAdd }: SidebarNavProps) {
   const { user, logout, localMode } = useAuth();
+  const navigate = useNavigate();
   const accountLabel = user?.user_metadata?.name || user?.user_metadata?.full_name || user?.email || 'Signed in';
 
   return (
@@ -45,10 +46,10 @@ export function SidebarNav({ onQuickAdd }: SidebarNavProps) {
       </div>
 
       <div className="sidebar-footer">
-        <div className="sidebar-account">
+        <button className="sidebar-account" onClick={() => navigate('/profile')} type="button">
           <User size={16} />
           <span>{localMode ? 'Local mode' : accountLabel}</span>
-        </div>
+        </button>
         {!localMode && (
           <button className="sidebar-logout" onClick={logout} type="button">
             <LogOut size={16} />

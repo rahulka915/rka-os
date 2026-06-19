@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Home, Calendar, FolderOpen, Plus, Inbox, Heart } from 'lucide-react';
+import { Home, Calendar, FolderOpen, Plus, Inbox, Heart, CircleUserRound } from 'lucide-react';
 
 interface BottomTabNavProps {
   onQuickAdd: () => void;
@@ -37,6 +37,11 @@ export function BottomTabNav({ onQuickAdd }: BottomTabNavProps) {
       <NavLink to="/health-search" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
         <Heart size={22} strokeWidth={1.5} />
         <span style={{ fontSize: '10px', marginTop: '4px' }}>Health</span>
+      </NavLink>
+
+      <NavLink to="/profile" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+        <CircleUserRound size={22} strokeWidth={1.5} />
+        <span style={{ fontSize: '10px', marginTop: '4px' }}>Me</span>
       </NavLink>
     </nav>
   );

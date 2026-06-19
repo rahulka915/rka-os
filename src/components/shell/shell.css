@@ -133,6 +133,15 @@
     font-weight: 600;
   }
 
+  .sidebar-account {
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .sidebar-account:hover {
+    background: rgba(255, 255, 255, 0.78);
+  }
+
   .sidebar-logout {
     cursor: pointer;
     color: var(--rka-text);

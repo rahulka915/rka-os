@@ -11,6 +11,8 @@ import { TemplateBuilder } from './pages/TemplateBuilder';
 import { InspectorProvider } from './components/shell/InspectorContext';
 import { AuthPage } from './pages/Auth';
 import { WelcomePage } from './pages/Welcome';
+import { ProfilePage } from './pages/Profile';
+import { SettingsPage } from './pages/Settings';
 import { RequireAuth } from './auth/RequireAuth';
 
 function App() {
@@ -42,6 +44,8 @@ function App() {
             <Route path="health-search" element={<HealthSearch />} />
             <Route path="inbox" element={<Inbox />} />
             <Route path="calendar" element={<Calendar />} />
+            <Route path="profile" element={<ProfilePage />} />
+            <Route path="settings" element={<SettingsPage />} />
           </Route>
           <Route path="/active-workout/:id" element={<RequireAuth><ActiveWorkout /></RequireAuth>} />
           <Route path="/template-builder/:id" element={<RequireAuth><TemplateBuilder /></RequireAuth>} />
