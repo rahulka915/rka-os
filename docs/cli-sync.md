@@ -11,7 +11,7 @@ This repo now carries its own Vercel and Supabase CLI setup so local work, GitHu
 
 ## Why local wrappers exist
 
-The Codex environment blocks writes to some default home/cache locations. These wrapper scripts keep CLI state inside the repo and out of Git:
+The Codex environment blocks writes to some default home/cache locations. These wrapper scripts keep CLI state predictable and out of Git:
 
 - `scripts/vercel-cli.sh`
 - `scripts/supabase-cli.sh`
@@ -21,6 +21,8 @@ Ignored local tooling state:
 - `.vercel-cli/`
 - `.tooling-home/`
 - `.tooling-cache/`
+
+Supabase specifically uses a stable temp-based CLI home under `/private/tmp` because the CLI can fail when its internal telemetry files are written through repo paths that include spaces.
 
 ## Main commands
 

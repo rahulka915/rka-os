@@ -2,10 +2,13 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-export HOME="$ROOT_DIR/.tooling-home"
-export XDG_CONFIG_HOME="$ROOT_DIR/.tooling-home/.config"
-export XDG_CACHE_HOME="$ROOT_DIR/.tooling-cache"
+CLI_HOME="/private/tmp/rka-os-supabase-home"
+CLI_CACHE="/private/tmp/rka-os-supabase-cache"
 
-mkdir -p "$ROOT_DIR/.tooling-home" "$ROOT_DIR/.tooling-cache"
+export HOME="$CLI_HOME"
+export XDG_CONFIG_HOME="$CLI_HOME/.config"
+export XDG_CACHE_HOME="$CLI_CACHE"
+
+mkdir -p "$CLI_HOME" "$CLI_CACHE"
 
 exec "$ROOT_DIR/node_modules/.bin/supabase" "$@"
