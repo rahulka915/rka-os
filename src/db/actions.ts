@@ -75,6 +75,11 @@ export async function createEntity(type: ItemType, title: string, metadata: any 
     await logActivity(id, 'created');
   });
 
+  // Auto-generate daily instances if a medication was just created as daily
+  if (metadata?.frequency === 'daily') {
+    generateDailyInstances().catch(console.error);
+  }
+
   return id;
 }
 
@@ -111,6 +116,11 @@ export async function updateEntity(id: string, data: any) {
       await attachTags(id, tags);
     }
   });
+
+  // Auto-generate daily instances if a medication was just updated to daily
+  if (data.frequency === 'daily') {
+    generateDailyInstances().catch(console.error);
+  }
 }
 
 // ------------------------------------------------------------------

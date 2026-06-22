@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
 import { formatDate } from '../db/actions';
@@ -12,10 +12,16 @@ import { InboxWidget } from '../components/home/InboxWidget';
 import { EmptyState, ListRow, MetadataPill, PageHeader, StatCard } from '../components/ui/primitives';
 import './home.css';
 
+import { generateDailyInstances } from '../db/actions';
+
 export function Home() {
   const { inspectEntity } = useInspector();
   const todayDate = formatDate(new Date());
   const [isMedLoggerOpen, setIsMedLoggerOpen] = useState(false);
+
+  useEffect(() => {
+    generateDailyInstances().catch(console.error);
+  }, []);
 
   const currentHour = new Date().getHours();
   const isMorning = currentHour >= 5 && currentHour < 12;
