@@ -15,6 +15,7 @@ import { EntityRelationships } from './EntityRelationships';
 import { EntityActivity } from './EntityActivity';
 import { ProjectDashboard } from './ProjectDashboard';
 import { WorkoutDashboard } from './WorkoutDashboard';
+import { MedicationDashboard } from './MedicationDashboard';
 import { ExerciseDetail } from '../workouts/ExerciseDetail';
 import { MetadataPill } from '../ui/primitives';
 import './inspector.css';
@@ -150,6 +151,7 @@ export function EntityInspector({ entityId, entityType, onClose }: EntityInspect
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {entityType === 'project' && <ProjectDashboard projectId={entityId} />}
                 {entityType === 'workout-template' && <WorkoutDashboard workoutId={entityId} />}
+                {entityType === 'medication' && <MedicationDashboard medicationId={entityId} />}
                 {entityType === 'exercise' && <ExerciseDetail exerciseId={entityId} />}
                 
                 {entityType !== 'exercise' && entityType !== 'workout-template' && schema.fields.filter(f => !['title', 'scheduledDate', 'timeOfDay', 'rrule', 'tags'].includes(f.id) && f.type !== 'entity-linker').map(renderField)}

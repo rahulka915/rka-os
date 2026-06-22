@@ -1,13 +1,18 @@
+import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
 import type { MedicationMetadata, WorkoutMetadata } from '../db/db';
-import { Pill as PillIcon, Dumbbell, Activity, AlertTriangle, PlayCircle, ChevronRight } from 'lucide-react';
+import { Pill as PillIcon, Dumbbell, Activity, AlertTriangle, PlayCircle, ChevronRight, Plus } from 'lucide-react';
 import { useInspector } from '../components/shell/InspectorContext';
 import { EmptyState, ListRow, MetadataPill, PageHeader, StatCard } from '../components/ui/primitives';
+import { EntityCreator } from '../components/creator/EntityCreator';
+import { createEntity } from '../db/actions';
 import './health.css';
 
 export function Health() {
   const { inspectEntity } = useInspector();
+  const [creatorType, setCreatorType] = useState<string | null>(null);
+
   const allItems = useLiveQuery(() => db.items.toArray());
   const workoutExerciseCounts = useLiveQuery(async () => {
     const templates = await db.items.where('type').equals('workout-template').toArray();
@@ -27,6 +32,7 @@ export function Health() {
 
     return counts;
   }, []);
+
   const meds = allItems?.filter(i => i.type === 'medication') || [];
   const workouts = allItems?.filter(i => i.type === 'workout-template') || [];
   const exercises = allItems?.filter(i => i.type === 'exercise') || [];
@@ -34,8 +40,16 @@ export function Health() {
     const meta = item.metadata as MedicationMetadata;
     return meta.stockRemaining !== undefined && meta.stockRemaining !== null && meta.stockRemaining <= (meta.refillThreshold || 5);
   }).length;
-  
-  // Future queries: e.g. recentSessions from activityLogs
+
+  const handleSaveEntity = async (entityType: string, data: any) => {
+    try {
+      const { title, scheduledDate, tags, ...metadata } = data;
+      await createEntity(entityType as any, title, metadata, 'active', scheduledDate, tags);
+      setCreatorType(null);
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   return (
     <div className="rka-page health-container">
@@ -54,7 +68,12 @@ export function Health() {
       <div className="health-grid">
         
         <section className="rka-section">
-          <h3 className="rka-section-title">Medications</h3>
+          <div className="rka-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h3 className="rka-section-title" style={{ marginBottom: 0 }}>Medications</h3>
+            <button className="rka-icon-button" onClick={() => setCreatorType('medication')} aria-label="Add Medication">
+              <Plus size={20} />
+            </button>
+          </div>
           {meds.length > 0 ? (
             <div className="rka-list">
               {meds.map(item => {
@@ -94,7 +113,12 @@ export function Health() {
         </section>
 
         <section className="rka-section">
-          <h3 className="rka-section-title">Workout Templates</h3>
+          <div className="rka-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h3 className="rka-section-title" style={{ marginBottom: 0 }}>Workout Templates</h3>
+            <button className="rka-icon-button" onClick={() => setCreatorType('workout-template')} aria-label="Create Template">
+              <Plus size={20} />
+            </button>
+          </div>
           {workouts.length > 0 ? (
             <div className="rka-list">
               {workouts.map(item => {
@@ -142,6 +166,14 @@ export function Health() {
         </section>
 
       </div>
+
+      {creatorType && (
+        <EntityCreator 
+          entityType={creatorType} 
+          onClose={() => setCreatorType(null)} 
+          onSave={handleSaveEntity} 
+        />
+      )}
     </div>
   );
 }

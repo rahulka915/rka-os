@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { BottomTabNav } from './BottomTabNav';
 import { SidebarNav } from './SidebarNav';
 import { QuickAddSheet } from './QuickAddSheet';
+import { ActiveTimersBanner } from './ActiveTimersBanner';
 import './shell.css';
 
 export function AppShell() {
@@ -25,6 +26,8 @@ export function AppShell() {
           <Outlet />
         </main>
       </div>
+
+      <ActiveTimersBanner />
 
       {isQuickAddOpen && (
         <QuickAddSheet onClose={() => setQuickAddOpen(false)} />
