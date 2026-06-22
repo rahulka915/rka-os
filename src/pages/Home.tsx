@@ -31,11 +31,59 @@ export function Home() {
     []
   );
 
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+  const endOfDay = new Date();
+  endOfDay.setHours(23, 59, 59, 999);
+
+  const todaysLogs = useLiveQuery(
+    () => db.activityLogs.where('timestamp').between(startOfDay.getTime(), endOfDay.getTime()).toArray(),
+    []
+  );
+
   const itemsWithInstances = useLiveQuery(async () => {
-    if (!instances) return [];
-    const parentItems = await Promise.all(instances.map(inst => db.items.get(inst.itemId)));
-    return instances.map((instance, index) => ({ instance, item: parentItems[index]! })).filter(entry => entry.item !== undefined);
-  }, [instances]);
+    const actions: { item: Item, instance: ItemInstance }[] = [];
+    
+    // 1. Add scheduled instances
+    if (instances) {
+      const parentItems = await Promise.all(instances.map(inst => db.items.get(inst.itemId)));
+      instances.forEach((instance, index) => {
+        if (parentItems[index]) {
+          actions.push({ instance, item: parentItems[index]! });
+        }
+      });
+    }
+
+    // 2. Add ad-hoc logs (medications/workouts) that don't have a matching completed instance
+    if (todaysLogs) {
+      for (const log of todaysLogs) {
+        if (log.actionType === 'medication-taken' || log.actionType === 'workout-logged') {
+          // Check if we already have an instance that covers this (to avoid duplicates for daily meds)
+          const hasMatchingInstance = actions.some(a => a.item.id === log.entityId && a.instance.status === 'completed' && Math.abs((a.instance.completedAt || 0) - log.timestamp) < 60000);
+          
+          if (!hasMatchingInstance) {
+            const item = await db.items.get(log.entityId);
+            if (item) {
+              actions.push({
+                item,
+                instance: {
+                  id: log.id,
+                  itemId: log.entityId,
+                  scheduledDate: todayDate,
+                  status: 'completed',
+                  completedAt: log.timestamp,
+                  createdAt: log.timestamp,
+                  updatedAt: log.timestamp
+                }
+              });
+            }
+          }
+        }
+      }
+    }
+    
+    return actions;
+  }, [instances, todaysLogs]);
 
   const allItems = useLiveQuery(() => db.items.toArray());
   const upcomingItems = allItems?.filter(i => i.status === 'active' && i.scheduledDate && i.scheduledDate > todayDate) || [];

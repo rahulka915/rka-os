@@ -166,7 +166,7 @@ export async function deleteEntity(id: string) {
 }
 
 export async function logMedicationTaken(itemId: string, dose: string, amountTaken: number = 1) {
-  await db.transaction('rw', [db.items, db.activityLogs, db.syncQueue], async () => {
+  await db.transaction('rw', [db.items, db.itemInstances, db.activityLogs, db.syncQueue], async () => {
     const item = await db.items.get(itemId);
     if (!item || item.type !== 'medication') return;
 
@@ -179,6 +179,21 @@ export async function logMedicationTaken(itemId: string, dose: string, amountTak
 
     // Record formal log
     await logActivity(itemId, 'medication-taken', { dose, amountTaken });
+
+    // Mark any pending instances for today as completed
+    const today = formatDate(new Date());
+    const pendingInstance = await db.itemInstances
+      .where('itemId').equals(itemId)
+      .filter(i => i.scheduledDate === today && i.status === 'pending')
+      .first();
+    
+    if (pendingInstance) {
+      await db.itemInstances.update(pendingInstance.id, {
+        status: 'completed',
+        completedAt: Date.now(),
+        updatedAt: Date.now()
+      });
+    }
   });
 }
 
