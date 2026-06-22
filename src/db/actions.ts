@@ -155,3 +155,20 @@ export async function createAction(text: string) {
   const parsed = parseActionInput(text);
   await createEntity('task', parsed.title, {}, parsed.scheduledDate ? 'scheduled' : 'inbox', parsed.scheduledDate || undefined, parsed.tags);
 }
+import generatedExercises from './generated-exercises.json';
+
+export async function importExerciseLibrary() {
+  let count = 0;
+  for (const ex of generatedExercises) {
+    const existing = await db.items.where('type').equals('exercise').and(i => i.title === ex.title).first();
+    if (!existing) {
+      await createEntity('exercise', ex.title, {
+        muscles: ex.metadata.muscles,
+        equipment: ex.metadata.equipment,
+        image: ex.image
+      });
+      count++;
+    }
+  }
+  return count;
+}

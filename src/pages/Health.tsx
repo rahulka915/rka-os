@@ -6,12 +6,13 @@ import { Pill as PillIcon, Dumbbell, Activity, AlertTriangle, PlayCircle, Chevro
 import { useInspector } from '../components/shell/InspectorContext';
 import { EmptyState, ListRow, MetadataPill, PageHeader, StatCard } from '../components/ui/primitives';
 import { EntityCreator } from '../components/creator/EntityCreator';
-import { createEntity } from '../db/actions';
+import { createEntity, importExerciseLibrary } from '../db/actions';
 import './health.css';
 
 export function Health() {
   const { inspectEntity } = useInspector();
   const [creatorType, setCreatorType] = useState<string | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
 
   const allItems = useLiveQuery(() => db.items.toArray());
   const workoutExerciseCounts = useLiveQuery(async () => {
@@ -156,7 +157,28 @@ export function Health() {
         </section>
 
         <section className="rka-section">
-          <h3 className="rka-section-title">Exercise Library</h3>
+          <div className="rka-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h3 className="rka-section-title" style={{ marginBottom: 0 }}>Exercise Library</h3>
+            {exercises.length === 0 && (
+              <button 
+                className="rka-button rka-button-secondary" 
+                style={{ fontSize: '12px', padding: '4px 12px' }}
+                disabled={isImporting}
+                onClick={async () => {
+                  setIsImporting(true);
+                  try {
+                    await importExerciseLibrary();
+                  } catch (e) {
+                    console.error(e);
+                  } finally {
+                    setIsImporting(false);
+                  }
+                }}
+              >
+                {isImporting ? 'Importing...' : 'Import Default Library'}
+              </button>
+            )}
+          </div>
           <div className="rka-list">
             <ListRow
               title={`${exercises.length} exercises available`}
