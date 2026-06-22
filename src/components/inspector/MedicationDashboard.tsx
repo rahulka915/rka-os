@@ -105,6 +105,38 @@ export function MedicationDashboard({ medicationId }: MedicationDashboardProps) 
           </Button>
         </div>
       </div>
+
+      <div style={{ marginTop: '24px' }}>
+        <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '12px', color: 'var(--rka-text)' }}>History</h3>
+        {medLogs.length === 0 ? (
+          <div style={{ padding: '16px', background: 'var(--rka-surface)', borderRadius: '12px', textAlign: 'center', color: 'var(--rka-text-secondary)', fontSize: '14px' }}>
+            No doses logged yet.
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {medLogs.slice(0, 10).map((log) => {
+              const date = new Date(log.timestamp);
+              const isToday = new Date().toDateString() === date.toDateString();
+              const dateStr = isToday ? 'Today' : date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+              const timeStr = date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+              
+              return (
+                <div key={log.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'var(--rka-surface)', border: '1px solid var(--rka-border)', borderRadius: '12px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--rka-text)' }}>{log.details?.dose || '1 dose'}</span>
+                    <span style={{ fontSize: '12px', color: 'var(--rka-text-secondary)' }}>{dateStr} at {timeStr}</span>
+                  </div>
+                  {log.details?.timerActive && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: 'var(--rka-blue)', background: 'var(--rka-blue-soft)', padding: '4px 8px', borderRadius: '12px', fontWeight: 500 }}>
+                      <PlayCircle size={12} /> Timer
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

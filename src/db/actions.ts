@@ -117,6 +117,37 @@ export async function updateEntity(id: string, data: any) {
 // Action Logging & Checking (v2)
 // ------------------------------------------------------------------
 
+export async function generateDailyInstances() {
+  const today = formatDate(new Date());
+  
+  await db.transaction('rw', db.items, db.itemInstances, async () => {
+    // Find all active daily medications
+    const dailyMeds = await db.items
+      .where('type').equals('medication')
+      .filter(i => i.status === 'active' && i.metadata?.frequency === 'daily')
+      .toArray();
+
+    // Check if an instance already exists for today
+    for (const med of dailyMeds) {
+      const existing = await db.itemInstances
+        .where('itemId').equals(med.id)
+        .filter(i => i.scheduledDate === today)
+        .first();
+
+      if (!existing) {
+        await db.itemInstances.add({
+          id: crypto.randomUUID(),
+          itemId: med.id,
+          scheduledDate: today,
+          status: 'pending',
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        });
+      }
+    }
+  });
+}
+
 export async function deleteEntity(id: string) {
   await db.transaction('rw', [db.items, db.activityLogs, db.syncQueue], async () => {
     // Also delete any child instances if it's a recurring item
