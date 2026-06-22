@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
 import { CheckSquare, Repeat, Pill, Dumbbell, Inbox } from 'lucide-react';
 import { createEntity } from '../../db/actions';
 import { BottomSheet } from '../ui/primitives';
@@ -44,7 +43,7 @@ export function QuickAddSheet({ onClose }: QuickAddSheetProps) {
     setIsSubmitting(true);
     try {
       const status = selectedType === 'task' ? 'inbox' : 'active';
-      await createEntity(selectedType, title.trim(), { notes: notes.trim() }, status, null, []);
+      await createEntity(selectedType, title.trim(), { notes: notes.trim() }, status, undefined, []);
       onClose();
     } catch (e) {
       console.error(e);
