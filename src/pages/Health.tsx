@@ -46,6 +46,11 @@ export function Health() {
       const { title, scheduledDate, tags, ...metadata } = data;
       const safeTitle = title || (entityType === 'medication' ? 'Untitled Medication' : 'Untitled Template');
       const safeTags = tags || [];
+      
+      if (entityType === 'medication' && metadata.initialStock !== undefined) {
+        metadata.stockRemaining = metadata.initialStock;
+      }
+
       await createEntity(entityType as any, safeTitle, metadata, 'active', scheduledDate, safeTags);
       setCreatorType(null);
     } catch (e) {
