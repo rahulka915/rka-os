@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Home, Calendar, FolderKanban, Activity, Plus, LogOut, User } from 'lucide-react';
+import { Home, Calendar, FolderKanban, Activity, Plus, LogOut, User, Inbox } from 'lucide-react';
 import { useAuth } from '../../auth/AuthProvider';
 import './shell.css';
 
@@ -23,6 +23,10 @@ export function SidebarNav({ onQuickAdd }: SidebarNavProps) {
       </div>
       
       <div className="sidebar-links">
+        <NavLink to="/inbox" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
+          <Inbox size={18} />
+          <span>Inbox</span>
+        </NavLink>
         <NavLink to="/home" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
           <Home size={18} />
           <span>Home</span>

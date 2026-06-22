@@ -157,17 +157,17 @@ async function remoteRead(name: TableName, userId: string) {
   return (data ?? []).map(row => adapters[name].fromRemote(row));
 }
 
-async function remoteUpsert(name: TableName, row: AnyRow, userId: string) {
-  if (!supabase || isRemoteWriteSuppressed()) return;
-  remoteWriteStats[name] += 1;
-  const payload = adapters[name].toRemote(row, userId);
-  const { error } = await supabase.from(adapters[name].remoteTable).upsert(payload, { onConflict: 'id' });
+async function remoteBulkUpsert(name: TableName, rows: AnyRow[], userId: string) {
+  if (!supabase || isRemoteWriteSuppressed() || rows.length === 0) return;
+  remoteWriteStats[name] += rows.length;
+  const payloads = rows.map(row => adapters[name].toRemote(row, userId));
+  const { error } = await supabase.from(adapters[name].remoteTable).upsert(payloads, { onConflict: 'id' });
   if (error) throw error;
 }
 
-async function remoteDelete(name: TableName, id: string) {
-  if (!supabase || isRemoteWriteSuppressed()) return;
-  const { error } = await supabase.from(adapters[name].remoteTable).delete().eq('id', id);
+async function remoteBulkDelete(name: TableName, ids: string[]) {
+  if (!supabase || isRemoteWriteSuppressed() || ids.length === 0) return;
+  const { error } = await supabase.from(adapters[name].remoteTable).delete().in('id', ids);
   if (error) throw error;
 }
 
@@ -185,24 +185,42 @@ export async function processSyncQueue() {
     const queueTable = installedDb.table('syncQueue');
     const entries = await queueTable.orderBy('createdAt').toArray();
     
-    for (const entry of entries) {
+    let i = 0;
+    while (i < entries.length) {
       if (!navigator.onLine) break;
+      const entry = entries[i];
+      const batch = [entry];
+
+      // Batch consecutive operations of the same type and table
+      while (i + 1 < entries.length && 
+             entries[i + 1].operation === entry.operation && 
+             entries[i + 1].tableName === entry.tableName) {
+        batch.push(entries[i + 1]);
+        i++;
+      }
+
       try {
         if (entry.operation === 'upsert') {
-          const row = await getTable(entry.tableName as TableName).get(entry.recordId);
-          if (row) {
-            await remoteUpsert(entry.tableName as TableName, row, activeUserId);
+          const table = getTable(entry.tableName as TableName);
+          const recordIds = Array.from(new Set(batch.map(b => b.recordId)));
+          const rows = (await table.bulkGet(recordIds)).filter(Boolean);
+          if (rows.length > 0) {
+            await remoteBulkUpsert(entry.tableName as TableName, rows as AnyRow[], activeUserId);
           }
         } else if (entry.operation === 'delete') {
-          await remoteDelete(entry.tableName as TableName, entry.recordId);
+          const recordIds = Array.from(new Set(batch.map(b => b.recordId)));
+          await remoteBulkDelete(entry.tableName as TableName, recordIds);
         } else if (entry.operation === 'clear') {
           await remoteClear(entry.tableName as TableName, activeUserId);
         }
-        await queueTable.delete(entry.id);
+
+        // Delete all processed entries from the local sync queue
+        await queueTable.bulkDelete(batch.map(b => b.id));
       } catch (error) {
-        console.error('Failed to process sync queue entry', entry, error);
-        break; // Stop processing to preserve order and retry later
+        console.error('Failed to process sync queue batch', batch, error);
+        break; // Stop processing to preserve order
       }
+      i++;
     }
   } finally {
     isProcessingQueue = false;
