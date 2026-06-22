@@ -44,10 +44,12 @@ export function Health() {
   const handleSaveEntity = async (entityType: string, data: any) => {
     try {
       const { title, scheduledDate, tags, ...metadata } = data;
-      await createEntity(entityType as any, title, metadata, 'active', scheduledDate, tags);
+      const safeTitle = title || (entityType === 'medication' ? 'Untitled Medication' : 'Untitled Template');
+      const safeTags = tags || [];
+      await createEntity(entityType as any, safeTitle, metadata, 'active', scheduledDate, safeTags);
       setCreatorType(null);
     } catch (e) {
-      console.error(e);
+      console.error('Failed to create entity:', e);
     }
   };
 

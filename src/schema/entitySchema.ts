@@ -85,6 +85,7 @@ export const MEDICATION_SCHEMA: EntitySchema = {
       { id: 'prn', label: 'As Needed (PRN)' }
     ]},
     { id: 'maxPerDay', label: 'Max / Day', type: 'number-selector', numberOptions: [1, 2, 3, 4, 6, 8], advanced: true },
+    { id: 'minHoursBetweenDoses', label: 'Min Hours Between Doses', type: 'number-selector', numberOptions: [4, 6, 8, 10, 12, 24], advanced: true },
     { id: 'initialStock', label: 'Stock', type: 'number-selector', numberOptions: [10, 30, 60, 90], required: true },
     { id: 'refillThreshold', label: 'Refill Alert', type: 'number-selector', numberOptions: [5, 10, 15], required: true },
     { id: 'tags', label: 'Tags', type: 'multi-select', advanced: true, allowInlineCreate: true, inlineCreateType: 'tag' },

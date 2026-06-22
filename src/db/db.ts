@@ -8,6 +8,7 @@ export interface MedicationMetadata {
   refillThreshold: number;
   lastTakenAt?: number;
   maxPerDay?: number;
+  minHoursBetweenDoses?: number;
   frequency?: string;
 }
 
