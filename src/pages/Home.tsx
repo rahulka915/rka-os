@@ -8,6 +8,7 @@ import { CollapsibleTimeBlock } from '../components/ui/CollapsibleTimeBlock';
 import { HomeContextBar } from '../components/home/HomeContextBar';
 import { useInspector } from '../components/shell/InspectorContext';
 import { QuickMedicationLogger } from '../components/medications/QuickMedicationLogger';
+import { InboxWidget } from '../components/home/InboxWidget';
 import { Button, EmptyState, ListRow, MetadataPill, PageHeader, StatCard } from '../components/ui/primitives';
 import './home.css';
 
@@ -56,6 +57,9 @@ export function Home() {
           title={greeting}
           subtitle="Your local-first second brain, organized around what needs attention right now."
         />
+        
+        <InboxWidget />
+
         <Button
           variant="secondary"
           icon={seedStatus === 'seeding' ? <Loader2 size={16} className="rka-spin" /> : <Database size={16} />}

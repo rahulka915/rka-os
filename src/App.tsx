@@ -5,7 +5,6 @@ import { Home } from './pages/Home';
 import { Projects } from './pages/Projects';
 import { HealthSearch } from './pages/Health';
 import { ActiveWorkout } from './pages/ActiveWorkout';
-import { Inbox } from './pages/Inbox';
 import { Calendar } from './pages/Calendar';
 import { TemplateBuilder } from './pages/TemplateBuilder';
 import { InspectorProvider } from './components/shell/InspectorContext';
@@ -43,7 +42,6 @@ function App() {
             <Route path="today" element={<Today />} />
             <Route path="projects" element={<Projects />} />
             <Route path="health-search" element={<HealthSearch />} />
-            <Route path="inbox" element={<Inbox />} />
             <Route path="calendar" element={<Calendar />} />
             <Route path="profile" element={<ProfilePage />} />
             <Route path="settings" element={<SettingsPage />} />

@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Home, Calendar, FolderOpen, Plus, Inbox, Heart, CircleUserRound } from 'lucide-react';
+import { Home, Calendar, FolderOpen, Plus, Heart, CircleUserRound } from 'lucide-react';
 
 interface BottomTabNavProps {
   onQuickAdd: () => void;
@@ -8,11 +8,6 @@ interface BottomTabNavProps {
 export function BottomTabNav({ onQuickAdd }: BottomTabNavProps) {
   return (
     <nav className="bottom-nav">
-      <NavLink to="/inbox" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-        <Inbox size={22} strokeWidth={1.5} />
-        <span style={{ fontSize: '10px', marginTop: '4px' }}>Inbox</span>
-      </NavLink>
-
       <NavLink to="/home" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
         <Home size={22} strokeWidth={1.5} />
         <span style={{ fontSize: '10px', marginTop: '4px' }}>Today</span>
