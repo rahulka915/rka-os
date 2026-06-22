@@ -62,55 +62,45 @@ export function ActiveTimersBanner() {
     <div className="active-timers-container">
       {activeTimers.map(({ log, med }) => {
         const start = log.details.startedAt;
-        const minHours = med?.metadata?.minHoursBetweenDoses;
+        
+        // Stopwatch logic (elapsed time)
+        const elapsedMs = now - start;
+        const elapsedMins = Math.floor(elapsedMs / 60000);
+        const hours = Math.floor(elapsedMins / 60);
+        const mins = elapsedMins % 60;
         
         let timeStr = '';
-        let isReady = false;
+        if (hours > 0) timeStr += `${hours}h `;
+        timeStr += `${mins}m elapsed`;
 
+        // Optional: still check minHours for notifications
+        const minHours = med?.metadata?.minHoursBetweenDoses;
+        let isReadyForNext = false;
+        
         if (minHours) {
           const target = start + (minHours * 60 * 60 * 1000);
-          const remainingMs = target - now;
-          
-          if (remainingMs <= 0) {
-            isReady = true;
-            timeStr = 'Ready to take';
-            
+          if (now >= target) {
+            isReadyForNext = true;
             // Fire notification if not already notified
             if (!log.details.notified) {
               if ('Notification' in window && Notification.permission === 'granted') {
                 new Notification('Medication Reminder', {
-                  body: `You can now take ${med?.title || 'your medication'}.`,
+                  body: `It has been ${minHours}h. You can now take your next dose of ${med?.title || 'medication'}.`,
                   icon: '/vite.svg'
                 });
               }
               markNotified(log.id);
             }
-          } else {
-            const remainingMins = Math.ceil(remainingMs / 60000);
-            const hours = Math.floor(remainingMins / 60);
-            const mins = remainingMins % 60;
-            if (hours > 0) timeStr += `${hours}h `;
-            timeStr += `${mins}m remaining`;
           }
-        } else {
-          // Stopwatch fallback
-          const elapsedMs = now - start;
-          const elapsedMins = Math.floor(elapsedMs / 60000);
-          const hours = Math.floor(elapsedMins / 60);
-          const mins = elapsedMins % 60;
-          if (hours > 0) timeStr += `${hours}h `;
-          timeStr += `${mins}m elapsed`;
         }
 
-        if (isReady && log.details.notified) return null; // It auto-stops via markNotified, but might re-render
-
         return (
-          <div key={log.id} className={`active-timer-banner ${isReady ? 'is-ready' : ''}`}>
+          <div key={log.id} className={`active-timer-banner ${isReadyForNext ? 'is-ready' : ''}`}>
             <div className="active-timer-info">
               <PillIcon size={16} className="active-timer-icon" />
               <div className="active-timer-text">
                 <span className="active-timer-title">{med?.title || 'Unknown Medication'}</span>
-                <span className="active-timer-duration">{timeStr}</span>
+                <span className="active-timer-duration">Active for {timeStr}</span>
               </div>
             </div>
             <button 
