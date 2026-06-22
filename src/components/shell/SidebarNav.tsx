@@ -1,7 +1,10 @@
+import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { Home, Calendar, FolderKanban, Activity, Plus, LogOut, User } from 'lucide-react';
 import { useAuth } from '../../auth/AuthProvider';
 import './shell.css';
+
+import { AppInfoModal } from './AppInfoModal';
 
 interface SidebarNavProps {
   onQuickAdd: () => void;
@@ -10,12 +13,20 @@ interface SidebarNavProps {
 export function SidebarNav({ onQuickAdd }: SidebarNavProps) {
   const { user, logout, localMode } = useAuth();
   const navigate = useNavigate();
+  const [showAppInfo, setShowAppInfo] = useState(false);
   const accountLabel = user?.user_metadata?.name || user?.user_metadata?.full_name || user?.email || 'Signed in';
 
   return (
+    <>
     <nav className="sidebar-nav">
       <div className="sidebar-header">
-        <div className="sidebar-logo">RKA OS</div>
+        <button 
+          className="sidebar-logo" 
+          onClick={() => setShowAppInfo(true)}
+          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', outline: 'none' }}
+        >
+          RKA OS
+        </button>
         <button className="sidebar-fab" onClick={onQuickAdd} type="button">
           <Plus size={20} />
           <span>New</span>
@@ -58,5 +69,7 @@ export function SidebarNav({ onQuickAdd }: SidebarNavProps) {
         )}
       </div>
     </nav>
+    {showAppInfo && <AppInfoModal onClose={() => setShowAppInfo(false)} />}
+    </>
   );
 }
