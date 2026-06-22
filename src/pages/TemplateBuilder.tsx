@@ -130,7 +130,7 @@ export function TemplateBuilder() {
     let templateId = id;
     const now = Date.now();
 
-    await db.transaction('rw', db.items, db.entityLinks, async () => {
+    await db.transaction('rw', [db.items, db.entityLinks, db.syncQueue], async () => {
       // 1. Create or update template
       if (!templateId || templateId === 'new') {
         templateId = uuidv4();

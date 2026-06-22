@@ -58,7 +58,7 @@ export async function createEntity(type: ItemType, title: string, metadata: any 
   const now = Date.now();
   const id = uuidv4();
   
-  await db.transaction('rw', db.items, db.tags, db.itemTags, db.activityLogs, async () => {
+  await db.transaction('rw', [db.items, db.tags, db.itemTags, db.activityLogs, db.syncQueue], async () => {
     await db.items.add({
       id,
       type,
@@ -83,7 +83,7 @@ export async function createEntity(type: ItemType, title: string, metadata: any 
 // ------------------------------------------------------------------
 
 export async function updateEntity(id: string, data: any) {
-  await db.transaction('rw', db.items, db.tags, db.itemTags, async () => {
+  await db.transaction('rw', [db.items, db.tags, db.itemTags, db.syncQueue], async () => {
     const item = await db.items.get(id);
     if (!item) return;
 
@@ -117,8 +117,15 @@ export async function updateEntity(id: string, data: any) {
 // Action Logging & Checking (v2)
 // ------------------------------------------------------------------
 
+export async function deleteEntity(id: string) {
+  await db.transaction('rw', [db.items, db.activityLogs, db.syncQueue], async () => {
+    // Also delete any child instances if it's a recurring item
+    await db.items.delete(id);
+  });
+}
+
 export async function logMedicationTaken(itemId: string, dose: string, amountTaken: number = 1) {
-  await db.transaction('rw', db.items, db.activityLogs, async () => {
+  await db.transaction('rw', [db.items, db.activityLogs, db.syncQueue], async () => {
     const item = await db.items.get(itemId);
     if (!item || item.type !== 'medication') return;
 
