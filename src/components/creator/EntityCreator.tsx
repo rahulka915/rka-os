@@ -70,10 +70,12 @@ export function EntityCreator({ entityType, onClose, onSave, initialData = {} }:
     }
   };
 
-  const isValid = schema.fields.filter(f => f.required).every(f => {
+  const missingFields = schema.fields.filter(f => f.required).filter(f => {
     const v = formData[f.id];
-    return v !== undefined && v !== '' && (Array.isArray(v) ? v.length > 0 : true);
+    return v === undefined || v === '' || (Array.isArray(v) && v.length === 0);
   });
+
+  const isValid = missingFields.length === 0;
 
   return (
     <BottomSheet
@@ -84,6 +86,11 @@ export function EntityCreator({ entityType, onClose, onSave, initialData = {} }:
       primaryAction={{ label: isSaving ? 'Saving...' : 'Create', onClick: handleSave, disabled: !isValid || isSaving }}
     >
       <div className="creator-body">
+        {!isValid && (
+          <div style={{ fontSize: '13px', color: 'var(--rka-red)', marginBottom: '16px', padding: '8px 12px', background: 'var(--rka-red-soft)', borderRadius: '8px' }}>
+            Missing required fields: {missingFields.map(f => f.label).join(', ')}
+          </div>
+        )}
         {coreFields.map(renderField)}
 
         {advancedFields.length > 0 && (

@@ -43,6 +43,9 @@ export function Health() {
 
   const handleSaveEntity = async (entityType: string, data: any) => {
     try {
+      console.log(`[HealthTab] Attempting to save entityType: ${entityType}`);
+      console.log(`[HealthTab] Raw form data:`, data);
+
       const { title, scheduledDate, tags, ...metadata } = data;
       const safeTitle = title || (entityType === 'medication' ? 'Untitled Medication' : 'Untitled Template');
       const safeTags = tags || [];
@@ -51,10 +54,14 @@ export function Health() {
         metadata.stockRemaining = metadata.initialStock;
       }
 
-      await createEntity(entityType as any, safeTitle, metadata, 'active', scheduledDate, safeTags);
+      console.log(`[HealthTab] Calling createEntity with safeTitle: "${safeTitle}", safeTags:`, safeTags, `metadata:`, metadata);
+
+      const id = await createEntity(entityType as any, safeTitle, metadata, 'active', scheduledDate, safeTags);
+      
+      console.log(`[HealthTab] Successfully saved entity with ID: ${id}`);
       setCreatorType(null);
     } catch (e) {
-      console.error('Failed to create entity:', e);
+      console.error('[HealthTab] FAILED to create entity:', e);
     }
   };
 
