@@ -7,6 +7,7 @@ import { CheckCircle2, Pill, Dumbbell, Calendar as CalendarIcon, Sunrise, Sun, M
 import { CollapsibleTimeBlock } from '../components/ui/CollapsibleTimeBlock';
 import { HomeContextBar } from '../components/home/HomeContextBar';
 import { useInspector } from '../components/shell/InspectorContext';
+import { QuickMedicationLogger } from '../components/medications/QuickMedicationLogger';
 import { Button, EmptyState, ListRow, MetadataPill, PageHeader, StatCard } from '../components/ui/primitives';
 import './home.css';
 
@@ -15,6 +16,7 @@ export function Home() {
   const todayDate = formatDate(new Date());
   const [seedStatus, setSeedStatus] = useState<'idle' | 'seeding' | 'done' | 'error'>('idle');
   const [seedMessage, setSeedMessage] = useState<string | null>(null);
+  const [isMedLoggerOpen, setIsMedLoggerOpen] = useState(false);
 
   const currentHour = new Date().getHours();
   const isMorning = currentHour >= 5 && currentHour < 12;
@@ -86,10 +88,21 @@ export function Home() {
         </p>
       )}
 
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '24px' }}>
+        <button 
+          onClick={() => setIsMedLoggerOpen(true)}
+          style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--rka-blue-soft)', color: 'var(--rka-blue)', border: 'none', padding: '8px 16px', borderRadius: '20px', fontWeight: 600, fontSize: '14px', cursor: 'pointer' }}
+        >
+          <Pill size={16} /> Log Med
+        </button>
+      </div>
+
       <div className="rka-stat-grid">
         <StatCard label="Today" value={todayActions.length} trend="scheduled actions" />
         <StatCard label="Upcoming" value={upcomingItems.length} trend="active plans" />
       </div>
+
+      {isMedLoggerOpen && <QuickMedicationLogger onClose={() => setIsMedLoggerOpen(false)} />}
 
       <div className="home-grid">
         <div className="home-main-col">
