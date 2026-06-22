@@ -3,9 +3,8 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import type { Item, ItemInstance } from '../../db/db';
 import { db } from '../../db/db';
 import { toggleActionInstance } from '../../db/actions';
-import { Check, Clock, Sun, Sunrise, Moon } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { useInspector } from '../shell/InspectorContext';
-import { MetadataPill } from '../ui/primitives';
 import './actions.css';
 
 interface ActionItemProps {
@@ -42,31 +41,36 @@ export function ActionItem({ item, instance }: ActionItemProps) {
   };
 
   const meta = item.metadata || {};
-  const timeOfDay = meta.timeOfDay;
   const duration = meta.duration;
 
-  // Helpers for time of day icon
-  const getTimeIcon = (time: string) => {
-    switch (time) {
-      case 'morning': return <Sunrise size={12} />;
-      case 'afternoon': return <Sun size={12} />;
-      case 'evening': return <Moon size={12} />;
-      default: return null;
-    }
-  };
+  // Format exact time if present
+  const exactTime = meta.time;
+  
+  // Format completion time if completed today
+  let completionTime = '';
+  if (isCompleted && instance?.completedAt) {
+    const d = new Date(instance.completedAt);
+    completionTime = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  }
 
-  const getTimeLabel = (time: string) => {
-    return time.charAt(0).toUpperCase() + time.slice(1);
+  // Get generic item icon
+  const getItemIcon = () => {
+    switch (item.type) {
+      case 'medication': return <span style={{ color: 'var(--rka-red)' }}>💊</span>;
+      case 'workout-template': return <span style={{ color: 'var(--rka-green)' }}>🏋️</span>;
+      case 'habit': return <span style={{ color: 'var(--rka-orange)' }}>🔄</span>;
+      default: return <span style={{ color: 'var(--rka-blue)' }}>📋</span>;
+    }
   };
 
   return (
     <div className={`action-item ${isCompleted ? 'completed' : ''} ${isAnimating ? 'animating' : ''}`}>
-      <button className="action-checkbox" onClick={handleToggle} aria-label="Toggle completion" type="button">
-        {isCompleted && <Check size={15} strokeWidth={3} />}
-      </button>
+      <div className="action-icon-wrap">
+        {getItemIcon()}
+      </div>
+      
       <div 
         className="action-content" 
-        style={{ display: 'flex', flexDirection: 'column', gap: '8px', cursor: 'pointer' }}
         onClick={() => inspectEntity(item.id, item.type)}
         role="button"
         tabIndex={0}
@@ -79,17 +83,26 @@ export function ActionItem({ item, instance }: ActionItemProps) {
       >
         <span className="action-title">{item.title}</span>
         
-        {/* Metadata Pills Row */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-          {duration && <MetadataPill label={duration} icon={<Clock size={12} />} />}
-          {timeOfDay && timeOfDay !== 'anytime' && (
-            <MetadataPill label={getTimeLabel(timeOfDay)} icon={getTimeIcon(timeOfDay)} tone="blue" />
-          )}
+        <div className="action-time-row">
+          {completionTime ? (
+            <span style={{ color: 'var(--rka-green)' }}>✓ {completionTime}</span>
+          ) : exactTime ? (
+            <span>{exactTime}</span>
+          ) : duration ? (
+            <span>{duration}</span>
+          ) : null}
+          
+          {(!completionTime && !exactTime && duration) && <span style={{ opacity: 0.5 }}>•</span>}
+          
           {tags?.map(tag => (
-            <MetadataPill key={tag.id} label={tag.name} tone="gray" />
+            <span key={tag.id} style={{ color: 'var(--rka-text-tertiary)' }}>#{tag.name}</span>
           ))}
         </div>
       </div>
+
+      <button className="action-checkbox" onClick={handleToggle} aria-label="Toggle completion" type="button">
+        {isCompleted && <Check size={14} strokeWidth={3} />}
+      </button>
     </div>
   );
 }

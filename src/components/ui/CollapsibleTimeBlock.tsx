@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { ActionList } from '../actions/ActionList';
-import { MetadataPill } from './primitives';
 import type { Item, ItemInstance } from '../../db/db';
 
 interface CollapsibleTimeBlockProps {
@@ -27,30 +26,48 @@ export function CollapsibleTimeBlock({ id, label, icon, items, defaultExpanded =
     localStorage.setItem(storageKey, String(isExpanded));
   }, [isExpanded, storageKey]);
 
-  if (items.length === 0) return null;
+  const getHeaderStyle = () => {
+    switch(id) {
+      case 'morning': return { bg: '#FFF5F0', color: '#E87D43' }; // Soft peach/orange
+      case 'afternoon': return { bg: '#F0F5FF', color: '#4A6BC6' }; // Soft blue
+      case 'evening': return { bg: '#F5F0FF', color: '#8A5BC6' }; // Soft purple
+      default: return { bg: '#F4F4F5', color: '#3C3C43' }; // Soft gray
+    }
+  };
+
+  const style = getHeaderStyle();
 
   return (
-    <div style={{ marginBottom: '16px' }}>
+    <div style={{ marginBottom: '24px' }}>
       <div 
         onClick={() => setIsExpanded(!isExpanded)}
-        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '6px 2px', marginLeft: '-2px', paddingLeft: '2px', borderRadius: '10px', WebkitTapHighlightColor: 'transparent' }}
+        style={{ 
+          cursor: 'pointer', 
+          display: 'inline-flex', 
+          alignItems: 'center', 
+          gap: '8px', 
+          padding: '8px 14px', 
+          borderRadius: '999px',
+          background: style.bg,
+          color: style.color,
+          fontWeight: 600,
+          fontSize: '13px',
+          letterSpacing: '0.04em',
+          textTransform: 'uppercase',
+          marginBottom: '12px',
+          WebkitTapHighlightColor: 'transparent'
+        }}
       >
-        <MetadataPill
-          label={
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-              {icon}
-              <span>{label}</span>
-              <span>({items.length})</span>
-            </span>
-          }
-          tone="gray"
-        />
-        {isExpanded ? <ChevronDown size={16} color="var(--text-muted)" /> : <ChevronRight size={16} color="var(--text-muted)" />}
+        {icon}
+        <span>{label} ({items.length})</span>
+        <div style={{ marginLeft: '4px', display: 'flex', alignItems: 'center' }}>
+          {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        </div>
       </div>
       
       {isExpanded && (
-        <div style={{ marginTop: '8px' }}>
-          <ActionList items={items} />
+        <div style={{ paddingLeft: '0px' }}>
+          <ActionList items={items} emptyMessage={`Nothing scheduled for ${label.toLowerCase()} yet.`} />
         </div>
       )}
     </div>

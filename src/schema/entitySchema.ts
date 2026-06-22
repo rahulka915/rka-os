@@ -1,4 +1,4 @@
-export type FieldType = 'text' | 'textarea' | 'single-select' | 'multi-select' | 'number-selector' | 'date' | 'sub-items' | 'entity-linker';
+export type FieldType = 'text' | 'textarea' | 'single-select' | 'multi-select' | 'number-selector' | 'date' | 'time' | 'sub-items' | 'entity-linker';
 
 export interface FieldOption {
   id: string;
@@ -39,6 +39,7 @@ export const TASK_SCHEMA: EntitySchema = {
   fields: [
     { id: 'title', label: 'Title', type: 'text', required: true, placeholder: 'What needs to be done?' },
     { id: 'scheduledDate', label: 'Date', type: 'date', advanced: false },
+    { id: 'time', label: 'Exact Time', type: 'time', advanced: false },
     { id: 'timeOfDay', label: 'Time of day', type: 'single-select', advanced: false, options: [
       { id: 'anytime', label: 'Anytime' },
       { id: 'morning', label: 'Morning' },
@@ -62,13 +63,15 @@ export const HABIT_SCHEMA: EntitySchema = {
   id: 'habit',
   label: 'Habit',
   fields: [
-    { id: 'title', label: 'Name', type: 'text', required: true, placeholder: 'e.g., Read 10 pages' },
-    { id: 'rrule', label: 'Frequency', type: 'single-select', required: true, options: [
-      { id: 'FREQ=DAILY', label: 'Daily' },
-      { id: 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR', label: 'Weekdays' },
-      { id: 'FREQ=WEEKLY', label: 'Weekly' }
+    { id: 'title', label: 'Title', type: 'text', required: true, placeholder: 'What habit to build?' },
+    { id: 'timeOfDay', label: 'Time of day', type: 'single-select', advanced: false, options: [
+      { id: 'anytime', label: 'Anytime' },
+      { id: 'morning', label: 'Morning' },
+      { id: 'afternoon', label: 'Afternoon' },
+      { id: 'evening', label: 'Evening' },
     ]},
-    { id: 'subItems', label: 'Habit Steps', type: 'sub-items', advanced: false },
+    { id: 'time', label: 'Exact Time', type: 'time', advanced: false },
+    { id: 'rrule', label: 'Repeat', type: 'text', required: true, placeholder: 'e.g., FREQ=DAILY' },
     { id: 'tags', label: 'Tags', type: 'multi-select', advanced: true, allowInlineCreate: true, inlineCreateType: 'tag' },
   ]
 };
@@ -84,6 +87,7 @@ export const MEDICATION_SCHEMA: EntitySchema = {
       { id: 'twice-daily', label: 'Twice Daily' },
       { id: 'prn', label: 'As Needed (PRN)' }
     ]},
+    { id: 'time', label: 'Default Time', type: 'time', advanced: false },
     { id: 'maxPerDay', label: 'Max / Day', type: 'number-selector', numberOptions: [1, 2, 3, 4, 6, 8], advanced: true },
     { id: 'minHoursBetweenDoses', label: 'Min Hours Between Doses', type: 'number-selector', numberOptions: [4, 6, 8, 10, 12, 24], advanced: true },
     { id: 'initialStock', label: 'Stock', type: 'number-selector', numberOptions: [10, 30, 60, 90], required: true },

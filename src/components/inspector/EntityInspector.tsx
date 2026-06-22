@@ -11,6 +11,7 @@ import { NumberSelectorField } from '../creator/fields/NumberSelectorField';
 import { MultiSelectField } from '../creator/fields/MultiSelectField';
 import { SubItemsField } from '../creator/fields/SubItemsField';
 import { EntityLinkerField } from '../creator/fields/EntityLinkerField';
+import { TimeField } from '../creator/fields/TimeField';
 import { EntityRelationships } from './EntityRelationships';
 import { EntityActivity } from './EntityActivity';
 import { ProjectDashboard } from './ProjectDashboard';
@@ -113,6 +114,8 @@ export function EntityInspector({ entityId, entityType, onClose }: EntityInspect
              <EntityLinkerField field={field} value={val} onChange={(v) => handleFieldChange(field.id, v)} />
           ) : field.type === 'date' ? (
              <input type="date" className="inspector-input-bare" value={val} onChange={e => handleFieldChange(field.id, e.target.value)} />
+          ) : field.type === 'time' ? (
+             <TimeField field={field} value={val} onChange={(v) => handleFieldChange(field.id, v)} />
           ) : null}
         </div>
       </div>

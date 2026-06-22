@@ -1,56 +1,45 @@
 .action-list {
-  overflow: hidden;
-  border-radius: var(--rka-radius-card);
-  background: var(--rka-surface);
-  box-shadow: var(--rka-shadow-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .action-item {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
+  align-items: center;
+  gap: 14px;
   min-height: 64px;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--rka-separator);
+  padding: 14px 16px;
   background: var(--rka-surface);
-  transition: background 140ms ease-out, opacity 140ms ease-out, transform 140ms ease-out;
-}
-
-.action-item:last-child {
-  border-bottom: 0;
+  border-radius: 18px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02), 0 2px 12px rgba(0,0,0,0.03);
+  transition: transform 140ms ease-out, box-shadow 140ms ease-out, opacity 140ms ease-out;
 }
 
 .action-item:hover {
-  background: var(--rka-surface-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.04);
 }
 
 .action-item.animating {
-  transform: scale(0.985);
+  transform: scale(0.96);
+  opacity: 0.8;
 }
 
-.action-checkbox {
-  width: 22px;
-  height: 22px;
-  border-radius: 999px;
-  border: 1.5px solid rgba(60,60,67,0.32);
-  background: transparent;
-  color: white;
+.action-item.completed {
+  opacity: 0.6;
+}
+
+.action-icon-wrap {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--rka-bg);
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
+  color: var(--rka-text);
   flex-shrink: 0;
-  margin-top: 2px;
-  transition: background 140ms ease-out, border-color 140ms ease-out, transform 140ms ease-out;
-}
-
-.action-checkbox:active {
-  transform: scale(0.92);
-}
-
-.action-item.completed .action-checkbox {
-  background: var(--rka-blue);
-  border-color: var(--rka-blue);
 }
 
 .action-content {
@@ -58,15 +47,18 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
+  cursor: pointer;
 }
 
 .action-title {
   color: var(--rka-text);
-  font-size: 17px;
-  font-weight: 500;
+  font-size: 16px;
+  font-weight: 600;
   line-height: 1.2;
-  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .action-item.completed .action-title {
@@ -74,12 +66,45 @@
   text-decoration: line-through;
 }
 
+.action-time-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--rka-text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.action-checkbox {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--rka-border);
+  background: transparent;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 140ms ease-out, border-color 140ms ease-out, transform 140ms ease-out;
+}
+
+.action-checkbox:active {
+  transform: scale(0.85);
+}
+
+.action-item.completed .action-checkbox {
+  background: var(--rka-text);
+  border-color: var(--rka-text);
+}
+
 .empty-state {
   text-align: center;
   padding: 28px 16px;
   color: var(--rka-text-secondary);
   font-size: 14px;
-  border-radius: var(--rka-radius-card);
+  border-radius: 18px;
   background: var(--rka-surface);
-  box-shadow: var(--rka-shadow-soft);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
 }
