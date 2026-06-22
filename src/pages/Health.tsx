@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
 import type { MedicationMetadata, WorkoutMetadata } from '../db/db';
@@ -10,6 +11,7 @@ import { createEntity, importExerciseLibrary } from '../db/actions';
 import './health.css';
 
 export function Health() {
+  const navigate = useNavigate();
   const { inspectEntity } = useInspector();
   const [creatorType, setCreatorType] = useState<string | null>(null);
   const [isImporting, setIsImporting] = useState(false);
@@ -185,9 +187,7 @@ export function Health() {
               subtitle="Browse exercise records and movement metadata."
               leading={<Activity size={18} />}
               trailing={<ChevronRight size={18} />}
-              onClick={() => {
-                if (exercises[0]) inspectEntity(exercises[0].id, 'exercise');
-              }}
+              onClick={() => navigate('/exercise-library')}
             />
           </div>
         </section>

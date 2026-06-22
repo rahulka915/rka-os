@@ -9,6 +9,7 @@ import { Inbox } from './pages/Inbox';
 import { Calendar } from './pages/Calendar';
 import { TemplateBuilder } from './pages/TemplateBuilder';
 import { InspectorProvider } from './components/shell/InspectorContext';
+import { ExerciseLibrary } from './pages/ExerciseLibrary';
 import { AuthPage } from './pages/Auth';
 import { WelcomePage } from './pages/Welcome';
 import { ProfilePage } from './pages/Profile';
@@ -49,6 +50,7 @@ function App() {
           </Route>
           <Route path="/active-workout/:id" element={<RequireAuth><ActiveWorkout /></RequireAuth>} />
           <Route path="/template-builder/:id" element={<RequireAuth><TemplateBuilder /></RequireAuth>} />
+          <Route path="/exercise-library" element={<RequireAuth><ExerciseLibrary /></RequireAuth>} />
         </Routes>
       </InspectorProvider>
     </BrowserRouter>
