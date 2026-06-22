@@ -162,6 +162,14 @@ export interface ExerciseMedia {
   metadata?: any;
 }
 
+export interface SyncQueueEntry {
+  id: string;
+  tableName: string;
+  operation: 'upsert' | 'delete' | 'clear';
+  recordId: string;
+  createdAt: number;
+}
+
 const db = new Dexie('PersonalOS_v5') as Dexie & {
   items: Dexie.Table<Item, string>;
   itemInstances: Dexie.Table<ItemInstance, string>;
@@ -173,6 +181,7 @@ const db = new Dexie('PersonalOS_v5') as Dexie & {
   exerciseSessions: Dexie.Table<ExerciseSession, string>;
   setEntries: Dexie.Table<SetEntry, string>;
   exerciseMedia: Dexie.Table<ExerciseMedia, string>;
+  syncQueue: Dexie.Table<SyncQueueEntry, string>;
 };
 
 db.version(1).stores({
@@ -186,6 +195,10 @@ db.version(1).stores({
   exerciseSessions: 'id, workoutSessionId, exerciseId',
   setEntries: 'id, exerciseSessionId',
   exerciseMedia: 'id, exerciseId, mediaType, createdAt'
+});
+
+db.version(2).stores({
+  syncQueue: 'id, tableName, operation, recordId, createdAt'
 });
 
 installSupabaseSyncBridge(db);

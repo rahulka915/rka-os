@@ -29,7 +29,11 @@ export function QuickAddSheet({ onClose }: QuickAddSheetProps) {
   const handleSave = async (entityType: string, data: any) => {
     try {
       const { title, scheduledDate, tags, ...metadata } = data;
-      await createEntity(entityType as any, title, metadata, scheduledDate ? 'scheduled' : 'active', scheduledDate, tags);
+      const status =
+        entityType === 'task'
+          ? (scheduledDate ? 'scheduled' : 'inbox')
+          : (scheduledDate ? 'scheduled' : 'active');
+      await createEntity(entityType as any, title, metadata, status, scheduledDate, tags);
       onClose();
     } catch (e) {
       console.error(e);

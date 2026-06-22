@@ -10,21 +10,6 @@ type AuthStep = 'email' | 'password';
 type AuthMode = 'signup' | 'login';
 const minimumPasswordLength = 6;
 
-function StatusIcons() {
-  return (
-    <div className="auth-status-icons" aria-hidden="true">
-      <div className="auth-status-signal">
-        <span />
-        <span />
-        <span />
-        <span />
-      </div>
-      <div className="auth-status-wifi" />
-      <div className="auth-status-battery" />
-    </div>
-  );
-}
-
 function ModeSwitch({
   mode,
   setMode,
@@ -50,7 +35,7 @@ function ModeSwitch({
 
 export function AuthPage() {
   const [step, setStep] = useState<AuthStep>('email');
-  const [mode, setMode] = useState<AuthMode>('signup');
+  const [mode, setMode] = useState<AuthMode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -176,60 +161,51 @@ export function AuthPage() {
   return (
     <div className={`auth-screen auth-screen--${step === 'email' ? 'email' : 'password'}`}>
       {step === 'email' && (
-        <>
-          <div className="auth-topbar">
-            <div>9:41</div>
-            <StatusIcons />
+        <main className="auth-sheet auth-sheet--email">
+          <div className="auth-copy-block">
+            <h1 className="auth-copy-title">{pageTitle}</h1>
+            <p className="auth-copy-subtitle">
+              Continue with email and password. New accounts are created instantly with no verification link.
+            </p>
           </div>
 
-          <main className="auth-sheet auth-sheet--email">
-            <div className="auth-handle" />
+          <div className="auth-spacer" />
 
-            <div className="auth-copy-block">
-              <h1 className="auth-copy-title">{pageTitle}</h1>
-              <p className="auth-copy-subtitle">
-                Continue with email and password. New accounts are created instantly with no verification link.
-              </p>
-            </div>
+          <form
+            className="auth-form"
+            onSubmit={event => {
+              event.preventDefault();
+              if (!canContinue) return;
+              setError(null);
+              setStep('password');
+            }}
+          >
+            <label className="auth-field">
+              <input
+                className="auth-input"
+                type="email"
+                autoComplete="email"
+                inputMode="email"
+                placeholder="Email address"
+                value={email}
+                onChange={event => setEmail(event.target.value)}
+                required
+              />
+            </label>
 
-            <div className="auth-spacer" />
+            {error && (
+              <div className="auth-error">
+                {error}
+              </div>
+            )}
 
-            <form
-              className="auth-form"
-              onSubmit={event => {
-                event.preventDefault();
-                if (!canContinue) return;
-                setError(null);
-                setStep('password');
-              }}
-            >
-              <label className="auth-field">
-                <input
-                  className="auth-input"
-                  type="email"
-                  autoComplete="email"
-                  inputMode="email"
-                  placeholder="Email address"
-                  value={email}
-                  onChange={event => setEmail(event.target.value)}
-                  required
-                />
-              </label>
+            <Button className="auth-button" variant="primary" type="submit" disabled={!canContinue}>
+              Continue
+            </Button>
 
-              {error && (
-                <div className="auth-error">
-                  {error}
-                </div>
-              )}
-
-              <Button className="auth-button" variant="primary" type="submit" disabled={!canContinue}>
-                Continue
-              </Button>
-
-              <ModeSwitch mode={mode} setMode={setMode} clearError={() => setError(null)} />
-            </form>
-          </main>
-        </>
+            <ModeSwitch mode={mode} setMode={setMode} clearError={() => setError(null)} />
+          </form>
+        </main>
       )}
 
       {step === 'password' && (

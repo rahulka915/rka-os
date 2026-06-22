@@ -136,6 +136,7 @@ export async function seedMockData(onProgress?: SeedProgressCallback): Promise<S
 
   reportProgress('Resetting local cache...');
   await withRemoteWritesSuppressedAsync(async () => {
+    await db.syncQueue.clear();
     await db.items.clear();
     await db.itemInstances.clear();
     await db.tags.clear();

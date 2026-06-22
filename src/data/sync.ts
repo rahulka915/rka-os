@@ -109,8 +109,7 @@ const remoteWriteStats: Record<TableName, number> = {
   setEntries: 0,
   exerciseMedia: 0,
 };
-const pendingRemoteWrites = new Set<Promise<void>>();
-let remoteWriteTail: Promise<void> = Promise.resolve();
+let isProcessingQueue = false;
 
 let installedDb: Dexie | null = null;
 let activeUserId: string | null = null;
@@ -178,34 +177,50 @@ async function remoteClear(name: TableName, userId: string) {
   if (error) throw error;
 }
 
-function queueRemoteWrite(run: () => Promise<void>) {
-  const pending = remoteWriteTail
-    .catch(() => undefined)
-    .then(async () => {
-      try {
-        await run();
-      } catch (error) {
-        console.error('Supabase remote sync task failed', error);
-        throw error;
-      }
-    })
-    .finally(() => {
-      pendingRemoteWrites.delete(pending);
-    });
-  remoteWriteTail = pending.catch(() => undefined);
-  pendingRemoteWrites.add(pending);
-  return pending;
-}
+export async function processSyncQueue() {
+  if (isProcessingQueue || !supabase || !activeUserId || !navigator.onLine || !installedDb) return;
+  isProcessingQueue = true;
 
-export async function awaitPendingRemoteWrites() {
-  while (pendingRemoteWrites.size > 0) {
-    await Promise.allSettled(Array.from(pendingRemoteWrites));
+  try {
+    const queueTable = installedDb.table('syncQueue');
+    const entries = await queueTable.orderBy('createdAt').toArray();
+    
+    for (const entry of entries) {
+      if (!navigator.onLine) break;
+      try {
+        if (entry.operation === 'upsert') {
+          const row = await getTable(entry.tableName as TableName).get(entry.recordId);
+          if (row) {
+            await remoteUpsert(entry.tableName as TableName, row, activeUserId);
+          }
+        } else if (entry.operation === 'delete') {
+          await remoteDelete(entry.tableName as TableName, entry.recordId);
+        } else if (entry.operation === 'clear') {
+          await remoteClear(entry.tableName as TableName, activeUserId);
+        }
+        await queueTable.delete(entry.id);
+      } catch (error) {
+        console.error('Failed to process sync queue entry', entry, error);
+        break; // Stop processing to preserve order and retry later
+      }
+    }
+  } finally {
+    isProcessingQueue = false;
   }
 }
 
+export function triggerSyncQueueProcessing() {
+  if (!isProcessingQueue) {
+    processSyncQueue().catch(console.error);
+  }
+}
+
+export async function awaitPendingRemoteWrites() {
+  await processSyncQueue();
+}
+
 function clearPendingRemoteWriteTracking() {
-  pendingRemoteWrites.clear();
-  remoteWriteTail = Promise.resolve();
+  // Queue is now persistent in Dexie.
 }
 
 export function resetRemoteSyncDebugState() {
@@ -217,16 +232,32 @@ async function hydrateUserCache(userId: string, generation: number) {
   if (!installedDb || !hasSupabaseConfig || !supabase) return;
   pushRemoteWriteSuppression();
   try {
+    const queueTable = installedDb.table('syncQueue');
     const tableNames = Object.keys(adapters) as TableName[];
     for (const name of tableNames) {
       if (generation !== syncGeneration) return;
       const table = getTable(name);
       try {
         const rows = await remoteRead(name, userId);
-        await table.clear();
-        if (rows.length > 0) {
-          await table.bulkPut(rows as AnyRow[]);
-        }
+        const remoteIds = new Set(rows.map(r => r.id));
+
+        const pendingOps = await queueTable.where('tableName').equals(name).toArray();
+        const pendingUpserts = new Set(pendingOps.filter(q => q.operation === 'upsert').map(q => q.recordId));
+        const pendingDeletes = new Set(pendingOps.filter(q => q.operation === 'delete').map(q => q.recordId));
+
+        await installedDb.transaction('rw', table, async () => {
+          const localKeys = await table.toCollection().primaryKeys();
+          const keysToDelete = localKeys.filter(k => !remoteIds.has(k as string) && !pendingUpserts.has(k as string));
+          
+          if (keysToDelete.length > 0) {
+            await table.bulkDelete(keysToDelete);
+          }
+
+          const rowsToPut = rows.filter(r => !pendingUpserts.has(r.id) && !pendingDeletes.has(r.id));
+          if (rowsToPut.length > 0) {
+            await table.bulkPut(rowsToPut as AnyRow[]);
+          }
+        });
       } catch (error) {
         console.error(`Supabase hydrate failed for table ${name}`, error);
         throw error;
@@ -235,6 +266,7 @@ async function hydrateUserCache(userId: string, generation: number) {
   } finally {
     popRemoteWriteSuppression();
   }
+  triggerSyncQueueProcessing();
 }
 
 function stopRealtime() {
@@ -244,13 +276,20 @@ function stopRealtime() {
   activeChannel = null;
 }
 
-function applyRemotePayload(name: TableName, payload: { eventType: string; new: any; old: any }) {
+async function applyRemotePayload(name: TableName, payload: { eventType: string; new: any; old: any }) {
   if (!installedDb) return;
   const original = originalTableMethods.get(name);
   const { eventType } = payload;
+
+  const recordId = eventType === 'DELETE' ? payload.old?.id : payload.new?.id;
+  if (!recordId) return;
+
+  const queueTable = installedDb.table('syncQueue');
+  const pending = await queueTable.where('recordId').equals(recordId).toArray();
+  if (pending.length > 0) return;
+
   if (eventType === 'DELETE') {
-    const id = payload.old?.id;
-    if (id && original?.delete) void original.delete(id);
+    if (original?.delete) void original.delete(recordId);
     return;
   }
 
@@ -304,18 +343,20 @@ function patchTableMethods(name: TableName) {
     bulkDelete: originalBulkDelete,
   });
 
+  const queueTable = installedDb.table('syncQueue');
+
   table.add = async (obj: AnyRow, key?: any) => {
     const result = await originalAdd(obj, key);
     const userId = activeUserId;
     if (userId && hasSupabaseConfig && supabase && !isRemoteWriteSuppressed()) {
-      queueRemoteWrite(async () => {
-        try {
-          await remoteUpsert(name, obj, userId);
-        } catch (error) {
-          console.error(`Supabase add sync failed for table ${name}`, obj, error);
-          throw error;
-        }
+      await queueTable.put({
+        id: crypto.randomUUID(),
+        tableName: name,
+        operation: 'upsert',
+        recordId: obj.id,
+        createdAt: Date.now()
       });
+      triggerSyncQueueProcessing();
     }
     return result;
   };
@@ -324,14 +365,14 @@ function patchTableMethods(name: TableName) {
     const result = await originalPut(obj, key);
     const userId = activeUserId;
     if (userId && hasSupabaseConfig && supabase && !isRemoteWriteSuppressed()) {
-      queueRemoteWrite(async () => {
-        try {
-          await remoteUpsert(name, obj, userId);
-        } catch (error) {
-          console.error(`Supabase put sync failed for table ${name}`, obj, error);
-          throw error;
-        }
+      await queueTable.put({
+        id: crypto.randomUUID(),
+        tableName: name,
+        operation: 'upsert',
+        recordId: obj.id,
+        createdAt: Date.now()
       });
+      triggerSyncQueueProcessing();
     }
     return result;
   };
@@ -342,14 +383,14 @@ function patchTableMethods(name: TableName) {
     if (userId && hasSupabaseConfig && supabase && !isRemoteWriteSuppressed()) {
       const current = await table.get(key);
       if (current) {
-        queueRemoteWrite(async () => {
-          try {
-            await remoteUpsert(name, current, userId);
-          } catch (error) {
-            console.error(`Supabase update sync failed for table ${name}`, { key, changes, current }, error);
-            throw error;
-          }
+        await queueTable.put({
+          id: crypto.randomUUID(),
+          tableName: name,
+          operation: 'upsert',
+          recordId: current.id,
+          createdAt: Date.now()
         });
+        triggerSyncQueueProcessing();
       }
     }
     return result;
@@ -358,14 +399,14 @@ function patchTableMethods(name: TableName) {
   table.delete = async (key: any) => {
     const result = await originalDelete(key);
     if (activeUserId && hasSupabaseConfig && supabase && !isRemoteWriteSuppressed()) {
-      queueRemoteWrite(async () => {
-        try {
-          await remoteDelete(name, String(key));
-        } catch (error) {
-          console.error(`Supabase delete sync failed for table ${name}`, { key }, error);
-          throw error;
-        }
+      await queueTable.put({
+        id: crypto.randomUUID(),
+        tableName: name,
+        operation: 'delete',
+        recordId: String(key),
+        createdAt: Date.now()
       });
+      triggerSyncQueueProcessing();
     }
     return result;
   };
@@ -373,15 +414,14 @@ function patchTableMethods(name: TableName) {
   table.clear = async () => {
     const result = await originalClear();
     if (activeUserId && hasSupabaseConfig && supabase && !isRemoteWriteSuppressed()) {
-      const userId = activeUserId;
-      queueRemoteWrite(async () => {
-        try {
-          await remoteClear(name, userId);
-        } catch (error) {
-          console.error(`Supabase clear sync failed for table ${name}`, error);
-          throw error;
-        }
+      await queueTable.put({
+        id: crypto.randomUUID(),
+        tableName: name,
+        operation: 'clear',
+        recordId: '',
+        createdAt: Date.now()
       });
+      triggerSyncQueueProcessing();
     }
     return result;
   };
@@ -389,17 +429,14 @@ function patchTableMethods(name: TableName) {
   table.bulkAdd = async (objs: AnyRow[]) => {
     const result = await originalBulkAdd(objs);
     if (activeUserId && hasSupabaseConfig && supabase && !isRemoteWriteSuppressed()) {
-      const userId = activeUserId;
-      for (const obj of objs) {
-        queueRemoteWrite(async () => {
-          try {
-            await remoteUpsert(name, obj, userId);
-          } catch (error) {
-            console.error(`Supabase bulkAdd sync failed for table ${name}`, obj, error);
-            throw error;
-          }
-        });
-      }
+      await queueTable.bulkPut(objs.map((obj: AnyRow) => ({
+        id: crypto.randomUUID(),
+        tableName: name,
+        operation: 'upsert',
+        recordId: obj.id,
+        createdAt: Date.now()
+      })));
+      triggerSyncQueueProcessing();
     }
     return result;
   };
@@ -407,17 +444,14 @@ function patchTableMethods(name: TableName) {
   table.bulkPut = async (objs: AnyRow[]) => {
     const result = await originalBulkPut(objs);
     if (activeUserId && hasSupabaseConfig && supabase && !isRemoteWriteSuppressed()) {
-      const userId = activeUserId;
-      for (const obj of objs) {
-        queueRemoteWrite(async () => {
-          try {
-            await remoteUpsert(name, obj, userId);
-          } catch (error) {
-            console.error(`Supabase bulkPut sync failed for table ${name}`, obj, error);
-            throw error;
-          }
-        });
-      }
+      await queueTable.bulkPut(objs.map((obj: AnyRow) => ({
+        id: crypto.randomUUID(),
+        tableName: name,
+        operation: 'upsert',
+        recordId: obj.id,
+        createdAt: Date.now()
+      })));
+      triggerSyncQueueProcessing();
     }
     return result;
   };
@@ -425,16 +459,14 @@ function patchTableMethods(name: TableName) {
   table.bulkDelete = async (keys: any[]) => {
     const result = await originalBulkDelete(keys);
     if (activeUserId && hasSupabaseConfig && supabase && !isRemoteWriteSuppressed()) {
-      for (const key of keys) {
-        queueRemoteWrite(async () => {
-          try {
-            await remoteDelete(name, String(key));
-          } catch (error) {
-            console.error(`Supabase bulkDelete sync failed for table ${name}`, { key }, error);
-            throw error;
-          }
-        });
-      }
+      await queueTable.bulkPut(keys.map(key => ({
+        id: crypto.randomUUID(),
+        tableName: name,
+        operation: 'delete',
+        recordId: String(key),
+        createdAt: Date.now()
+      })));
+      triggerSyncQueueProcessing();
     }
     return result;
   };
@@ -444,6 +476,9 @@ export function installSupabaseSyncBridge(db: Dexie) {
   if (installedDb) return;
   installedDb = db;
   (Object.keys(adapters) as TableName[]).forEach(patchTableMethods);
+  if (typeof window !== 'undefined') {
+    window.addEventListener('online', triggerSyncQueueProcessing);
+  }
 }
 
 export function getSupabaseSyncUserId() {
@@ -478,6 +513,7 @@ export async function setSupabaseSyncUser(user: { id: string } | null) {
   if (!activeUserId) {
     pushRemoteWriteSuppression();
     try {
+      await installedDb.table('syncQueue').clear();
       const tableNames = Object.keys(adapters) as TableName[];
       for (const name of tableNames) {
         await getTable(name).clear();
