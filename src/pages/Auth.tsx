@@ -161,15 +161,13 @@ export function AuthPage() {
   return (
     <div className={`auth-screen auth-screen--${step === 'email' ? 'email' : 'password'}`}>
       {step === 'email' && (
-        <main className="auth-sheet auth-sheet--email">
+        <main className="auth-container">
           <div className="auth-copy-block">
             <h1 className="auth-copy-title">{pageTitle}</h1>
             <p className="auth-copy-subtitle">
               Continue with email and password. New accounts are created instantly with no verification link.
             </p>
           </div>
-
-          <div className="auth-spacer" />
 
           <form
             className="auth-form"
@@ -209,7 +207,7 @@ export function AuthPage() {
       )}
 
       {step === 'password' && (
-        <main className="auth-screen auth-screen--white">
+        <main className="auth-container">
           <div className="auth-plain-topbar">
             <IconButton
               label="Back"
