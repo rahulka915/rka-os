@@ -1,0 +1,109 @@
+.quick-capture-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 20px 24px;
+}
+
+.quick-capture-input {
+  width: 100%;
+  border: none;
+  outline: none;
+  font-size: 22px;
+  font-weight: 600;
+  background: transparent;
+  color: var(--rka-text);
+  padding: 8px 0;
+}
+
+.quick-capture-input::placeholder {
+  color: var(--rka-text-tertiary);
+}
+
+.quick-capture-notes {
+  width: 100%;
+  border: none;
+  outline: none;
+  font-size: 16px;
+  background: transparent;
+  color: var(--rka-text-secondary);
+  padding: 0;
+  resize: none;
+  min-height: 28px;
+  font-family: inherit;
+}
+
+.quick-capture-notes::placeholder {
+  color: var(--rka-text-tertiary);
+}
+
+.quick-capture-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--rka-separator);
+}
+
+.quick-capture-types {
+  display: flex;
+  gap: 12px;
+}
+
+.quick-capture-type-btn {
+  background: transparent;
+  border: none;
+  color: var(--rka-text-tertiary);
+  padding: 8px;
+  cursor: pointer;
+  border-radius: 12px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.quick-capture-type-btn:hover {
+  background: var(--rka-surface-hover);
+}
+
+.quick-capture-type-btn.active.type-task {
+  color: var(--rka-blue);
+  background: var(--rka-blue-soft);
+}
+
+.quick-capture-type-btn.active.type-habit {
+  color: var(--rka-green);
+  background: var(--rka-green-soft);
+}
+
+.quick-capture-type-btn.active.type-medication {
+  color: var(--rka-red);
+  background: var(--rka-red-soft);
+}
+
+.quick-capture-type-btn.active.type-workout {
+  color: var(--rka-orange);
+  background: var(--rka-orange-soft);
+}
+
+.quick-capture-save {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--rka-blue);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.quick-capture-save:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

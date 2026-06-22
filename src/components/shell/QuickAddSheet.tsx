@@ -1,80 +1,124 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import { CheckSquare, Repeat, Pill, Dumbbell } from 'lucide-react';
-import { EntityCreator } from '../creator/EntityCreator';
+import { CheckSquare, Repeat, Pill, Dumbbell, Inbox } from 'lucide-react';
 import { createEntity } from '../../db/actions';
-import { BottomSheet, ListRow, MetadataPill } from '../ui/primitives';
+import { BottomSheet } from '../ui/primitives';
+import './quick-capture.css';
 
 interface QuickAddSheetProps {
   onClose: () => void;
 }
 
+type CaptureType = 'task' | 'habit' | 'medication' | 'workout-template';
+
 export function QuickAddSheet({ onClose }: QuickAddSheetProps) {
-  const location = useLocation();
-  const [selectedType, setSelectedType] = useState<string | null>(null);
-  const [initialData, setInitialData] = useState<any>({});
+  const [title, setTitle] = useState('');
+  const [notes, setNotes] = useState('');
+  const [selectedType, setSelectedType] = useState<CaptureType>('task');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const titleRef = useRef<HTMLInputElement>(null);
 
-  // Context-Aware Defaults
+  // Auto-focus on mount
   useEffect(() => {
-    const path = location.pathname;
-    if (path.includes('health-search')) {
-      // Could preselect medication, but menu is fine. If they pick medication, maybe pre-fill tags.
-      setInitialData({ tags: ['health'] });
-    } else if (path.includes('projects')) {
-      // E.g. /projects/medicine
-      // We don't have nested routes yet, but if we did we could extract the ID.
-    }
-  }, [location.pathname]);
+    // Slight delay to ensure bottom sheet animation doesn't block focus
+    const timer = setTimeout(() => {
+      titleRef.current?.focus();
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
 
-  const handleSave = async (entityType: string, data: any) => {
+  // Natural Language Magic
+  useEffect(() => {
+    const t = title.toLowerCase();
+    if (/\b(take|mg|dose|pill|tablet)\b/.test(t)) {
+      setSelectedType('medication');
+    } else if (/\b(workout|gym|train|run|leg day|push day|pull day)\b/.test(t)) {
+      setSelectedType('workout-template');
+    } else if (/\b(every|daily|routine|always)\b/.test(t)) {
+      setSelectedType('habit');
+    }
+  }, [title]);
+
+  const handleSave = async () => {
+    if (!title.trim() || isSubmitting) return;
+    setIsSubmitting(true);
     try {
-      const { title, scheduledDate, tags, ...metadata } = data;
-      const status =
-        entityType === 'task'
-          ? (scheduledDate ? 'scheduled' : 'inbox')
-          : (scheduledDate ? 'scheduled' : 'active');
-      await createEntity(entityType as any, title, metadata, status, scheduledDate, tags);
+      const status = selectedType === 'task' ? 'inbox' : 'active';
+      await createEntity(selectedType, title.trim(), { notes: notes.trim() }, status, null, []);
       onClose();
     } catch (e) {
       console.error(e);
+      setIsSubmitting(false);
     }
   };
 
-  if (selectedType) {
-    return <EntityCreator entityType={selectedType} initialData={initialData} onClose={onClose} onSave={handleSave} />;
-  }
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSave();
+    }
+  };
 
   return (
-    <BottomSheet open title="Create New" onDismiss={onClose}>
-      <div className="quick-add-menu rka-list">
-        <ListRow
-          title="Task"
-          subtitle="Single action with optional date"
-          leading={<span className="action-icon-wrapper is-blue"><CheckSquare size={20} /></span>}
-          trailing={<MetadataPill label="Quick" tone="blue" />}
-          onClick={() => setSelectedType('task')}
+    <BottomSheet open title="" onDismiss={onClose}>
+      <div className="quick-capture-container">
+        <input
+          ref={titleRef}
+          className="quick-capture-input"
+          placeholder="New Item..."
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          onKeyDown={handleKeyDown}
         />
-        <ListRow
-          title="Habit"
-          subtitle="Recurring action"
-          leading={<span className="action-icon-wrapper is-green"><Repeat size={20} /></span>}
-          trailing={<MetadataPill label="Repeat" tone="green" />}
-          onClick={() => setSelectedType('habit')}
+        <textarea
+          className="quick-capture-notes"
+          placeholder="Notes"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          onKeyDown={handleKeyDown}
+          rows={1}
         />
-        <ListRow
-          title="Medication"
-          subtitle="Track dosage and stock"
-          leading={<span className="action-icon-wrapper is-red"><Pill size={20} /></span>}
-          trailing={<MetadataPill label="Health" tone="red" />}
-          onClick={() => setSelectedType('medication')}
-        />
-        <ListRow
-          title="Workout"
-          subtitle="Create a workout template"
-          leading={<span className="action-icon-wrapper is-orange"><Dumbbell size={20} /></span>}
-          trailing={<MetadataPill label="Train" tone="orange" />}
-          onClick={() => setSelectedType('workout-template')}
-        />
+
+        <div className="quick-capture-toolbar">
+          <div className="quick-capture-types">
+            <button
+              className={`quick-capture-type-btn ${selectedType === 'task' ? 'active type-task' : ''}`}
+              onClick={() => setSelectedType('task')}
+              aria-label="Task"
+            >
+              <CheckSquare size={20} />
+            </button>
+            <button
+              className={`quick-capture-type-btn ${selectedType === 'habit' ? 'active type-habit' : ''}`}
+              onClick={() => setSelectedType('habit')}
+              aria-label="Habit"
+            >
+              <Repeat size={20} />
+            </button>
+            <button
+              className={`quick-capture-type-btn ${selectedType === 'medication' ? 'active type-medication' : ''}`}
+              onClick={() => setSelectedType('medication')}
+              aria-label="Medication"
+            >
+              <Pill size={20} />
+            </button>
+            <button
+              className={`quick-capture-type-btn ${selectedType === 'workout-template' ? 'active type-workout' : ''}`}
+              onClick={() => setSelectedType('workout-template')}
+              aria-label="Workout"
+            >
+              <Dumbbell size={20} />
+            </button>
+          </div>
+
+          <button 
+            className="quick-capture-save" 
+            onClick={handleSave}
+            disabled={!title.trim() || isSubmitting}
+          >
+            <Inbox size={18} /> Save
+          </button>
+        </div>
       </div>
     </BottomSheet>
   );
