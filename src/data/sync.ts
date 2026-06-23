@@ -517,6 +517,32 @@ export function resetRemoteWriteStats() {
   });
 }
 
+export async function forceSyncAll() {
+  if (!installedDb || !activeUserId || !supabase) return;
+  
+  // 1. Push all local data to remote
+  pushRemoteWriteSuppression();
+  try {
+    const tableNames = Object.keys(adapters) as TableName[];
+    for (const name of tableNames) {
+      const table = getTable(name);
+      const allLocal = await table.toArray();
+      if (allLocal.length > 0) {
+        await remoteBulkUpsert(name, allLocal as AnyRow[], activeUserId);
+      }
+    }
+  } finally {
+    popRemoteWriteSuppression();
+  }
+
+  // 2. Clear sync queue since everything is pushed
+  await installedDb.table('syncQueue').clear();
+
+  // 3. Pull all remote data
+  syncGeneration++;
+  await hydrateUserCache(activeUserId, syncGeneration);
+}
+
 export async function setSupabaseSyncUser(user: { id: string } | null) {
   activeUserId = user?.id ?? null;
   syncGeneration += 1;
