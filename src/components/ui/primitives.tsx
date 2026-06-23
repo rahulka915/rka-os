@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { X } from 'lucide-react';
+import { haptics } from '../../utils/haptics';
 import './primitives.css';
 
 type Tone = 'gray' | 'blue' | 'green' | 'red' | 'orange';
@@ -40,8 +41,13 @@ export function Button({
   className?: string;
   style?: CSSProperties;
 }) {
+  const handleClick = () => {
+    haptics.light();
+    if (onClick) onClick();
+  };
+
   return (
-    <button className={`rka-button rka-button-${variant} ${className}`.trim()} disabled={disabled} onClick={onClick} type={type} style={style}>
+    <button className={`rka-button rka-button-${variant} active-scale ${className}`.trim()} disabled={disabled} onClick={handleClick} type={type} style={style}>
       {icon}
       {children}
     </button>
@@ -63,8 +69,13 @@ export function IconButton({
   className?: string;
   style?: CSSProperties;
 }) {
+  const handleClick = () => {
+    haptics.light();
+    if (onClick) onClick();
+  };
+
   return (
-    <button className={`rka-icon-button ${className}`.trim()} aria-label={label} title={label} disabled={disabled} onClick={onClick} type="button" style={style}>
+    <button className={`rka-icon-button active-scale ${className}`.trim()} aria-label={label} title={label} disabled={disabled} onClick={handleClick} type="button" style={style}>
       {icon}
     </button>
   );
@@ -88,10 +99,16 @@ export function ListRow({
   className?: string;
 }) {
   const Tag = onClick ? 'button' : 'div';
+  
+  const handleClick = onClick ? () => {
+    haptics.light();
+    onClick();
+  } : undefined;
+
   return (
     <Tag
-      className={`rka-list-row ${className}`.trim()}
-      {...(onClick ? { type: 'button' as const, onClick } : {})}
+      className={`rka-list-row ${onClick ? 'active-scale' : ''} ${className}`.trim()}
+      {...(onClick ? { type: 'button' as const, onClick: handleClick } : {})}
     >
       {leading && <span className="rka-list-leading">{leading}</span>}
       <div className="rka-list-main">

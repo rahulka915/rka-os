@@ -4,6 +4,8 @@ import { ChevronRight, Mail, MessageCircle, Phone, UserRound, LogOut, Bell, Layo
 import { useAuth } from '../auth/AuthProvider';
 import { forceSyncAll } from '../data/sync';
 import { PageHeader, ListRow, Button } from '../components/ui/primitives';
+import { haptics } from '../utils/haptics';
+import { requestNotificationPermission, sendLocalNotification, areNotificationsGranted } from '../utils/notifications';
 
 function formatJoinedDate(createdAt?: string | null) {
   if (!createdAt) return 'Joined recently';
@@ -19,7 +21,7 @@ function formatJoinedDate(createdAt?: string | null) {
 export function ProfilePage() {
   const navigate = useNavigate();
   const { user, displayName, logout } = useAuth();
-  const [notificationsOn, setNotificationsOn] = useState(true);
+  const [notificationsOn, setNotificationsOn] = useState(areNotificationsGranted());
   const [gridOn, setGridOn] = useState(() => localStorage.getItem('rka_grid_overlay') === 'true');
 
   const toggleGrid = () => {
@@ -85,11 +87,23 @@ export function ProfilePage() {
             <ListRow
               leading={<Bell size={24} color="var(--rka-text-secondary)" />}
               title="Push notifications"
-              subtitle="Keep reminders and updates on"
+              subtitle={notificationsOn ? "Enabled for reminders" : "Tap to enable"}
               trailing={
                 <div 
+                  className="active-scale"
                   style={{ width: '50px', height: '30px', borderRadius: '15px', background: notificationsOn ? 'var(--rka-green)' : 'var(--rka-fill)', display: 'flex', alignItems: 'center', padding: '2px', cursor: 'pointer', transition: 'background 0.2s', justifyContent: notificationsOn ? 'flex-end' : 'flex-start' }}
-                  onClick={(e) => { e.stopPropagation(); setNotificationsOn(!notificationsOn); }}
+                  onClick={async (e) => { 
+                    e.stopPropagation(); 
+                    haptics.light();
+                    if (!notificationsOn) {
+                      const granted = await requestNotificationPermission();
+                      setNotificationsOn(granted);
+                      if (granted) sendLocalNotification('Notifications Enabled!', { body: 'You will now receive reminders.' });
+                    } else {
+                      // Note: browsers don't let you programmatically revoke, just update state visually
+                      alert('To completely disable notifications, please change the permission in your browser or iOS settings.');
+                    }
+                  }}
                 >
                   <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: 'white', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }} />
                 </div>
@@ -101,8 +115,9 @@ export function ProfilePage() {
               subtitle="Show layout grid for positioning"
               trailing={
                 <div 
+                  className="active-scale"
                   style={{ width: '50px', height: '30px', borderRadius: '15px', background: gridOn ? 'var(--rka-green)' : 'var(--rka-fill)', display: 'flex', alignItems: 'center', padding: '2px', cursor: 'pointer', transition: 'background 0.2s', justifyContent: gridOn ? 'flex-end' : 'flex-start' }}
-                  onClick={(e) => { e.stopPropagation(); toggleGrid(); }}
+                  onClick={(e) => { e.stopPropagation(); haptics.light(); toggleGrid(); }}
                 >
                   <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: 'white', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }} />
                 </div>

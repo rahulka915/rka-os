@@ -30,8 +30,8 @@ export function VersionHistoryModal({
               RKA
             </div>
             <div>
-              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>Version 2.7.0</h2>
-              <div style={{ fontSize: '13px', color: 'var(--rka-text-secondary)' }}>June 23, 2026 • 19:00</div>
+              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>Version 2.8.0</h2>
+              <div style={{ fontSize: '13px', color: 'var(--rka-text-secondary)' }}>June 23, 2026 • 20:00</div>
             </div>
           </div>
           <IconButton icon={<X size={20} />} onClick={onClose} label="Close" />
@@ -40,6 +40,18 @@ export function VersionHistoryModal({
         {/* Content */}
         <div style={{ padding: '24px', overflowY: 'auto', maxHeight: '60vh', display: 'flex', flexDirection: 'column', gap: '24px' }}>
           
+          <section>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--rka-blue)', marginBottom: '12px', fontWeight: 700 }}>
+              <Sparkles size={18} />
+              <span>Premium Feel & Interactivity (v2.8.0)</span>
+            </div>
+            <ul style={{ margin: 0, paddingLeft: '24px', color: 'var(--rka-text)', fontSize: '15px', lineHeight: 1.5, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <li><strong>Tactile Feedback:</strong> Added haptic vibrations and interactive scaling to buttons, tabs, and list rows so the app responds physically to your touch.</li>
+              <li><strong>Native Animations:</strong> Sheets, drawers, and page transitions now use fluid, spring-based physics for a smooth, native iOS feel.</li>
+              <li><strong>Local Notifications:</strong> Added a push notifications toggle in Profile to enable on-device reminders and updates.</li>
+            </ul>
+          </section>
+
           <section>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--rka-green)', marginBottom: '12px', fontWeight: 700 }}>
               <ShieldCheck size={18} />
