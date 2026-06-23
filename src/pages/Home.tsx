@@ -22,9 +22,9 @@ export function Home() {
   }, []);
 
   const currentHour = new Date().getHours();
-  const isMorning = currentHour >= 5 && currentHour < 12;
+  const isMorning = currentHour < 12;
   const isAfternoon = currentHour >= 12 && currentHour < 17;
-  const isEvening = currentHour >= 17 || currentHour < 5;
+  const isEvening = currentHour >= 17;
 
   const instances = useLiveQuery(
     () => db.itemInstances.where('scheduledDate').equals(todayDate).toArray(),
@@ -96,10 +96,9 @@ export function Home() {
     // 1. If completed, use exact completion time to group
     if (instance.status === 'completed' && instance.completedAt) {
       const h = new Date(instance.completedAt).getHours();
-      if (h >= 5 && h < 12) return 'morning';
+      if (h < 12) return 'morning';
       if (h >= 12 && h < 17) return 'afternoon';
-      if (h >= 17 && h < 22) return 'evening';
-      return 'anytime'; // late night goes to anytime for now
+      if (h >= 17) return 'evening';
     }
 
     // 2. If it has an exact time, use that to group
@@ -107,10 +106,9 @@ export function Home() {
       const [hStr] = meta.time.split(':');
       const h = parseInt(hStr, 10);
       if (!isNaN(h)) {
-        if (h >= 5 && h < 12) return 'morning';
+        if (h < 12) return 'morning';
         if (h >= 12 && h < 17) return 'afternoon';
-        if (h >= 17 && h < 22) return 'evening';
-        return 'anytime';
+        if (h >= 17) return 'evening';
       }
     }
 
