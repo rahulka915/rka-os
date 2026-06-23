@@ -63,6 +63,10 @@ export function Health() {
       
       console.log(`[HealthTab] Successfully saved entity with ID: ${id}`);
       setCreatorType(null);
+      
+      if (entityType === 'workout-template') {
+        navigate(`/template-builder/${id}`);
+      }
     } catch (e) {
       console.error('[HealthTab] FAILED to create entity:', e);
     }
