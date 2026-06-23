@@ -30,8 +30,8 @@ export function VersionHistoryModal({
               RKA
             </div>
             <div>
-              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>Version 2.8.0</h2>
-              <div style={{ fontSize: '13px', color: 'var(--rka-text-secondary)' }}>June 23, 2026 • 19:47</div>
+              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>Version 2.8.1</h2>
+              <div style={{ fontSize: '13px', color: 'var(--rka-text-secondary)' }}>June 23, 2026 • 20:22</div>
             </div>
           </div>
           <IconButton icon={<X size={20} />} onClick={onClose} label="Close" />
@@ -42,6 +42,18 @@ export function VersionHistoryModal({
           
           <section>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--rka-blue)', marginBottom: '12px', fontWeight: 700 }}>
+              <Sparkles size={18} />
+              <span>Native iOS Inbox Sheet (v2.8.1)</span>
+            </div>
+            <ul style={{ margin: 0, paddingLeft: '24px', color: 'var(--rka-text)', fontSize: '15px', lineHeight: 1.5, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <li><strong>Native Physics:</strong> Rebuilt the Inbox with fluid, velocity-based drag gestures and Apple Maps-style snap points (18%, 60%, 95%).</li>
+              <li><strong>Immediate Visibility:</strong> The Inbox now opens to a 60% detent, showing Quick Capture, "waiting" count, and actionable items instantly without scrolling.</li>
+              <li><strong>Mobile Viewport Fix:</strong> Switched to `100dvh` for the main app container so the layout adapts dynamically to browser toolbars.</li>
+            </ul>
+          </section>
+
+          <section>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--rka-text-secondary)', marginBottom: '12px', fontWeight: 700 }}>
               <Sparkles size={18} />
               <span>Premium Feel & Interactivity (v2.8.0)</span>
             </div>
