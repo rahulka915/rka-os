@@ -141,7 +141,7 @@ export function Home() {
   return (
     <div className="rka-page home-container">
       <VersionHistoryModal isOpen={isVersionModalOpen} onClose={() => setIsVersionModalOpen(false)} />
-      <div className="home-hero-row">
+      <div className="home-hero-row hide-on-desktop">
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '-4px', paddingTop: '8px' }}>
           <div 
             style={{ fontSize: '18px', fontWeight: 800, cursor: 'pointer', letterSpacing: '-0.02em', color: 'var(--rka-text)' }}
