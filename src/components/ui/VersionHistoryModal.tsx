@@ -43,6 +43,17 @@ export function VersionHistoryModal({
           <section style={{ marginBottom: '32px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--rka-blue)', marginBottom: '12px', fontWeight: 700 }}>
               <Sparkles size={18} />
+              <span>Hotfix: Blur UI (v2.8.3)</span>
+            </div>
+            <div style={{ color: 'var(--rka-text-secondary)', fontSize: '13px', marginBottom: '12px' }}>June 23, 2026, 21:01</div>
+            <ul style={{ margin: 0, paddingLeft: '24px', color: 'var(--rka-text)', fontSize: '15px', lineHeight: 1.5, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <li><strong>Critical Fix:</strong> Reverted the experimental <code>forceMount</code> property on the Inbox drawer that caused a permanent blurred overlay on the Home screen.</li>
+            </ul>
+          </section>
+
+          <section style={{ marginBottom: '32px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--rka-text)', marginBottom: '12px', fontWeight: 700 }}>
+              <Sparkles size={18} />
               <span>Fluidity & Interactions (v2.8.2)</span>
             </div>
             <div style={{ color: 'var(--rka-text-secondary)', fontSize: '13px', marginBottom: '12px' }}>June 23, 2026, 21:00</div>
