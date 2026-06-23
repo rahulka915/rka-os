@@ -12,6 +12,9 @@ interface MedicationDashboardProps {
 export function MedicationDashboard({ medicationId }: MedicationDashboardProps) {
   const [isLogging, setIsLogging] = useState(false);
   const [showPastLog, setShowPastLog] = useState(false);
+  const [pastLogMode, setPastLogMode] = useState<'exact' | 'ago'>('exact');
+  const [agoHours, setAgoHours] = useState('');
+  const [agoMinutes, setAgoMinutes] = useState('');
   
   const getLocalDatetime = () => {
     const now = new Date();
@@ -81,7 +84,15 @@ export function MedicationDashboard({ medicationId }: MedicationDashboardProps) 
   };
 
   const handleRetroactiveLog = async (startTimer: boolean) => {
-    const timestamp = new Date(pastTime).getTime();
+    let timestamp;
+    if (pastLogMode === 'exact') {
+      timestamp = new Date(pastTime).getTime();
+    } else {
+      const h = parseInt(agoHours) || 0;
+      const m = parseInt(agoMinutes) || 0;
+      timestamp = Date.now() - (h * 60 * 60 * 1000) - (m * 60 * 1000);
+    }
+    
     if (isNaN(timestamp)) return;
     await handleLogDose(startTimer, timestamp);
     setShowPastLog(false);
@@ -157,13 +168,62 @@ export function MedicationDashboard({ medicationId }: MedicationDashboardProps) 
 
       {showPastLog && (
         <div style={{ background: 'var(--bg-tertiary)', padding: '16px', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '12px', border: '1px solid var(--border-color)' }}>
-          <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>When did you take it?</div>
-          <input 
-            type="datetime-local" 
-            value={pastTime}
-            onChange={e => setPastTime(e.target.value)}
-            style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-strong)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '16px', outline: 'none' }}
-          />
+          <div style={{ display: 'flex', background: 'var(--bg-secondary)', padding: '4px', borderRadius: '8px' }}>
+            <button 
+              onClick={() => setPastLogMode('exact')}
+              style={{ flex: 1, padding: '6px 0', borderRadius: '6px', border: 'none', background: pastLogMode === 'exact' ? 'var(--bg-primary)' : 'transparent', color: pastLogMode === 'exact' ? 'var(--text-primary)' : 'var(--text-secondary)', fontSize: '13px', fontWeight: 500, boxShadow: pastLogMode === 'exact' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', cursor: 'pointer' }}
+            >
+              Exact Time
+            </button>
+            <button 
+              onClick={() => setPastLogMode('ago')}
+              style={{ flex: 1, padding: '6px 0', borderRadius: '6px', border: 'none', background: pastLogMode === 'ago' ? 'var(--bg-primary)' : 'transparent', color: pastLogMode === 'ago' ? 'var(--text-primary)' : 'var(--text-secondary)', fontSize: '13px', fontWeight: 500, boxShadow: pastLogMode === 'ago' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', cursor: 'pointer' }}
+            >
+              Time Ago
+            </button>
+          </div>
+
+          {pastLogMode === 'exact' ? (
+            <>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>When did you take it?</div>
+              <input 
+                type="datetime-local" 
+                value={pastTime}
+                onChange={e => setPastTime(e.target.value)}
+                style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-strong)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '16px', outline: 'none' }}
+              />
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>How long ago?</div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <div style={{ flex: 1, position: 'relative' }}>
+                  <input 
+                    type="number" 
+                    value={agoHours}
+                    onChange={e => setAgoHours(e.target.value)}
+                    placeholder="0"
+                    min="0"
+                    style={{ width: '100%', padding: '12px 32px 12px 12px', borderRadius: '8px', border: '1px solid var(--border-strong)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '16px', outline: 'none', textAlign: 'right' }}
+                  />
+                  <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', fontSize: '14px', pointerEvents: 'none' }}>hours</span>
+                </div>
+                <div style={{ flex: 1, position: 'relative' }}>
+                  <input 
+                    type="number" 
+                    value={agoMinutes}
+                    onChange={e => setAgoMinutes(e.target.value)}
+                    placeholder="0"
+                    min="0"
+                    max="59"
+                    style={{ width: '100%', padding: '12px 32px 12px 12px', borderRadius: '8px', border: '1px solid var(--border-strong)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '16px', outline: 'none', textAlign: 'right' }}
+                  />
+                  <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', fontSize: '14px', pointerEvents: 'none' }}>min</span>
+                </div>
+              </div>
+            </>
+          )}
+
           <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
             <div style={{ flex: 1, display: 'flex' }}>
               <Button variant="secondary" onClick={() => handleRetroactiveLog(false)} disabled={isLogging} className="w-full">
