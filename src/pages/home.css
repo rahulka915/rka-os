@@ -3,10 +3,9 @@
 }
 
 .home-hero-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-  gap: var(--rka-space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--rka-space-4);
 }
 
 .home-grid,
