@@ -263,34 +263,32 @@ export function BottomSheet({
   className?: string;
   overlayClassName?: string;
 }) {
+  if (!open) return null;
+
   return (
-    <VaulDrawer.Root open={open} onOpenChange={(isOpen) => { if (!isOpen) onDismiss(); }}>
-      <VaulDrawer.Portal>
-        <VaulDrawer.Overlay className={`rka-sheet-overlay ${overlayClassName}`.trim()} />
-        <VaulDrawer.Content className={`rka-vaul-sheet ${className}`.trim()} aria-label={title}>
-          <div className="rka-vaul-handle" />
-          <div className="rka-sheet-header">
-            <div className="rka-sheet-title">{title}</div>
-            <IconButton label="Close" icon={<X size={20} />} onClick={onDismiss} />
+    <div className={`rka-sheet-overlay ${overlayClassName}`.trim()} onClick={onDismiss}>
+      <div className={`rka-sheet ${className}`.trim()} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={title}>
+        <div className="rka-sheet-header">
+          <div className="rka-sheet-title">{title}</div>
+          <IconButton label="Close" icon={<X size={20} />} onClick={onDismiss} />
+        </div>
+        <div className="rka-sheet-body">{children}</div>
+        {(primaryAction || secondaryAction) && (
+          <div className="rka-sheet-footer">
+            {secondaryAction && (
+              <Button variant="secondary" onClick={secondaryAction.onClick} disabled={secondaryAction.disabled}>
+                {secondaryAction.label}
+              </Button>
+            )}
+            {primaryAction && (
+              <Button variant="primary" onClick={primaryAction.onClick} disabled={primaryAction.disabled}>
+                {primaryAction.label}
+              </Button>
+            )}
           </div>
-          <div className="rka-sheet-body">{children}</div>
-          {(primaryAction || secondaryAction) && (
-            <div className="rka-sheet-footer">
-              {secondaryAction && (
-                <Button variant="secondary" onClick={secondaryAction.onClick} disabled={secondaryAction.disabled}>
-                  {secondaryAction.label}
-                </Button>
-              )}
-              {primaryAction && (
-                <Button variant="primary" onClick={primaryAction.onClick} disabled={primaryAction.disabled}>
-                  {primaryAction.label}
-                </Button>
-              )}
-            </div>
-          )}
-        </VaulDrawer.Content>
-      </VaulDrawer.Portal>
-    </VaulDrawer.Root>
+        )}
+      </div>
+    </div>
   );
 }
 
