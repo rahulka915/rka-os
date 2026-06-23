@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet } from 'react-router-dom';
 import { BottomTabNav } from './BottomTabNav';
 import { SidebarNav } from './SidebarNav';
 import { QuickAddSheet } from './QuickAddSheet';
@@ -11,7 +11,6 @@ import './shell.css';
 export function AppShell() {
   const [isQuickAddOpen, setQuickAddOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 768);
-  const location = useLocation();
 
   useEffect(() => {
     const handleResize = () => setIsDesktop(window.innerWidth >= 768);
@@ -40,7 +39,7 @@ export function AppShell() {
         <QuickAddSheet onClose={() => setQuickAddOpen(false)} />
       )}
 
-      {!isDesktop && location.pathname !== '/settings' && <BottomTabNav onQuickAdd={() => setQuickAddOpen(true)} />}
+      {!isDesktop && <BottomTabNav onQuickAdd={() => setQuickAddOpen(true)} />}
     </div>
   );
 }

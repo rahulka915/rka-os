@@ -29,6 +29,7 @@ export function Button({
   onClick,
   type = 'button',
   className = '',
+  style,
 }: {
   children: ReactNode;
   variant?: ButtonVariant;
@@ -37,9 +38,10 @@ export function Button({
   onClick?: () => void;
   type?: 'button' | 'submit';
   className?: string;
+  style?: CSSProperties;
 }) {
   return (
-    <button className={`rka-button rka-button-${variant} ${className}`.trim()} disabled={disabled} onClick={onClick} type={type}>
+    <button className={`rka-button rka-button-${variant} ${className}`.trim()} disabled={disabled} onClick={onClick} type={type} style={style}>
       {icon}
       {children}
     </button>
@@ -52,15 +54,17 @@ export function IconButton({
   onClick,
   disabled,
   className = '',
+  style,
 }: {
   label: string;
   icon: ReactNode;
   onClick?: () => void;
   disabled?: boolean;
   className?: string;
+  style?: CSSProperties;
 }) {
   return (
-    <button className={`rka-icon-button ${className}`.trim()} aria-label={label} title={label} disabled={disabled} onClick={onClick} type="button">
+    <button className={`rka-icon-button ${className}`.trim()} aria-label={label} title={label} disabled={disabled} onClick={onClick} type="button" style={style}>
       {icon}
     </button>
   );

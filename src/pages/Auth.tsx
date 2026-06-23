@@ -4,34 +4,11 @@ import { ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../auth/AuthProvider';
 import { signInWithPassword, signUpWithPassword } from '../data/auth';
 import { Button, IconButton } from '../components/ui/primitives';
-import './auth-flow.css';
 
 type AuthStep = 'email' | 'password';
 type AuthMode = 'signup' | 'login';
 const minimumPasswordLength = 6;
 
-function ModeSwitch({
-  mode,
-  setMode,
-  clearError,
-}: {
-  mode: AuthMode;
-  setMode: (mode: AuthMode) => void;
-  clearError?: () => void;
-  }) {
-  return (
-    <Button
-      className="auth-mode-switch"
-      variant="ghost"
-      onClick={() => {
-        clearError?.();
-        setMode(mode === 'signup' ? 'login' : 'signup');
-      }}
-    >
-      {mode === 'signup' ? 'Already have a password? Log in' : 'Need a password? Create one'}
-    </Button>
-  );
-}
 
 export function AuthPage() {
   const [step, setStep] = useState<AuthStep>('email');
@@ -159,28 +136,27 @@ export function AuthPage() {
   }
 
   return (
-    <div className={`auth-screen auth-screen--${step === 'email' ? 'email' : 'password'}`}>
+    <div className="rka-page" style={{ justifyContent: 'center', minHeight: '100vh', padding: '24px' }}>
       {step === 'email' && (
-        <main className="auth-container">
-          <div className="auth-copy-block">
-            <h1 className="auth-copy-title">{pageTitle}</h1>
-            <p className="auth-copy-subtitle">
-              Continue with email and password. New accounts are created instantly with no verification link.
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '400px', width: '100%', margin: '0 auto' }}>
+          <div>
+            <h1 style={{ fontSize: '32px', fontWeight: 800, color: 'var(--rka-text)', margin: '0 0 8px 0', lineHeight: 1.1 }}>{pageTitle}</h1>
+            <p style={{ color: 'var(--rka-text-secondary)', fontSize: '16px', margin: 0, lineHeight: 1.4 }}>
+              Continue with email and password. New accounts are created instantly.
             </p>
           </div>
 
           <form
-            className="auth-form"
             onSubmit={event => {
               event.preventDefault();
               if (!canContinue) return;
               setError(null);
               setStep('password');
             }}
+            style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
           >
-            <label className="auth-field">
+            <div style={{ background: 'var(--rka-surface)', padding: '20px', borderRadius: '20px', boxShadow: '0 8px 24px rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <input
-                className="auth-input"
                 type="email"
                 autoComplete="email"
                 inputMode="email"
@@ -188,27 +164,37 @@ export function AuthPage() {
                 value={email}
                 onChange={event => setEmail(event.target.value)}
                 required
+                style={{ width: '100%', height: '52px', border: '1px solid var(--rka-separator)', borderRadius: '12px', padding: '0 16px', fontSize: '16px', outline: 'none', background: 'var(--rka-bg)' }}
               />
-            </label>
 
-            {error && (
-              <div className="auth-error">
-                {error}
-              </div>
-            )}
+              {error && (
+                <div style={{ color: 'var(--rka-red)', background: 'var(--rka-red-soft)', padding: '12px', borderRadius: '8px', fontSize: '14px', fontWeight: 500 }}>
+                  {error}
+                </div>
+              )}
 
-            <Button className="auth-button" variant="primary" type="submit" disabled={!canContinue}>
-              Continue
+              <Button variant="primary" type="submit" disabled={!canContinue} style={{ width: '100%' }}>
+                Continue
+              </Button>
+            </div>
+
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setError(null);
+                setMode(mode === 'signup' ? 'login' : 'signup');
+              }}
+              style={{ alignSelf: 'center', color: 'var(--rka-text-secondary)' }}
+            >
+              {mode === 'signup' ? 'Already have a password? Log in' : 'Need a password? Create one'}
             </Button>
-
-            <ModeSwitch mode={mode} setMode={setMode} clearError={() => setError(null)} />
           </form>
-        </main>
+        </div>
       )}
 
       {step === 'password' && (
-        <main className="auth-container">
-          <div className="auth-plain-topbar">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '400px', width: '100%', margin: '0 auto' }}>
+          <div>
             <IconButton
               label="Back"
               icon={<ArrowLeft size={22} />}
@@ -216,96 +202,92 @@ export function AuthPage() {
                 setStep('email');
                 setError(null);
               }}
-              className="auth-back-icon"
+              style={{ marginBottom: '16px' }}
             />
-            <div className="auth-plain-topbar-title">
-              {mode === 'signup' ? 'Create Account' : 'Log In'}
-            </div>
-            <div />
-          </div>
-
-          <div className="auth-password-hero">
-            <h1 className="auth-password-title">
+            <h1 style={{ fontSize: '32px', fontWeight: 800, color: 'var(--rka-text)', margin: '0 0 8px 0', lineHeight: 1.1 }}>
               {mode === 'signup' ? 'Create a password' : "What's your password?"}
             </h1>
-            <div className="auth-password-email">Email: {emailValue}</div>
+            <div style={{ color: 'var(--rka-text-secondary)', fontSize: '16px', fontWeight: 500 }}>{emailValue}</div>
           </div>
 
           <form
-            className="auth-password-form"
             onSubmit={async event => {
               event.preventDefault();
               await submitPassword();
             }}
+            style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
           >
-            <label className="auth-password-field">
-              <span className="sr-only">Password</span>
-              <div className="auth-password-input-wrap">
+            <div style={{ background: 'var(--rka-surface)', padding: '20px', borderRadius: '20px', boxShadow: '0 8px 24px rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ position: 'relative' }}>
                 <input
-                  className="auth-password-input"
                   type={showPassword ? 'text' : 'password'}
                   autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
                   placeholder={mode === 'signup' ? 'Password' : 'Password'}
                   value={password}
                   onChange={event => setPassword(event.target.value)}
                   required
+                  style={{ width: '100%', height: '52px', border: '1px solid var(--rka-separator)', borderRadius: '12px', padding: '0 48px 0 16px', fontSize: '16px', outline: 'none', background: 'var(--rka-bg)' }}
                 />
                 <button
-                  className="auth-password-eye"
                   type="button"
                   onClick={() => setShowPassword(next => !next)}
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--rka-text-secondary)', cursor: 'pointer', padding: '4px' }}
                 >
-                  {showPassword ? <EyeOff size={24} /> : <Eye size={24} />}
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
               </div>
-            </label>
 
-            {mode === 'signup' && (
-              <label className="auth-password-field">
-                <span className="sr-only">Confirm password</span>
-                <div className="auth-password-input-wrap">
+              {mode === 'signup' && (
+                <div style={{ position: 'relative' }}>
                   <input
-                    className="auth-password-input"
                     type={showPassword ? 'text' : 'password'}
                     autoComplete="new-password"
                     placeholder="Confirm Password"
                     value={confirmPassword}
                     onChange={event => setConfirmPassword(event.target.value)}
                     required
+                    style={{ width: '100%', height: '52px', border: '1px solid var(--rka-separator)', borderRadius: '12px', padding: '0 48px 0 16px', fontSize: '16px', outline: 'none', background: 'var(--rka-bg)' }}
                   />
                   <button
-                    className="auth-password-eye"
                     type="button"
                     onClick={() => setShowPassword(next => !next)}
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--rka-text-secondary)', cursor: 'pointer', padding: '4px' }}
                   >
-                    {showPassword ? <EyeOff size={24} /> : <Eye size={24} />}
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                   </button>
                 </div>
-              </label>
-            )}
+              )}
 
-            {mode === 'signup' && (
-              <div className="auth-password-hint">Use at least {minimumPasswordLength} characters.</div>
-            )}
+              {mode === 'signup' && (
+                <div style={{ fontSize: '13px', color: 'var(--rka-text-tertiary)', textAlign: 'center' }}>
+                  Use at least {minimumPasswordLength} characters.
+                </div>
+              )}
 
-            {mode === 'signup' && (
-              <p className="auth-terms">
-                By continuing, you agree to our <button type="button">Terms of Service</button> and{' '}
-                <button type="button">Privacy Policy</button>.
-              </p>
-            )}
+              {error && (
+                <div style={{ color: 'var(--rka-red)', background: 'var(--rka-red-soft)', padding: '12px', borderRadius: '8px', fontSize: '14px', fontWeight: 500 }}>
+                  {error}
+                </div>
+              )}
 
-            {error && <div className="auth-error">{error}</div>}
+              <Button variant="primary" type="submit" disabled={passwordSubmitDisabled} style={{ width: '100%' }}>
+                {submitting ? 'Working…' : 'Continue'}
+              </Button>
+            </div>
 
-            <Button className="auth-welcome-button" variant="primary" type="submit" disabled={passwordSubmitDisabled}>
-              {submitting ? 'Working…' : 'Continue'}
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setError(null);
+                setMode(mode === 'signup' ? 'login' : 'signup');
+              }}
+              style={{ alignSelf: 'center', color: 'var(--rka-text-secondary)' }}
+            >
+              {mode === 'signup' ? 'Already have a password? Log in' : 'Need a password? Create one'}
             </Button>
-
-            <ModeSwitch mode={mode} setMode={setMode} clearError={() => setError(null)} />
           </form>
-        </main>
+        </div>
       )}
     </div>
   );

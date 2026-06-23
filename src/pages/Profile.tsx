@@ -1,9 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, Mail, MessageCircle, MoreHorizontal, Phone, UserRound, LogOut } from 'lucide-react';
+import { ChevronRight, Mail, MessageCircle, Phone, UserRound, LogOut, Settings2, Bell, LayoutGrid, Download } from 'lucide-react';
 import { useAuth } from '../auth/AuthProvider';
-import { IconButton } from '../components/ui/primitives';
-import './profile-settings.css';
+import { PageHeader, ListRow, Button } from '../components/ui/primitives';
 
 function formatJoinedDate(createdAt?: string | null) {
   if (!createdAt) return 'Joined recently';
@@ -32,91 +31,114 @@ export function ProfilePage() {
   }, [displayName, user?.email]);
 
   return (
-    <main className="profile-page">
-      <IconButton label="Open settings" icon={<MoreHorizontal size={28} />} onClick={() => navigate('/settings')} className="profile-menu-button" />
+    <div className="rka-page" style={{ padding: '24px 16px' }}>
+      <PageHeader title="Profile" subtitle="Manage your account and preferences" />
 
-      <section className="profile-hero">
-        <div className="profile-avatar" aria-hidden="true">
-          {initials}
-        </div>
-        <h1 className="profile-name">{profileName}</h1>
-        <div className="profile-joined">{formatJoinedDate(user?.created_at)}</div>
-      </section>
-
-      <section className="profile-card">
-        <div className="profile-card-title">General</div>
-
-        <div className="profile-row">
-          <span className="profile-row-icon"><UserRound size={30} strokeWidth={2.2} /></span>
-          <div className="profile-row-content">
-            <div className="profile-row-title">{profileName}</div>
-            <div className="profile-row-subtitle">Your account name</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '32px', marginTop: '16px' }}>
+        <section style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '16px' }}>
+          <div style={{ width: '120px', height: '120px', borderRadius: '50%', background: 'var(--rka-blue-soft)', color: 'var(--rka-blue)', display: 'grid', placeItems: 'center', fontSize: '42px', fontWeight: 800, letterSpacing: '-0.05em' }}>
+            {initials}
           </div>
-        </div>
-
-        <div className="profile-row">
-          <span className="profile-row-icon"><Mail size={28} strokeWidth={2.2} /></span>
-          <div className="profile-row-content">
-            <div className="profile-row-title profile-row-title--email">{user?.email || 'No email yet'}</div>
-            <div className="profile-row-subtitle">Sign-in email</div>
+          <div>
+            <h2 style={{ margin: 0, fontSize: '32px', fontWeight: 800, color: 'var(--rka-text)', lineHeight: 1.1, letterSpacing: '-0.04em' }}>{profileName}</h2>
+            <div style={{ color: 'var(--rka-text-secondary)', fontSize: '16px', marginTop: '4px' }}>{formatJoinedDate(user?.created_at)}</div>
           </div>
-        </div>
+        </section>
 
-        <div className="profile-row">
-          <span className="profile-row-icon"><Phone size={28} strokeWidth={2.2} /></span>
-          <div className="profile-row-content">
-            <div className="profile-row-title">Add phone number</div>
-            <div className="profile-row-subtitle">Optional recovery method</div>
+        <section className="rka-section">
+          <h3 className="rka-section-title">Account</h3>
+          <div className="rka-list">
+            <ListRow
+              leading={<UserRound size={24} color="var(--rka-text-secondary)" />}
+              title={profileName}
+              subtitle="Your account name"
+              trailing={<ChevronRight size={20} color="var(--rka-text-tertiary)" />}
+              onClick={() => {}}
+            />
+            <ListRow
+              leading={<Mail size={24} color="var(--rka-text-secondary)" />}
+              title={user?.email || 'No email yet'}
+              subtitle="Sign-in email"
+            />
+            <ListRow
+              leading={<Phone size={24} color="var(--rka-text-secondary)" />}
+              title="Add phone number"
+              subtitle="Optional recovery method"
+              trailing={<ChevronRight size={20} color="var(--rka-text-tertiary)" />}
+              onClick={() => {}}
+            />
           </div>
-          <ChevronRight size={24} className="profile-row-chevron" />
-        </div>
+        </section>
 
-        <div className="profile-row profile-row--last">
-          <span className="profile-row-icon"><MessageCircle size={28} strokeWidth={2.2} /></span>
-          <div className="profile-row-content">
-            <div className="profile-row-title">Feedback</div>
-            <div className="profile-row-subtitle">Send thoughts or bugs</div>
+        <section className="rka-section">
+          <h3 className="rka-section-title">Preferences</h3>
+          <div className="rka-list">
+            <ListRow
+              leading={<Bell size={24} color="var(--rka-text-secondary)" />}
+              title="Push notifications"
+              subtitle="Keep reminders and updates on"
+              trailing={
+                <div 
+                  style={{ width: '50px', height: '30px', borderRadius: '15px', background: notificationsOn ? 'var(--rka-green)' : 'var(--rka-fill)', display: 'flex', alignItems: 'center', padding: '2px', cursor: 'pointer', transition: 'background 0.2s', justifyContent: notificationsOn ? 'flex-end' : 'flex-start' }}
+                  onClick={(e) => { e.stopPropagation(); setNotificationsOn(!notificationsOn); }}
+                >
+                  <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: 'white', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }} />
+                </div>
+              }
+            />
+            <ListRow
+              leading={<LayoutGrid size={24} color="var(--rka-text-secondary)" />}
+              title="Customize your grid"
+              trailing={<ChevronRight size={20} color="var(--rka-text-tertiary)" />}
+              onClick={() => {}}
+            />
+            <ListRow
+              leading={<Settings2 size={24} color="var(--rka-text-secondary)" />}
+              title="Advanced Settings"
+              trailing={<ChevronRight size={20} color="var(--rka-text-tertiary)" />}
+              onClick={() => {}}
+            />
           </div>
-          <ChevronRight size={24} className="profile-row-chevron" />
-        </div>
-      </section>
+        </section>
 
-      <section className="profile-card profile-card--notifications">
-        <div className="profile-card-title">Notifications</div>
+        <section className="rka-section">
+          <h3 className="rka-section-title">Support</h3>
+          <div className="rka-list">
+            <ListRow
+              leading={<Download size={24} color="var(--rka-text-secondary)" />}
+              title="Import Data"
+              trailing={<ChevronRight size={20} color="var(--rka-text-tertiary)" />}
+              onClick={() => {}}
+            />
+            <ListRow
+              leading={<MessageCircle size={24} color="var(--rka-text-secondary)" />}
+              title="Feedback"
+              subtitle="Send thoughts or bugs"
+              trailing={<ChevronRight size={20} color="var(--rka-text-tertiary)" />}
+              onClick={() => {}}
+            />
+          </div>
+        </section>
 
-        <button
-          className="profile-toggle-row"
-          type="button"
-          onClick={() => setNotificationsOn(next => !next)}
-        >
-          <span className="profile-toggle-copy">
-            <span className="profile-row-title">Push notifications</span>
-            <span className="profile-row-subtitle">Keep reminders and updates on</span>
-          </span>
-          <span className={`profile-toggle ${notificationsOn ? 'is-on' : ''}`}>
-            <span className="profile-toggle-thumb" />
-          </span>
-        </button>
-      </section>
-
-      <section className="profile-actions">
-        <button className="profile-settings-link" type="button" onClick={() => navigate('/settings')}>
-          <span>Settings</span>
-          <ChevronRight size={22} />
-        </button>
-
-        <button
-          className="profile-logout"
-          type="button"
-          onClick={async () => {
-            await logout();
-            navigate('/auth', { replace: true });
-          }}
-        >
-          <LogOut size={20} />
-          <span>Log out</span>
-        </button>
-      </section>
-    </main>
+        <section style={{ display: 'flex', flexDirection: 'column', gap: '24px', alignItems: 'center' }}>
+          <Button
+            variant="danger"
+            icon={<LogOut size={20} />}
+            onClick={async () => {
+              await logout();
+              navigate('/auth', { replace: true });
+            }}
+            style={{ width: '100%', maxWidth: '300px' }}
+          >
+            Log out
+          </Button>
+          
+          <div style={{ color: 'var(--rka-text-tertiary)', fontSize: '13px', textAlign: 'center', fontWeight: 500 }}>
+            <div>Made by immigrants in America</div>
+            <div>Version 2.6.1</div>
+          </div>
+        </section>
+      </div>
+    </div>
   );
 }
