@@ -43,6 +43,20 @@ export function VersionHistoryModal({
           <section style={{ marginBottom: '32px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--rka-blue)', marginBottom: '12px', fontWeight: 700 }}>
               <Sparkles size={18} />
+              <span>Native iOS Layout (v2.8.4)</span>
+            </div>
+            <div style={{ color: 'var(--rka-text-secondary)', fontSize: '13px', marginBottom: '12px' }}>June 24, 2026, 00:30</div>
+            <ul style={{ margin: 0, paddingLeft: '24px', color: 'var(--rka-text)', fontSize: '15px', lineHeight: 1.5, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <li><strong>Edge-to-Edge Bleed:</strong> Re-architected the viewport layout to an absolute overlay system, allowing content to natively scroll and bleed *underneath* the glassmorphism navigation bars.</li>
+              <li><strong>Apple HIG Compliance:</strong> Shrunk the navigation bars to exact Apple Human Interface Guidelines specifications (44px top, 49px bottom).</li>
+              <li><strong>Native Hairlines:</strong> Replaced thick 1px CSS borders with native-feeling 0.5px translucent sub-pixel drop shadows.</li>
+              <li><strong>Header Cleanup:</strong> Removed the redundant "RKA OS" title from the Home page. You can now tap the global top-left "RKA OS" header from any screen to view this changelog!</li>
+            </ul>
+          </section>
+
+          <section style={{ marginBottom: '32px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--rka-blue)', marginBottom: '12px', fontWeight: 700 }}>
+              <Sparkles size={18} />
               <span>Hotfix: Blur UI (v2.8.3)</span>
             </div>
             <div style={{ color: 'var(--rka-text-secondary)', fontSize: '13px', marginBottom: '12px' }}>June 23, 2026, 22:01</div>
