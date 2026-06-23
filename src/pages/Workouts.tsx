@@ -84,7 +84,46 @@ export function Workouts() {
                     title={item.title}
                     subtitle={`${exercisesCount} exercise${exercisesCount === 1 ? '' : 's'}`}
                     leading={<Dumbbell size={18} />}
-                    trailing={<PlayCircle size={24} />}
+                    trailing={
+                      <button 
+                        className="rka-icon-button" 
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          const sessionId = crypto.randomUUID();
+                          await db.workoutSessions.add({
+                            id: sessionId,
+                            templateId: item.id,
+                            date: Date.now(),
+                            duration: 0,
+                            createdAt: Date.now()
+                          });
+                          
+                          // Pre-populate exercise sessions based on template links
+                          const blockLinks = await db.entityLinks.where({ sourceId: item.id, linkType: 'contains' }).toArray();
+                          const blocks = await Promise.all(blockLinks.map(l => db.items.get(l.targetId)));
+                          blocks.sort((a, b) => (a?.metadata?.order || 0) - (b?.metadata?.order || 0));
+                          
+                          let globalExOrder = 0;
+                          for (const block of blocks) {
+                            if (!block) continue;
+                            const exLinks = await db.entityLinks.where({ sourceId: block.id, linkType: 'includes_exercise' }).toArray();
+                            for (const exLink of exLinks) {
+                              const exSessionId = crypto.randomUUID();
+                              await db.exerciseSessions.add({
+                                id: exSessionId,
+                                workoutSessionId: sessionId,
+                                exerciseId: exLink.targetId,
+                                order: globalExOrder++,
+                                createdAt: Date.now()
+                              });
+                            }
+                          }
+                          navigate(`/active-workout/${sessionId}`);
+                        }}
+                      >
+                        <PlayCircle size={24} style={{ color: 'var(--accent-color)' }} />
+                      </button>
+                    }
                     onClick={() => inspectEntity(item.id, 'workout-template')}
                   />
                 );

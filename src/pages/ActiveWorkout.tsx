@@ -4,11 +4,13 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
 import { logActivity } from '../db/actions';
 import { v4 as uuidv4 } from 'uuid';
-import { Check, ArrowLeft, Plus } from 'lucide-react';
+import { Check, ArrowLeft, Plus, Target } from 'lucide-react';
 import { RestTimer } from '../components/common/RestTimer';
 import { getMuscleImage } from '../utils/workout';
 import { Button, IconButton } from '../components/ui/primitives';
 import { MuscleModel } from '../components/workouts/MuscleModel';
+import { PlateCalculator } from '../components/workouts/PlateCalculator';
+import Confetti from 'react-confetti';
 import './active-workout.css';
 
 export function ActiveWorkout() {
@@ -20,6 +22,8 @@ export function ActiveWorkout() {
   const [activeExerciseIndex, setActiveExerciseIndex] = useState(0);
   const [showSummary, setShowSummary] = useState(false);
   const [sessionNotes, setSessionNotes] = useState('');
+  const [focusMode, setFocusMode] = useState(false);
+  const [plateCalcTarget, setPlateCalcTarget] = useState<number | null>(null);
 
   // Load the full session graph
   const sessionData = useLiveQuery(async () => {
@@ -101,13 +105,19 @@ export function ActiveWorkout() {
     await db.setEntries.update(setId, { [field]: value } as any);
   };
 
-  const handleToggleSet = async (setId: string, currentCompleted: boolean) => {
+  const handleToggleSet = async (setId: string, currentCompleted: boolean, blockIndex: number, setIndex: number, totalSets: number) => {
     const newCompleted = !currentCompleted;
     await db.setEntries.update(setId, { completed: newCompleted });
     
     if (newCompleted) {
       if (navigator.vibrate) navigator.vibrate(50);
       setShowRestTimer(true);
+      
+      if (setIndex === totalSets - 1 && blockIndex < blocks.length - 1) {
+        setTimeout(() => {
+          setActiveExerciseIndex(blockIndex + 1);
+        }, 1000);
+      }
     }
   };
 
@@ -165,9 +175,16 @@ export function ActiveWorkout() {
             <div className="workout-duration">{formatDuration(duration)}</div>
           </div>
         </div>
-        <Button onClick={handleFinish} className="finish-btn" variant="primary">
-          Finish
-        </Button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <IconButton 
+            label={focusMode ? "Disable Focus Mode" : "Enable Focus Mode"}
+            icon={<Target size={20} color={focusMode ? 'var(--accent-color)' : 'var(--text-primary)'} />} 
+            onClick={() => setFocusMode(!focusMode)} 
+          />
+          <Button onClick={handleFinish} className="finish-btn" variant="primary">
+            Finish
+          </Button>
+        </div>
       </div>
 
       {/* Body */}
@@ -190,6 +207,8 @@ export function ActiveWorkout() {
           {blocks.map((block, bIndex) => {
             const isActive = bIndex === activeExerciseIndex;
             
+            if (focusMode && !isActive) return null;
+
             if (!isActive) {
               return (
                 <div 
@@ -242,14 +261,25 @@ export function ActiveWorkout() {
                     <div key={set.id} className={`set-row ${set.completed ? 'completed' : ''}`}>
                       <div className="set-number">{sIndex + 1}</div>
                       
-                      <div className="set-input-group">
+                      <div className="set-input-group" style={{ position: 'relative' }}>
                         <input 
                           type="number" 
                           className="set-input"
                           value={set.weight || ''} 
                           onChange={e => handleUpdateSet(set.id, 'weight', Number(e.target.value))} 
                           placeholder="-"
+                          style={{ paddingRight: set.weight > 0 ? '28px' : undefined }}
                         />
+                        {set.weight > 0 && (
+                          <button 
+                            className="plate-calc-trigger"
+                            style={{ position: 'absolute', right: '6px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, display: 'flex' }}
+                            onClick={() => setPlateCalcTarget(set.weight)}
+                            aria-label="Plate Calculator"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/></svg>
+                          </button>
+                        )}
                       </div>
 
                       <div className="set-input-group">
@@ -264,7 +294,7 @@ export function ActiveWorkout() {
 
                       <button
                         className={`set-check-btn ${set.completed ? 'active' : ''}`}
-                        onClick={() => handleToggleSet(set.id, set.completed)}
+                        onClick={() => handleToggleSet(set.id, set.completed, bIndex, sIndex, block.sets.length)}
                       >
                         <Check size={18} strokeWidth={3} />
                       </button>
@@ -289,7 +319,9 @@ export function ActiveWorkout() {
       {/* Finish Summary Modal */}
       {showSummary && (
         <div className="finish-modal-overlay">
+          <Confetti recycle={false} numberOfPieces={500} gravity={0.2} style={{ zIndex: 9999 }} />
         <div className="finish-modal-content">
+          <div style={{ fontSize: '48px', textAlign: 'center', marginBottom: '8px' }}>🏆</div>
           <h2 style={{ fontSize: '24px', fontWeight: 700, marginBottom: '8px', textAlign: 'center' }}>{template?.title} Completed</h2>
           <div style={{ fontSize: '15px', color: 'var(--accent-color)', fontWeight: 600, textAlign: 'center', marginBottom: '24px' }}>
             {formatDuration(duration)}
@@ -337,6 +369,14 @@ export function ActiveWorkout() {
             <RestTimer initialSeconds={60} autoStart={true} onClose={() => setShowRestTimer(false)} />
           </div>
         </div>
+      )}
+
+      {/* Plate Calculator */}
+      {plateCalcTarget !== null && (
+        <PlateCalculator 
+          weight={plateCalcTarget} 
+          onClose={() => setPlateCalcTarget(null)} 
+        />
       )}
     </div>
   );
