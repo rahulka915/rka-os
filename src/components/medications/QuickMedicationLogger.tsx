@@ -39,8 +39,9 @@ export function QuickMedicationLogger({ onClose }: QuickMedicationLoggerProps) {
         }
       });
 
-      if (typeof metadata.stockRemaining === 'number' && metadata.stockRemaining > 0) {
-        const updatedMetadata = { ...metadata, stockRemaining: Math.max(0, metadata.stockRemaining - 1) };
+      const currentStock = Number(metadata.stockRemaining);
+      if (!isNaN(currentStock) && currentStock > 0) {
+        const updatedMetadata = { ...metadata, stockRemaining: Math.max(0, currentStock - 1) };
         await db.items.update(medId, { metadata: updatedMetadata, updatedAt: Date.now() });
       }
 

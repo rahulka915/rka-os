@@ -13,12 +13,13 @@ export function Medications() {
   const { inspectEntity } = useInspector();
   const [creatorOpen, setCreatorOpen] = useState(false);
 
-  const allItems = useLiveQuery(() => db.items.where('type').equals('medication').toArray());
-  const meds = allItems || [];
+  const allItems = useLiveQuery(() => db.items.toArray());
+  const meds = allItems?.filter(i => i.type === 'medication') || [];
   
   const lowStockCount = meds.filter(item => {
     const meta = item.metadata as MedicationMetadata;
-    return meta.stockRemaining !== undefined && meta.stockRemaining !== null && meta.stockRemaining <= (meta.refillThreshold || 5);
+    const currentStock = Number(meta.stockRemaining);
+    return !isNaN(currentStock) && currentStock <= (meta.refillThreshold || 5);
   }).length;
 
   const handleSaveEntity = async (_: string, data: any) => {
@@ -77,7 +78,7 @@ export function Medications() {
                           <MetadataPill label="Set stock" tone="gray" />
                         ) : (
                           <MetadataPill
-                            label={`${meta.stockRemaining} left`}
+                            label={`${meta.stockRemaining}${(meta as any).initialStock ? ` / ${(meta as any).initialStock}` : ''} left`}
                             tone={isLowStock ? 'red' : 'green'}
                             icon={isLowStock ? <AlertTriangle size={12} /> : undefined}
                           />
