@@ -97,6 +97,22 @@ const adapters: Record<TableName, SyncAdapter> = {
   },
 };
 
+export type SyncStatus = 'idle' | 'syncing' | 'error' | 'offline';
+let currentSyncStatus: SyncStatus = 'idle';
+
+function setSyncStatus(status: SyncStatus) {
+  if (currentSyncStatus !== status) {
+    currentSyncStatus = status;
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('rka-sync-status', { detail: status }));
+    }
+  }
+}
+
+export function getSyncStatus() {
+  return currentSyncStatus;
+}
+
 const remoteWriteStats: Record<TableName, number> = {
   items: 0,
   itemInstances: 0,
@@ -178,8 +194,14 @@ async function remoteClear(name: TableName, userId: string) {
 }
 
 export async function processSyncQueue() {
-  if (isProcessingQueue || !supabase || !activeUserId || !navigator.onLine || !installedDb) return;
+  if (isProcessingQueue || !supabase || !activeUserId || !installedDb) return;
+  if (!navigator.onLine) {
+    setSyncStatus('offline');
+    return;
+  }
+  
   isProcessingQueue = true;
+  setSyncStatus('syncing');
 
   try {
     const queueTable = installedDb.table('syncQueue');
@@ -187,7 +209,10 @@ export async function processSyncQueue() {
     
     let i = 0;
     while (i < entries.length) {
-      if (!navigator.onLine) break;
+      if (!navigator.onLine) {
+        setSyncStatus('offline');
+        break;
+      }
       const entry = entries[i];
       const batch = [entry];
 
@@ -218,12 +243,16 @@ export async function processSyncQueue() {
         await queueTable.bulkDelete(batch.map(b => b.id));
       } catch (error) {
         console.error('Failed to process sync queue batch', batch, error);
+        setSyncStatus('error');
         break; // Stop processing to preserve order
       }
       i++;
     }
   } finally {
     isProcessingQueue = false;
+    if (currentSyncStatus !== 'error' && currentSyncStatus !== 'offline') {
+      setSyncStatus('idle');
+    }
   }
 }
 
@@ -249,6 +278,7 @@ export function resetRemoteSyncDebugState() {
 async function hydrateUserCache(userId: string, generation: number) {
   if (!installedDb || !hasSupabaseConfig || !supabase) return;
   pushRemoteWriteSuppression();
+  setSyncStatus('syncing');
   try {
     const queueTable = installedDb.table('syncQueue');
     const tableNames = Object.keys(adapters) as TableName[];
@@ -278,11 +308,13 @@ async function hydrateUserCache(userId: string, generation: number) {
         });
       } catch (error) {
         console.error(`Supabase hydrate failed for table ${name}`, error);
+        setSyncStatus('error');
         throw error;
       }
     }
   } finally {
     popRemoteWriteSuppression();
+    if (currentSyncStatus !== 'error') setSyncStatus('idle');
   }
   triggerSyncQueueProcessing();
 }
@@ -530,6 +562,13 @@ export function resetRemoteWriteStats() {
 export async function forceSyncAll() {
   if (!installedDb || !activeUserId || !supabase) return;
   
+  if (!navigator.onLine) {
+    setSyncStatus('offline');
+    return;
+  }
+  
+  setSyncStatus('syncing');
+
   // 1. Push all local data to remote
   pushRemoteWriteSuppression();
   try {
@@ -541,6 +580,10 @@ export async function forceSyncAll() {
         await remoteBulkUpsert(name, allLocal as AnyRow[], activeUserId);
       }
     }
+  } catch (error) {
+    setSyncStatus('error');
+    popRemoteWriteSuppression();
+    throw error;
   } finally {
     popRemoteWriteSuppression();
   }
@@ -550,7 +593,12 @@ export async function forceSyncAll() {
 
   // 3. Pull all remote data
   syncGeneration++;
-  await hydrateUserCache(activeUserId, syncGeneration);
+  try {
+    await hydrateUserCache(activeUserId, syncGeneration);
+  } catch (error) {
+    setSyncStatus('error');
+    throw error;
+  }
 }
 
 export async function setSupabaseSyncUser(user: { id: string } | null) {

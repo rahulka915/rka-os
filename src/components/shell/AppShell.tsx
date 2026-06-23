@@ -5,6 +5,8 @@ import { SidebarNav } from './SidebarNav';
 import { QuickAddSheet } from './QuickAddSheet';
 import { ActiveTimersBanner } from './ActiveTimersBanner';
 import { UpdatePrompt } from './UpdatePrompt';
+import { AppHeader } from './AppHeader';
+import { PullToRefresh } from './PullToRefresh';
 import { generateDailyInstances } from '../../db/actions';
 import './shell.css';
 
@@ -27,9 +29,12 @@ export function AppShell() {
       <SidebarNav onQuickAdd={() => setQuickAddOpen(true)} />
       
       <div className="main-content-wrapper">
-        <main className="main-content">
-          <Outlet />
-        </main>
+        <AppHeader />
+        <PullToRefresh>
+          <main className="main-content">
+            <Outlet />
+          </main>
+        </PullToRefresh>
       </div>
 
       <ActiveTimersBanner />
