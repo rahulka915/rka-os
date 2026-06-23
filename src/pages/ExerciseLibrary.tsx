@@ -12,6 +12,7 @@ export function ExerciseLibrary() {
   const { inspectEntity } = useInspector();
   const [searchQuery, setSearchQuery] = useState('');
   const [muscleFilter, setMuscleFilter] = useState<string>('all');
+  const [activeGroup, setActiveGroup] = useState<string | null>(null);
 
   const exercises = useLiveQuery(() => db.items.where('type').equals('exercise').toArray());
 
@@ -45,11 +46,26 @@ export function ExerciseLibrary() {
     return Array.from(set).sort();
   }, [exercises]);
 
+  const muscleGroupsData = useMemo(() => {
+    const map = new Map<string, number>();
+    filteredExercises.forEach(ex => {
+      const primary = (ex.metadata?.muscles as string[])?.[0] || 'other';
+      map.set(primary, (map.get(primary) || 0) + 1);
+    });
+    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [filteredExercises]);
+
   return (
     <div className="rka-page ex-lib-page">
       <header className="ex-lib-header">
         <div className="ex-lib-header-top">
-          <button className="rka-icon-button" onClick={() => navigate('/health-search')} aria-label="Back to Health">
+          <button className="rka-icon-button" onClick={() => {
+            if (activeGroup) {
+              setActiveGroup(null);
+            } else {
+              navigate('/health-search');
+            }
+          }} aria-label="Back">
             <ChevronLeft size={24} />
           </button>
           <h1 className="ex-lib-title">Exercise Library</h1>
@@ -94,65 +110,55 @@ export function ExerciseLibrary() {
             <Dumbbell size={48} style={{ opacity: 0.2, marginBottom: 16 }} />
             <p>No exercises found.</p>
           </div>
-        ) : (
-          <div className="ex-lib-grouped" style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-            {Array.from(new Set(filteredExercises.map(ex => (ex.metadata?.muscles as string[])?.[0] || 'other')))
-              .sort()
-              .map(muscleGroup => {
-                const groupExercises = filteredExercises.filter(ex => ((ex.metadata?.muscles as string[])?.[0] || 'other') === muscleGroup);
-                
-                // Capitalize and format muscle name for the image path
-                const formattedMuscle = muscleGroup === 'core' ? 'Abs' : muscleGroup.charAt(0).toUpperCase() + muscleGroup.slice(1);
-                // "other" won't have an icon, but we can fall back
-                const iconSrc = muscleGroup !== 'other' ? `/images/muscles/${formattedMuscle} [Muscle Icon].png` : null;
-                
-                return (
-                  <div key={muscleGroup} className="muscle-group-card">
-                    <div className="muscle-group-header">
-                      {iconSrc ? (
-                        <div className="muscle-group-icon">
-                          <img src={iconSrc} alt={muscleGroup} />
-                        </div>
-                      ) : (
-                        <div className="muscle-group-icon placeholder">
-                          <Dumbbell size={24} strokeWidth={1.5} />
-                        </div>
-                      )}
-                      <div>
-                        <h2 className="muscle-group-title">{muscleGroup}</h2>
-                        <div className="muscle-group-subtitle">{groupExercises.length} exercises</div>
-                      </div>
-                    </div>
-                    
-                    <div className="ex-lib-grid">
-                      {groupExercises.map(ex => {
-                        const muscles = (ex.metadata?.muscles as string[]) || [];
-                        const image = ex.metadata?.image as string | undefined;
+        ) : !activeGroup ? (
+          <div className="muscle-group-gallery">
+            {muscleGroupsData.map(([muscleGroup, count]) => {
+              const formattedMuscle = muscleGroup === 'core' ? 'Abs' : muscleGroup.charAt(0).toUpperCase() + muscleGroup.slice(1);
+              const iconSrc = muscleGroup !== 'other' ? `/images/muscles/${formattedMuscle} [Muscle Icon].png` : null;
 
-                        return (
-                          <div key={ex.id} className="ex-lib-card" onClick={() => inspectEntity(ex.id, 'exercise')}>
-                            <div className="ex-lib-card-icon" style={{ padding: image ? 0 : undefined, overflow: 'hidden', background: image ? 'transparent' : undefined }}>
-                              {image ? (
-                                <img src={image} alt={ex.title} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                              ) : (
-                                <Dumbbell size={24} strokeWidth={1.5} />
-                              )}
-                            </div>
-                            <h3 className="ex-lib-card-title">{ex.title}</h3>
-                            
-                            <div className="ex-lib-card-tags">
-                              {muscles.slice(0, 2).map(m => (
-                                <MetadataPill key={m} label={m} tone="blue" />
-                              ))}
-                              {muscles.length > 2 && <MetadataPill label={`+${muscles.length - 2}`} tone="gray" />}
-                            </div>
-                          </div>
-                        );
-                      })}
+              return (
+                <div key={muscleGroup} className="muscle-group-gallery-card" onClick={() => setActiveGroup(muscleGroup)}>
+                  <div className="muscle-gallery-img-wrapper">
+                    {iconSrc ? (
+                      <img src={iconSrc} alt={muscleGroup} className="muscle-gallery-img" />
+                    ) : (
+                      <Dumbbell size={48} strokeWidth={1.5} color="var(--rka-text-secondary)" />
+                    )}
+                  </div>
+                  <h3>{muscleGroup}</h3>
+                  <p>{count} exercises</p>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="active-group-view">
+            <div className="ex-lib-grid">
+              {filteredExercises.filter(ex => ((ex.metadata?.muscles as string[])?.[0] || 'other') === activeGroup).map(ex => {
+                const muscles = (ex.metadata?.muscles as string[]) || [];
+                const image = ex.metadata?.image as string | undefined;
+
+                return (
+                  <div key={ex.id} className="ex-lib-card" onClick={() => inspectEntity(ex.id, 'exercise')}>
+                    <div className="ex-lib-card-icon" style={{ padding: image ? 0 : undefined, overflow: 'hidden', background: image ? 'transparent' : undefined }}>
+                      {image ? (
+                        <img src={image} alt={ex.title} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                      ) : (
+                        <Dumbbell size={24} strokeWidth={1.5} />
+                      )}
+                    </div>
+                    <h3 className="ex-lib-card-title">{ex.title}</h3>
+                    
+                    <div className="ex-lib-card-tags">
+                      {muscles.slice(0, 2).map(m => (
+                        <MetadataPill key={m} label={m} tone="blue" />
+                      ))}
+                      {muscles.length > 2 && <MetadataPill label={`+${muscles.length - 2}`} tone="gray" />}
                     </div>
                   </div>
                 );
               })}
+            </div>
           </div>
         )}
       </main>
