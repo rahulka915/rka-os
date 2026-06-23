@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/db';
 import type { MedicationMetadata } from '../../db/db';
-import { PlayCircle, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { PlayCircle, CheckCircle2, AlertTriangle, History } from 'lucide-react';
 import { Button } from '../ui/primitives';
 
 interface MedicationDashboardProps {
@@ -11,6 +11,14 @@ interface MedicationDashboardProps {
 
 export function MedicationDashboard({ medicationId }: MedicationDashboardProps) {
   const [isLogging, setIsLogging] = useState(false);
+  const [showPastLog, setShowPastLog] = useState(false);
+  
+  const getLocalDatetime = () => {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    return now.toISOString().slice(0, 16);
+  };
+  const [pastTime, setPastTime] = useState(getLocalDatetime());
 
   const medication = useLiveQuery(() => db.items.get(medicationId), [medicationId]);
   const logs = useLiveQuery(
@@ -38,23 +46,24 @@ export function MedicationDashboard({ medicationId }: MedicationDashboardProps) 
   const isTooSoon = minHours !== undefined && hoursSinceLastDose < minHours;
   const isLocked = isOverDailyLimit || isTooSoon;
 
-  const handleLogDose = async (startTimer: boolean) => {
+  const handleLogDose = async (startTimer: boolean, overrideTimestamp?: number) => {
     if (isLocked || !medication) return;
     setIsLogging(true);
     try {
       const dose = metadata.dose || '1 dose';
+      const timeToLog = overrideTimestamp || Date.now();
 
       await db.activityLogs.add({
         id: crypto.randomUUID(),
         entityId: medicationId,
         actionType: 'medication-taken',
-        timestamp: Date.now(),
+        timestamp: timeToLog,
         createdAt: Date.now(),
         updatedAt: Date.now(),
         details: {
           dose,
           timerActive: startTimer,
-          startedAt: startTimer ? Date.now() : undefined,
+          startedAt: startTimer ? timeToLog : undefined,
         }
       });
 
@@ -69,6 +78,13 @@ export function MedicationDashboard({ medicationId }: MedicationDashboardProps) 
     } finally {
       setIsLogging(false);
     }
+  };
+
+  const handleRetroactiveLog = async (startTimer: boolean) => {
+    const timestamp = new Date(pastTime).getTime();
+    if (isNaN(timestamp)) return;
+    await handleLogDose(startTimer, timestamp);
+    setShowPastLog(false);
   };
 
   const handleStartTimerLater = async (logId: string, timestamp: number) => {
@@ -104,22 +120,24 @@ export function MedicationDashboard({ medicationId }: MedicationDashboardProps) 
       )}
 
       <div style={{ display: 'flex', gap: '12px' }}>
-        <div style={{ flex: 1 }}>
+        <div style={{ flex: 1, display: 'flex' }}>
           <Button 
             variant="secondary" 
             onClick={() => handleLogDose(false)}
             disabled={isLogging || isLocked}
+            className="w-full"
           >
             <span style={{ display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'center' }}>
               <CheckCircle2 size={18} /> Log Dose
             </span>
           </Button>
         </div>
-        <div style={{ flex: 1 }}>
+        <div style={{ flex: 1, display: 'flex' }}>
           <Button 
             variant="primary" 
             onClick={() => handleLogDose(true)}
             disabled={isLogging || isLocked}
+            className="w-full"
           >
             <span style={{ display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
               <PlayCircle size={18} /> Start Timer
@@ -128,7 +146,40 @@ export function MedicationDashboard({ medicationId }: MedicationDashboardProps) 
         </div>
       </div>
 
-      <div style={{ marginTop: '24px' }}>
+      <div style={{ textAlign: 'center', marginTop: '4px' }}>
+        <button 
+          onClick={() => setShowPastLog(!showPastLog)}
+          style={{ background: 'none', border: 'none', color: 'var(--text-soft)', fontSize: '13px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 500 }}
+        >
+          <History size={14} /> Log a past dose
+        </button>
+      </div>
+
+      {showPastLog && (
+        <div style={{ background: 'var(--bg-tertiary)', padding: '16px', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '12px', border: '1px solid var(--border-color)' }}>
+          <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>When did you take it?</div>
+          <input 
+            type="datetime-local" 
+            value={pastTime}
+            onChange={e => setPastTime(e.target.value)}
+            style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-strong)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '16px', outline: 'none' }}
+          />
+          <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+            <div style={{ flex: 1, display: 'flex' }}>
+              <Button variant="secondary" onClick={() => handleRetroactiveLog(false)} disabled={isLogging} className="w-full">
+                Save
+              </Button>
+            </div>
+            <div style={{ flex: 1, display: 'flex' }}>
+              <Button variant="primary" onClick={() => handleRetroactiveLog(true)} disabled={isLogging} className="w-full">
+                Save + Timer
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div style={{ marginTop: '16px' }}>
         <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '12px', color: 'var(--rka-text)' }}>History</h3>
         {medLogs.length === 0 ? (
           <div style={{ padding: '16px', background: 'var(--rka-surface)', borderRadius: '12px', textAlign: 'center', color: 'var(--rka-text-secondary)', fontSize: '14px' }}>
