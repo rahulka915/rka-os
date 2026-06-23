@@ -133,6 +133,13 @@ export function ActiveTimersBanner() {
 
   if (!activeTimers || activeTimers.length === 0) return null;
 
+  const firstTimer = activeTimers[0];
+  const firstElapsedMs = now - firstTimer.log.details.startedAt;
+  const firstElapsedMins = Math.floor(firstElapsedMs / 60000);
+  const firstH = Math.floor(firstElapsedMins / 60);
+  const firstM = firstElapsedMins % 60;
+  const firstTimeStr = firstH > 0 ? `${firstH}h ${firstM}m` : `${firstM}m`;
+
   return (
     <div 
       className="active-timer-widget"
@@ -152,8 +159,15 @@ export function ActiveTimersBanner() {
             <GripHorizontal size={16} />
           </div>
           <div className="active-timer-pill-content" onClick={() => setIsMinimized(false)}>
-            <PillIcon size={18} />
-            <span style={{ fontWeight: 700 }}>{activeTimers.length}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+               <PillIcon size={18} color="var(--rka-red)" />
+               <div style={{ display: 'flex', flexDirection: 'column' }}>
+                 <span style={{ fontSize: '13px', fontWeight: 700, lineHeight: 1.2 }}>{firstTimeStr} elapsed</span>
+                 {activeTimers.length > 1 && (
+                   <span style={{ fontSize: '11px', color: 'var(--rka-text-secondary)' }}>+{activeTimers.length - 1} more</span>
+                 )}
+               </div>
+            </div>
           </div>
         </div>
       ) : (

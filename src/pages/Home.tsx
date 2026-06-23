@@ -139,6 +139,14 @@ export function Home() {
   return (
     <div className="rka-page home-container">
       <div className="home-hero-row">
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '-4px' }}>
+          <img 
+            src="/vite.svg" 
+            alt="App Logo" 
+            style={{ width: '40px', height: '40px', cursor: 'pointer', opacity: 0.8 }}
+            onClick={() => { alert('Version 2.6.1') }}
+          />
+        </div>
         <PageHeader
           kicker="Overview"
           title={greeting}

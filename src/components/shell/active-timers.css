@@ -8,12 +8,15 @@
 }
 
 .active-timer-pill {
-  background: var(--rka-red);
-  color: white;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: var(--rka-text);
+  border: 1px solid rgba(0, 0, 0, 0.05);
   border-radius: 24px;
   display: flex;
   align-items: stretch;
-  box-shadow: 0 8px 24px rgba(255, 59, 48, 0.4);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
   pointer-events: auto;
   overflow: hidden;
 }
@@ -27,13 +30,16 @@
 }
 
 .active-timer-banner {
-  background: var(--rka-red);
-  color: white;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: var(--rka-text);
+  border: 1px solid rgba(0, 0, 0, 0.05);
   border-radius: 16px;
   padding: 12px 16px;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 8px 24px rgba(255, 59, 48, 0.4);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
   pointer-events: auto;
   min-width: 280px;
 }
@@ -44,7 +50,7 @@
   justify-content: space-between;
   margin-bottom: 8px;
   padding-bottom: 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 .active-timer-drag-handle {
@@ -53,7 +59,7 @@
   justify-content: center;
   padding: 8px;
   cursor: grab;
-  opacity: 0.8;
+  opacity: 0.4;
   touch-action: none;
 }
 
@@ -62,8 +68,8 @@
 }
 
 .active-timer-minimize {
-  background: rgba(0, 0, 0, 0.15);
-  color: white;
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--rka-text);
   border: none;
   border-radius: 50%;
   width: 32px;
@@ -76,7 +82,7 @@
 }
 
 .active-timer-minimize:hover {
-  background: rgba(0, 0, 0, 0.25);
+  background: rgba(0, 0, 0, 0.08);
 }
 
 .active-timer-info {
@@ -107,13 +113,13 @@
 
 .active-timer-duration {
   font-size: 13px;
-  opacity: 0.8;
+  color: var(--rka-text-secondary);
   font-weight: 500;
 }
 
 .active-timer-stop {
-  background: rgba(0, 0, 0, 0.15);
-  color: white;
+  background: rgba(255, 59, 48, 0.1);
+  color: var(--rka-red);
   border: none;
   border-radius: 20px;
   padding: 6px 12px;
@@ -130,5 +136,5 @@
 }
 
 .active-timer-stop:hover {
-  background: rgba(0, 0, 0, 0.25);
+  background: rgba(255, 59, 48, 0.15);
 }
