@@ -31,7 +31,7 @@ export function VersionHistoryModal({
             </div>
             <div>
               <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>Version 2.8.0</h2>
-              <div style={{ fontSize: '13px', color: 'var(--rka-text-secondary)' }}>June 23, 2026 • 20:00</div>
+              <div style={{ fontSize: '13px', color: 'var(--rka-text-secondary)' }}>June 23, 2026 • 19:47</div>
             </div>
           </div>
           <IconButton icon={<X size={20} />} onClick={onClose} label="Close" />
