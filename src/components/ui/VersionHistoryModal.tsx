@@ -30,8 +30,8 @@ export function VersionHistoryModal({
               RKA
             </div>
             <div>
-              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>Version 2.6.1</h2>
-              <div style={{ fontSize: '13px', color: 'var(--rka-text-secondary)' }}>June 23, 2026 • 17:15</div>
+              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>Version 2.6.2</h2>
+              <div style={{ fontSize: '13px', color: 'var(--rka-text-secondary)' }}>June 23, 2026 • 17:55</div>
             </div>
           </div>
           <IconButton icon={<X size={20} />} onClick={onClose} label="Close" />
@@ -46,8 +46,9 @@ export function VersionHistoryModal({
               <span>New Features</span>
             </div>
             <ul style={{ margin: 0, paddingLeft: '24px', color: 'var(--rka-text)', fontSize: '15px', lineHeight: 1.5, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <li><strong>Force Sync:</strong> A powerful new button in Profile &gt; Preferences to instantly push all local data to the cloud and re-sync your devices.</li>
               <li><strong>Draggable Active Timers:</strong> Move your active timers anywhere on the screen.</li>
-              <li><strong>Grid Overlay:</strong> Toggle a layout grid from your profile to help align UI elements perfectly.</li>
+              <li><strong>Grid Overlay:</strong> Toggle a layout grid from your profile to help align UI elements perfectly (now with a proper 4-column iOS layout).</li>
               <li><strong>Safe Area Constraints:</strong> The active timer won't hide under the bottom tab bar anymore.</li>
               <li><strong>Glass UI:</strong> Beautiful frosted glass effects on the timer widgets.</li>
             </ul>
@@ -59,8 +60,9 @@ export function VersionHistoryModal({
               <span>Bug Fixes</span>
             </div>
             <ul style={{ margin: 0, paddingLeft: '24px', color: 'var(--rka-text)', fontSize: '15px', lineHeight: 1.5, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <li>Fixed "Force Sync" wiping local data on devices that hadn't synced yet.</li>
+              <li>Fixed Version History Modal being too transparent and unreadable in some themes.</li>
               <li>Fixed timer pill not showing elapsed time.</li>
-              <li>Removed solid red background for a more subtle look.</li>
               <li>Restructured Home page layout so greetings and inbox widgets don't collapse on each other.</li>
             </ul>
           </section>
