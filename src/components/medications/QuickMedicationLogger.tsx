@@ -22,7 +22,8 @@ export function QuickMedicationLogger({ onClose }: QuickMedicationLoggerProps) {
       const med = await db.items.get(medId);
       if (!med) throw new Error('Medication not found');
 
-      const dose = (med.metadata as MedicationMetadata)?.dose || '1 dose';
+      const metadata = (med.metadata || {}) as MedicationMetadata;
+      const dose = metadata.dose || '1 dose';
 
       await db.activityLogs.add({
         id: crypto.randomUUID(),
@@ -37,6 +38,12 @@ export function QuickMedicationLogger({ onClose }: QuickMedicationLoggerProps) {
           startedAt: startTimer ? Date.now() : undefined,
         }
       });
+
+      if (typeof metadata.stockRemaining === 'number' && metadata.stockRemaining > 0) {
+        const updatedMetadata = { ...metadata, stockRemaining: Math.max(0, metadata.stockRemaining - 1) };
+        await db.items.update(medId, { metadata: updatedMetadata, updatedAt: Date.now() });
+      }
+
       onClose();
     } catch (e) {
       console.error(e);

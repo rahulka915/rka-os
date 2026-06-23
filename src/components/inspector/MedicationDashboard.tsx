@@ -39,7 +39,7 @@ export function MedicationDashboard({ medicationId }: MedicationDashboardProps) 
   const isLocked = isOverDailyLimit || isTooSoon;
 
   const handleLogDose = async (startTimer: boolean) => {
-    if (isLocked) return;
+    if (isLocked || !medication) return;
     setIsLogging(true);
     try {
       const dose = metadata.dose || '1 dose';
@@ -57,6 +57,12 @@ export function MedicationDashboard({ medicationId }: MedicationDashboardProps) 
           startedAt: startTimer ? Date.now() : undefined,
         }
       });
+
+      if (typeof metadata.stockRemaining === 'number' && metadata.stockRemaining > 0) {
+        const updatedMetadata = { ...metadata, stockRemaining: Math.max(0, metadata.stockRemaining - 1) };
+        await db.items.update(medicationId, { metadata: updatedMetadata, updatedAt: Date.now() });
+      }
+
     } catch (e) {
       console.error(e);
     } finally {

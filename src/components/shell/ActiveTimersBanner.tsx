@@ -83,45 +83,61 @@ export function ActiveTimersBanner() {
 
   return (
     <div className="active-timers-container">
-      {activeTimers.map(({ log, med }) => {
-        const start = log.details.startedAt;
-        
-        // Stopwatch logic (elapsed time)
-        const elapsedMs = now - start;
-        const elapsedMins = Math.floor(elapsedMs / 60000);
-        const hours = Math.floor(elapsedMins / 60);
-        const mins = elapsedMins % 60;
-        
-        let timeStr = '';
-        if (hours > 0) timeStr += `${hours}h `;
-        timeStr += `${mins}m elapsed`;
-
-        const minHours = med?.metadata?.minHoursBetweenDoses;
-        let isReadyForNext = false;
-        if (minHours) {
-          const target = start + (minHours * 60 * 60 * 1000);
-          if (now >= target) isReadyForNext = true;
-        }
-
-        return (
-          <div key={log.id} className={`active-timer-banner ${isReadyForNext ? 'is-ready' : ''}`}>
-            <div className="active-timer-info">
-              <PillIcon size={16} className="active-timer-icon" />
-              <div className="active-timer-text">
-                <span className="active-timer-title">{med?.title || 'Unknown Medication'}</span>
-                <span className="active-timer-duration">Active for {timeStr}</span>
-              </div>
-            </div>
-            <button 
-              className="active-timer-stop rka-icon-button"
-              onClick={() => handleStopTimer(log.id)}
-              aria-label="Stop Timer"
-            >
-              <StopCircle size={20} /> Stop
-            </button>
+      <div 
+        className="active-timer-banner" 
+        style={{ 
+          flexDirection: 'column', 
+          alignItems: 'stretch', 
+          gap: activeTimers.length > 1 ? '12px' : '0' 
+        }}
+      >
+        {activeTimers.length > 1 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid rgba(255,255,255,0.2)', paddingBottom: '12px', marginBottom: '4px' }}>
+            <PillIcon size={16} style={{ opacity: 0.9 }} />
+            <span style={{ fontWeight: 700, fontSize: '14px' }}>{activeTimers.length} Active Medications</span>
           </div>
-        );
-      })}
+        )}
+
+        {activeTimers.map(({ log, med }) => {
+          const start = log.details.startedAt;
+          
+          // Stopwatch logic (elapsed time)
+          const elapsedMs = now - start;
+          const elapsedMins = Math.floor(elapsedMs / 60000);
+          const hours = Math.floor(elapsedMins / 60);
+          const mins = elapsedMins % 60;
+          
+          let timeStr = '';
+          if (hours > 0) timeStr += `${hours}h `;
+          timeStr += `${mins}m elapsed`;
+
+          const minHours = med?.metadata?.minHoursBetweenDoses;
+          let isReadyForNext = false;
+          if (minHours) {
+            const target = start + (minHours * 60 * 60 * 1000);
+            if (now >= target) isReadyForNext = true;
+          }
+
+          return (
+            <div key={log.id} className={isReadyForNext ? 'is-ready' : ''} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div className="active-timer-info">
+                {activeTimers.length === 1 && <PillIcon size={16} className="active-timer-icon" />}
+                <div className="active-timer-text">
+                  <span className="active-timer-title">{med?.title || 'Unknown Medication'}</span>
+                  <span className="active-timer-duration">Active for {timeStr}</span>
+                </div>
+              </div>
+              <button 
+                className="active-timer-stop rka-icon-button"
+                onClick={() => handleStopTimer(log.id)}
+                aria-label="Stop Timer"
+              >
+                <StopCircle size={20} /> Stop
+              </button>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
