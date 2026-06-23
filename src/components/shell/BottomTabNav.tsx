@@ -19,41 +19,52 @@ export function BottomTabNav({ onQuickAdd }: BottomTabNavProps) {
 
   return (
     <>
-      <nav className="bottom-nav">
-        <NavLink to="/home" className={({ isActive }) => `nav-item active-scale ${isActive ? 'active' : ''}`} onClick={() => haptics.light()}>
-          <Home size={22} strokeWidth={1.5} />
-          <span style={{ fontSize: '10px', marginTop: '4px' }}>Home</span>
-        </NavLink>
+      <nav className="bottom-nav" aria-label="Primary navigation">
+        <div className="bottom-nav__content">
+          <NavLink to="/home" className={({ isActive }) => `nav-item active-scale ${isActive ? 'active' : ''}`} onClick={() => haptics.light()}>
+            <Home size={22} strokeWidth={1.5} />
+            <span className="nav-label">Home</span>
+          </NavLink>
 
-        <NavLink to="/calendar" className={({ isActive }) => `nav-item active-scale ${isActive ? 'active' : ''}`} onClick={() => haptics.light()}>
-          <Calendar size={22} strokeWidth={1.5} />
-          <span style={{ fontSize: '10px', marginTop: '4px' }}>Calendar</span>
-        </NavLink>
+          <NavLink to="/calendar" className={({ isActive }) => `nav-item active-scale ${isActive ? 'active' : ''}`} onClick={() => haptics.light()}>
+            <Calendar size={22} strokeWidth={1.5} />
+            <span className="nav-label">Calendar</span>
+          </NavLink>
 
-        <div className="fab-container">
-          <button 
-            className="fab-button active-scale" 
-            onClick={() => { 
-              haptics.medium(); 
-              const input = document.getElementById('global-quick-capture-input');
-              if (input) input.focus();
-              onQuickAdd(); 
-            }} 
-            aria-label="Quick Add"
+          <div className="fab-container">
+            <button
+              type="button"
+              className="fab-button active-scale"
+              onClick={() => {
+                haptics.medium();
+                const input = document.getElementById('global-quick-capture-input');
+                if (input) input.focus();
+                onQuickAdd();
+              }}
+              aria-label="Quick Add"
+            >
+              <Plus size={24} strokeWidth={2} />
+            </button>
+          </div>
+
+          <button
+            type="button"
+            className="nav-item nav-button active-scale"
+            onClick={() => {
+              haptics.light();
+              setMenuOpen(true);
+            }}
           >
-            <Plus size={24} strokeWidth={2} />
+            <LayoutGrid size={22} strokeWidth={1.5} />
+            <span className="nav-label">Menu</span>
           </button>
+
+          <NavLink to="/profile" className={({ isActive }) => `nav-item active-scale ${isActive ? 'active' : ''}`} onClick={() => haptics.light()}>
+            <CircleUserRound size={22} strokeWidth={1.5} />
+            <span className="nav-label">Me</span>
+          </NavLink>
         </div>
-
-        <button className="nav-item active-scale" onClick={() => { haptics.light(); setMenuOpen(true); }} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-          <LayoutGrid size={22} strokeWidth={1.5} />
-          <span style={{ fontSize: '10px', marginTop: '4px' }}>Menu</span>
-        </button>
-
-        <NavLink to="/profile" className={({ isActive }) => `nav-item active-scale ${isActive ? 'active' : ''}`} onClick={() => haptics.light()}>
-          <CircleUserRound size={22} strokeWidth={1.5} />
-          <span style={{ fontSize: '10px', marginTop: '4px' }}>Me</span>
-        </NavLink>
+        <div className="bottom-nav__safe-area" aria-hidden="true" />
       </nav>
 
       {menuOpen && (

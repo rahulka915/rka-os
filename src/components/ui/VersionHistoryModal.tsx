@@ -30,8 +30,8 @@ export function VersionHistoryModal({
               RKA
             </div>
             <div>
-              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>Version 2.8.1</h2>
-              <div style={{ fontSize: '13px', color: 'var(--rka-text-secondary)' }}>June 23, 2026 • 20:22</div>
+              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>Version 2.8.7</h2>
+              <div style={{ fontSize: '13px', color: 'var(--rka-text-secondary)' }}>June 24, 2026 • 00:55</div>
             </div>
           </div>
           <IconButton icon={<X size={20} />} onClick={onClose} label="Close" />
@@ -39,7 +39,19 @@ export function VersionHistoryModal({
         
         {/* Content */}
         <div style={{ padding: '24px', overflowY: 'auto', maxHeight: '60vh', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          
+          <section style={{ marginBottom: '32px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--rka-blue)', marginBottom: '12px', fontWeight: 700 }}>
+              <Sparkles size={18} />
+              <span>iOS Bottom Tab Layout Fix (v2.8.7)</span>
+            </div>
+            <div style={{ color: 'var(--rka-text-secondary)', fontSize: '13px', marginBottom: '12px' }}>June 24, 2026, 00:55</div>
+            <ul style={{ margin: 0, paddingLeft: '24px', color: 'var(--rka-text)', fontSize: '15px', lineHeight: 1.5, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <li><strong>Safe Area Split:</strong> Separated the tappable tab row from the home-indicator inset so the bar keeps a native iOS height instead of growing thick on notched devices.</li>
+              <li><strong>Content Clearance:</strong> Reserved matching bottom space in the scroll container so the last rows and cards stay visible above the fixed tab bar on iPhone screens.</li>
+              <li><strong>Tab Alignment:</strong> Normalized the mobile tab layout into a consistent five-column grid with shared labels and touch behavior for cleaner navigation.</li>
+            </ul>
+          </section>
+
           <section style={{ marginBottom: '32px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--rka-blue)', marginBottom: '12px', fontWeight: 700 }}>
               <Sparkles size={18} />
