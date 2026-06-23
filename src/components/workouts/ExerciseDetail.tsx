@@ -89,11 +89,30 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      <EmptyState
-        icon={<ImageOff size={24} />}
-        title="Media coming soon"
-        description="Exercise photos and clips will sit here once available."
-      />
+      {meta.image ? (
+        <div style={{ width: '100%', borderRadius: '12px', overflow: 'hidden', background: 'var(--rka-bg-subtle)', display: 'flex', justifyContent: 'center' }}>
+          <img 
+            src={meta.image} 
+            alt={exercise.title} 
+            style={{ width: '100%', maxWidth: '300px', height: 'auto', objectFit: 'contain' }}
+            onError={(e) => {
+              // Fallback to empty state if image fails to load
+              (e.target as HTMLImageElement).style.display = 'none';
+              e.currentTarget.parentElement!.innerHTML = `
+                <div class="empty-state text-muted" style="padding: 24px; text-align: center;">
+                  <div style="margin-bottom: 8px;">Failed to load media</div>
+                </div>
+              `;
+            }}
+          />
+        </div>
+      ) : (
+        <EmptyState
+          icon={<ImageOff size={24} />}
+          title="Media coming soon"
+          description="Exercise photos and clips will sit here once available."
+        />
+      )}
 
       <InspectorSection title="At a glance">
         <div className="rka-stat-grid">
