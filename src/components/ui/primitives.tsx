@@ -242,6 +242,8 @@ export function Tabs<T extends string>({
   );
 }
 
+import { Drawer as VaulDrawer } from 'vaul';
+
 export function BottomSheet({
   open,
   title,
@@ -261,32 +263,73 @@ export function BottomSheet({
   className?: string;
   overlayClassName?: string;
 }) {
-  if (!open) return null;
-
   return (
-    <div className={`rka-sheet-overlay ${overlayClassName}`.trim()} onClick={onDismiss}>
-      <div className={`rka-sheet ${className}`.trim()} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={title}>
-        <div className="rka-sheet-header">
-          <div className="rka-sheet-title">{title}</div>
-          <IconButton label="Close" icon={<X size={20} />} onClick={onDismiss} />
-        </div>
-        <div className="rka-sheet-body">{children}</div>
-        {(primaryAction || secondaryAction) && (
-          <div className="rka-sheet-footer">
-            {secondaryAction && (
-              <Button variant="secondary" onClick={secondaryAction.onClick} disabled={secondaryAction.disabled}>
-                {secondaryAction.label}
-              </Button>
-            )}
-            {primaryAction && (
-              <Button variant="primary" onClick={primaryAction.onClick} disabled={primaryAction.disabled}>
-                {primaryAction.label}
-              </Button>
-            )}
+    <VaulDrawer.Root open={open} onOpenChange={(isOpen) => { if (!isOpen) onDismiss(); }}>
+      <VaulDrawer.Portal>
+        <VaulDrawer.Overlay className={`rka-sheet-overlay ${overlayClassName}`.trim()} />
+        <VaulDrawer.Content className={`rka-vaul-sheet ${className}`.trim()} aria-label={title}>
+          <div className="rka-vaul-handle" />
+          <div className="rka-sheet-header">
+            <div className="rka-sheet-title">{title}</div>
+            <IconButton label="Close" icon={<X size={20} />} onClick={onDismiss} />
           </div>
-        )}
-      </div>
-    </div>
+          <div className="rka-sheet-body">{children}</div>
+          {(primaryAction || secondaryAction) && (
+            <div className="rka-sheet-footer">
+              {secondaryAction && (
+                <Button variant="secondary" onClick={secondaryAction.onClick} disabled={secondaryAction.disabled}>
+                  {secondaryAction.label}
+                </Button>
+              )}
+              {primaryAction && (
+                <Button variant="primary" onClick={primaryAction.onClick} disabled={primaryAction.disabled}>
+                  {primaryAction.label}
+                </Button>
+              )}
+            </div>
+          )}
+        </VaulDrawer.Content>
+      </VaulDrawer.Portal>
+    </VaulDrawer.Root>
+  );
+}
+
+export function NativeBottomSheet({
+  open,
+  onOpenChange,
+  snapPoints,
+  activeSnapPoint,
+  setActiveSnapPoint,
+  children,
+  className = '',
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  snapPoints?: (string | number)[];
+  activeSnapPoint?: string | number | null;
+  setActiveSnapPoint?: (snapPoint: string | number | null) => void;
+  children: ReactNode;
+  className?: string;
+}) {
+  const Root = VaulDrawer.Root as any;
+  
+  return (
+    <Root 
+      open={open} 
+      onOpenChange={onOpenChange}
+      snapPoints={snapPoints}
+      activeSnapPoint={activeSnapPoint}
+      setActiveSnapPoint={setActiveSnapPoint}
+      fadeFromIndex={snapPoints ? 0 : undefined}
+    >
+      <VaulDrawer.Portal>
+        <VaulDrawer.Overlay className="rka-sheet-overlay" />
+        <VaulDrawer.Content className={`rka-vaul-sheet ${className}`.trim()}>
+          <div className="rka-vaul-handle" />
+          {children}
+        </VaulDrawer.Content>
+      </VaulDrawer.Portal>
+    </Root>
   );
 }
 
