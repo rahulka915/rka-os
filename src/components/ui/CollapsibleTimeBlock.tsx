@@ -9,9 +9,10 @@ interface CollapsibleTimeBlockProps {
   icon: React.ReactNode;
   items: { item: Item; instance: ItemInstance }[];
   defaultExpanded?: boolean;
+  isActiveBlock?: boolean;
 }
 
-export function CollapsibleTimeBlock({ id, label, icon, items, defaultExpanded = false }: CollapsibleTimeBlockProps) {
+export function CollapsibleTimeBlock({ id, label, icon, items, defaultExpanded = false, isActiveBlock = false }: CollapsibleTimeBlockProps) {
   const storageKey = `timeblock_expanded_${id}`;
   
   const [isExpanded, setIsExpanded] = useState(() => {
@@ -67,7 +68,7 @@ export function CollapsibleTimeBlock({ id, label, icon, items, defaultExpanded =
       
       {isExpanded && (
         <div style={{ paddingLeft: '0px' }}>
-          <ActionList items={items} emptyMessage={`Nothing scheduled for ${label.toLowerCase()} yet.`} />
+          <ActionList items={items} emptyMessage={`Nothing scheduled for ${label.toLowerCase()} yet.`} isActiveBlock={isActiveBlock} />
         </div>
       )}
     </div>

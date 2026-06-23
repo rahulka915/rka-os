@@ -165,9 +165,9 @@ export function Home() {
             
             <div className="time-block-stack" style={{ marginTop: '24px' }}>
               <CollapsibleTimeBlock id="anytime" label="Anytime" icon={<Clock size={16} />} items={anytime} defaultExpanded={true} />
-              <CollapsibleTimeBlock id="morning" label="Morning" icon={<Sunrise size={16} />} items={morning} defaultExpanded={isMorning} />
-              <CollapsibleTimeBlock id="afternoon" label="Afternoon" icon={<Sun size={16} />} items={afternoon} defaultExpanded={isAfternoon} />
-              <CollapsibleTimeBlock id="evening" label="Evening" icon={<Moon size={16} />} items={evening} defaultExpanded={isEvening} />
+              <CollapsibleTimeBlock id="morning" label="Morning" icon={<Sunrise size={16} />} items={morning} defaultExpanded={isMorning} isActiveBlock={isMorning} />
+              <CollapsibleTimeBlock id="afternoon" label="Afternoon" icon={<Sun size={16} />} items={afternoon} defaultExpanded={isAfternoon} isActiveBlock={isAfternoon} />
+              <CollapsibleTimeBlock id="evening" label="Evening" icon={<Moon size={16} />} items={evening} defaultExpanded={isEvening} isActiveBlock={isEvening} />
             </div>
           </section>
         </div>
