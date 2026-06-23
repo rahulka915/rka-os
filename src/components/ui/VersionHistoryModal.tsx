@@ -40,8 +40,20 @@ export function VersionHistoryModal({
         {/* Content */}
         <div style={{ padding: '24px', overflowY: 'auto', maxHeight: '60vh', display: 'flex', flexDirection: 'column', gap: '24px' }}>
           
-          <section>
+          <section style={{ marginBottom: '32px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--rka-blue)', marginBottom: '12px', fontWeight: 700 }}>
+              <Sparkles size={18} />
+              <span>Fluidity & Interactions (v2.8.2)</span>
+            </div>
+            <div style={{ color: 'var(--rka-text-secondary)', fontSize: '13px', marginBottom: '12px' }}>June 23, 2026, 21:00</div>
+            <ul style={{ margin: 0, paddingLeft: '24px', color: 'var(--rka-text)', fontSize: '15px', lineHeight: 1.5, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <li><strong>Zero-Latency Inbox:</strong> Tapping the Inbox widget now instantly forces the iOS keyboard open, with no animation delays.</li>
+              <li><strong>Physical Feedback:</strong> Standardized haptic clicks and <code>.active-scale</code> interactions across all buttons, list rows, pills, and the Inbox widget itself, guaranteeing the Things 3-level fluidity.</li>
+            </ul>
+          </section>
+
+          <section>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--rka-text)', marginBottom: '12px', fontWeight: 700 }}>
               <Sparkles size={18} />
               <span>Native iOS Inbox Sheet (v2.8.1)</span>
             </div>

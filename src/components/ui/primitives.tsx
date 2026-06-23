@@ -145,7 +145,7 @@ export function MetadataPill({
       className={pillClassName}
       style={style}
       title={title}
-      {...(onClick ? { type: 'button' as const, onClick } : {})}
+      {...(onClick ? { type: 'button' as const, onClick: () => { haptics.light(); onClick(); } } : {})}
     >
       {icon && <span className="rka-pill-icon">{icon}</span>}
       {label}
@@ -200,9 +200,12 @@ export function SegmentedControl<T extends string>({
       {options.map(option => (
         <button
           key={option.value}
-          className={`rka-segment ${option.value === value ? 'is-active' : ''}`}
-          onClick={() => onChange(option.value)}
           type="button"
+          className={`rka-segment ${option.value === value ? 'is-active' : ''}`}
+          onClick={() => {
+            haptics.light();
+            onChange(option.value);
+          }}
         >
           {option.label}
         </button>
@@ -229,9 +232,12 @@ export function Tabs<T extends string>({
       {options.map(option => (
         <button
           key={option.value}
-          className={`rka-tab ${option.value === value ? 'is-active' : ''}`}
-          onClick={() => onChange(option.value)}
           type="button"
+          className={`rka-tab ${option.value === value ? 'is-active' : ''} active-scale`}
+          onClick={() => {
+            haptics.light();
+            onChange(option.value);
+          }}
           aria-label={ariaLabelPrefix ? `${ariaLabelPrefix} ${option.label}` : option.label}
           data-testid={testIdPrefix ? `${testIdPrefix}-${option.value}` : undefined}
         >
@@ -337,7 +343,7 @@ export function NativeBottomSheet({
       setActiveSnapPoint={setActiveSnapPoint}
       fadeFromIndex={snapPoints ? 0 : undefined}
     >
-      <VaulDrawer.Portal>
+      <VaulDrawer.Portal forceMount>
         <VaulDrawer.Overlay className="rka-sheet-overlay" />
         <VaulDrawer.Content className={`rka-vaul-sheet ${className}`.trim()}>
           <div className="rka-vaul-handle" />

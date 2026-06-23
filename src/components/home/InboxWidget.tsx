@@ -20,8 +20,13 @@ export function InboxWidget() {
   return (
     <>
       <div 
-        className={`inbox-widget ${isEmpty ? 'is-empty' : 'has-items'}`} 
-        onClick={() => setIsSheetOpen(true)}
+        className={`inbox-widget ${isEmpty ? 'is-empty' : 'has-items'} active-scale`} 
+        onClick={() => {
+          import('../../utils/haptics').then(m => m.haptics.medium());
+          const input = document.getElementById('inbox-quick-capture-input');
+          if (input) input.focus();
+          setIsSheetOpen(true);
+        }}
         role="button"
         tabIndex={0}
       >

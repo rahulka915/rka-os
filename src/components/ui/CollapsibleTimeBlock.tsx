@@ -41,7 +41,11 @@ export function CollapsibleTimeBlock({ id, label, icon, items, defaultExpanded =
   return (
     <div style={{ marginBottom: '24px' }}>
       <div 
-        onClick={() => setIsExpanded(!isExpanded)}
+        className="time-block-header active-scale" 
+        onClick={() => {
+          import('../../utils/haptics').then(m => m.haptics.light());
+          setIsExpanded(!isExpanded);
+        }}
         style={{ 
           cursor: 'pointer', 
           display: 'inline-flex', 
