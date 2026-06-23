@@ -343,7 +343,7 @@ export function NativeBottomSheet({
       setActiveSnapPoint={setActiveSnapPoint}
       fadeFromIndex={snapPoints ? 0 : undefined}
     >
-      <VaulDrawer.Portal forceMount>
+      <VaulDrawer.Portal>
         <VaulDrawer.Overlay className="rka-sheet-overlay" />
         <VaulDrawer.Content className={`rka-vaul-sheet ${className}`.trim()}>
           <div className="rka-vaul-handle" />
