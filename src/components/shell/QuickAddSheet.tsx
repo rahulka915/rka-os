@@ -5,26 +5,33 @@ import { BottomSheet } from '../ui/primitives';
 import './quick-capture.css';
 
 interface QuickAddSheetProps {
+  open: boolean;
   onClose: () => void;
 }
 
 type CaptureType = 'task' | 'habit' | 'medication' | 'workout-template';
 
-export function QuickAddSheet({ onClose }: QuickAddSheetProps) {
+export function QuickAddSheet({ open, onClose }: QuickAddSheetProps) {
   const [title, setTitle] = useState('');
   const [notes, setNotes] = useState('');
   const [selectedType, setSelectedType] = useState<CaptureType>('task');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
 
-  // Auto-focus on mount
+  // Auto-focus on mount or open
   useEffect(() => {
-    // Slight delay to ensure bottom sheet animation doesn't block focus
-    const timer = setTimeout(() => {
-      titleRef.current?.focus();
-    }, 100);
-    return () => clearTimeout(timer);
-  }, []);
+    if (open) {
+      const timer = setTimeout(() => {
+        titleRef.current?.focus();
+      }, 50); // Keep a small fallback for desktop/android
+      return () => clearTimeout(timer);
+    } else {
+      // Reset state when closed
+      setTitle('');
+      setNotes('');
+      setIsSubmitting(false);
+    }
+  }, [open]);
 
   // Natural Language Magic
   useEffect(() => {
@@ -59,9 +66,10 @@ export function QuickAddSheet({ onClose }: QuickAddSheetProps) {
   };
 
   return (
-    <BottomSheet open title="" onDismiss={onClose}>
+    <BottomSheet open={open} keepMounted title="" onDismiss={onClose}>
       <div className="quick-capture-container">
         <input
+          id="global-quick-capture-input"
           ref={titleRef}
           className="quick-capture-input"
           placeholder="New Item..."

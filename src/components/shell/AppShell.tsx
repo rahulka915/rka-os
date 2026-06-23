@@ -40,9 +40,7 @@ export function AppShell() {
       <ActiveTimersBanner />
       <UpdatePrompt />
 
-      {isQuickAddOpen && (
-        <QuickAddSheet onClose={() => setQuickAddOpen(false)} />
-      )}
+      <QuickAddSheet open={isQuickAddOpen} onClose={() => setQuickAddOpen(false)} />
 
       {!isDesktop && <BottomTabNav onQuickAdd={() => setQuickAddOpen(true)} />}
     </div>

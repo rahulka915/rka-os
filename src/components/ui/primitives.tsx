@@ -253,6 +253,7 @@ export function BottomSheet({
   onDismiss,
   className = '',
   overlayClassName = '',
+  keepMounted = false,
 }: {
   open: boolean;
   title?: string;
@@ -262,12 +263,28 @@ export function BottomSheet({
   onDismiss: () => void;
   className?: string;
   overlayClassName?: string;
+  keepMounted?: boolean;
 }) {
-  if (!open) return null;
+  if (!open && !keepMounted) return null;
+
+  // For focus to work before it becomes visible, we temporarily remove visibility hidden during the click tick.
+  // Actually, opacity: 0 and pointerEvents: none is enough, we don't need top/left if it's pointerEvents none, but let's just use opacity 0.
+  const overlayStyle: React.CSSProperties = (!open && keepMounted) ? {
+    opacity: 0,
+    pointerEvents: 'none',
+    zIndex: -1,
+  } : {};
 
   return (
-    <div className={`rka-sheet-overlay ${overlayClassName}`.trim()} onClick={onDismiss}>
-      <div className={`rka-sheet ${className}`.trim()} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={title}>
+    <div className={`rka-sheet-overlay ${overlayClassName}`.trim()} onClick={onDismiss} style={overlayStyle}>
+      <div 
+        className={`rka-sheet ${className}`.trim()} 
+        onClick={e => e.stopPropagation()} 
+        role="dialog" 
+        aria-modal="true" 
+        aria-label={title}
+        style={(!open && keepMounted) ? { transform: 'translateY(100%)' } : {}}
+      >
         <div className="rka-sheet-header">
           <div className="rka-sheet-title">{title}</div>
           <IconButton label="Close" icon={<X size={20} />} onClick={onDismiss} />

@@ -53,7 +53,15 @@ export function SidebarNav({ onQuickAdd }: SidebarNavProps) {
             {syncStatus === 'idle' && <><CheckCircle2 size={12} color="var(--rka-green)" /> Synced</>}
           </div>
         </div>
-        <button className="sidebar-fab" onClick={onQuickAdd} type="button">
+        <button 
+          className="sidebar-fab" 
+          onClick={() => {
+            const input = document.getElementById('global-quick-capture-input');
+            if (input) input.focus();
+            onQuickAdd();
+          }} 
+          type="button"
+        >
           <Plus size={20} />
           <span>New</span>
         </button>

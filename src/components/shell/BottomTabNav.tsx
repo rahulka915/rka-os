@@ -31,7 +31,16 @@ export function BottomTabNav({ onQuickAdd }: BottomTabNavProps) {
         </NavLink>
 
         <div className="fab-container">
-          <button className="fab-button active-scale" onClick={() => { haptics.medium(); onQuickAdd(); }} aria-label="Quick Add">
+          <button 
+            className="fab-button active-scale" 
+            onClick={() => { 
+              haptics.medium(); 
+              const input = document.getElementById('global-quick-capture-input');
+              if (input) input.focus();
+              onQuickAdd(); 
+            }} 
+            aria-label="Quick Add"
+          >
             <Plus size={24} strokeWidth={2} />
           </button>
         </div>
