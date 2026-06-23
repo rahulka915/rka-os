@@ -4,6 +4,7 @@ import { BottomTabNav } from './BottomTabNav';
 import { SidebarNav } from './SidebarNav';
 import { QuickAddSheet } from './QuickAddSheet';
 import { ActiveTimersBanner } from './ActiveTimersBanner';
+import { UpdatePrompt } from './UpdatePrompt';
 import { generateDailyInstances } from '../../db/actions';
 import './shell.css';
 
@@ -33,6 +34,7 @@ export function AppShell() {
       </div>
 
       <ActiveTimersBanner />
+      <UpdatePrompt />
 
       {isQuickAddOpen && (
         <QuickAddSheet onClose={() => setQuickAddOpen(false)} />
