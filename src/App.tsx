@@ -14,11 +14,13 @@ import { AuthPage } from './pages/Auth';
 import { WelcomePage } from './pages/Welcome';
 import { ProfilePage } from './pages/Profile';
 import { RequireAuth } from './auth/RequireAuth';
+import { GridOverlay } from './components/ui/GridOverlay';
 
 function App() {
   return (
     <BrowserRouter>
       <InspectorProvider>
+        <GridOverlay />
         <Routes>
           <Route path="/auth" element={<AuthPage />} />
           <Route

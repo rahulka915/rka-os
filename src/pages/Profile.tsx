@@ -19,6 +19,14 @@ export function ProfilePage() {
   const navigate = useNavigate();
   const { user, displayName, logout } = useAuth();
   const [notificationsOn, setNotificationsOn] = useState(true);
+  const [gridOn, setGridOn] = useState(() => localStorage.getItem('rka_grid_overlay') === 'true');
+
+  const toggleGrid = () => {
+    const next = !gridOn;
+    setGridOn(next);
+    localStorage.setItem('rka_grid_overlay', next.toString());
+    window.dispatchEvent(new Event('rka-grid-toggle'));
+  };
 
   const profileName = displayName || user?.email?.split('@')[0] || 'Profile';
   const initials = useMemo(() => {
@@ -89,8 +97,15 @@ export function ProfilePage() {
             <ListRow
               leading={<LayoutGrid size={24} color="var(--rka-text-secondary)" />}
               title="Customize your grid"
-              trailing={<ChevronRight size={20} color="var(--rka-text-tertiary)" />}
-              onClick={() => {}}
+              subtitle="Show layout grid for positioning"
+              trailing={
+                <div 
+                  style={{ width: '50px', height: '30px', borderRadius: '15px', background: gridOn ? 'var(--rka-green)' : 'var(--rka-fill)', display: 'flex', alignItems: 'center', padding: '2px', cursor: 'pointer', transition: 'background 0.2s', justifyContent: gridOn ? 'flex-end' : 'flex-start' }}
+                  onClick={(e) => { e.stopPropagation(); toggleGrid(); }}
+                >
+                  <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: 'white', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }} />
+                </div>
+              }
             />
             <ListRow
               leading={<Settings2 size={24} color="var(--rka-text-secondary)" />}

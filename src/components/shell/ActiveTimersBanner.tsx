@@ -61,7 +61,7 @@ export function ActiveTimersBanner() {
        if (nx < padding) nx = padding;
        if (ny < padding) ny = padding;
        if (nx > window.innerWidth - 60) nx = window.innerWidth - 60;
-       if (ny > window.innerHeight - 80) ny = window.innerHeight - 80;
+       if (ny > window.innerHeight - 120) ny = window.innerHeight - 120;
        return { x: nx, y: ny };
     });
   };
