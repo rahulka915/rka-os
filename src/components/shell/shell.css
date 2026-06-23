@@ -190,8 +190,7 @@
   bottom: 0;
   left: 0;
   right: 0;
-  height: calc(49px + env(safe-area-inset-bottom));
-  box-sizing: border-box;
+  /* Remove explicit height to bypass Safari flexbox padding bug */
   background: rgba(246, 245, 241, 0.72);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
@@ -212,7 +211,7 @@
   color: var(--rka-text-secondary);
   text-decoration: none;
   flex: 1;
-  height: 100%;
+  height: 49px;
   transition: color 160ms ease-out, transform 160ms ease-out;
 }
 
@@ -225,7 +224,7 @@
   justify-content: center;
   align-items: center;
   flex: 1;
-  height: 100%;
+  height: 49px;
 }
 
 .fab-button {
