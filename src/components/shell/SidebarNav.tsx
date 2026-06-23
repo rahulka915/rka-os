@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Home, Calendar, FolderKanban, Activity, Plus, LogOut, User } from 'lucide-react';
+import { Home, Calendar, FolderKanban, Activity, Plus, LogOut, User, Pill, Dumbbell } from 'lucide-react';
 import { useAuth } from '../../auth/AuthProvider';
 import './shell.css';
 
@@ -50,9 +50,13 @@ export function SidebarNav({ onQuickAdd }: SidebarNavProps) {
           <FolderKanban size={18} />
           <span>Projects</span>
         </NavLink>
-        <NavLink to="/health-search" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
-          <Activity size={18} />
-          <span>Health</span>
+        <NavLink to="/medications" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
+          <Pill size={18} />
+          <span>Medications</span>
+        </NavLink>
+        <NavLink to="/workouts" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
+          <Dumbbell size={18} />
+          <span>Workouts</span>
         </NavLink>
       </div>
 

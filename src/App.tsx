@@ -4,6 +4,8 @@ import { Today } from './pages/Today';
 import { Home } from './pages/Home';
 import { Projects } from './pages/Projects';
 import { HealthSearch } from './pages/Health';
+import { Medications } from './pages/Medications';
+import { Workouts } from './pages/Workouts';
 import { ActiveWorkout } from './pages/ActiveWorkout';
 import { Calendar } from './pages/Calendar';
 import { TemplateBuilder } from './pages/TemplateBuilder';
@@ -41,6 +43,8 @@ function App() {
             <Route path="home" element={<Home />} />
             <Route path="today" element={<Today />} />
             <Route path="projects" element={<Projects />} />
+            <Route path="medications" element={<Medications />} />
+            <Route path="workouts" element={<Workouts />} />
             <Route path="health-search" element={<HealthSearch />} />
             <Route path="calendar" element={<Calendar />} />
             <Route path="profile" element={<ProfilePage />} />
