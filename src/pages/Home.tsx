@@ -12,12 +12,10 @@ import { PageHeader, StatCard } from '../components/ui/primitives';
 import './home.css';
 
 import { generateDailyInstances } from '../db/actions';
-import { VersionHistoryModal } from '../components/ui/VersionHistoryModal';
 
 export function Home() {
   const todayDate = formatDate(new Date());
   const [isMedLoggerOpen, setIsMedLoggerOpen] = useState(false);
-  const [isVersionModalOpen, setIsVersionModalOpen] = useState(false);
 
   useEffect(() => {
     generateDailyInstances().catch(console.error);
@@ -140,16 +138,7 @@ export function Home() {
 
   return (
     <div className="rka-page home-container">
-      <VersionHistoryModal isOpen={isVersionModalOpen} onClose={() => setIsVersionModalOpen(false)} />
       <div className="home-hero-row">
-        <div className="hide-on-desktop" style={{ display: 'flex', justifyContent: 'center', marginBottom: '-4px', paddingTop: '8px' }}>
-          <div 
-            style={{ fontSize: '18px', fontWeight: 800, cursor: 'pointer', letterSpacing: '-0.02em', color: 'var(--rka-text)' }}
-            onClick={() => setIsVersionModalOpen(true)}
-          >
-            RKA OS
-          </div>
-        </div>
         <PageHeader
           kicker="Overview"
           title={greeting}

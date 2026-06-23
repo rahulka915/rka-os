@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { CloudOff, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { getSyncStatus, type SyncStatus } from '../../data/sync';
+import { VersionHistoryModal } from '../ui/VersionHistoryModal';
 
 export function AppHeader() {
   const [status, setStatus] = useState<SyncStatus>(getSyncStatus());
+  const [isVersionModalOpen, setIsVersionModalOpen] = useState(false);
 
   useEffect(() => {
     const handleStatus = (e: any) => setStatus(e.detail);
@@ -23,10 +25,16 @@ export function AppHeader() {
   }, []);
 
   return (
-    <div className="app-header-container hide-on-desktop">
-      <div className="hide-on-desktop" style={{ fontWeight: 800, fontSize: '18px', letterSpacing: '-0.5px' }}>
-        RKA OS
-      </div>
+    <>
+      <VersionHistoryModal isOpen={isVersionModalOpen} onClose={() => setIsVersionModalOpen(false)} />
+      <div className="app-header-container hide-on-desktop">
+        <div 
+          className="hide-on-desktop" 
+          style={{ fontWeight: 800, fontSize: '18px', letterSpacing: '-0.5px', cursor: 'pointer' }}
+          onClick={() => setIsVersionModalOpen(true)}
+        >
+          RKA OS
+        </div>
       
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--rka-text-secondary)', fontWeight: 600 }}>
         {status === 'offline' && <><CloudOff size={14} /> Offline</>}
@@ -34,6 +42,7 @@ export function AppHeader() {
         {status === 'error' && <><CloudOff size={14} color="var(--rka-red)" /> Error</>}
         {status === 'idle' && <><CheckCircle2 size={14} color="var(--rka-green)" /> Synced</>}
       </div>
-    </div>
+      </div>
+    </>
   );
 }
