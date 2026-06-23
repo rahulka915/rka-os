@@ -6,6 +6,7 @@ import { ArrowLeft, Plus, Search, X, GripVertical, Save } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { getMuscleImage } from '../utils/workout';
 import { Button, IconButton } from '../components/ui/primitives';
+import { MuscleModel } from '../components/workouts/MuscleModel';
 import './template-builder.css';
 
 interface BuilderExercise {
@@ -13,6 +14,8 @@ interface BuilderExercise {
   exerciseId: string;
   name: string;
   metadata?: any;
+  targetSets?: number;
+  targetReps?: number;
 }
 
 interface BuilderBlock {
@@ -63,11 +66,13 @@ export function TemplateBuilder() {
         loadedBlocks.push({
           id: block.id,
           title: block.title,
-          exercises: exercises.filter(Boolean).map(ex => ({
+          exercises: exercises.filter(Boolean).map((ex, idx) => ({
             id: uuidv4(),
             exerciseId: ex!.id,
             name: ex!.title,
-            metadata: ex!.metadata
+            metadata: ex!.metadata,
+            targetSets: exLinks[idx]?.metadata?.targetSets || 3,
+            targetReps: exLinks[idx]?.metadata?.targetReps || 10
           }))
         });
       }
@@ -89,6 +94,18 @@ export function TemplateBuilder() {
     setBlocks(blocks.filter(b => b.id !== blockId));
   };
 
+  const handleUpdateExerciseTarget = (blockId: string, exerciseTempId: string, field: 'targetSets' | 'targetReps', value: number) => {
+    setBlocks(blocks.map(b => {
+      if (b.id === blockId) {
+        return {
+          ...b,
+          exercises: b.exercises.map(e => e.id === exerciseTempId ? { ...e, [field]: value } : e)
+        };
+      }
+      return b;
+    }));
+  };
+
   const handleToggleExerciseModal = (exId: string, exTitle: string) => {
     const isSelected = selectedExercisesForModal.some(e => e.exerciseId === exId);
     if (isSelected) {
@@ -103,7 +120,13 @@ export function TemplateBuilder() {
     
     setBlocks(blocks.map(b => {
       if (b.id === showExerciseModal) {
-        const newExercises = selectedExercisesForModal.map(e => ({ ...e, id: uuidv4(), metadata: allExercises.find(ex => ex.id === e.exerciseId)?.metadata }));
+        const newExercises = selectedExercisesForModal.map(e => ({ 
+          ...e, 
+          id: uuidv4(), 
+          metadata: allExercises.find(ex => ex.id === e.exerciseId)?.metadata,
+          targetSets: 3,
+          targetReps: 10
+        }));
         return {
           ...b,
           exercises: [...b.exercises, ...newExercises]
@@ -177,7 +200,14 @@ export function TemplateBuilder() {
         await db.entityLinks.add({ id: uuidv4(), sourceId: templateId!, targetId: newBlockId, linkType: 'contains', createdAt: now });
 
         for (const ex of block.exercises) {
-          await db.entityLinks.add({ id: uuidv4(), sourceId: newBlockId, targetId: ex.exerciseId, linkType: 'includes_exercise', createdAt: now });
+          await db.entityLinks.add({ 
+            id: uuidv4(), 
+            sourceId: newBlockId, 
+            targetId: ex.exerciseId, 
+            linkType: 'includes_exercise', 
+            createdAt: now,
+            metadata: { targetSets: ex.targetSets, targetReps: ex.targetReps }
+          });
         }
       }
     });
@@ -212,13 +242,10 @@ export function TemplateBuilder() {
         {targetedMuscles.length > 0 && (
           <div className="builder-muscle-summary">
             <div className="builder-muscle-title">{targetedMuscles.join(', ')}</div>
-            <div className="builder-muscle-grid">
-              {targetedMuscles.map(m => (
-                <div key={m} className="builder-muscle-card">
-                  <img src={getMuscleImage([m])} alt="" className="builder-muscle-image" />
-                  <div className="builder-muscle-percent">100%</div>
-                </div>
-              ))}
+            <div className="builder-muscle-grid" style={{ padding: '0 40px', display: 'flex', justifyContent: 'center' }}>
+              <div style={{ width: '120px', height: '120px' }}>
+                <MuscleModel muscles={targetedMuscles} />
+              </div>
             </div>
           </div>
         )}
@@ -254,7 +281,28 @@ export function TemplateBuilder() {
                         <div className="builder-exercise-meta">{ex.metadata?.muscles?.[0] || 'Various'}</div>
                       </div>
                     </div>
-                    <IconButton label={`Remove exercise ${ex.name}`} icon={<X size={14} />} onClick={() => handleRemoveExercise(block.id, ex.id)} className="remove-btn" />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                        <span style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Sets</span>
+                        <input 
+                          type="number" 
+                          value={ex.targetSets || ''}
+                          onChange={(e) => handleUpdateExerciseTarget(block.id, ex.id, 'targetSets', parseInt(e.target.value) || 0)}
+                          style={{ width: '40px', background: 'var(--rka-bg-subtle)', border: 'none', borderRadius: '4px', padding: '4px', textAlign: 'center', color: '#FFF', fontSize: '14px', fontWeight: 600 }}
+                        />
+                      </div>
+                      <span style={{ color: 'var(--text-muted)', marginTop: '14px' }}>×</span>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', marginRight: '8px' }}>
+                        <span style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Reps</span>
+                        <input 
+                          type="number" 
+                          value={ex.targetReps || ''}
+                          onChange={(e) => handleUpdateExerciseTarget(block.id, ex.id, 'targetReps', parseInt(e.target.value) || 0)}
+                          style={{ width: '40px', background: 'var(--rka-bg-subtle)', border: 'none', borderRadius: '4px', padding: '4px', textAlign: 'center', color: '#FFF', fontSize: '14px', fontWeight: 600 }}
+                        />
+                      </div>
+                      <IconButton label={`Remove exercise ${ex.name}`} icon={<X size={14} />} onClick={() => handleRemoveExercise(block.id, ex.id)} className="remove-btn" />
+                    </div>
                   </div>
                 ))}
               </div>

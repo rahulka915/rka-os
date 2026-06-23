@@ -8,6 +8,7 @@ import { Check, ArrowLeft, Plus } from 'lucide-react';
 import { RestTimer } from '../components/common/RestTimer';
 import { getMuscleImage } from '../utils/workout';
 import { Button, IconButton } from '../components/ui/primitives';
+import { MuscleModel } from '../components/workouts/MuscleModel';
 import './active-workout.css';
 
 export function ActiveWorkout() {
@@ -176,13 +177,8 @@ export function ActiveWorkout() {
         {targetedMuscles.length > 0 && (
           <div style={{ marginBottom: '32px', textAlign: 'center' }}>
             <div style={{ fontSize: '15px', fontWeight: 600, color: '#F8FAFC', marginBottom: '16px' }}>{targetedMuscles.join(', ')}</div>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              {targetedMuscles.map(m => (
-                <div key={m} style={{ width: '64px', height: '64px', borderRadius: '16px', background: '#1D2029', overflow: 'hidden', position: 'relative' }}>
-                  <img src={getMuscleImage([m as string])} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.8 }} />
-                  <div style={{ position: 'absolute', bottom: '4px', left: 0, right: 0, textAlign: 'center', fontSize: '10px', fontWeight: 700, color: '#FFF' }}>100%</div>
-                </div>
-              ))}
+            <div style={{ display: 'flex', justifyContent: 'center', width: '100%', height: '120px' }}>
+              <MuscleModel muscles={targetedMuscles as string[]} />
             </div>
           </div>
         )}

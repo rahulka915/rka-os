@@ -26,7 +26,14 @@ export function WorkoutDashboard({ workoutId }: { workoutId: string }) {
       if (!block || block.type !== 'workout-block') continue;
       const exLinks = await db.entityLinks.where({ sourceId: block.id, linkType: 'includes_exercise' }).toArray();
       const exercises = await Promise.all(exLinks.map(l => db.items.get(l.targetId)));
-      result.push({ block, exercises: exercises.filter(Boolean) });
+      result.push({ 
+        block, 
+        exercises: exercises.filter(Boolean).map((ex, i) => ({
+          item: ex,
+          targetSets: exLinks[i]?.metadata?.targetSets || 1,
+          targetReps: exLinks[i]?.metadata?.targetReps || 0
+        })) 
+      });
     }
     return result.sort((a, b) => (a.block.metadata?.order || 0) - (b.block.metadata?.order || 0));
   }, [workoutId]);
@@ -39,7 +46,7 @@ export function WorkoutDashboard({ workoutId }: { workoutId: string }) {
   blocksData.forEach(b => {
     b.exercises.forEach(ex => {
       totalExercises++;
-      const m = ex!.metadata?.muscles || [];
+      const m = ex.item!.metadata?.muscles || [];
       m.forEach((muscle: string) => muscleSet.add(muscle));
     });
   });
@@ -101,18 +108,21 @@ export function WorkoutDashboard({ workoutId }: { workoutId: string }) {
                     await db.exerciseSessions.add({
                       id: exSessionId,
                       workoutSessionId: sessionId,
-                      exerciseId: ex!.id,
+                      exerciseId: ex.item!.id,
                       order: order++
                     });
-                    // Add one empty set by default
-                    await db.setEntries.add({
-                      id: uuidv4(),
-                      exerciseSessionId: exSessionId,
-                      setNumber: 1,
-                      reps: 0,
-                      weight: 0,
-                      completed: false
-                    });
+                    
+                    const targetSets = ex.targetSets || 1;
+                    for (let i = 0; i < targetSets; i++) {
+                      await db.setEntries.add({
+                        id: uuidv4(),
+                        exerciseSessionId: exSessionId,
+                        setNumber: i + 1,
+                        reps: ex.targetReps || 0,
+                        weight: 0,
+                        completed: false
+                      });
+                    }
                   }
                 }
                 closeInspector();
@@ -131,12 +141,12 @@ export function WorkoutDashboard({ workoutId }: { workoutId: string }) {
                 <div className="rka-list">
                   {b.exercises.map(ex => (
                     <ListRow
-                      key={ex!.id}
-                      title={ex!.title}
-                      subtitle={ex!.metadata?.muscles?.length ? ex!.metadata.muscles.join(' · ') : 'No muscles set'}
+                      key={ex.item!.id}
+                      title={ex.item!.title}
+                      subtitle={`${ex.targetSets} sets × ${ex.targetReps} reps • ${ex.item!.metadata?.muscles?.length ? ex.item!.metadata.muscles.join(' · ') : 'No muscles set'}`}
                       leading={<Dumbbell size={18} />}
                       trailing={<ChevronRight size={16} color="var(--text-muted)" />}
-                      onClick={() => inspectEntity(ex!.id, ex!.type)}
+                      onClick={() => inspectEntity(ex.item!.id, ex.item!.type)}
                     />
                   ))}
                 </div>
