@@ -56,6 +56,29 @@ export function ActiveTimersBanner() {
     } catch (e) {}
   };
 
+  useEffect(() => {
+    if (!activeTimers) return;
+    
+    activeTimers.forEach(({ log, med }) => {
+      const start = log.details?.startedAt;
+      if (!start) return;
+      
+      const minHours = med?.metadata?.minHoursBetweenDoses;
+      if (minHours) {
+        const target = start + (minHours * 60 * 60 * 1000);
+        if (now >= target && !log.details.notified) {
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('Medication Reminder', {
+              body: `It has been ${minHours}h. You can now take your next dose of ${med?.title || 'medication'}.`,
+              icon: '/vite.svg'
+            });
+          }
+          markNotified(log.id);
+        }
+      }
+    });
+  }, [now, activeTimers]);
+
   if (!activeTimers || activeTimers.length === 0) return null;
 
   return (
@@ -73,25 +96,11 @@ export function ActiveTimersBanner() {
         if (hours > 0) timeStr += `${hours}h `;
         timeStr += `${mins}m elapsed`;
 
-        // Optional: still check minHours for notifications
         const minHours = med?.metadata?.minHoursBetweenDoses;
         let isReadyForNext = false;
-        
         if (minHours) {
           const target = start + (minHours * 60 * 60 * 1000);
-          if (now >= target) {
-            isReadyForNext = true;
-            // Fire notification if not already notified
-            if (!log.details.notified) {
-              if ('Notification' in window && Notification.permission === 'granted') {
-                new Notification('Medication Reminder', {
-                  body: `It has been ${minHours}h. You can now take your next dose of ${med?.title || 'medication'}.`,
-                  icon: '/vite.svg'
-                });
-              }
-              markNotified(log.id);
-            }
-          }
+          if (now >= target) isReadyForNext = true;
         }
 
         return (
