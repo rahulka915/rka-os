@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Home, Calendar, FolderKanban, Plus, LogOut, User, Pill, Dumbbell } from 'lucide-react';
+import { Home, Calendar, FolderKanban, Plus, LogOut, User, Pill, Dumbbell, CloudOff, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../../auth/AuthProvider';
+import { getSyncStatus, type SyncStatus } from '../../data/sync';
 import './shell.css';
 
 import { AppInfoModal } from './AppInfoModal';
@@ -14,19 +15,44 @@ export function SidebarNav({ onQuickAdd }: SidebarNavProps) {
   const { user, logout, localMode } = useAuth();
   const navigate = useNavigate();
   const [showAppInfo, setShowAppInfo] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>(getSyncStatus());
   const accountLabel = user?.user_metadata?.name || user?.user_metadata?.full_name || user?.email || 'Signed in';
+
+  useEffect(() => {
+    const handleStatus = (e: any) => setSyncStatus(e.detail);
+    window.addEventListener('rka-sync-status', handleStatus);
+    
+    const handleOnline = () => setSyncStatus('idle');
+    const handleOffline = () => setSyncStatus('offline');
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('rka-sync-status', handleStatus);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   return (
     <>
     <nav className="sidebar-nav">
       <div className="sidebar-header">
-        <button 
-          className="sidebar-logo" 
-          onClick={() => setShowAppInfo(true)}
-          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', outline: 'none' }}
-        >
-          RKA OS
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', paddingLeft: '12px', paddingRight: '4px' }}>
+          <button 
+            className="sidebar-logo" 
+            onClick={() => setShowAppInfo(true)}
+            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', outline: 'none', marginBottom: 0 }}
+          >
+            RKA OS
+          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--rka-text-secondary)', fontWeight: 600 }}>
+            {syncStatus === 'offline' && <><CloudOff size={12} /> Offline</>}
+            {syncStatus === 'syncing' && <><RefreshCw size={12} className="spin" /> Syncing</>}
+            {syncStatus === 'error' && <><CloudOff size={12} color="var(--rka-red)" /> Error</>}
+            {syncStatus === 'idle' && <><CheckCircle2 size={12} color="var(--rka-green)" /> Synced</>}
+          </div>
+        </div>
         <button className="sidebar-fab" onClick={onQuickAdd} type="button">
           <Plus size={20} />
           <span>New</span>

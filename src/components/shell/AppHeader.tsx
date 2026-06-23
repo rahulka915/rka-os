@@ -23,7 +23,7 @@ export function AppHeader() {
   }, []);
 
   return (
-    <div className="app-header-container">
+    <div className="app-header-container hide-on-desktop">
       <div className="hide-on-desktop" style={{ fontWeight: 800, fontSize: '18px', letterSpacing: '-0.5px' }}>
         RKA OS
       </div>
