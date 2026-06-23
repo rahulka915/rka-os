@@ -50,7 +50,6 @@ export function ActiveTimersBanner() {
       const log = await db.activityLogs.get(logId);
       if (log && log.details && !log.details.notified) {
         log.details.notified = true;
-        log.details.timerActive = false; // Auto-stop timer when done
         await db.activityLogs.put(log);
       }
     } catch (e) {}
