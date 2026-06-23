@@ -53,7 +53,11 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
     <div 
       ref={contentRef}
       style={{ 
-        height: '100%', 
+        flex: 1,
+        width: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
         overflowY: 'auto', 
         position: 'relative',
         WebkitOverflowScrolling: 'touch'
@@ -87,6 +91,10 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
           transform: `translateY(${pullDistance}px)`,
           transition: isRefreshing || pullDistance === 0 ? 'transform 0.3s ease-out' : 'none',
           minHeight: '100%',
+          width: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
           backgroundColor: 'var(--rka-bg)',
           position: 'relative',
           zIndex: 1

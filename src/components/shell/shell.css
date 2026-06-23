@@ -9,11 +9,9 @@
 
 .main-content-wrapper {
   flex: 1;
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  scrollbar-gutter: stable;
+  overflow: hidden; /* Scroll is handled by PullToRefresh now */
 }
 
 .main-content {
