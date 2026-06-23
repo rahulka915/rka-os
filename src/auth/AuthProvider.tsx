@@ -3,7 +3,7 @@ import type { Session, User } from '@supabase/supabase-js';
 import { hasSupabaseConfig, supabase } from '../lib/supabase';
 import { getAuthSession, signOut, updateUserProfile } from '../data/auth';
 import { setCurrentAuthState } from '../data/runtime';
-import { setSupabaseSyncUser } from '../data/sync';
+import { setSupabaseSyncUser, getPendingSyncCount, forceSyncAll } from '../data/sync';
 
 interface AuthContextValue {
   user: User | null;
@@ -80,6 +80,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loading,
     localMode: !hasSupabaseConfig,
     logout: async () => {
+      // ── Logout Guard ────────────────────────────────────────────────────────
+      // Check for pending unsynced writes before clearing local data.
+      const pendingCount = await getPendingSyncCount();
+
+      if (pendingCount > 0) {
+        const isOnline = navigator.onLine;
+        if (isOnline) {
+          // Offer to sync first
+          const proceed = window.confirm(
+            `You have ${pendingCount} unsynced change${pendingCount === 1 ? '' : 's'} that haven't reached the cloud yet.\n\n` +
+            `• Press OK to sync them now, then log out.\n` +
+            `• Press Cancel to go back (your changes are safe).`
+          );
+          if (!proceed) return; // User cancelled — abort logout
+          try {
+            await forceSyncAll();
+          } catch {
+            const forceAnyway = window.confirm(
+              'Sync failed. Your changes may not be saved to the cloud.\n\n' +
+              'Log out anyway? (Changes will be lost)'
+            );
+            if (!forceAnyway) return;
+          }
+        } else {
+          // Offline with unsynced data — hard warning
+          const proceed = window.confirm(
+            `You're offline and have ${pendingCount} unsynced change${pendingCount === 1 ? '' : 's'}.\n\n` +
+            `Logging out now will permanently discard these changes.\n\n` +
+            `Log out anyway?`
+          );
+          if (!proceed) return;
+        }
+      }
+
       await signOut();
     },
     completeProfile: async (name: string) => {

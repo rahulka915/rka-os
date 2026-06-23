@@ -1,23 +1,18 @@
 import { db } from '../db/db';
-import { supabase, hasSupabaseConfig } from '../lib/supabase';
-import { getCurrentUserId } from './runtime';
-import { activityFromRemote, activityToRemote } from './serializers';
 import type { ActivityLog } from '../db/db';
 
-export async function listActivityLogs() {
-  const userId = getCurrentUserId();
-  if (!hasSupabaseConfig || !supabase || !userId) return db.activityLogs.toArray();
-  const { data, error } = await supabase.from('activity_logs').select('*').eq('user_id', userId).is('deleted_at', null);
-  if (error) throw error;
-  return (data ?? []).map(activityFromRemote);
-}
+// ─── Read Helpers ────────────────────────────────────────────────────────────
+// These functions read exclusively from local Dexie (IndexedDB).
+// The sync bridge in sync.ts keeps Dexie in sync with Supabase automatically.
+// Do NOT add direct Supabase reads/writes here — use db/actions.ts for mutations.
 
-export async function appendActivityLog(log: ActivityLog) {
-  const userId = getCurrentUserId();
-  await db.activityLogs.put(log);
-  if (!hasSupabaseConfig || !supabase || !userId) return log;
-  const { error } = await supabase.from('activity_logs').upsert(activityToRemote(log, userId), { onConflict: 'id' });
-  if (error) throw error;
-  return log;
+export async function listActivityLogs(entityId?: string): Promise<ActivityLog[]> {
+  if (entityId) {
+    return db.activityLogs
+      .where('entityId')
+      .equals(entityId)
+      .filter(log => !log.deletedAt)
+      .toArray();
+  }
+  return db.activityLogs.filter(log => !log.deletedAt).toArray();
 }
-

@@ -29,10 +29,15 @@ function toIso(value?: number | null) {
   return new Date(value).toISOString();
 }
 
-function toNumber(value?: string | null) {
-  if (!value) return Date.now();
+function toNumber(value?: string | null): number | undefined {
+  if (!value) return undefined;
   const parsed = new Date(value).getTime();
-  return Number.isFinite(parsed) ? parsed : Date.now();
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function toNumberOrNow(value?: string | null): number {
+  // Use this variant only for fields that absolutely require a number (e.g. createdAt).
+  return toNumber(value) ?? Date.now();
 }
 
 function normalizeMetadata(metadata: unknown): Json {
@@ -70,10 +75,10 @@ export function itemFromRemote(row: SupabaseItemRow): Item {
     dueDate: row.due_date ?? undefined,
     rrule: row.rrule ?? undefined,
     metadata: (row.metadata ?? {}) as Item['metadata'],
-    createdAt: toNumber(row.created_at),
-    updatedAt: toNumber(row.updated_at),
-    archivedAt: row.archived_at ? toNumber(row.archived_at) : undefined,
-    deletedAt: row.deleted_at ? toNumber(row.deleted_at) : undefined,
+    createdAt: toNumberOrNow(row.created_at),
+    updatedAt: toNumberOrNow(row.updated_at),
+    archivedAt: toNumber(row.archived_at),
+    deletedAt: toNumber(row.deleted_at),
     userId: row.user_id,
   };
 }
@@ -100,8 +105,8 @@ export function itemInstanceFromRemote(row: SupabaseItemInstanceRow): ItemInstan
     completedAt: row.completed_at ? toNumber(row.completed_at) : undefined,
     status: row.status,
     instanceMetadata: (row.instance_metadata ?? {}) as ItemInstance['instanceMetadata'],
-    createdAt: toNumber(row.created_at),
-    updatedAt: toNumber(row.updated_at),
+    createdAt: toNumberOrNow(row.created_at),
+    updatedAt: toNumberOrNow(row.updated_at),
     userId: row.user_id,
   };
 }
@@ -123,7 +128,7 @@ export function tagFromRemote(row: SupabaseTagRow): Tag {
     id: row.id,
     name: row.name,
     color: row.color,
-    createdAt: toNumber(row.created_at),
+    createdAt: toNumberOrNow(row.created_at),
     userId: row.user_id,
   } as Tag;
 }
@@ -145,8 +150,8 @@ export function itemTagFromRemote(row: SupabaseItemTagRow): ItemTag {
     itemId: row.item_id,
     tagId: row.tag_id,
     userId: row.user_id,
-    createdAt: toNumber(row.created_at),
-    updatedAt: toNumber(row.updated_at),
+    createdAt: toNumberOrNow(row.created_at),
+    updatedAt: toNumberOrNow(row.updated_at),
   } as ItemTag;
 }
 
@@ -169,7 +174,7 @@ export function linkFromRemote(row: SupabaseEntityLinkRow): EntityLink {
     sourceId: row.source_id,
     targetId: row.target_id,
     linkType: row.link_type,
-    createdAt: toNumber(row.created_at),
+    createdAt: toNumberOrNow(row.created_at),
     userId: row.user_id,
   } as EntityLink;
 }
@@ -192,7 +197,7 @@ export function activityFromRemote(row: SupabaseActivityLogRow): ActivityLog {
     id: row.id,
     entityId: row.entity_id,
     actionType: row.action_type,
-    timestamp: toNumber(row.timestamp),
+    timestamp: toNumberOrNow(row.timestamp),
     details: row.details ?? undefined,
     userId: row.user_id,
   } as ActivityLog;
@@ -216,11 +221,11 @@ export function workoutSessionFromRemote(row: SupabaseWorkoutSessionRow): Workou
   return {
     id: row.id,
     templateId: row.template_id,
-    date: toNumber(row.date),
+    date: toNumberOrNow(row.date),
     duration: row.duration,
     notes: row.notes ?? undefined,
-    createdAt: toNumber(row.created_at),
-    updatedAt: toNumber(row.updated_at),
+    createdAt: toNumberOrNow(row.created_at),
+    updatedAt: toNumberOrNow(row.updated_at),
     userId: row.user_id,
   } as WorkoutSession;
 }
@@ -246,8 +251,8 @@ export function exerciseSessionFromRemote(row: SupabaseExerciseSessionRow): Exer
     exerciseId: row.exercise_id,
     order: row.order,
     notes: row.notes ?? undefined,
-    createdAt: toNumber(row.created_at),
-    updatedAt: toNumber(row.updated_at),
+    createdAt: toNumberOrNow(row.created_at),
+    updatedAt: toNumberOrNow(row.updated_at),
     userId: row.user_id,
   } as ExerciseSession;
 }
@@ -279,8 +284,8 @@ export function setEntryFromRemote(row: SupabaseSetEntryRow): SetEntry {
     rir: row.rir ?? undefined,
     rpe: row.rpe ?? undefined,
     completed: row.completed,
-    createdAt: toNumber(row.created_at),
-    updatedAt: toNumber(row.updated_at),
+    createdAt: toNumberOrNow(row.created_at),
+    updatedAt: toNumberOrNow(row.updated_at),
     userId: row.user_id,
   } as SetEntry;
 }
@@ -306,8 +311,8 @@ export function exerciseMediaFromRemote(row: SupabaseExerciseMediaRow): Exercise
     storagePath: row.storage_path,
     url: row.url,
     mediaType: row.media_type,
-    createdAt: toNumber(row.created_at),
-    updatedAt: toNumber(row.updated_at),
+    createdAt: toNumberOrNow(row.created_at),
+    updatedAt: toNumberOrNow(row.updated_at),
     userId: row.user_id,
   } as ExerciseMedia;
 }

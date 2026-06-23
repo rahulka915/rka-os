@@ -113,6 +113,11 @@ export function getSyncStatus() {
   return currentSyncStatus;
 }
 
+export async function getPendingSyncCount(): Promise<number> {
+  if (!installedDb) return 0;
+  return installedDb.table('syncQueue').count();
+}
+
 const remoteWriteStats: Record<TableName, number> = {
   items: 0,
   itemInstances: 0,
@@ -126,6 +131,8 @@ const remoteWriteStats: Record<TableName, number> = {
   exerciseMedia: 0,
 };
 let isProcessingQueue = false;
+let syncRetryTimer: ReturnType<typeof setTimeout> | null = null;
+let syncRetryDelay = 1000; // ms — doubles on each failure, capped at 60s
 
 let installedDb: Dexie | null = null;
 let activeUserId: string | null = null;
@@ -199,14 +206,22 @@ export async function processSyncQueue() {
     setSyncStatus('offline');
     return;
   }
-  
+
+  // Clear any pending retry timer — we're running now
+  if (syncRetryTimer) {
+    clearTimeout(syncRetryTimer);
+    syncRetryTimer = null;
+  }
+
   isProcessingQueue = true;
   setSyncStatus('syncing');
+
+  let encounteredError = false;
 
   try {
     const queueTable = installedDb.table('syncQueue');
     const entries = await queueTable.orderBy('createdAt').toArray();
-    
+
     let i = 0;
     while (i < entries.length) {
       if (!navigator.onLine) {
@@ -217,9 +232,11 @@ export async function processSyncQueue() {
       const batch = [entry];
 
       // Batch consecutive operations of the same type and table
-      while (i + 1 < entries.length && 
-             entries[i + 1].operation === entry.operation && 
-             entries[i + 1].tableName === entry.tableName) {
+      while (
+        i + 1 < entries.length &&
+        entries[i + 1].operation === entry.operation &&
+        entries[i + 1].tableName === entry.tableName
+      ) {
         batch.push(entries[i + 1]);
         i++;
       }
@@ -239,18 +256,30 @@ export async function processSyncQueue() {
           await remoteClear(entry.tableName as TableName, activeUserId);
         }
 
-        // Delete all processed entries from the local sync queue
+        // Successfully processed — delete entries and reset backoff
         await queueTable.bulkDelete(batch.map(b => b.id));
-      } catch (error) {
-        console.error('Failed to process sync queue batch', batch, error);
+        syncRetryDelay = 1000; // Reset backoff on success
+      } catch (batchError) {
+        console.error('[sync] Failed to process sync queue batch', batch, batchError);
+        encounteredError = true;
         setSyncStatus('error');
-        break; // Stop processing to preserve order
+
+        // Schedule an automatic retry with exponential backoff
+        const delay = syncRetryDelay;
+        syncRetryDelay = Math.min(syncRetryDelay * 2, 60_000);
+        console.info(`[sync] Retrying sync queue in ${delay}ms (next backoff: ${syncRetryDelay}ms)`);
+        syncRetryTimer = setTimeout(() => {
+          syncRetryTimer = null;
+          triggerSyncQueueProcessing();
+        }, delay);
+
+        break; // Stop processing this pass to preserve order
       }
       i++;
     }
   } finally {
     isProcessingQueue = false;
-    if (currentSyncStatus !== 'error' && currentSyncStatus !== 'offline') {
+    if (!encounteredError && currentSyncStatus !== 'offline') {
       setSyncStatus('idle');
     }
   }
@@ -277,8 +306,23 @@ export function resetRemoteSyncDebugState() {
 
 async function hydrateUserCache(userId: string, generation: number) {
   if (!installedDb || !hasSupabaseConfig || !supabase) return;
-  pushRemoteWriteSuppression();
   setSyncStatus('syncing');
+
+  // ── Step 1: Flush pending local writes FIRST ─────────────────────────────
+  // This ensures offline edits reach Supabase before we pull remote state,
+  // preventing hydration from overwriting unsynced local changes.
+  if (navigator.onLine) {
+    try {
+      await processSyncQueue();
+    } catch (flushError) {
+      console.warn('[sync] Pre-hydration queue flush failed — proceeding with pull', flushError);
+    }
+  }
+
+  if (generation !== syncGeneration) return; // Stale — a newer hydration started
+
+  // ── Step 2: Pull remote data and reconcile with local ───────────────────
+  pushRemoteWriteSuppression();
   try {
     const queueTable = installedDb.table('syncQueue');
     const tableNames = Object.keys(adapters) as TableName[];
@@ -289,25 +333,30 @@ async function hydrateUserCache(userId: string, generation: number) {
         const rows = await remoteRead(name, userId);
         const remoteIds = new Set(rows.map(r => r.id));
 
+        // Re-check pending ops AFTER the flush — fewer items should be pending now
         const pendingOps = await queueTable.where('tableName').equals(name).toArray();
         const pendingUpserts = new Set(pendingOps.filter(q => q.operation === 'upsert').map(q => q.recordId));
         const pendingDeletes = new Set(pendingOps.filter(q => q.operation === 'delete').map(q => q.recordId));
 
         await installedDb.transaction('rw', table, async () => {
           const localKeys = await table.toCollection().primaryKeys();
-          const keysToDelete = localKeys.filter(k => !remoteIds.has(k as string) && !pendingUpserts.has(k as string));
-          
+          // Only delete local-only records if they have NO pending upsert in the queue
+          const keysToDelete = localKeys.filter(
+            k => !remoteIds.has(k as string) && !pendingUpserts.has(k as string)
+          );
+
           if (keysToDelete.length > 0) {
             await table.bulkDelete(keysToDelete);
           }
 
+          // Don't overwrite records that are pending local edits
           const rowsToPut = rows.filter(r => !pendingUpserts.has(r.id) && !pendingDeletes.has(r.id));
           if (rowsToPut.length > 0) {
             await table.bulkPut(rowsToPut as AnyRow[]);
           }
         });
       } catch (error) {
-        console.error(`Supabase hydrate failed for table ${name}`, error);
+        console.error(`[sync] Hydrate failed for table ${name}`, error);
         setSyncStatus('error');
         throw error;
       }
@@ -316,7 +365,6 @@ async function hydrateUserCache(userId: string, generation: number) {
     popRemoteWriteSuppression();
     if (currentSyncStatus !== 'error') setSyncStatus('idle');
   }
-  triggerSyncQueueProcessing();
 }
 
 function stopRealtime() {
@@ -605,6 +653,13 @@ export async function setSupabaseSyncUser(user: { id: string } | null) {
   activeUserId = user?.id ?? null;
   syncGeneration += 1;
 
+  // Cancel any pending retry when user changes
+  if (syncRetryTimer) {
+    clearTimeout(syncRetryTimer);
+    syncRetryTimer = null;
+  }
+  syncRetryDelay = 1000; // Reset backoff for new user
+
   if (!installedDb || !hasSupabaseConfig || !supabase) {
     stopRealtime();
     return;
@@ -613,6 +668,10 @@ export async function setSupabaseSyncUser(user: { id: string } | null) {
   stopRealtime();
 
   if (!activeUserId) {
+    // User logged out — clear local data.
+    // NOTE: The logout guard in AuthProvider.tsx warns the user before calling this
+    // if there are pending unsynced entries. By the time we reach here, the user
+    // has either confirmed or the queue has been flushed.
     pushRemoteWriteSuppression();
     try {
       await installedDb.table('syncQueue').clear();

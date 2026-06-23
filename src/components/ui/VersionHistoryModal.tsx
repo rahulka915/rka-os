@@ -1,4 +1,4 @@
-import { X, Sparkles, Bug } from 'lucide-react';
+import { X, Sparkles, Bug, ShieldCheck } from 'lucide-react';
 import { IconButton } from './primitives';
 
 export function VersionHistoryModal({
@@ -30,8 +30,8 @@ export function VersionHistoryModal({
               RKA
             </div>
             <div>
-              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>Version 2.6.2</h2>
-              <div style={{ fontSize: '13px', color: 'var(--rka-text-secondary)' }}>June 23, 2026 • 17:55</div>
+              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>Version 2.7.0</h2>
+              <div style={{ fontSize: '13px', color: 'var(--rka-text-secondary)' }}>June 23, 2026 • 19:00</div>
             </div>
           </div>
           <IconButton icon={<X size={20} />} onClick={onClose} label="Close" />
@@ -41,9 +41,25 @@ export function VersionHistoryModal({
         <div style={{ padding: '24px', overflowY: 'auto', maxHeight: '60vh', display: 'flex', flexDirection: 'column', gap: '24px' }}>
           
           <section>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--rka-green)', marginBottom: '12px', fontWeight: 700 }}>
+              <ShieldCheck size={18} />
+              <span>Sync Hardening (v2.7.0)</span>
+            </div>
+            <ul style={{ margin: 0, paddingLeft: '24px', color: 'var(--rka-text)', fontSize: '15px', lineHeight: 1.5, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <li><strong>Logout Guard:</strong> The app now warns you if you have unsynced changes before logging out, and offers to sync first — no more silent data loss.</li>
+              <li><strong>Queue-First Hydration:</strong> When re-opening the app, local offline writes are pushed to the cloud <em>before</em> pulling remote data, preventing your changes from being overwritten.</li>
+              <li><strong>Auto-Retry Sync:</strong> Failed sync operations now retry automatically with exponential backoff (1s → 2s → 4s → up to 60s) instead of stopping permanently.</li>
+              <li><strong>Unified Write Path:</strong> Eliminated the double-write bug where some actions were writing to both Supabase directly and via the sync queue simultaneously.</li>
+              <li><strong>Soft Delete:</strong> Deleted items are now soft-deleted (marked with a timestamp) rather than permanently removed, enabling future recovery.</li>
+              <li><strong>DB Indexes:</strong> Added performance indexes to all Supabase tables to prevent query slowdown as your data grows.</li>
+              <li><strong>Timestamp Fix:</strong> Fixed a bug where corrupted or missing timestamps from the server would silently show as "just now".</li>
+            </ul>
+          </section>
+
+          <section>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--rka-blue)', marginBottom: '12px', fontWeight: 700 }}>
               <Sparkles size={18} />
-              <span>New Features</span>
+              <span>Previous: New Features (v2.6.2)</span>
             </div>
             <ul style={{ margin: 0, paddingLeft: '24px', color: 'var(--rka-text)', fontSize: '15px', lineHeight: 1.5, display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <li><strong>Force Sync:</strong> A powerful new button in Profile &gt; Preferences to instantly push all local data to the cloud and re-sync your devices.</li>
@@ -57,7 +73,7 @@ export function VersionHistoryModal({
           <section>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--rka-red)', marginBottom: '12px', fontWeight: 700 }}>
               <Bug size={18} />
-              <span>Bug Fixes</span>
+              <span>Bug Fixes (v2.6.2)</span>
             </div>
             <ul style={{ margin: 0, paddingLeft: '24px', color: 'var(--rka-text)', fontSize: '15px', lineHeight: 1.5, display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <li>Fixed "Force Sync" wiping local data on devices that hadn't synced yet.</li>

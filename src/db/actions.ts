@@ -159,9 +159,19 @@ export async function generateDailyInstances() {
 }
 
 export async function deleteEntity(id: string) {
-  await db.transaction('rw', [db.items, db.activityLogs, db.syncQueue], async () => {
-    // Also delete any child instances if it's a recurring item
-    await db.items.delete(id);
+  const now = Date.now();
+  await db.transaction('rw', [db.items, db.itemInstances, db.syncQueue], async () => {
+    // Soft-delete: set deletedAt instead of hard-deleting so the record can be
+    // recovered and conflict resolution remains safe. The sync bridge picks up
+    // the update and writes deleted_at to Supabase.
+    await db.items.update(id, { deletedAt: now, updatedAt: now });
+    // Also soft-delete any pending instances for this item
+    const instances = await db.itemInstances.where('itemId').equals(id).toArray();
+    for (const inst of instances) {
+      if (!inst.deletedAt) {
+        await db.itemInstances.update(inst.id, { deletedAt: now, updatedAt: now });
+      }
+    }
   });
 }
 
