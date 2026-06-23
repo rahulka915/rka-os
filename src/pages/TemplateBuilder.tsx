@@ -288,17 +288,21 @@ export function TemplateBuilder() {
                           type="number" 
                           value={ex.targetSets || ''}
                           onChange={(e) => handleUpdateExerciseTarget(block.id, ex.id, 'targetSets', parseInt(e.target.value) || 0)}
-                          style={{ width: '40px', background: 'var(--rka-bg-subtle)', border: 'none', borderRadius: '4px', padding: '4px', textAlign: 'center', color: '#FFF', fontSize: '14px', fontWeight: 600 }}
+                          style={{ width: '48px', background: '#2A2D35', border: '1px solid #334155', borderRadius: '6px', padding: '6px 4px', textAlign: 'center', color: '#FFF', fontSize: '15px', fontWeight: 600, outline: 'none', transition: 'border-color 0.2s' }}
+                          onFocus={e => e.target.style.borderColor = 'var(--rka-primary)'}
+                          onBlur={e => e.target.style.borderColor = '#334155'}
                         />
                       </div>
-                      <span style={{ color: 'var(--text-muted)', marginTop: '14px' }}>×</span>
+                      <span style={{ color: 'var(--text-muted)', marginTop: '14px', fontWeight: 600 }}>×</span>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', marginRight: '8px' }}>
                         <span style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Reps</span>
                         <input 
                           type="number" 
                           value={ex.targetReps || ''}
                           onChange={(e) => handleUpdateExerciseTarget(block.id, ex.id, 'targetReps', parseInt(e.target.value) || 0)}
-                          style={{ width: '40px', background: 'var(--rka-bg-subtle)', border: 'none', borderRadius: '4px', padding: '4px', textAlign: 'center', color: '#FFF', fontSize: '14px', fontWeight: 600 }}
+                          style={{ width: '48px', background: '#2A2D35', border: '1px solid #334155', borderRadius: '6px', padding: '6px 4px', textAlign: 'center', color: '#FFF', fontSize: '15px', fontWeight: 600, outline: 'none', transition: 'border-color 0.2s' }}
+                          onFocus={e => e.target.style.borderColor = 'var(--rka-primary)'}
+                          onBlur={e => e.target.style.borderColor = '#334155'}
                         />
                       </div>
                       <IconButton label={`Remove exercise ${ex.name}`} icon={<X size={14} />} onClick={() => handleRemoveExercise(block.id, ex.id)} className="remove-btn" />
