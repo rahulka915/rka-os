@@ -496,6 +496,16 @@ export function installSupabaseSyncBridge(db: Dexie) {
   (Object.keys(adapters) as TableName[]).forEach(patchTableMethods);
   if (typeof window !== 'undefined') {
     window.addEventListener('online', triggerSyncQueueProcessing);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        triggerSyncQueueProcessing();
+        // Re-hydrate to catch any remote changes missed while backgrounded
+        if (activeUserId) {
+          syncGeneration++;
+          hydrateUserCache(activeUserId, syncGeneration).catch(console.error);
+        }
+      }
+    });
   }
 }
 
