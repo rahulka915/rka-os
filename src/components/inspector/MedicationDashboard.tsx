@@ -64,6 +64,21 @@ export function MedicationDashboard({ medicationId }: MedicationDashboardProps) 
     }
   };
 
+  const handleStartTimerLater = async (logId: string, timestamp: number) => {
+    try {
+      const log = await db.activityLogs.get(logId);
+      if (log) {
+        if (!log.details) log.details = {};
+        log.details.timerActive = true;
+        log.details.startedAt = timestamp; // Continue from original time!
+        log.details.notified = false; // Reset notification flag
+        await db.activityLogs.put(log);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   return (
     <div className="medication-dashboard" style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '8px' }}>
       
@@ -126,10 +141,17 @@ export function MedicationDashboard({ medicationId }: MedicationDashboardProps) 
                     <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--rka-text)' }}>{log.details?.dose || '1 dose'}</span>
                     <span style={{ fontSize: '12px', color: 'var(--rka-text-secondary)' }}>{dateStr} at {timeStr}</span>
                   </div>
-                  {log.details?.timerActive && (
+                  {log.details?.timerActive ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: 'var(--rka-blue)', background: 'var(--rka-blue-soft)', padding: '4px 8px', borderRadius: '12px', fontWeight: 500 }}>
-                      <PlayCircle size={12} /> Timer
+                      <PlayCircle size={12} /> Timer Active
                     </div>
+                  ) : (
+                    <button 
+                      onClick={() => handleStartTimerLater(log.id, log.timestamp)}
+                      style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: 'var(--rka-text)', background: 'var(--rka-surface-hover)', padding: '4px 8px', borderRadius: '12px', fontWeight: 500, border: '1px solid var(--rka-border)', cursor: 'pointer' }}
+                    >
+                      <PlayCircle size={12} /> Track Time
+                    </button>
                   )}
                 </div>
               );
