@@ -22,7 +22,7 @@
   max-width: 1040px;
   padding: 0 18px;
   padding-top: 14px;
-  padding-bottom: calc(112px + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
   animation: pageSlideIn 300ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 
