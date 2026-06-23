@@ -95,17 +95,35 @@ export function ExerciseLibrary() {
             <p>No exercises found.</p>
           </div>
         ) : (
-          <div className="ex-lib-grouped">
+          <div className="ex-lib-grouped" style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
             {Array.from(new Set(filteredExercises.map(ex => (ex.metadata?.muscles as string[])?.[0] || 'other')))
               .sort()
               .map(muscleGroup => {
                 const groupExercises = filteredExercises.filter(ex => ((ex.metadata?.muscles as string[])?.[0] || 'other') === muscleGroup);
                 
+                // Capitalize and format muscle name for the image path
+                const formattedMuscle = muscleGroup === 'core' ? 'Abs' : muscleGroup.charAt(0).toUpperCase() + muscleGroup.slice(1);
+                // "other" won't have an icon, but we can fall back
+                const iconSrc = muscleGroup !== 'other' ? `/images/muscles/${formattedMuscle} [Muscle Icon].png` : null;
+                
                 return (
-                  <div key={muscleGroup} className="ex-lib-group" style={{ marginBottom: '32px' }}>
-                    <h2 className="rka-section-title" style={{ textTransform: 'capitalize', marginBottom: '16px', position: 'sticky', top: '70px', background: 'var(--rka-bg)', zIndex: 10, padding: '8px 0' }}>
-                      {muscleGroup}
-                    </h2>
+                  <div key={muscleGroup} className="muscle-group-card">
+                    <div className="muscle-group-header">
+                      {iconSrc ? (
+                        <div className="muscle-group-icon">
+                          <img src={iconSrc} alt={muscleGroup} />
+                        </div>
+                      ) : (
+                        <div className="muscle-group-icon placeholder">
+                          <Dumbbell size={24} strokeWidth={1.5} />
+                        </div>
+                      )}
+                      <div>
+                        <h2 className="muscle-group-title">{muscleGroup}</h2>
+                        <div className="muscle-group-subtitle">{groupExercises.length} exercises</div>
+                      </div>
+                    </div>
+                    
                     <div className="ex-lib-grid">
                       {groupExercises.map(ex => {
                         const muscles = (ex.metadata?.muscles as string[]) || [];
