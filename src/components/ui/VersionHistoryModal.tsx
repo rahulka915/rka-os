@@ -45,7 +45,7 @@ export function VersionHistoryModal({
               <Sparkles size={18} />
               <span>Hotfix: Blur UI (v2.8.3)</span>
             </div>
-            <div style={{ color: 'var(--rka-text-secondary)', fontSize: '13px', marginBottom: '12px' }}>June 23, 2026, 21:01</div>
+            <div style={{ color: 'var(--rka-text-secondary)', fontSize: '13px', marginBottom: '12px' }}>June 23, 2026, 22:01</div>
             <ul style={{ margin: 0, paddingLeft: '24px', color: 'var(--rka-text)', fontSize: '15px', lineHeight: 1.5, display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <li><strong>Critical Fix:</strong> Reverted the experimental <code>forceMount</code> property on the Inbox drawer that caused a permanent blurred overlay on the Home screen.</li>
             </ul>
@@ -56,7 +56,7 @@ export function VersionHistoryModal({
               <Sparkles size={18} />
               <span>Fluidity & Interactions (v2.8.2)</span>
             </div>
-            <div style={{ color: 'var(--rka-text-secondary)', fontSize: '13px', marginBottom: '12px' }}>June 23, 2026, 21:00</div>
+            <div style={{ color: 'var(--rka-text-secondary)', fontSize: '13px', marginBottom: '12px' }}>June 23, 2026, 22:00</div>
             <ul style={{ margin: 0, paddingLeft: '24px', color: 'var(--rka-text)', fontSize: '15px', lineHeight: 1.5, display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <li><strong>Zero-Latency Inbox:</strong> Tapping the Inbox widget now instantly forces the iOS keyboard open, with no animation delays.</li>
               <li><strong>Physical Feedback:</strong> Standardized haptic clicks and <code>.active-scale</code> interactions across all buttons, list rows, pills, and the Inbox widget itself, guaranteeing the Things 3-level fluidity.</li>
