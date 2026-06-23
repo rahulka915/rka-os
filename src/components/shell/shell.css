@@ -191,6 +191,7 @@
   left: 0;
   right: 0;
   height: calc(49px + env(safe-area-inset-bottom));
+  box-sizing: border-box;
   background: rgba(246, 245, 241, 0.72);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);

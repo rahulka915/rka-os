@@ -43,6 +43,17 @@ export function VersionHistoryModal({
           <section style={{ marginBottom: '32px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--rka-blue)', marginBottom: '12px', fontWeight: 700 }}>
               <Sparkles size={18} />
+              <span>Bottom Nav Height Fix (v2.8.5)</span>
+            </div>
+            <div style={{ color: 'var(--rka-text-secondary)', fontSize: '13px', marginBottom: '12px' }}>June 24, 2026, 00:33</div>
+            <ul style={{ margin: 0, paddingLeft: '24px', color: 'var(--rka-text)', fontSize: '15px', lineHeight: 1.5, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <li><strong>Box Model Fix:</strong> Fixed a CSS box-model oversight where the safe-area padding was expanding the height of the bottom tab bar, causing it to look twice as thick as intended on notched iOS devices.</li>
+            </ul>
+          </section>
+
+          <section style={{ marginBottom: '32px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--rka-blue)', marginBottom: '12px', fontWeight: 700 }}>
+              <Sparkles size={18} />
               <span>Native iOS Layout (v2.8.4)</span>
             </div>
             <div style={{ color: 'var(--rka-text-secondary)', fontSize: '13px', marginBottom: '12px' }}>June 24, 2026, 00:30</div>
