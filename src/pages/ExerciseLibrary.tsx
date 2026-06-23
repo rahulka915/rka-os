@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
-import { ChevronLeft, Search, Dumbbell, Activity, Filter, Loader2 } from 'lucide-react';
+import { ChevronLeft, Search, Dumbbell, Filter, Loader2 } from 'lucide-react';
 import { useInspector } from '../components/shell/InspectorContext';
 import { MetadataPill } from '../components/ui/primitives';
 import './exercise-library.css';
@@ -95,28 +95,46 @@ export function ExerciseLibrary() {
             <p>No exercises found.</p>
           </div>
         ) : (
-          <div className="ex-lib-grid">
-            {filteredExercises.map(ex => {
-              const muscles = (ex.metadata?.muscles as string[]) || [];
-              const equipment = (ex.metadata?.equipment as string) || 'bodyweight';
-              const Icon = equipment === 'bodyweight' ? Activity : Dumbbell;
+          <div className="ex-lib-grouped">
+            {Array.from(new Set(filteredExercises.map(ex => (ex.metadata?.muscles as string[])?.[0] || 'other')))
+              .sort()
+              .map(muscleGroup => {
+                const groupExercises = filteredExercises.filter(ex => ((ex.metadata?.muscles as string[])?.[0] || 'other') === muscleGroup);
+                
+                return (
+                  <div key={muscleGroup} className="ex-lib-group" style={{ marginBottom: '32px' }}>
+                    <h2 className="rka-section-title" style={{ textTransform: 'capitalize', marginBottom: '16px', position: 'sticky', top: '70px', background: 'var(--rka-bg)', zIndex: 10, padding: '8px 0' }}>
+                      {muscleGroup}
+                    </h2>
+                    <div className="ex-lib-grid">
+                      {groupExercises.map(ex => {
+                        const muscles = (ex.metadata?.muscles as string[]) || [];
+                        const image = ex.metadata?.image as string | undefined;
 
-              return (
-                <div key={ex.id} className="ex-lib-card" onClick={() => inspectEntity(ex.id, 'exercise')}>
-                  <div className="ex-lib-card-icon">
-                    <Icon size={24} strokeWidth={1.5} />
+                        return (
+                          <div key={ex.id} className="ex-lib-card" onClick={() => inspectEntity(ex.id, 'exercise')}>
+                            <div className="ex-lib-card-icon" style={{ padding: image ? 0 : undefined, overflow: 'hidden', background: image ? 'transparent' : undefined }}>
+                              {image ? (
+                                <img src={image} alt={ex.title} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                              ) : (
+                                <Dumbbell size={24} strokeWidth={1.5} />
+                              )}
+                            </div>
+                            <h3 className="ex-lib-card-title">{ex.title}</h3>
+                            
+                            <div className="ex-lib-card-tags">
+                              {muscles.slice(0, 2).map(m => (
+                                <MetadataPill key={m} label={m} tone="blue" />
+                              ))}
+                              {muscles.length > 2 && <MetadataPill label={`+${muscles.length - 2}`} tone="gray" />}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                  <h3 className="ex-lib-card-title">{ex.title}</h3>
-                  
-                  <div className="ex-lib-card-tags">
-                    {muscles.slice(0, 2).map(m => (
-                      <MetadataPill key={m} label={m} tone="blue" />
-                    ))}
-                    {muscles.length > 2 && <MetadataPill label={`+${muscles.length - 2}`} tone="gray" />}
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
           </div>
         )}
       </main>
