@@ -20,14 +20,15 @@ export function GridOverlay() {
       pointerEvents: 'none',
       zIndex: 9999,
       display: 'grid',
-      gridTemplateColumns: 'repeat(12, 1fr)',
+      gridTemplateColumns: 'repeat(4, 1fr)',
       gap: '16px',
-      padding: '0 16px'
+      padding: '0 16px',
+      alignItems: 'stretch'
     }}>
-      {Array.from({ length: 12 }).map((_, i) => (
+      {Array.from({ length: 4 }).map((_, i) => (
         <div key={i} style={{ background: 'rgba(255, 0, 0, 0.05)', height: '100%' }} />
       ))}
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'repeating-linear-gradient(transparent, transparent 7px, rgba(0,0,255,0.05) 7px, rgba(0,0,255,0.05) 8px)' }} />
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'repeating-linear-gradient(transparent, transparent 7px, rgba(0,100,255,0.08) 7px, rgba(0,100,255,0.08) 8px)' }} />
     </div>
   );
 }

@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, Mail, MessageCircle, Phone, UserRound, LogOut, Settings2, Bell, LayoutGrid, Download } from 'lucide-react';
+import { ChevronRight, Mail, MessageCircle, Phone, UserRound, LogOut, Bell, LayoutGrid, Download, RefreshCw } from 'lucide-react';
 import { useAuth } from '../auth/AuthProvider';
+import { setSupabaseSyncUser } from '../data/sync';
 import { PageHeader, ListRow, Button } from '../components/ui/primitives';
 
 function formatJoinedDate(createdAt?: string | null) {
@@ -108,10 +109,20 @@ export function ProfilePage() {
               }
             />
             <ListRow
-              leading={<Settings2 size={24} color="var(--rka-text-secondary)" />}
-              title="Advanced Settings"
+              leading={<RefreshCw size={24} color="var(--rka-text-secondary)" />}
+              title="Force Sync"
+              subtitle="Re-download data from cloud"
               trailing={<ChevronRight size={20} color="var(--rka-text-tertiary)" />}
-              onClick={() => {}}
+              onClick={async () => {
+                if (user) {
+                  try {
+                    await setSupabaseSyncUser(user);
+                    alert('Sync complete!');
+                  } catch (e) {
+                    alert('Sync failed: ' + String(e));
+                  }
+                }
+              }}
             />
           </div>
         </section>

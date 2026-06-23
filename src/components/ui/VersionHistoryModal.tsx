@@ -13,14 +13,14 @@ export function VersionHistoryModal({
   return (
     <div style={{
       position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.4)', backdropFilter: 'blur(4px)',
-      WebkitBackdropFilter: 'blur(4px)',
+      backgroundColor: 'rgba(0, 0, 0, 0.6)', backdropFilter: 'blur(10px)',
+      WebkitBackdropFilter: 'blur(10px)',
       zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center',
       padding: '24px'
     }} onClick={onClose}>
       <div style={{
-        background: 'var(--rka-background)', borderRadius: '24px',
-        width: '100%', maxWidth: '400px', boxShadow: '0 20px 40px rgba(0,0,0,0.2)',
+        background: '#ffffff', color: '#000000', borderRadius: '24px',
+        width: '100%', maxWidth: '400px', boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
         overflow: 'hidden', display: 'flex', flexDirection: 'column'
       }} onClick={e => e.stopPropagation()}>
         {/* Header */}
