@@ -83,9 +83,11 @@ body {
 #root {
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  height: 100dvh; /* Dynamic viewport height for mobile */
+  position: fixed;
+  inset: 0;
   width: 100vw;
+  height: 100dvh;
+  overflow: hidden;
 }
 
 /* Typography */
