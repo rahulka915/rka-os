@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Home, Calendar, Plus, CircleUserRound, Activity, LayoutGrid, FolderKanban, Dumbbell, Pill } from 'lucide-react';
+import { Home, Calendar, Plus, CircleUserRound, LayoutGrid, FolderKanban, Dumbbell, Pill } from 'lucide-react';
 import { BottomSheet, ListRow } from '../ui/primitives';
 
 interface BottomTabNavProps {
@@ -22,11 +22,6 @@ export function BottomTabNav({ onQuickAdd }: BottomTabNavProps) {
         <NavLink to="/home" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
           <Home size={22} strokeWidth={1.5} />
           <span style={{ fontSize: '10px', marginTop: '4px' }}>Home</span>
-        </NavLink>
-
-        <NavLink to="/today" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-          <Activity size={22} strokeWidth={1.5} />
-          <span style={{ fontSize: '10px', marginTop: '4px' }}>Today</span>
         </NavLink>
 
         <NavLink to="/calendar" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>

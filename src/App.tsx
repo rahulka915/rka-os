@@ -1,6 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppShell } from './components/shell/AppShell';
-import { Today } from './pages/Today';
 import { Home } from './pages/Home';
 import { Projects } from './pages/Projects';
 import { HealthSearch } from './pages/Health';
@@ -41,7 +40,7 @@ function App() {
           >
             <Route index element={<Navigate to="/home" replace />} />
             <Route path="home" element={<Home />} />
-            <Route path="today" element={<Today />} />
+            <Route path="today" element={<Navigate to="/calendar" replace />} />
             <Route path="projects" element={<Projects />} />
             <Route path="medications" element={<Medications />} />
             <Route path="workouts" element={<Workouts />} />

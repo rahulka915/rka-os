@@ -4,17 +4,31 @@ import { db } from '../db/db';
 import type { ItemType } from '../db/db';
 import { CalendarDays, Check, ChevronLeft, ChevronRight, Dumbbell, Pill as PillIcon, Pin, Repeat2 } from 'lucide-react';
 import { useInspector } from '../components/shell/InspectorContext';
+import { ActionList } from '../components/actions/ActionList';
+import { formatDate } from '../db/actions';
 import { EmptyState, IconButton, PageHeader, SegmentedControl } from '../components/ui/primitives';
 import './calendar.css';
 
 const DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-type CalendarView = 'month' | 'week' | 'agenda';
+type CalendarView = 'today' | 'agenda' | 'month' | 'week';
 
 export function Calendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [view, setView] = useState<CalendarView>('agenda'); // Default to agenda for mobile, could be reactive
+  const [view, setView] = useState<CalendarView>('today');
   const { inspectEntity, inspectDay } = useInspector();
+
+  const todayDate = formatDate(new Date());
+  const instances = useLiveQuery(
+    () => db.itemInstances.where('scheduledDate').equals(todayDate).toArray(),
+    []
+  );
+  
+  const itemsWithInstances = useLiveQuery(async () => {
+    if (!instances) return [];
+    const parentItems = await Promise.all(instances.map(inst => db.items.get(inst.itemId)));
+    return instances.map((instance, index) => ({ instance, item: parentItems[index]! })).filter(entry => entry.item !== undefined);
+  }, [instances]);
 
   const items = useLiveQuery(() => db.items.toArray());
 
@@ -186,6 +200,23 @@ export function Calendar() {
     return <div className="agenda-view">{agendaDays}</div>;
   };
 
+  const renderToday = () => {
+    if (itemsWithInstances && itemsWithInstances.length > 0) {
+      return (
+        <div style={{ marginTop: '16px' }}>
+          <ActionList items={itemsWithInstances} emptyMessage="" />
+        </div>
+      );
+    }
+    return (
+      <EmptyState
+        icon={<Check size={28} />}
+        title="Nothing scheduled"
+        description="Today is clear. Check the Agenda or Month view for upcoming items."
+      />
+    );
+  };
+
   return (
     <div className="rka-page calendar-container">
       <div className="calendar-header">
@@ -203,6 +234,7 @@ export function Calendar() {
         <SegmentedControl
           value={view}
           options={[
+            { value: 'today', label: 'Today' },
             { value: 'month', label: 'Month' },
             { value: 'week', label: 'Week' },
             { value: 'agenda', label: 'Agenda' },
@@ -211,7 +243,7 @@ export function Calendar() {
         />
       </div>
 
-      {view !== 'agenda' && (
+      {view !== 'agenda' && view !== 'today' && (
         <div className="calendar-grid">
           {DAYS_OF_WEEK.map(day => (
             <div key={day} className="calendar-day-header">{day}</div>
@@ -221,6 +253,7 @@ export function Calendar() {
       )}
 
       {view === 'agenda' && renderAgenda()}
+      {view === 'today' && renderToday()}
     </div>
   );
 }
