@@ -1,5 +1,4 @@
-import { View } from 'react-native';
-import Svg, { Path, Circle, Rect, G } from 'react-native-svg';
+import { View, StyleSheet } from 'react-native';
 
 interface PillContainerIconProps {
   size?: number;
@@ -9,35 +8,126 @@ interface PillContainerIconProps {
 
 export function PillContainerIcon({ size = 24, color = '#000', strokeWidth = 1.5 }: PillContainerIconProps) {
   const scale = size / 24;
+  const capHeight = 2 * scale;
+  const neckHeight = 3 * scale;
+  const bodyHeight = 14 * scale;
+  const bodyWidth = 8 * scale;
 
   return (
-    <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
-      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth}>
-        <G>
-          {/* Bottle cap/lid */}
-          <Rect x="9" y="2" width="6" height="1.5" rx="0.3" stroke="none" fill={color} />
+    <View style={[styles.container, { width: size, height: size }]}>
+      {/* Cap */}
+      <View
+        style={[
+          styles.cap,
+          {
+            width: bodyWidth * 0.75,
+            height: capHeight,
+            backgroundColor: color,
+            borderRadius: capHeight / 2,
+          },
+        ]}
+      />
 
-          {/* Bottle neck */}
-          <Path d="M 10 3.5 L 10 5 L 14 5 L 14 3.5" stroke={color} strokeWidth={strokeWidth} fill="none" />
+      {/* Neck */}
+      <View
+        style={[
+          styles.neck,
+          {
+            width: bodyWidth * 0.65,
+            height: neckHeight,
+            borderLeftWidth: strokeWidth,
+            borderRightWidth: strokeWidth,
+            borderLeftColor: color,
+            borderRightColor: color,
+          },
+        ]}
+      />
 
-          {/* Main bottle body */}
-          <Path
-            d="M 8.5 5 C 8 5 7.5 5.5 7.5 6 L 7.5 16 C 7.5 18 8.5 19 8.5 19 L 15.5 19 C 15.5 19 16.5 18 16.5 16 L 16.5 6 C 16.5 5.5 16 5 15.5 5 L 8.5 5 Z"
-            stroke={color}
-            strokeWidth={strokeWidth}
-            fill="none"
+      {/* Body */}
+      <View
+        style={[
+          styles.body,
+          {
+            width: bodyWidth,
+            height: bodyHeight,
+            borderWidth: strokeWidth,
+            borderColor: color,
+            borderRadius: bodyWidth * 0.2,
+          },
+        ]}
+      >
+        {/* Top pill */}
+        <View
+          style={[
+            styles.pill,
+            {
+              width: 3.5 * scale,
+              height: 3.5 * scale,
+              backgroundColor: color,
+              borderRadius: 1.75 * scale,
+              opacity: 0.6,
+              marginBottom: 2 * scale,
+              marginTop: 2 * scale,
+            },
+          ]}
+        />
+
+        {/* Middle pills row */}
+        <View style={styles.pillRow}>
+          <View
+            style={[
+              styles.pill,
+              {
+                width: 3 * scale,
+                height: 3 * scale,
+                backgroundColor: color,
+                borderRadius: 1.5 * scale,
+                opacity: 0.6,
+                marginHorizontal: 0.5 * scale,
+              },
+            ]}
           />
-
-          {/* Pills inside - top pill */}
-          <Circle cx="12" cy="9.5" r="1.8" fill={color} opacity="0.5" stroke="none" />
-
-          {/* Pills inside - middle left */}
-          <Circle cx="10.5" cy="13" r="1.5" fill={color} opacity="0.5" stroke="none" />
-
-          {/* Pills inside - middle right */}
-          <Circle cx="13.5" cy="13" r="1.5" fill={color} opacity="0.5" stroke="none" />
-        </G>
-      </Svg>
+          <View
+            style={[
+              styles.pill,
+              {
+                width: 3 * scale,
+                height: 3 * scale,
+                backgroundColor: color,
+                borderRadius: 1.5 * scale,
+                opacity: 0.6,
+                marginHorizontal: 0.5 * scale,
+              },
+            ]}
+          />
+        </View>
+      </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cap: {
+    marginBottom: -1,
+  },
+  neck: {
+    justifyContent: 'center',
+  },
+  body: {
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  pill: {
+    margin: 1,
+  },
+  pillRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+});
