@@ -3,7 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { Inbox, CheckSquare } from 'lucide-react';
 import { db } from '../../db/db';
 import { ActionList } from '../actions/ActionList';
-import { NativeBottomSheet } from '../ui/primitives';
+import { BottomSheet } from '../ui/primitives';
 import { createEntity } from '../../db/actions';
 import { haptics } from '../../utils/haptics';
 import '../shell/quick-capture.css';
@@ -16,7 +16,6 @@ interface InboxSheetProps {
 type CaptureType = 'task' | 'habit' | 'medication' | 'workout-template';
 
 export function InboxSheet({ open, onClose }: InboxSheetProps) {
-  const [snap, setSnap] = useState<number | string | null>('60%');
   const [title, setTitle] = useState('');
   const [selectedType, setSelectedType] = useState<CaptureType>('task');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -25,15 +24,15 @@ export function InboxSheet({ open, onClose }: InboxSheetProps) {
   const inboxItems = useLiveQuery(() => db.items.where('status').equals('inbox').toArray(), []);
   const items = inboxItems || [];
 
-  // Auto-focus logic: only focus if we explicitly move to 60% or 95%
+  // Auto-focus input when sheet opens
   useEffect(() => {
-    if (open && (snap === '60%' || snap === '95%')) {
+    if (open) {
       const t = setTimeout(() => {
         inputRef.current?.focus();
       }, 100);
       return () => clearTimeout(t);
     }
-  }, [open, snap]);
+  }, [open]);
 
   // Natural language type parsing
   useEffect(() => {
@@ -70,14 +69,11 @@ export function InboxSheet({ open, onClose }: InboxSheetProps) {
   };
 
   return (
-    <NativeBottomSheet 
-      open={open} 
-      onOpenChange={(isOpen) => { if (!isOpen) onClose(); }}
-      snapPoints={['18%', '60%', '95%']}
-      activeSnapPoint={snap}
-      setActiveSnapPoint={setSnap}
+    <BottomSheet
+      open={open}
+      onDismiss={onClose}
     >
-      <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: '75dvh' }}>
         
         {/* Compact Header & Quick Capture */}
         <div style={{ padding: '0 16px 12px', flexShrink: 0 }}>
@@ -134,7 +130,7 @@ export function InboxSheet({ open, onClose }: InboxSheetProps) {
         </div>
 
         {/* Scrollable Inbox Items */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px 24px', WebkitOverflowScrolling: 'touch' }}>
+        <div style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'contain', padding: '0 16px 24px', WebkitOverflowScrolling: 'touch' }}>
           {items.length > 0 ? (
             <ActionList items={items.map(item => ({ item }))} />
           ) : (
@@ -145,6 +141,6 @@ export function InboxSheet({ open, onClose }: InboxSheetProps) {
           )}
         </div>
       </div>
-    </NativeBottomSheet>
+    </BottomSheet>
   );
 }

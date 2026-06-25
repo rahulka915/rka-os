@@ -134,7 +134,7 @@ export function Home() {
   const afternoon = todayActions.filter(i => getEffectiveTimeOfDay(i) === 'afternoon').sort(sortByTime);
   const evening = todayActions.filter(i => getEffectiveTimeOfDay(i) === 'evening').sort(sortByTime);
   
-  const greeting = isMorning ? 'Good morning' : isAfternoon ? 'Good afternoon' : 'Good evening';
+  const greeting = isMorning ? 'Good Morning' : isAfternoon ? 'Good Afternoon' : 'Good Evening';
 
   return (
     <div className="rka-page home-container">

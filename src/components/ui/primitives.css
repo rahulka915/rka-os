@@ -1,8 +1,8 @@
 .rka-page {
   display: flex;
   flex-direction: column;
-  gap: 28px;
-  padding: var(--rka-space-4) 0 calc(var(--rka-space-8) + env(safe-area-inset-bottom));
+  gap: 12px;
+  padding: 0 0 calc(var(--rka-space-6) + env(safe-area-inset-bottom));
 }
 
 .rka-page-header {
@@ -13,6 +13,7 @@
 }
 
 .rka-page-kicker {
+  display: none;
   color: var(--rka-text-tertiary);
   font-size: var(--rka-text-xs);
   font-weight: 600;
@@ -23,13 +24,14 @@
 .rka-page-title {
   margin: 0;
   color: var(--rka-text);
-  font-size: 34px;
+  font-size: 24px;
   font-weight: 700;
-  line-height: 1.05;
+  line-height: 1.1;
   letter-spacing: 0;
 }
 
 .rka-page-subtitle {
+  display: none;
   margin: 2px 0 0;
   max-width: 34ch;
   color: var(--rka-text-secondary);
@@ -40,7 +42,7 @@
 .rka-section {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 .rka-section-title {
@@ -450,6 +452,7 @@
 
 .rka-sheet-overlay {
   align-items: flex-end;
+  overflow: hidden;
 }
 
 .rka-sheet {
@@ -506,7 +509,9 @@
 
 .rka-sheet-body {
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 0 var(--rka-space-4) var(--rka-space-4);
+  -webkit-overflow-scrolling: touch;
 }
 
 .rka-sheet-footer {

@@ -2,6 +2,8 @@
 
 A highly opinionated, local-first Personal Operating System Progressive Web App (PWA) designed to reduce the friction between knowing what should be done and actually doing it.
 
+> **Note:** This project was previously under the folder name `personal-os`. It has been renamed to `rka-os` to align with the package name, GitHub repository, and official branding. See [NAMING_HISTORY.md](./NAMING_HISTORY.md) for details.
+
 ## Product Vision
 
 The app is built around the unified philosophy: **Everything is an Action.**

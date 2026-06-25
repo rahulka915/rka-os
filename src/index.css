@@ -66,6 +66,13 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: calc(env(safe-area-inset-top) + 44px + 12px);
+  scroll-padding-bottom: calc(env(safe-area-inset-bottom) + 80px + 8px);
+  scrollbar-gutter: stable;
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
   line-height: 1.5;

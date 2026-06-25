@@ -20,7 +20,7 @@
   max-width: 1040px;
   padding: 0 18px;
   padding-top: calc(env(safe-area-inset-top) + 44px + 12px);
-  padding-bottom: calc(env(safe-area-inset-bottom) + var(--rka-bottom-nav-height) + 24px);
+  padding-bottom: calc(env(safe-area-inset-bottom) + 80px);
   animation: pageSlideIn 300ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 
@@ -184,40 +184,45 @@
   }
 }
 
-/* Bottom Navigation */
+/* Bottom Navigation - 4+1 Layout (Pill + Separate FAB) */
 .bottom-nav {
-  /* Remove explicit height to bypass Safari flexbox padding bug */
   position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: rgba(246, 245, 241, 0.72);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border-top: none;
-  box-shadow: 0 -0.5px 0 rgba(0, 0, 0, 0.15);
+  bottom: 16px;
+  left: 16px;
+  right: 16px;
   display: flex;
-  justify-content: space-around;
-  align-items: center;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 12px;
   padding-bottom: env(safe-area-inset-bottom);
   z-index: 50;
+  pointer-events: none;
 }
 
-/* Hide bottom nav when virtual keyboard is open (any input focused) to prevent it from floating up */
+/* Hide bottom nav when virtual keyboard is open */
 body:has(input:focus, textarea:focus) .bottom-nav {
   display: none !important;
 }
 
-.bottom-nav__content {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  align-items: stretch;
-  min-height: var(--rka-bottom-nav-height);
-  padding-inline: max(8px, env(safe-area-inset-left)) max(8px, env(safe-area-inset-right));
+/* 4-item pill navigation */
+.bottom-nav__pill {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  background: rgba(246, 245, 241, 0.88);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-radius: 999px;
+  padding: 8px 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  min-height: 56px;
+  flex: 0 1 auto;
 }
 
 .bottom-nav__safe-area {
-  height: env(safe-area-inset-bottom);
+  display: none;
 }
 
 .nav-item {
@@ -227,24 +232,31 @@ body:has(input:focus, textarea:focus) .bottom-nav {
   justify-content: center;
   color: var(--rka-text-secondary);
   text-decoration: none;
-  min-width: 0;
-  min-height: var(--rka-bottom-nav-height);
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 8px 12px;
   gap: 4px;
-  padding: 6px 4px 4px;
-  transition: color 160ms ease-out, transform 160ms ease-out;
+  border-radius: 12px;
+  min-width: 44px;
+  font-size: 11px;
+  font-weight: 500;
+  transition: color 160ms ease-out, background 160ms ease-out, transform 160ms ease-out;
+  flex: 0 0 auto;
+}
+
+.nav-item:active {
+  transform: scale(0.96);
 }
 
 .nav-button {
   appearance: none;
-  background: none;
-  border: none;
-  cursor: pointer;
 }
 
 .nav-label {
   display: block;
-  width: 100%;
-  font-size: 10px;
+  font-size: 11px;
+  font-weight: 500;
   line-height: 1;
   text-align: center;
   white-space: nowrap;
@@ -254,30 +266,26 @@ body:has(input:focus, textarea:focus) .bottom-nav {
   color: var(--rka-blue);
 }
 
-.fab-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: var(--rka-bottom-nav-height);
-}
-
+/* FAB Button - Separate from nav */
 .fab-button {
+  pointer-events: auto;
   background: var(--rka-blue);
   color: white;
-  width: 48px;
-  height: 48px;
+  width: 56px;
+  height: 56px;
   border-radius: 999px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
   border: none;
-  box-shadow: var(--rka-shadow-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
   cursor: pointer;
   transition: transform 160ms ease-out, filter 160ms ease-out;
+  flex: 0 0 auto;
 }
 
 .fab-button:active {
-  transform: scale(0.96);
+  transform: scale(0.92);
   filter: brightness(1.04);
 }
 

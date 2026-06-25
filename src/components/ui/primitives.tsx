@@ -333,10 +333,24 @@ export function NativeBottomSheet({
   className?: string;
 }) {
   const Root = VaulDrawer.Root as any;
-  
+
+  // Handle overlay click to dismiss
+  const handleOverlayClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      onOpenChange(false);
+    }
+  };
+
+  // Handle Escape key to dismiss
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape' && open) {
+      onOpenChange(false);
+    }
+  };
+
   return (
-    <Root 
-      open={open} 
+    <Root
+      open={open}
       onOpenChange={onOpenChange}
       snapPoints={snapPoints}
       activeSnapPoint={activeSnapPoint}
@@ -344,7 +358,12 @@ export function NativeBottomSheet({
       fadeFromIndex={snapPoints ? 0 : undefined}
     >
       <VaulDrawer.Portal>
-        <VaulDrawer.Overlay className="rka-sheet-overlay" />
+        <VaulDrawer.Overlay
+          className="rka-sheet-overlay"
+          onClick={handleOverlayClick}
+          onKeyDown={handleKeyDown}
+          tabIndex={-1}
+        />
         <VaulDrawer.Content className={`rka-vaul-sheet ${className}`.trim()}>
           <div className="rka-vaul-handle" />
           {children}

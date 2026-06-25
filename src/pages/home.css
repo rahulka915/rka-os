@@ -1,11 +1,11 @@
 .home-container {
-  gap: var(--rka-space-5);
+  gap: 12px;
 }
 
 .home-hero-row {
   display: flex;
   flex-direction: column;
-  gap: var(--rka-space-4);
+  gap: 12px;
 }
 
 .home-grid,
@@ -17,7 +17,7 @@
 }
 
 .home-grid {
-  gap: var(--rka-space-6);
+  gap: 16px;
 }
 
 .home-seed-status {
@@ -51,11 +51,11 @@
 .home-main-col,
 .home-side-col,
 .time-block-stack {
-  gap: var(--rka-space-5);
+  gap: 16px;
 }
 
 .time-block-stack {
-  gap: var(--rka-space-3);
+  gap: 4px;
 }
 
 @media (min-width: 768px) {

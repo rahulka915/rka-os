@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Home, Calendar, Plus, CircleUserRound, LayoutGrid, FolderKanban, Dumbbell, Pill } from 'lucide-react';
+import { Home, Calendar, Plus, LayoutGrid, FolderKanban, Dumbbell, Pill } from 'lucide-react';
 import { BottomSheet, ListRow } from '../ui/primitives';
 import { haptics } from '../../utils/haptics';
 
@@ -20,32 +20,16 @@ export function BottomTabNav({ onQuickAdd }: BottomTabNavProps) {
   return (
     <>
       <nav className="bottom-nav" aria-label="Primary navigation">
-        <div className="bottom-nav__content">
+        <div className="bottom-nav__pill">
           <NavLink to="/home" className={({ isActive }) => `nav-item active-scale ${isActive ? 'active' : ''}`} onClick={() => haptics.light()}>
-            <Home size={22} strokeWidth={1.5} />
+            <Home size={24} strokeWidth={1.5} />
             <span className="nav-label">Home</span>
           </NavLink>
 
           <NavLink to="/calendar" className={({ isActive }) => `nav-item active-scale ${isActive ? 'active' : ''}`} onClick={() => haptics.light()}>
-            <Calendar size={22} strokeWidth={1.5} />
+            <Calendar size={24} strokeWidth={1.5} />
             <span className="nav-label">Calendar</span>
           </NavLink>
-
-          <div className="fab-container">
-            <button
-              type="button"
-              className="fab-button active-scale"
-              onClick={() => {
-                haptics.medium();
-                const input = document.getElementById('global-quick-capture-input');
-                if (input) input.focus();
-                onQuickAdd();
-              }}
-              aria-label="Quick Add"
-            >
-              <Plus size={24} strokeWidth={2} />
-            </button>
-          </div>
 
           <button
             type="button"
@@ -55,15 +39,25 @@ export function BottomTabNav({ onQuickAdd }: BottomTabNavProps) {
               setMenuOpen(true);
             }}
           >
-            <LayoutGrid size={22} strokeWidth={1.5} />
+            <LayoutGrid size={24} strokeWidth={1.5} />
             <span className="nav-label">Menu</span>
           </button>
-
-          <NavLink to="/profile" className={({ isActive }) => `nav-item active-scale ${isActive ? 'active' : ''}`} onClick={() => haptics.light()}>
-            <CircleUserRound size={22} strokeWidth={1.5} />
-            <span className="nav-label">Me</span>
-          </NavLink>
         </div>
+
+        <button
+          type="button"
+          className="fab-button active-scale"
+          onClick={() => {
+            haptics.medium();
+            const input = document.getElementById('global-quick-capture-input');
+            if (input) input.focus();
+            onQuickAdd();
+          }}
+          aria-label="Quick Add"
+        >
+          <Plus size={24} strokeWidth={2.5} />
+        </button>
+
         <div className="bottom-nav__safe-area" aria-hidden="true" />
       </nav>
 

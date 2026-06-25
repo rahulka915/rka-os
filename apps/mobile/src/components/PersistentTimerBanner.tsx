@@ -93,16 +93,22 @@ export function PersistentTimerBanner() {
   const [layout, setLayout] = useState<WidgetSize>({ width: 0, height: 0 });
   const [localPosition, setLocalPosition] = useState<Point>(() => position ?? { x: MARGIN, y: windowHeight - insets.bottom - DEFAULT_COMPACT_SIZE.height - 148 });
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const dragStart = useRef<Point>(localPosition);
-  const positionRef = useRef(localPosition);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const dragStart = useRef<Point>({ x: 0, y: 0 });
+  const positionRef = useRef<Point>(localPosition);
   const positionAnim = useRef(new Animated.ValueXY(localPosition)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const visibilityAnim = useRef(new Animated.Value(0)).current;
+  const dragResponderRef = useRef<ReturnType<typeof PanResponder.create> | null>(null);
 
+  // Sync position ref and animation when position changes externally (not during drag)
   useEffect(() => {
-    positionRef.current = localPosition;
-    positionAnim.setValue(localPosition);
-  }, [localPosition, positionAnim]);
+    if (!isDragging) {
+      positionRef.current = localPosition;
+      positionAnim.setValue(localPosition);
+    }
+  }, [localPosition, isDragging]);
 
   useEffect(() => {
     Animated.spring(visibilityAnim, {
@@ -154,55 +160,79 @@ export function PersistentTimerBanner() {
 
   const currentSize = getWidgetSize(presentation, layout);
 
-  const applyDrag = (next: Point) => {
-    const clamped = clampPosition(next, currentSize, windowWidth, windowHeight, insets);
-    setLocalPosition(clamped);
-    positionAnim.setValue(clamped);
-    return clamped;
-  };
+  // Initialize PanResponder once (never recreate)
+  useEffect(() => {
+    if (dragResponderRef.current) return;
 
-  const commitDrag = (next: Point) => {
-    const snapped = snapPosition(next, currentSize, windowWidth, windowHeight, insets);
-    Animated.spring(positionAnim, {
-      toValue: snapped,
-      useNativeDriver: true,
-      damping: 18,
-      stiffness: 180,
-      mass: 0.8,
-    }).start(() => {
-      setLocalPosition(snapped);
-      setPosition(snapped);
+    dragResponderRef.current = PanResponder.create({
+      onStartShouldSetPanResponder: () => !pinned,
+      onMoveShouldSetPanResponder: (_, gestureState) => !pinned && (Math.abs(gestureState.dx) > 5 || Math.abs(gestureState.dy) > 5),
+      onPanResponderGrant: () => {
+        setIsDragging(true);
+        dragStart.current = { ...positionRef.current };
+      },
+      onPanResponderMove: (_, gestureState) => {
+        const nextPos: Point = {
+          x: dragStart.current.x + gestureState.dx,
+          y: dragStart.current.y + gestureState.dy,
+        };
+        const clamped = clampPosition(nextPos, currentSize, windowWidth, windowHeight, insets);
+        positionRef.current = clamped;
+        positionAnim.setValue(clamped);
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (pinned || (Math.abs(gestureState.dx) < 5 && Math.abs(gestureState.dy) < 5)) {
+          setIsDragging(false);
+          return;
+        }
+
+        const nextPos: Point = {
+          x: dragStart.current.x + gestureState.dx,
+          y: dragStart.current.y + gestureState.dy,
+        };
+        const snapped = snapPosition(nextPos, currentSize, windowWidth, windowHeight, insets);
+
+        Animated.spring(positionAnim, {
+          toValue: snapped,
+          useNativeDriver: true,
+          damping: 18,
+          stiffness: 180,
+          mass: 0.8,
+        }).start(() => {
+          positionRef.current = snapped;
+          setLocalPosition(snapped);
+          setPosition(snapped);
+          setIsDragging(false);
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+        });
+      },
+      onPanResponderTerminate: (_, gestureState) => {
+        if (pinned) {
+          setIsDragging(false);
+          return;
+        }
+
+        const nextPos: Point = {
+          x: dragStart.current.x + gestureState.dx,
+          y: dragStart.current.y + gestureState.dy,
+        };
+        const snapped = snapPosition(nextPos, currentSize, windowWidth, windowHeight, insets);
+
+        Animated.spring(positionAnim, {
+          toValue: snapped,
+          useNativeDriver: true,
+          damping: 18,
+          stiffness: 180,
+          mass: 0.8,
+        }).start(() => {
+          positionRef.current = snapped;
+          setLocalPosition(snapped);
+          setPosition(snapped);
+          setIsDragging(false);
+        });
+      },
     });
-  };
-
-  const dragResponder = useMemo(() => PanResponder.create({
-    onStartShouldSetPanResponder: () => !pinned,
-    onMoveShouldSetPanResponder: (_, gestureState) => !pinned && (Math.abs(gestureState.dx) > 3 || Math.abs(gestureState.dy) > 3),
-    onPanResponderGrant: () => {
-      dragStart.current = positionRef.current;
-    },
-    onPanResponderMove: (_, gestureState) => {
-      applyDrag({
-        x: dragStart.current.x + gestureState.dx,
-        y: dragStart.current.y + gestureState.dy,
-      });
-    },
-    onPanResponderRelease: (_, gestureState) => {
-      if (pinned) return;
-      if (Math.abs(gestureState.dx) < 3 && Math.abs(gestureState.dy) < 3) return;
-      commitDrag({
-        x: dragStart.current.x + gestureState.dx,
-        y: dragStart.current.y + gestureState.dy,
-      });
-    },
-    onPanResponderTerminate: (_, gestureState) => {
-      if (pinned) return;
-      commitDrag({
-        x: dragStart.current.x + gestureState.dx,
-        y: dragStart.current.y + gestureState.dy,
-      });
-    },
-  }), [currentSize, insets, pinned, positionAnim, setPosition, windowHeight, windowWidth]);
+  }, []);
 
   if (timers.length === 0) return null;
 
@@ -270,25 +300,28 @@ export function PersistentTimerBanner() {
   return (
     <>
       <Animated.View
-        pointerEvents="box-none"
-        {...dragResponder.panHandlers}
+        pointerEvents={isDragging ? 'auto' : 'box-none'}
+        {...(dragResponderRef.current?.panHandlers || {})}
         onLayout={(event) => {
-          const next = {
+          const newLayout = {
             width: event.nativeEvent.layout.width,
             height: event.nativeEvent.layout.height,
           };
-          setLayout(next);
+          // Only update if size actually changed
+          if (newLayout.width !== layout.width || newLayout.height !== layout.height) {
+            setLayout(newLayout);
+          }
         }}
         style={[
           styles.wrap,
           {
             opacity: visibilityAnim,
-            transform: [...positionAnim.getTranslateTransform(), { scale: scaleAnim }],
+            transform: [...positionAnim.getTranslateTransform(), { scale: isDragging ? 0.98 : scaleAnim }],
           },
         ]}
       >
         <ContextMenu items={rootContextItems}>
-          <FloatingSurface isDark={isDark} style={styles.surfaceShell}>
+          <FloatingSurface isDark={isDark} style={[styles.surfaceShell, isDragging && styles.surfaceDragging]}>
             {presentation === 'expanded' ? (
               <TouchableOpacity activeOpacity={0.9} onPress={() => handleSetPresentation('compact')}>
                 <View style={styles.expandedShell}>
@@ -453,6 +486,13 @@ const styles = StyleSheet.create({
   },
   surfaceShell: {
     overflow: 'hidden',
+  },
+  surfaceDragging: {
+    elevation: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
   },
   dragZone: {
     justifyContent: 'center',
