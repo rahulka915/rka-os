@@ -22,7 +22,6 @@ import {
 } from '../db/database';
 import { ChevronDown, ChevronUp, Clock, Pause, Play, StopCircle, TimerReset } from '../icons';
 import { FloatingSurface } from './ui/FloatingSurface';
-import { DragHandle } from './ui/DragHandle';
 import { ActionRow } from './ui/ActionRow';
 import { SurfaceCard, SurfaceIconButton } from './ui/SurfaceCard';
 import { PillContainerIcon } from './ui/PillContainerIcon';
@@ -327,9 +326,7 @@ export function PersistentTimerBanner() {
               <TouchableOpacity activeOpacity={0.9} onPress={() => handleSetPresentation('compact')}>
                 <View style={styles.expandedShell}>
                   <View style={styles.headerRow}>
-                    <View style={styles.dragZone}>
-                      <DragHandle isDark={isDark} width={44} />
-                    </View>
+                    <View style={{ flex: 1 }} />
                     <SurfaceIconButton isDark={isDark} onPress={() => handleSetPresentation('compact')} size={32}>
                       <ChevronDown size={16} color={palette.textSecondary} strokeWidth={2} />
                     </SurfaceIconButton>
@@ -406,10 +403,7 @@ export function PersistentTimerBanner() {
               </TouchableOpacity>
             ) : presentation === 'minimized' ? (
               <TouchableOpacity activeOpacity={0.92} onPress={() => handleSetPresentation('compact')}>
-                  <View style={styles.minimizedShell}>
-                  <View style={styles.minimizedDragZone}>
-                    <DragHandle isDark={isDark} width={24} />
-                  </View>
+                <View style={styles.minimizedShell}>
                   <View style={[styles.minimizedBadge, { backgroundColor: primaryTimer.isReady ? palette.greenSoft : palette.blueSoft }]}>
                     <PillContainerIcon size={14} color={primaryTimer.isReady ? palette.green : palette.blue} strokeWidth={1.8} />
                     <Text style={[styles.minimizedText, { color: palette.text }]} numberOfLines={1}>
@@ -421,9 +415,6 @@ export function PersistentTimerBanner() {
             ) : (
               <TouchableOpacity activeOpacity={0.9} onPress={() => handleSetPresentation('expanded')}>
                 <View style={styles.compactShell}>
-                  <View style={styles.compactDragZone}>
-                    <DragHandle isDark={isDark} width={28} />
-                  </View>
                   <View style={[styles.heroBadgeIcon, { backgroundColor: primaryTimer.isReady ? palette.greenSoft : palette.blueSoft }]}>
                     <PillContainerIcon size={18} color={primaryTimer.isReady ? palette.green : palette.blue} strokeWidth={1.8} />
                   </View>
@@ -494,20 +485,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.25,
     shadowRadius: 12,
-  },
-  dragZone: {
-    justifyContent: 'center',
-    paddingVertical: 2,
-    paddingRight: 6,
-  },
-  compactDragZone: {
-    justifyContent: 'center',
-    paddingVertical: 2,
-    paddingRight: 2,
-  },
-  minimizedDragZone: {
-    justifyContent: 'center',
-    paddingRight: 2,
   },
   compactShell: {
     width: DEFAULT_COMPACT_SIZE.width,
