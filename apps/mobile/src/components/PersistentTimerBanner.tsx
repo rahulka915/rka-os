@@ -140,7 +140,7 @@ export function PersistentTimerBanner() {
 
     const size = getWidgetSize(presentation, layout);
     const next = {
-      x: MARGIN,
+      x: (windowWidth - size.width) / 2,
       y: Math.max(insets.top + MARGIN, windowHeight - insets.bottom - size.height - 148),
     };
     const clamped = clampPosition(next, size, windowWidth, windowHeight, insets);
