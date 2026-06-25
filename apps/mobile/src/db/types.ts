@@ -1,0 +1,39 @@
+export type ItemType = 'area' | 'project' | 'task' | 'habit' | 'medication' | 'workout-template' | 'workout-block' | 'exercise' | 'meal';
+export type ItemStatus = 'inbox' | 'active' | 'scheduled' | 'due-today' | 'overdue' | 'completed' | 'skipped' | 'archived' | 'cancelled';
+
+export interface Item {
+  id: string;
+  type: ItemType;
+  title: string;
+  status: ItemStatus;
+  notes?: string;
+  scheduledDate?: string; // YYYY-MM-DD
+  dueDate?: string;       // YYYY-MM-DD
+  rrule?: string;
+  metadata?: string;      // JSON string in SQLite
+  createdAt: number;
+  updatedAt: number;
+  userId?: string;
+  archivedAt?: number;
+  deletedAt?: number;
+}
+
+export interface ItemInstance {
+  id: string;
+  itemId: string;
+  scheduledDate: string;
+  completedAt?: number;
+  status: 'pending' | 'completed' | 'skipped' | 'partial';
+  instanceMetadata?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface ActivityLog {
+  id: string;
+  entityId: string;
+  actionType: string;
+  timestamp: number;
+  details?: string;
+  createdAt: number;
+}

@@ -1,0 +1,68 @@
+{
+  "expo": {
+    "name": "RKA OS",
+    "slug": "rka-os",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#f6f5f1"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.rahul.rkaos",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "RKA OS uses your location to trigger location-based reminders.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "RKA OS uses your location in the background to trigger reminders when you arrive or leave places.",
+        "NSHealthShareUsageDescription": "RKA OS reads your health data (steps, workouts, sleep) to give you a complete picture of your day.",
+        "NSHealthUpdateUsageDescription": "RKA OS writes workout and medication data to Apple Health.",
+        "NSMotionUsageDescription": "RKA OS uses motion data to detect activity.",
+        "UIBackgroundModes": [
+          "fetch",
+          "remote-notification",
+          "location"
+        ]
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#f6f5f1",
+        "foregroundImage": "./assets/android-icon-foreground.png"
+      },
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "RKA OS uses your location to trigger location-based reminders.",
+          "locationWhenInUsePermission": "Allow RKA OS to access your location for reminders."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#007aff"
+        }
+      ],
+      "expo-audio"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "f19be19e-206b-4530-9dbb-5b05dfce7d0f"
+      }
+    }
+  }
+}
