@@ -29,14 +29,19 @@ export function parseMedicationMeta(med: Item): MedicationMeta {
 
 export function formatElapsedLabel(startedAt: number, now: number) {
   const elapsedMs = Math.max(0, now - startedAt);
-  const elapsedMinutes = Math.floor(elapsedMs / 60000);
-  const hours = Math.floor(elapsedMinutes / 60);
-  const minutes = elapsedMinutes % 60;
+  const elapsedSeconds = Math.floor(elapsedMs / 1000);
+  const elapsedMinutes = Math.floor(elapsedSeconds / 60);
+
+  const hours = Math.floor(elapsedSeconds / 3600);
+  const minutes = Math.floor((elapsedSeconds % 3600) / 60);
+  const seconds = elapsedSeconds % 60;
+
+  const hms = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 
   return {
     elapsedMinutes,
-    compact: hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`,
-    full: hours > 0 ? `${hours}h ${minutes}m elapsed` : `${minutes}m elapsed`,
+    compact: hms,
+    full: `${hms} elapsed`,
   };
 }
 
@@ -58,13 +63,19 @@ export function presentMedicationTimer(
   const startedAt = timer.details.startedAt ?? timer.log.timestamp;
   const meta = parseMedicationMeta(timer.med);
   const elapsedMs = getElapsedMs(timer, now);
-  const elapsedMinutes = Math.floor(elapsedMs / 60000);
-  const hours = Math.floor(elapsedMinutes / 60);
-  const minutes = elapsedMinutes % 60;
+  const elapsedSeconds = Math.floor(elapsedMs / 1000);
+  const elapsedMinutes = Math.floor(elapsedSeconds / 60);
+
+  const hours = Math.floor(elapsedSeconds / 3600);
+  const minutes = Math.floor((elapsedSeconds % 3600) / 60);
+  const seconds = elapsedSeconds % 60;
+
+  const hms = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+
   const elapsed = {
     elapsedMinutes,
-    compact: hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`,
-    full: hours > 0 ? `${hours}h ${minutes}m elapsed` : `${minutes}m elapsed`,
+    compact: hms,
+    full: `${hms} elapsed`,
   };
   const readyAt = meta.minHoursBetweenDoses
     ? startedAt + meta.minHoursBetweenDoses * 60 * 60 * 1000
@@ -84,8 +95,8 @@ export function presentMedicationTimer(
     isPaused,
     isRunning,
     title: timer.med.title,
-    subtitle: isPaused ? `Paused at ${elapsed.full}` : isReady ? 'Ready for next dose' : `Active for ${elapsed.full}`,
-    statusLabel: isPaused ? 'Paused' : isReady ? 'Ready now' : elapsed.full,
+    subtitle: isPaused ? `Paused at ${hms}` : isReady ? 'Ready for next dose' : `Active for ${hms}`,
+    statusLabel: isPaused ? 'Paused' : isReady ? 'Ready now' : hms,
   };
 }
 
