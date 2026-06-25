@@ -327,6 +327,9 @@ export function PersistentTimerBanner() {
           styles.wrap,
           {
             opacity: visibilityAnim,
+            // Scale animates from center point by default in React Native.
+            // Position is centered horizontally: x = (windowWidth - width) / 2
+            // This keeps visual center fixed while component grows/shrinks.
             transform: [...positionAnim.getTranslateTransform(), { scale: isDragging ? 0.98 : scaleAnim }],
           },
         ]}
