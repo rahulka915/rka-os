@@ -271,12 +271,13 @@ export function PersistentTimerBanner() {
 
   const cyclePresentationState = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    // Full cycle: minimized → compact → expanded → minimized → ...
     if (presentation === 'minimized') {
       setPresentation('compact');
     } else if (presentation === 'compact') {
       setPresentation('expanded');
     } else {
-      setPresentation('compact');
+      setPresentation('minimized');
     }
   };
 
