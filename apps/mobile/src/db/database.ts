@@ -52,6 +52,12 @@ function initSchema() {
       createdAt INTEGER NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS appSettings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updatedAt INTEGER NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_items_status ON items(status);
     CREATE INDEX IF NOT EXISTS idx_items_scheduledDate ON items(scheduledDate);
     CREATE INDEX IF NOT EXISTS idx_instances_scheduledDate ON itemInstances(scheduledDate);
@@ -126,9 +132,19 @@ export interface MedicationTimerDetails {
   dose?: string;
   timerActive?: boolean;
   startedAt?: number;
+  pausedAt?: number;
+  accumulatedMs?: number;
   stoppedAt?: number;
   notified?: boolean;
   loggedAt?: number;
+}
+
+export interface TimerWidgetPreferences {
+  presentation: 'compact' | 'expanded' | 'minimized';
+  position?: { x: number; y: number };
+  pinned?: boolean;
+  soundEnabled?: boolean;
+  notificationsEnabled?: boolean;
 }
 
 function parseDetails(details?: string | null): MedicationTimerDetails {
@@ -143,6 +159,31 @@ function parseDetails(details?: string | null): MedicationTimerDetails {
 function stringifyDetails(details?: string | Record<string, any>): string | undefined {
   if (details == null) return undefined;
   return typeof details === 'string' ? details : JSON.stringify(details);
+}
+
+function getAppSetting<T>(key: string, fallback: T): T {
+  const result = getDb().getAllSync<{ value: string }>(
+    `SELECT value FROM appSettings WHERE key = ? LIMIT 1`,
+    [key]
+  )[0];
+
+  if (!result) return fallback;
+
+  try {
+    return JSON.parse(result.value) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+function setAppSetting(key: string, value: unknown): void {
+  const now = Date.now();
+  getDb().runSync(
+    `INSERT INTO appSettings (key, value, updatedAt)
+     VALUES (?, ?, ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updatedAt = excluded.updatedAt`,
+    [key, JSON.stringify(value), now]
+  );
 }
 
 export function getMedications(): Item[] {
@@ -186,6 +227,7 @@ export function logMedicationTaken(itemId: string, takenAt: number = Date.now(),
       loggedAt: now,
       timerActive: startTimer,
       startedAt: startTimer ? takenAt : undefined,
+      accumulatedMs: 0,
       notified: false,
     }), now]
   );
@@ -230,6 +272,8 @@ export function stopMedicationTimer(logId: string, itemId: string): void {
   if (!log) return;
   const details = parseDetails(log.details);
   details.timerActive = false;
+  delete details.pausedAt;
+  delete details.accumulatedMs;
   details.stoppedAt = Date.now();
   getDb().runSync(
     `UPDATE activityLogs SET details = ? WHERE id = ?`,
@@ -238,14 +282,63 @@ export function stopMedicationTimer(logId: string, itemId: string): void {
   _syncLastTakenAt(itemId);
 }
 
+export function pauseMedicationTimer(logId: string, itemId: string): void {
+  const log = getDb().getAllSync<ActivityLog>(`SELECT * FROM activityLogs WHERE id = ? LIMIT 1`, [logId])[0];
+  if (!log) return;
+  const details = parseDetails(log.details);
+  if (!details.timerActive || !details.startedAt) return;
+  const now = Date.now();
+  const accumulatedMs = (details.accumulatedMs ?? 0) + Math.max(0, now - details.startedAt);
+  details.timerActive = false;
+  details.pausedAt = now;
+  details.accumulatedMs = accumulatedMs;
+  delete details.stoppedAt;
+  getDb().runSync(
+    `UPDATE activityLogs SET details = ? WHERE id = ?`,
+    [JSON.stringify(details), logId]
+  );
+  _syncLastTakenAt(itemId);
+}
+
+export function markMedicationTimerNotified(logId: string): void {
+  const log = getDb().getAllSync<ActivityLog>(`SELECT * FROM activityLogs WHERE id = ? LIMIT 1`, [logId])[0];
+  if (!log) return;
+  const details = parseDetails(log.details);
+  if (details.notified) return;
+  details.notified = true;
+  getDb().runSync(
+    `UPDATE activityLogs SET details = ? WHERE id = ?`,
+    [JSON.stringify(details), logId]
+  );
+}
+
 export function resumeMedicationTimer(logId: string, itemId: string): void {
   const log = getDb().getAllSync<ActivityLog>(`SELECT * FROM activityLogs WHERE id = ? LIMIT 1`, [logId])[0];
   if (!log) return;
   const details = parseDetails(log.details);
   details.timerActive = true;
-  details.startedAt = details.startedAt ?? log.timestamp;
+  details.startedAt = Date.now();
+  delete details.pausedAt;
   details.notified = false;
   delete details.stoppedAt;
+  getDb().runSync(
+    `UPDATE activityLogs SET details = ? WHERE id = ?`,
+    [JSON.stringify(details), logId]
+  );
+  _syncLastTakenAt(itemId);
+}
+
+export function resetMedicationTimer(logId: string, itemId: string): void {
+  const log = getDb().getAllSync<ActivityLog>(`SELECT * FROM activityLogs WHERE id = ? LIMIT 1`, [logId])[0];
+  if (!log) return;
+  const details = parseDetails(log.details);
+  const now = Date.now();
+  details.timerActive = true;
+  details.startedAt = now;
+  details.accumulatedMs = 0;
+  delete details.pausedAt;
+  delete details.stoppedAt;
+  details.notified = false;
   getDb().runSync(
     `UPDATE activityLogs SET details = ? WHERE id = ?`,
     [JSON.stringify(details), logId]
@@ -264,6 +357,37 @@ export function getActiveMedicationTimers(): Array<{ log: ActivityLog; med: Item
     if (!med) return [];
     return [{ log, med, details }];
   });
+}
+
+export function getPersistentMedicationTimers(): Array<{ log: ActivityLog; med: Item; details: MedicationTimerDetails }> {
+  const logs = getDb().getAllSync<ActivityLog>(
+    `SELECT * FROM activityLogs WHERE actionType = 'medication-taken' ORDER BY timestamp DESC`
+  );
+  return logs.flatMap((log) => {
+    const details = parseDetails(log.details);
+    if (!details.timerActive && !details.pausedAt) return [];
+    const med = getItemWithMetadata(log.entityId);
+    if (!med) return [];
+    return [{ log, med, details }];
+  });
+}
+
+export function getTimerWidgetPreferences(): TimerWidgetPreferences {
+  return getAppSetting<TimerWidgetPreferences>('timerWidgetPreferences', {
+    presentation: 'compact',
+    pinned: false,
+    soundEnabled: true,
+    notificationsEnabled: true,
+  });
+}
+
+export function setTimerWidgetPreferences(preferences: Partial<TimerWidgetPreferences>): TimerWidgetPreferences {
+  const next = {
+    ...getTimerWidgetPreferences(),
+    ...preferences,
+  };
+  setAppSetting('timerWidgetPreferences', next);
+  return next;
 }
 
 // Keeps lastTakenAt in item metadata in sync with the actual log records

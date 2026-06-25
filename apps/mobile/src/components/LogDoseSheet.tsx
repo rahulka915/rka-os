@@ -2,12 +2,13 @@ import { useState } from 'react';
 import { TouchableOpacity, Alert, ScrollView } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { YStack, XStack, Text, Input, View } from 'tamagui';
-import { getMedicationLogs, deleteMedicationLog, editMedicationLog, resumeMedicationTimer } from '../db/database';
+import { getMedicationLogs, deleteMedicationLog, editMedicationLog, resumeMedicationTimer, getPersistentMedicationTimers, pauseMedicationTimer, stopMedicationTimer, resetMedicationTimer } from '../db/database';
 import type { ActivityLog } from '../db/types';
-import { X, Clock, Calendar, Trash2, Pencil, Check, PlayCircle } from '../icons';
+import { X, Clock, Calendar, Trash2, Pencil, Check, PlayCircle, StopCircle, Pill, Pause, TimerReset } from '../icons';
 import { BottomSheet } from './ui/BottomSheet';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
+import { presentMedicationTimer } from '../utils/timerPresentation';
 
 interface LogDoseSheetProps {
   visible: boolean;
@@ -181,6 +182,11 @@ export function LogDoseSheet({ visible, medicationName, medicationId, onClose, o
   const [, setTick] = useState(0);
 
   const recentLogs: ActivityLog[] = visible ? getMedicationLogs(medicationId, 10) : [];
+  const activeTimer = visible
+    ? getPersistentMedicationTimers()
+        .filter((timer) => timer.med.id === medicationId)
+        .map((timer) => presentMedicationTimer(timer, Date.now()))[0]
+    : null;
   const refresh = () => setTick((tick) => tick + 1);
 
   const handleLog = (startTimer = false) => {
@@ -228,6 +234,78 @@ export function LogDoseSheet({ visible, medicationName, medicationId, onClose, o
     >
       <YStack backgroundColor="$bg">
         <ScrollView contentContainerStyle={{ paddingBottom: 28 }} keyboardShouldPersistTaps="handled">
+          {activeTimer ? (
+            <YStack
+              marginHorizontal="$4"
+              marginBottom="$4"
+              backgroundColor="$surface"
+              borderRadius="$4"
+              padding="$4"
+              gap="$3"
+              borderWidth={0.5}
+              borderColor="$separator"
+            >
+              <XStack alignItems="center" gap="$3">
+                <View width={36} height={36} borderRadius="$6" backgroundColor="$blueSoft" alignItems="center" justifyContent="center">
+                  <Pill size={16} color={palette.blue} strokeWidth={1.8} />
+                </View>
+                <YStack flex={1} gap={2}>
+                  <Text fontSize="$3" fontWeight="700" color="$text">
+                    {activeTimer.isPaused ? 'Timer paused' : 'Timer running'}
+                  </Text>
+                  <Text fontSize="$2" color="$textSecondary">
+                    {activeTimer.isPaused ? `Paused at ${activeTimer.compactElapsedLabel}` : activeTimer.isReady ? 'Ready for next dose' : activeTimer.elapsedLabel}
+                  </Text>
+                </YStack>
+                <TouchableOpacity
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    if (activeTimer.isPaused) {
+                      resumeMedicationTimer(activeTimer.log.id, medicationId);
+                    } else {
+                      pauseMedicationTimer(activeTimer.log.id, medicationId);
+                    }
+                    refresh();
+                  }}
+                  style={{ height: 34, paddingHorizontal: 12, borderRadius: 999, backgroundColor: palette.fillStrong, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }}
+                >
+                  {activeTimer.isPaused
+                    ? <PlayCircle size={14} color={palette.blue} strokeWidth={1.8} />
+                    : <Pause size={14} color={palette.textSecondary} strokeWidth={1.8} />
+                  }
+                  <Text fontSize="$2" fontWeight="700" color={activeTimer.isPaused ? '$blue' : '$textSecondary'}>
+                    {activeTimer.isPaused ? 'Resume' : 'Pause'}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    resetMedicationTimer(activeTimer.log.id, medicationId);
+                    refresh();
+                  }}
+                  style={{ height: 34, paddingHorizontal: 12, borderRadius: 999, backgroundColor: palette.fill, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }}
+                >
+                  <TimerReset size={14} color={palette.textSecondary} strokeWidth={1.8} />
+                  <Text fontSize="$2" fontWeight="700" color="$textSecondary">Reset</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => {
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    stopMedicationTimer(activeTimer.log.id, medicationId);
+                    refresh();
+                  }}
+                  style={{ height: 34, paddingHorizontal: 12, borderRadius: 999, backgroundColor: palette.redSoft, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }}
+                >
+                  <StopCircle size={14} color={palette.red} strokeWidth={1.8} />
+                  <Text fontSize="$2" fontWeight="700" color="$red">Stop</Text>
+                </TouchableOpacity>
+              </XStack>
+              <Text fontSize={11} fontWeight="600" color="$textTertiary">
+                Logging another dose can start a fresh timer, and older dose entries can still resume one from history.
+              </Text>
+            </YStack>
+          ) : null}
+
           <XStack marginHorizontal="$4" marginBottom="$4" backgroundColor="$fill" borderRadius="$3" padding={3} gap={2}>
             {(['relative', 'exact'] as Mode[]).map((nextMode) => (
               <TouchableOpacity
@@ -293,9 +371,14 @@ export function LogDoseSheet({ visible, medicationName, medicationId, onClose, o
 
           {recentLogs.length > 0 && (
             <YStack marginHorizontal="$4" marginTop="$5" gap="$1">
-              <Text fontSize="$2" fontWeight="700" color="$textSecondary" marginBottom="$1">
-                DOSE HISTORY
-              </Text>
+              <YStack marginBottom="$1">
+                <Text fontSize="$2" fontWeight="700" color="$textSecondary">
+                  DOSE HISTORY
+                </Text>
+                <Text fontSize={11} color="$textTertiary">
+                  Tap resume on a prior dose if you want the timer to continue from that exact taken time.
+                </Text>
+              </YStack>
               <YStack backgroundColor="$surface" borderRadius="$3" paddingHorizontal="$3" paddingVertical="$1">
                 {recentLogs.map((log, index) => (
                   <View key={log.id}>
