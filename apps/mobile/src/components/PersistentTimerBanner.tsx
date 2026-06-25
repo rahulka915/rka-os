@@ -269,6 +269,17 @@ export function PersistentTimerBanner() {
     setPresentation(nextPresentation);
   };
 
+  const cyclePresentationState = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    if (presentation === 'minimized') {
+      setPresentation('compact');
+    } else if (presentation === 'compact') {
+      setPresentation('expanded');
+    } else {
+      setPresentation('compact');
+    }
+  };
+
   const rootContextItems = [
     {
       label: primaryTimer?.isPaused ? 'Resume' : 'Pause',
@@ -323,14 +334,8 @@ export function PersistentTimerBanner() {
         <ContextMenu items={rootContextItems}>
           <FloatingSurface isDark={isDark} style={[styles.surfaceShell, isDragging && styles.surfaceDragging]}>
             {presentation === 'expanded' ? (
-              <TouchableOpacity activeOpacity={0.9} onPress={() => handleSetPresentation('compact')}>
+              <TouchableOpacity activeOpacity={0.8} onPress={cyclePresentationState} delayLongPress={500} onLongPress={() => {}} disabled={false}>
                 <View style={styles.expandedShell}>
-                  <View style={styles.headerRow}>
-                    <View style={{ flex: 1 }} />
-                    <SurfaceIconButton isDark={isDark} onPress={() => handleSetPresentation('compact')} size={32}>
-                      <ChevronDown size={16} color={palette.textSecondary} strokeWidth={2} />
-                    </SurfaceIconButton>
-                  </View>
 
                   <View style={[styles.heroCard, { backgroundColor: primaryTimer.isReady ? palette.greenSoft : palette.blueSoft }]}>
                     <View style={[styles.heroBadgeIcon, { backgroundColor: isDark ? 'rgba(12,12,12,0.12)' : 'rgba(255,255,255,0.7)' }]}>
@@ -402,7 +407,7 @@ export function PersistentTimerBanner() {
                 </View>
               </TouchableOpacity>
             ) : presentation === 'minimized' ? (
-              <TouchableOpacity activeOpacity={0.92} onPress={() => handleSetPresentation('compact')}>
+              <TouchableOpacity activeOpacity={0.8} onPress={cyclePresentationState} delayLongPress={500} onLongPress={() => {}}>
                 <View style={styles.minimizedShell}>
                   <View style={[styles.minimizedBadge, { backgroundColor: primaryTimer.isReady ? palette.greenSoft : palette.blueSoft }]}>
                     <PillContainerIcon size={14} color={primaryTimer.isReady ? palette.green : palette.blue} strokeWidth={1.8} />
@@ -413,7 +418,7 @@ export function PersistentTimerBanner() {
                 </View>
               </TouchableOpacity>
             ) : (
-              <TouchableOpacity activeOpacity={0.9} onPress={() => handleSetPresentation('expanded')}>
+              <TouchableOpacity activeOpacity={0.8} onPress={cyclePresentationState} delayLongPress={500} onLongPress={() => {}}>
                 <View style={styles.compactShell}>
                   <View style={[styles.heroBadgeIcon, { backgroundColor: primaryTimer.isReady ? palette.greenSoft : palette.blueSoft }]}>
                     <PillContainerIcon size={18} color={primaryTimer.isReady ? palette.green : palette.blue} strokeWidth={1.8} />
@@ -426,17 +431,9 @@ export function PersistentTimerBanner() {
                       {formatTimerDisplay(primaryTimer)}
                     </Text>
                   </View>
-                  <View style={styles.compactActions}>
-                    <SurfaceIconButton isDark={isDark} onPress={handlePrimaryAction} size={30}>
-                      {primaryActionIcon}
-                    </SurfaceIconButton>
-                    <SurfaceIconButton isDark={isDark} onPress={() => handleSetPresentation('minimized')} size={28}>
-                      <ChevronDown size={14} color={palette.textSecondary} strokeWidth={2} />
-                    </SurfaceIconButton>
-                    <SurfaceIconButton isDark={isDark} onPress={() => handleSetPresentation('expanded')} size={32}>
-                      <ChevronUp size={16} color={palette.textSecondary} strokeWidth={2} />
-                    </SurfaceIconButton>
-                  </View>
+                  <SurfaceIconButton isDark={isDark} onPress={handlePrimaryAction} size={30}>
+                    {primaryActionIcon}
+                  </SurfaceIconButton>
                 </View>
               </TouchableOpacity>
             )}
@@ -490,22 +487,24 @@ const styles = StyleSheet.create({
     width: DEFAULT_COMPACT_SIZE.width,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
+    paddingHorizontal: 12,
+    justifyContent: 'center',
   },
   minimizedShell: {
     width: DEFAULT_MINIMIZED_SIZE.width,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
+    justifyContent: 'center',
   },
   compactCopy: {
-    flex: 1,
     minWidth: 0,
   },
   compactActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
   rowActions: {
     flexDirection: 'row',
@@ -538,15 +537,11 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   expandedShell: {
-    gap: 10,
+    gap: 12,
     width: DEFAULT_EXPANDED_SIZE.width,
     maxWidth: '100%',
-  },
-  headerRow: {
-    flexDirection: 'row',
+    paddingHorizontal: 12,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
   },
   heroCard: {
     borderRadius: 22,
