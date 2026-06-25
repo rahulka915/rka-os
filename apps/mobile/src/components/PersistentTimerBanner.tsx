@@ -20,11 +20,12 @@ import {
   resumeMedicationTimer,
   stopMedicationTimer,
 } from '../db/database';
-import { ChevronDown, ChevronUp, Clock, Pause, Pill, Play, StopCircle, TimerReset } from '../icons';
+import { ChevronDown, ChevronUp, Clock, Pause, Play, StopCircle, TimerReset } from '../icons';
 import { FloatingSurface } from './ui/FloatingSurface';
 import { DragHandle } from './ui/DragHandle';
 import { ActionRow } from './ui/ActionRow';
 import { SurfaceCard, SurfaceIconButton } from './ui/SurfaceCard';
+import { PillContainerIcon } from './ui/PillContainerIcon';
 import { getThemeColors } from '../theme';
 import { usePersistentTimerState } from '../hooks/usePersistentTimerState';
 import { ContextMenu } from './ContextMenu';
@@ -336,7 +337,7 @@ export function PersistentTimerBanner() {
 
                   <View style={[styles.heroCard, { backgroundColor: primaryTimer.isReady ? palette.greenSoft : palette.blueSoft }]}>
                     <View style={[styles.heroBadgeIcon, { backgroundColor: isDark ? 'rgba(12,12,12,0.12)' : 'rgba(255,255,255,0.7)' }]}>
-                      <Pill size={18} color={primaryTimer.isReady ? palette.green : palette.blue} strokeWidth={1.9} />
+                      <PillContainerIcon size={18} color={primaryTimer.isReady ? palette.green : palette.blue} strokeWidth={1.9} />
                     </View>
                     <View style={styles.heroCopy}>
                       <Text style={[styles.heroTitle, { color: palette.text }]} numberOfLines={1}>
@@ -410,7 +411,7 @@ export function PersistentTimerBanner() {
                     <DragHandle isDark={isDark} width={24} />
                   </View>
                   <View style={[styles.minimizedBadge, { backgroundColor: primaryTimer.isReady ? palette.greenSoft : palette.blueSoft }]}>
-                    <Pill size={14} color={primaryTimer.isReady ? palette.green : palette.blue} strokeWidth={1.8} />
+                    <PillContainerIcon size={14} color={primaryTimer.isReady ? palette.green : palette.blue} strokeWidth={1.8} />
                     <Text style={[styles.minimizedText, { color: palette.text }]} numberOfLines={1}>
                       {primaryTimer.isPaused ? `Paused ${primaryTimer.compactElapsedLabel}` : primaryTimer.compactElapsedLabel}
                     </Text>
@@ -424,7 +425,7 @@ export function PersistentTimerBanner() {
                     <DragHandle isDark={isDark} width={28} />
                   </View>
                   <View style={[styles.heroBadgeIcon, { backgroundColor: primaryTimer.isReady ? palette.greenSoft : palette.blueSoft }]}>
-                    <Pill size={18} color={primaryTimer.isReady ? palette.green : palette.blue} strokeWidth={1.8} />
+                    <PillContainerIcon size={18} color={primaryTimer.isReady ? palette.green : palette.blue} strokeWidth={1.8} />
                   </View>
                   <View style={styles.compactCopy}>
                     <Text style={[styles.compactHeadline, { color: palette.text }]} numberOfLines={1}>
