@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { LyricLine } from '../lib/lyricTypes';
 import { normalizeLyricLines } from '../lib/lyricsUtils';
 import { saveLyricsLocal } from '../lib/lyricsStorage';
@@ -6,14 +6,16 @@ import { saveLyricsLocal } from '../lib/lyricsStorage';
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseKey) {
-  console.warn('Supabase environment variables not set. Sync will not work.');
-}
+// Lazy client — only created if env vars are present
+let _supabase: SupabaseClient | null = null;
 
-export const supabase = createClient(
-  supabaseUrl || '',
-  supabaseKey || ''
-);
+function getSupabase(): SupabaseClient | null {
+  if (!supabaseUrl || !supabaseKey) return null;
+  if (!_supabase) {
+    _supabase = createClient(supabaseUrl, supabaseKey);
+  }
+  return _supabase;
+}
 
 export async function saveLyrics(
   userId: string,
@@ -36,18 +38,15 @@ async function syncToSupabase(
   trackId: string,
   lines: LyricLine[]
 ): Promise<void> {
-  if (!supabaseUrl || !supabaseKey) {
+  const client = getSupabase();
+  if (!client) {
     console.warn('Supabase not configured, skipping remote sync');
     return;
   }
 
-  const { error } = await supabase
+  const { error } = await client
     .from('lyrics')
-    .upsert({
-      id: trackId,
-      lines: lines,
-      userId: userId,
-    })
+    .upsert({ id: trackId, lines, userId })
     .eq('userId', userId);
 
   if (error) {
@@ -60,12 +59,13 @@ export function subscribeLyrics(
   trackId: string,
   onUpdate: (lines: LyricLine[]) => void
 ): () => void {
-  if (!supabaseUrl || !supabaseKey) {
+  const client = getSupabase();
+  if (!client) {
     console.warn('Supabase not configured, skipping subscription');
     return () => {};
   }
 
-  const subscription = supabase
+  const subscription = client
     .from('lyrics')
     .on('*', (payload) => {
       if (payload.new?.userId === userId && payload.new?.id === trackId) {
