@@ -1,4 +1,7 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+
+// ── Process / Dev state ────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ProcessState {
@@ -34,24 +37,26 @@ pub struct LogEntry {
     pub raw: String,
 }
 
+// ── Project type ───────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum ProjectType {
+    Expo,
+    NextJS,
+    NodeAPI,
+    Python,
+    Service,
+    Custom,
+}
+
+// ── Commands / Editor / PackageManager ────────────────────────────────────
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PackageManager {
     Npm,
     Pnpm,
     Bun,
     Yarn,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ProjectHealth {
-    pub node_installed: bool,
-    pub npm_installed: bool,
-    pub expo_installed: bool,
-    pub package_json_exists: bool,
-    pub is_expo_project: bool,
-    pub dependencies_installed: bool,
-    pub metro_port_free: bool,
-    pub package_manager: PackageManager,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -81,47 +86,98 @@ pub enum Editor {
     Xcode,
 }
 
-fn default_true() -> bool {
-    true
+// ── Project profile (per-project config) ──────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectProfile {
+    pub id: String,
+    pub name: String,
+    pub project_type: ProjectType,
+    pub path: String,
+    pub port: u16,
+    pub commands: ProjectCommands,
+    pub dependencies: Vec<String>,
+    pub auto_start: bool,
+    pub qr_support: bool,
+    pub show_qr_on_ready: bool,
+    pub auto_hide_after_connect: bool,
+    pub preferred_editor: Editor,
+}
+
+// ── Global config (startup order, window size) ────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GlobalConfig {
+    pub startup_order: Vec<String>,
+    pub window: WindowConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ProjectConfig {
-    pub id: String,
-    pub name: String,
-    pub path: String,
-    pub commands: ProjectCommands,
-    pub preferred_editor: Editor,
-    pub auto_start: bool,
-    /// Reload saved project path on next launch (always true by default)
-    #[serde(default = "default_true")]
-    pub reopen_last_project: bool,
-    /// Show QR popup when Metro is ready
-    #[serde(default = "default_true")]
-    pub show_qr_on_ready: bool,
-    /// Auto-hide window 1s after a device connects
-    #[serde(default = "default_true")]
-    pub auto_hide_after_connect: bool,
-    /// Launch at login (stored; wired to LaunchAgent in a future build)
-    #[serde(default)]
-    pub launch_at_login: bool,
+pub struct WindowConfig {
+    pub width: i32,
+    pub height: i32,
 }
 
-/// In-memory tray/menu bar state — updated by events, read when building the menu
+impl Default for GlobalConfig {
+    fn default() -> Self {
+        Self {
+            startup_order: Vec::new(),
+            window: WindowConfig { width: 600, height: 800 },
+        }
+    }
+}
+
+// ── Health check ───────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HealthCheckResult {
+    pub timestamp: String,
+    pub project_id: String,
+    pub checks: HashMap<String, bool>,
+    pub port_conflict: Option<(u16, u32)>,
+    pub passed: bool,
+}
+
+// ── Crash report ───────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CrashReport {
+    pub timestamp: String,
+    pub project_id: String,
+    pub exit_code: i32,
+    pub last_100_lines: Vec<String>,
+}
+
+// ── Legacy single-project health (kept for commands.rs backward compat) ───
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectHealth {
+    pub node_installed: bool,
+    pub npm_installed: bool,
+    pub expo_installed: bool,
+    pub package_json_exists: bool,
+    pub is_expo_project: bool,
+    pub dependencies_installed: bool,
+    pub metro_port_free: bool,
+    pub package_manager: PackageManager,
+}
+
+// ── Tray state (multi-project) ─────────────────────────────────────────────
+
 pub struct TrayAppState {
-    pub process_state: ProcessState,
-    pub dev_state: DevState,
-    pub device_connected: bool,
-    pub start_time: Option<std::time::Instant>,
+    pub process_states: HashMap<String, ProcessState>,
+    pub dev_states: HashMap<String, DevState>,
+    pub device_connected: HashMap<String, bool>,
+    pub start_times: HashMap<String, std::time::Instant>,
 }
 
 impl Default for TrayAppState {
     fn default() -> Self {
         Self {
-            process_state: ProcessState::Stopped,
-            dev_state: DevState::Idle,
-            device_connected: false,
-            start_time: None,
+            process_states: HashMap::new(),
+            dev_states: HashMap::new(),
+            device_connected: HashMap::new(),
+            start_times: HashMap::new(),
         }
     }
 }

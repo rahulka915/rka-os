@@ -37,24 +37,17 @@ impl ProcessManager {
         events::emit_process_state(&app, ProcessState::Starting);
         events::emit_dev_state(&app, DevState::Bundling);
 
-        // Split command into binary + args
-        let mut parts = command.split_whitespace();
-        let binary = match parts.next() {
-            Some(b) => b.to_string(),
-            None => {
-                events::emit_process_state(&app, ProcessState::Failed);
-                return;
-            }
-        };
-        let args: Vec<String> = parts.map(|s| s.to_string()).collect();
-
-        let mut cmd = Command::new(&binary);
-        cmd.args(&args)
+        // Run through interactive zsh with explicit PATH for Homebrew/common Node locations
+        let mut cmd = Command::new("zsh");
+        cmd.args(&["-i", "-c", &command])
             .current_dir(&cwd)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            // Inherit PATH so npx/node are found
-            .env("PATH", std::env::var("PATH").unwrap_or_default());
+            // Add common Node install paths
+            .env("PATH", format!(
+                "/usr/local/bin:/opt/homebrew/bin:{}",
+                std::env::var("PATH").unwrap_or_default()
+            ));
 
         match cmd.spawn() {
             Ok(mut child) => {

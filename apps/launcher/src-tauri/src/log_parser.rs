@@ -4,6 +4,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use crate::types::{DevState, LogEntry, LogLevel};
 
 pub struct LogParser {
+    port: u16,
     url_re: Regex,
     bundling_re: Regex,
     bundled_re: Regex,
@@ -22,8 +23,9 @@ fn local_ip() -> Option<String> {
 }
 
 impl LogParser {
-    pub fn new() -> Self {
+    pub fn new(port: u16) -> Self {
         Self {
+            port,
             url_re: Regex::new(r"exp://[\w.\-:/]+").unwrap(),
             bundling_re: Regex::new(r"(?i)bundling").unwrap(),
             bundled_re: Regex::new(r"(?i)bundled\s+\d+").unwrap(),
@@ -65,7 +67,7 @@ impl LogParser {
         let expo_url = detected_url.or_else(|| {
             if dev_state == Some(DevState::MetroReady) {
                 let ip = local_ip().unwrap_or_else(|| "localhost".to_string());
-                Some(format!("exp://{}:8081", ip))
+                Some(format!("exp://{}:{}", ip, self.port))
             } else {
                 None
             }
