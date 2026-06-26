@@ -63,29 +63,38 @@ export function HomeScreen({ onInboxPress }: { onInboxPress: () => void }) {
         </XStack>
 
         {/* Inbox card */}
-        {inboxCount > 0 && (
-          <TouchableOpacity onPress={onInboxPress} activeOpacity={0.7}>
-            <XStack
-              marginHorizontal="$4" marginTop="$3"
-              backgroundColor="$surface" borderRadius="$3" padding="$4"
-              alignItems="center" gap="$3"
-              borderWidth={1} borderColor="$blueSoft"
-              shadowColor="$shadowColor" shadowOffset={{ width: 0, height: 2 }}
-              shadowOpacity={1} shadowRadius={6} elevation={1}
-            >
-              <View width={34} height={34} borderRadius="$6" backgroundColor="$blueSoft" alignItems="center" justifyContent="center">
-                <Inbox size={16} color="#007aff" strokeWidth={1.5} />
-              </View>
-              <YStack flex={1}>
-                <Text fontSize="$3" fontWeight="700" color="$text">
-                  {inboxCount} item{inboxCount > 1 ? 's' : ''} to process
-                </Text>
-                <Text fontSize="$2" color="$textSecondary">Tap to review</Text>
-              </YStack>
-              <ArrowRight size={14} color="$blue" strokeWidth={2} />
-            </XStack>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity onPress={onInboxPress} activeOpacity={0.7}>
+          <XStack
+            marginHorizontal="$4" marginTop="$3"
+            backgroundColor="$surface" borderRadius="$3" padding="$4"
+            alignItems="center" gap="$3"
+            borderWidth={1} borderColor={inboxCount > 0 ? '$blueSoft' : '$separator'}
+            shadowColor="$shadowColor" shadowOffset={{ width: 0, height: 2 }}
+            shadowOpacity={1} shadowRadius={6} elevation={1}
+          >
+            <View width={34} height={34} borderRadius="$6" backgroundColor={inboxCount > 0 ? '$blueSoft' : '$bg'} alignItems="center" justifyContent="center">
+              <Inbox size={16} color={inboxCount > 0 ? '#007aff' : '$textMuted'} strokeWidth={1.5} />
+            </View>
+            <YStack flex={1}>
+              {inboxCount > 0 ? (
+                <>
+                  <Text fontSize="$3" fontWeight="700" color="$text">
+                    {inboxCount} item{inboxCount > 1 ? 's' : ''} to process
+                  </Text>
+                  <Text fontSize="$2" color="$textSecondary">Tap to review</Text>
+                </>
+              ) : (
+                <>
+                  <Text fontSize="$3" fontWeight="700" color="$text">
+                    Inbox zero
+                  </Text>
+                  <Text fontSize="$2" color="$textSecondary">You're all caught up! 🎉</Text>
+                </>
+              )}
+            </YStack>
+            {inboxCount > 0 && <ArrowRight size={14} color="$blue" strokeWidth={2} />}
+          </XStack>
+        </TouchableOpacity>
 
         {/* Timeline section */}
         <YStack marginTop="$4">
