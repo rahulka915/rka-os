@@ -12,6 +12,7 @@ import { Microphone, X } from '../../icons';
 import { useThemeContext } from '../../hooks/useThemeContext';
 import { getThemeColors } from '../../theme';
 import { useVoiceCapture } from './useVoiceCapture';
+import { parseVoiceIntent } from '../../utils/parseVoiceIntent';
 import type { VoiceContextType } from '../../types/voice';
 
 interface VoiceModalProps {
@@ -43,7 +44,8 @@ export function VoiceModal({ visible, onClose, context }: VoiceModalProps) {
 
   const handleSave = () => {
     if (editableTranscript.trim()) {
-      context.onSave(editableTranscript);
+      const intent = parseVoiceIntent(editableTranscript);
+      context.onSave(editableTranscript, intent);
       onClose();
       reset();
     }
@@ -54,6 +56,8 @@ export function VoiceModal({ visible, onClose, context }: VoiceModalProps) {
     reset();
     onClose();
   };
+
+  const detectedIntent = editableTranscript.trim() ? parseVoiceIntent(editableTranscript) : null;
 
   const statusColor =
     session.state === 'listening'
@@ -163,6 +167,15 @@ export function VoiceModal({ visible, onClose, context }: VoiceModalProps) {
             />
           </View>
 
+          {/* Detected intent badge */}
+          {detectedIntent && (
+            <View style={[s.intentBadge, { backgroundColor: palette.maroonSoft }]}>
+              <Text style={[s.intentText, { color: palette.maroon }]}>
+                🎯 {detectedIntent.charAt(0).toUpperCase() + detectedIntent.slice(1)}
+              </Text>
+            </View>
+          )}
+
           {/* Actions */}
           <View style={s.actions}>
             <TouchableOpacity
@@ -252,6 +265,16 @@ const s = StyleSheet.create({
   transcript: {
     fontSize: 15,
     lineHeight: 22,
+  },
+  intentBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  intentText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   actions: {
     flexDirection: 'row',

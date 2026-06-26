@@ -26,6 +26,7 @@ import { useInbox } from '../hooks/useDb';
 import { createItem, updateItemStatus } from '../db/database';
 import { Plus, X } from '../icons';
 import type { Item } from '../db/types';
+import type { VoiceIntent } from '../types/voice';
 
 interface InboxScreenV2Props {
   visible: boolean;
@@ -185,7 +186,13 @@ export function InboxScreenV2({ visible, onClose }: InboxScreenV2Props) {
                     isDark={isDark}
                     context={{
                       context: 'inbox',
-                      onSave: (transcript) => setTaskTitle(transcript),
+                      onSave: (transcript, intent) => {
+                        if (intent === 'note') {
+                          setTaskNotes(transcript);
+                        } else {
+                          setTaskTitle(transcript);
+                        }
+                      },
                     }}
                     size="small"
                   />

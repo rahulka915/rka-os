@@ -7,6 +7,7 @@ import { Calendar, Tag, Flag } from '../icons';
 import { BottomSheet } from '../components/ui/BottomSheet';
 import { VoiceMicButton } from '../components/voice/VoiceMicButton';
 import { getThemeColors, spacing } from '../theme';
+import type { VoiceIntent } from '../types/voice';
 
 interface QuickAddScreenProps {
   visible: boolean;
@@ -77,7 +78,13 @@ export function QuickAddScreen({ visible, onClose, defaultStatus = 'inbox' }: Qu
           isDark={isDark}
           context={{
             context: 'quick-add',
-            onSave: (transcript) => setTitle(transcript),
+            onSave: (transcript, intent) => {
+              if (intent === 'note') {
+                setNotes(transcript);
+              } else {
+                setTitle(transcript);
+              }
+            },
           }}
           size="small"
         />
