@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { SwipeableItem } from './SwipeableItem';
+import { ContextMenu } from './ContextMenu';
 import type { Item } from '../db/types';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
@@ -62,6 +63,16 @@ export function TimelineSection({
       ...prev,
       [block]: !prev[block],
     }));
+  };
+
+  const handleTimeBlockAction = (block: TimeBlockType, action: string) => {
+    if (action === 'expandAll') {
+      setExpandedSections({ anytime: true, morning: true, afternoon: true, evening: true });
+    } else if (action === 'collapseAll') {
+      setExpandedSections({ anytime: false, morning: false, afternoon: false, evening: false });
+    } else {
+      onTimeBlockAction?.(block, action);
+    }
   };
 
   function TimeBlockItems({
@@ -145,6 +156,7 @@ export function TimelineSection({
     count,
     isExpanded,
     onToggle,
+    onLongPressAction,
   }: {
     block: TimeBlockType;
     label: string;
@@ -152,30 +164,41 @@ export function TimelineSection({
     count: number;
     isExpanded: boolean;
     onToggle: () => void;
+    onLongPressAction: (action: string) => void;
   }) {
+    const contextItems = [
+      { label: 'Add item', onPress: () => onLongPressAction('addItem') },
+      { label: 'Move items here', onPress: () => onLongPressAction('moveItems') },
+      { label: 'Sort', onPress: () => onLongPressAction('sort') },
+      { label: 'Expand all', onPress: () => onLongPressAction('expandAll') },
+      { label: 'Collapse all', onPress: () => onLongPressAction('collapseAll') },
+    ];
+
     return (
-      <TouchableOpacity
-        onPress={onToggle}
-        activeOpacity={0.6}
-        style={[
-          styles.blockHeader,
-          {
-            backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)',
-            borderBottomColor: palette.separator,
-          },
-        ]}
-      >
-        <View style={styles.headerLeft}>
-          <Text style={styles.headerIcon}>{icon}</Text>
-          <Text style={[styles.headerLabel, { color: palette.text }]}>{label}</Text>
-        </View>
-        <View style={styles.headerRight}>
-          <Text style={[styles.headerCount, { color: palette.textSecondary }]}>{count}</Text>
-          <Text style={[styles.headerArrow, { color: palette.textMuted }]}>
-            {isExpanded ? '↑' : '→'}
-          </Text>
-        </View>
-      </TouchableOpacity>
+      <ContextMenu items={contextItems}>
+        <TouchableOpacity
+          onPress={onToggle}
+          activeOpacity={0.6}
+          style={[
+            styles.blockHeader,
+            {
+              backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)',
+              borderBottomColor: palette.separator,
+            },
+          ]}
+        >
+          <View style={styles.headerLeft}>
+            <Text style={styles.headerIcon}>{icon}</Text>
+            <Text style={[styles.headerLabel, { color: palette.text }]}>{label}</Text>
+          </View>
+          <View style={styles.headerRight}>
+            <Text style={[styles.headerCount, { color: palette.textSecondary }]}>{count}</Text>
+            <Text style={[styles.headerArrow, { color: palette.textMuted }]}>
+              {isExpanded ? '↑' : '→'}
+            </Text>
+          </View>
+        </TouchableOpacity>
+      </ContextMenu>
     );
   }
 
@@ -192,6 +215,7 @@ export function TimelineSection({
             count={block.items.length}
             isExpanded={expandedSections[block.key]}
             onToggle={() => toggleSection(block.key)}
+            onLongPressAction={(action) => handleTimeBlockAction(block.key, action)}
           />
 
           {expandedSections[block.key] && (
