@@ -207,26 +207,38 @@ export function TimelineSection({
       <Text style={[styles.title, { color: palette.textTertiary }]}>TODAY'S TIMELINE</Text>
 
       {blocks.map((block) => (
-        <View key={block.key}>
-          <TimeBlockHeader
-            block={block.key}
-            label={block.label}
-            icon={block.icon}
-            count={block.items.length}
-            isExpanded={expandedSections[block.key]}
-            onToggle={() => toggleSection(block.key)}
-            onLongPressAction={(action) => handleTimeBlockAction(block.key, action)}
-          />
-
-          {expandedSections[block.key] && (
-            <TimeBlockItems
-              items={block.items}
-              onItemTap={onItemTap}
-              onItemComplete={onItemComplete}
-              onItemArchive={onItemArchive}
+        <SwipeableItem
+          key={block.key}
+          onActivate={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            onTimeBlockAction?.(block.key, 'completeAll');
+          }}
+          onArchive={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            onTimeBlockAction?.(block.key, 'quickAdd');
+          }}
+        >
+          <View>
+            <TimeBlockHeader
+              block={block.key}
+              label={block.label}
+              icon={block.icon}
+              count={block.items.length}
+              isExpanded={expandedSections[block.key]}
+              onToggle={() => toggleSection(block.key)}
+              onLongPressAction={(action) => handleTimeBlockAction(block.key, action)}
             />
-          )}
-        </View>
+
+            {expandedSections[block.key] && (
+              <TimeBlockItems
+                items={block.items}
+                onItemTap={onItemTap}
+                onItemComplete={onItemComplete}
+                onItemArchive={onItemArchive}
+              />
+            )}
+          </View>
+        </SwipeableItem>
       ))}
     </View>
   );
