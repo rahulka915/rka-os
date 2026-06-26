@@ -2,133 +2,207 @@
 
 A native macOS app to manage your Expo Go development server without the Terminal.
 
-## Quick Access
+## 🚀 Quick Start (30 seconds)
 
-### From Dock (Fastest)
-1. Run `build-app.command` once
-2. Drag `RKA Dev Launcher.app` from Finder to your Dock
-3. Click icon anytime to launch
+1. **Click the launcher icon in your Dock** (it's already pinned)
+2. **Select your Expo project**: `apps/mobile/`
+3. **Click "Start"** 
+4. **Scan QR code** with Expo Go on iPhone
+5. **Done!** App auto-hides, launcher stays ready in Dock
 
-### From Applications
-1. Run `build-app.command`
-2. Move `RKA Dev Launcher.app` to `/Applications`
-3. Launch from Spotlight (`Cmd+Space` → type "RKA Dev")
+## Access Methods
 
-### Development (with hot-reload)
-Double-click **`start-dev.command`** to start the dev server.
-- Terminal window opens with live logs
-- Tauri app launches automatically
-- Hot-reload on file changes
+### Primary: Click Dock Icon
+- **Always visible** at bottom of screen
+- One click opens the launcher window
+- Shows app status (green dot = running)
+
+### Window Behavior
+- **Close window** (Cmd+W) → Hides to background (app keeps running)
+- **Reopen anytime** → Click Dock icon
+- **Quit completely** → Cmd+Q
+
+### From Keyboard
+- `Cmd+Space` → Type "RKA Dev" → Open
+- `Cmd+Q` → Quit
+- `Cmd+W` → Hide window
 
 ## Features
 
-- ✅ One-click server start/stop/restart
-- ✅ Real-time build logs with elapsed timer
-- ✅ QR code modal with step-by-step instructions
-- ✅ Auto-detects device connection from Expo Go
-- ✅ Auto-hides window when device connects
-- ✅ Environment health checks (Node, npm, Expo, deps, port)
-- ✅ Log download/clear for diagnostics
+✅ **One-click server control** — Start/Stop/Restart/Clean Cache  
+✅ **Real-time build logs** — Elapsed timer, pulsing indicators  
+✅ **QR modal** — Full-screen instructions when Metro ready  
+✅ **Auto-detect connection** — Modal closes when Expo Go scans  
+✅ **Environment checks** — Verify Node, npm, Expo, port 8081  
+✅ **Log download** — Export diagnostics as text file  
+✅ **Stays in background** — Keep Dock icon, close window  
 
-## How It Works
+## Why This Design (Window + Dock)
 
-1. **Open RKA Dev Launcher** (from Dock or Applications)
-2. **Select your Expo project folder** (`apps/mobile/`)
-3. **Click Start** → Metro bundler launches on port 8081
-4. **Full-screen QR modal** appears with instructions
-5. **Scan with Expo Go** on your iPhone (same WiFi)
-6. **Auto-detects connection** → modal closes + app hides
-7. **Your app runs** on phone, launcher stays in background ready to restart/stop
+### vs. Menu Bar Only:
+- ✅ Full-featured UI (logs, QR, status, buttons)
+- ✅ Better real estate (logs actually readable)
+- ✅ Modular — hide/show as needed
+- ✅ Standard macOS pattern (like Figma, VS Code)
 
-## Customization
+### vs. Always-Open Window:
+- ✅ Clean desktop (hide when not using)
+- ✅ Quick access (one Dock click)
+- ✅ Battery friendly (background state when hidden)
+- ✅ Not intrusive during active development
 
-### Custom Icon
-Replace PNG files in `src-tauri/icons/`:
-- `32x32.png` (Finder)
-- `128x128.png` (Dock icon)
-- `128x128@2x.png` (Retina)
-- `256x256.png` (Spotlight, App info)
+**Best of both:** Get the launcher state in Dock icon + full UI when you need it.
 
-Files must be RGBA PNG format. Rebuild with `build-app.command`.
+## Keyboard Shortcuts
 
-### Custom Start Command
+| Action | Shortcut |
+|--------|----------|
+| Show/Hide | Click Dock icon |
+| Hide window | `Cmd+W` |
+| Quit app | `Cmd+Q` |
+| Search/Open | `Cmd+Space` → "RKA Dev" |
+
+## Button Reference
+
+| Button | Action |
+|--------|--------|
+| **Start** | Launch Expo server on port 8081 |
+| **Stop** | Shut down server cleanly |
+| **Restart** | Stop + start in one click |
+| **Clear Cache** | Clean rebuild (slower first time) |
+| **npm install** | Update dependencies |
+| **Environment → Check** | Verify setup health |
+
+## Status Indicators
+
+- **Green dot + "Running"** → Server active, ready to scan
+- **Grey dot + "Stopped"** → Not running
+- **"Bundling..."** → Compiling Metro bundle (⏱ timer shows elapsed time)
+- **"Metro ready ✓"** → QR code appears, ready to scan
+
+## Troubleshooting
+
+### QR code not appearing?
+```
+✓ Check logs for "Waiting on http://localhost:8081"
+✓ Click Environment → Check
+✓ Verify port 8081 is free: lsof -i :8081
+✓ Try "Clear Cache" button
+```
+
+### Server crashes?
+```
+✓ Check logs in the window
+✓ Click "Download" to save diagnostics
+✓ Restart with "Start" button
+```
+
+### Want to use a different start command?
 Edit `src-tauri/src/project_config.rs`:
 ```rust
-pub fn default_config(path: String) -> ProjectConfig {
+pub fn make_default_config(path: String) -> ProjectConfig {
     ProjectConfig {
         // ...
         commands: ProjectCommands {
             start: "npx expo start --go".into(),  // ← Change this
-            // ...
-        }
+            start_clean: "npx expo start --go --clear".into(),
+            install: "npm install".into(),
+            doctor: "npx expo-doctor".into(),
+        },
+        // ...
     }
 }
 ```
+Then rebuild: `build-app.command`
 
-## Keyboard Shortcuts
+## Development Mode
 
-- `Cmd+Q` — Quit
-- `Cmd+W` — Hide window (reopen from Dock)
+For hot-reload development:
+```bash
+cd apps/launcher
+./start-dev.command
+```
+Opens Terminal with live logs and auto-reload on file changes.
 
-## Troubleshooting
+## Rebuild Production App
 
-**Port 8081 already in use?**
-- Launcher auto-kills any lingering Expo process on start
-
-**Build fails?**
-- Ensure Node v18+, Rust 1.70+, Xcode 14+
-- Run: `npm install` in this folder first
-- Check Xcode tools: `xcode-select --install`
-
-**Want detailed logs?**
-- Run `start-dev.command` instead (shows Terminal logs)
-- Or use "Download" button in app to export diagnostics
-
-**QR code not appearing?**
-- Check logs for "Metro ready" message
-- Ensure port 8081 is free: `lsof -i :8081`
-- Check environment with "Environment → Check" button
+```bash
+cd apps/launcher
+./build-app.command
+```
+Creates `/Applications/RKA Dev Launcher.app` and optionally opens Finder.
 
 ## Files
 
 ```
 apps/launcher/
-├── start-dev.command       ← Dev launcher with hot-reload
-├── build-app.command       ← Build production .app
-├── README.md               ← This file
-├── package.json            ← Frontend deps
-├── index.html              ← React entry point
-├── src/                    ← React components & hooks
+├── start-dev.command         ← Dev mode with hot-reload
+├── build-app.command         ← Rebuild production .app
+├── README.md                 ← This file
+├── src/                      ← React frontend
 │   ├── components/
+│   │   ├── QRModal.tsx
+│   │   ├── ServerStatusCard.tsx
+│   │   ├── LogViewer.tsx
+│   │   └── ...
 │   ├── hooks/
-│   └── lib/
-└── src-tauri/              ← Rust backend
+│   │   ├── useServerEvents.ts
+│   │   ├── useLogs.ts
+│   │   └── useProject.ts
+│   └── lib/tauri.ts          ← IPC commands
+│
+└── src-tauri/                ← Rust backend
     ├── src/
-    │   ├── main.rs         ← Tauri builder
-    │   ├── commands.rs     ← IPC handlers
-    │   ├── process_manager.rs  ← Expo process
+    │   ├── main.rs           ← Tauri builder
+    │   ├── commands.rs       ← IPC handlers (12 commands)
+    │   ├── process_manager.rs ← Expo child process control
+    │   ├── log_parser.rs     ← Metro log parsing + device detection
     │   └── ...
-    └── icons/              ← App icons (customize here)
+    ├── icons/
+    │   ├── icon.icns         ← macOS app icon
+    │   └── *.png             ← Icon source files
+    └── Cargo.toml
 ```
 
-## Building for Distribution
+## Technical Stack
 
-Once happy with the app:
+**Frontend:**
+- React 19 + TypeScript
+- Vite 6 (dev server)
+- Tauri IPC for backend communication
+- QRCode.React for QR generation
 
-```bash
-cd apps/launcher
-npm run tauri build --release
-# Creates: src-tauri/target/release/bundle/macos/RKA\ Dev\ Launcher.app
-```
+**Backend:**
+- Rust + Tauri v2 (native macOS app)
+- Child process management (spawn Expo)
+- Regex-based Metro log parsing
+- Device connection detection
 
-Can then:
-- Distribute the `.app` to others
-- Create a DMG installer
-- Submit to Mac App Store (requires signing)
+**Features:**
+- Real-time stdout/stderr streaming
+- 5000-line rolling log buffer
+- Local config at `~/Library/Application Support/rka-dev-launcher/`
+- Port 8081 auto-cleanup on launch
+
+## Future Ideas
+
+- [ ] Menu bar icon with status (if Tauri v3 adds better tray support)
+- [ ] Auto-restart on package.json changes
+- [ ] Multiple project profiles
+- [ ] Notification when device disconnects
+- [ ] Custom command profiles
+- [ ] Dark/light theme selector
 
 ## Notes
 
-- App hides to background when device connects (stays in memory)
-- Logs are kept in a 5000-line rolling buffer
-- Metro auto-restarts on dependency changes detected
-- Click tray icon to show/hide (future feature)
+- App persists in background after close (stays ready in Dock)
+- Logs are kept for diagnostics (downloadable from "Download" button)
+- Port 8081 is auto-cleaned if lingering process exists
+- QR URL is auto-constructed from local LAN IP (doesn't parse from logs)
+- Device connection detected via Metro bundle request parsing
+
+---
+
+**Happy coding!** 🎉
+
+Got questions? Check the logs or try "Environment → Check" to diagnose issues.

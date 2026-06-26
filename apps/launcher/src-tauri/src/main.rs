@@ -47,7 +47,7 @@ fn main() {
         .on_window_event(|window, event| {
             match event {
                 tauri::WindowEvent::CloseRequested { api, .. } => {
-                    // Hide instead of close (for tray support)
+                    // Hide instead of close (stays in background, accessible from Dock)
                     api.prevent_close();
                     let _ = window.hide();
                 }
