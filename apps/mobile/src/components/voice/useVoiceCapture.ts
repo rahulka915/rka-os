@@ -1,7 +1,13 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
-import * as Speech from 'expo-speech-recognition';
 import * as Haptics from 'expo-haptics';
 import type { VoiceSession } from '../../types/voice';
+
+let Speech: any = null;
+try {
+  Speech = require('expo-speech-recognition');
+} catch {
+  // Speech recognition not available (e.g., Expo Go)
+}
 
 export function useVoiceCapture() {
   const [session, setSession] = useState<VoiceSession>({
@@ -19,6 +25,15 @@ export function useVoiceCapture() {
   }, [session]);
 
   const startListening = useCallback(async () => {
+    if (!Speech) {
+      setSession((prev) => ({
+        ...prev,
+        error: 'Speech recognition not available (requires dev build)',
+        state: 'error',
+      }));
+      return;
+    }
+
     try {
       // Request mic permissions
       const result = await Speech.requestMicrophonePermissionsAsync();
