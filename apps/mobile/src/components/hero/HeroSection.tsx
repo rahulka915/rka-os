@@ -19,10 +19,10 @@ export function HeroSection({ timeOfDay }: Props) {
 
   // Map time-of-day to asset set
   const assetMap: Record<string, any> = {
-    dawn: require('../../assets/hero-dawn.png'),
-    day: require('../../assets/hero-day.png'),
-    ember: require('../../assets/hero-ember.png'),
-    night: require('../../assets/hero-night.png'),
+    dawn: require('../../../assets/hero-dawn.png'),
+    day: require('../../../assets/hero-day.png'),
+    ember: require('../../../assets/hero-ember.png'),
+    night: require('../../../assets/hero-night.png'),
   };
 
   // For now, use single composite asset. Later, split into layers.
