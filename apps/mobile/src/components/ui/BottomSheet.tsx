@@ -102,7 +102,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   sheetFullHeight: {
-    minHeight: '88%',
+    maxHeight: '96%',
+    minHeight: '92%',
   },
   handle: {
     marginTop: spacing[3],
