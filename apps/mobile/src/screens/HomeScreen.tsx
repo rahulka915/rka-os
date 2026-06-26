@@ -1,10 +1,10 @@
-import { ScrollView, TouchableOpacity } from 'react-native';
+import { ScrollView, TouchableOpacity, Alert } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { YStack, XStack, Text, View } from 'tamagui';
 import { AppHeader } from '../components/AppHeader';
 import { AvatarCompanion } from '../components/AvatarCompanion';
 import { TimelineSection } from '../components/TimelineSection';
-import { useHomeData } from '../hooks/useDb';
+import { useHomeData, completeAllInTimeBlock } from '../hooks/useDb';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { updateItemStatus, deleteItem } from '../db/database';
 import { ArrowRight, Inbox } from '../icons';
@@ -115,7 +115,36 @@ export function HomeScreen({ onInboxPress }: { onInboxPress: () => void }) {
               refresh();
             }}
             onTimeBlockAction={(block, action) => {
-              console.log(`Time block ${block} action: ${action}`);
+              if (action === 'completeAll') {
+                const blockName = block.charAt(0).toUpperCase() + block.slice(1);
+                Alert.alert(
+                  'Complete All',
+                  `Complete all items in ${blockName}?`,
+                  [
+                    { text: 'Cancel', onPress: () => {}, style: 'cancel' },
+                    {
+                      text: 'Complete',
+                      onPress: () => {
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                        completeAllInTimeBlock(block as 'anytime' | 'morning' | 'afternoon' | 'evening');
+                        refresh();
+                      },
+                    },
+                  ]
+                );
+              } else if (action === 'quickAdd') {
+                console.log('Quick add for:', block);
+                // TODO: Open QuickAddScreen with timeOfDay pre-filled
+              } else if (action === 'addItem') {
+                console.log('Add item to:', block);
+                // TODO: Open QuickAddScreen with timeOfDay pre-filled
+              } else if (action === 'moveItems') {
+                console.log('Move items to:', block);
+                // TODO: Open move items modal
+              } else if (action === 'sort') {
+                console.log('Sort items in:', block);
+                // TODO: Open sort modal or implement local sorting
+              }
             }}
           />
         </YStack>
