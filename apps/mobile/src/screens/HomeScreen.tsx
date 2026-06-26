@@ -1,10 +1,12 @@
 import { ScrollView, TouchableOpacity } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { YStack, XStack, Text, View } from 'tamagui';
 import { AppHeader } from '../components/AppHeader';
 import { AvatarCompanion } from '../components/AvatarCompanion';
 import { TimelineSection } from '../components/TimelineSection';
 import { useHomeData } from '../hooks/useDb';
 import { useThemeContext } from '../hooks/useThemeContext';
+import { updateItemStatus, deleteItem } from '../db/database';
 import { ArrowRight, Inbox } from '../icons';
 
 function getGreeting() {
@@ -29,7 +31,7 @@ function getCompanionMessage(inboxCount: number, todayCount: number, hour: numbe
 
 export function HomeScreen({ onInboxPress }: { onInboxPress: () => void }) {
   const { isDark } = useThemeContext();
-  const { inboxCount, todayItems, anytime, morningItems, afternoonItems, eveningItems } = useHomeData();
+  const { inboxCount, todayItems, anytime, morningItems, afternoonItems, eveningItems, refresh } = useHomeData();
   const hour = new Date().getHours();
   const companionMsg = getCompanionMessage(inboxCount, todayItems.length, hour);
 
@@ -94,16 +96,23 @@ export function HomeScreen({ onInboxPress }: { onInboxPress: () => void }) {
             afternoon={afternoonItems}
             evening={eveningItems}
             onItemTap={(item) => {
+              // TODO: Navigate to item detail/edit screen
               console.log('Navigate to item:', item.id);
             }}
             onItemComplete={(id) => {
-              console.log('Complete item:', id);
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              updateItemStatus(id, 'active');
+              refresh();
             }}
             onItemArchive={(id) => {
-              console.log('Archive item:', id);
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              updateItemStatus(id, 'archived');
+              refresh();
             }}
             onItemDelete={(id) => {
-              console.log('Delete item:', id);
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+              deleteItem(id);
+              refresh();
             }}
             onTimeBlockAction={(block, action) => {
               console.log(`Time block ${block} action: ${action}`);
