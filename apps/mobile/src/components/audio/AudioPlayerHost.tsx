@@ -37,6 +37,7 @@ import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-au
 import { useThemeContext } from '../../hooks/useThemeContext';
 import { DragHandle } from '../ui/DragHandle';
 import { SyncEditor } from './SyncEditor';
+import { LyricActions } from './LyricActions';
 import { useLyrics } from '../../hooks/useLyrics';
 import { saveLyrics } from '../../services/lyricsSync';
 
@@ -323,6 +324,7 @@ export function AudioPlayerHost({
   const [lyricLines, setLyricLines] = useState<LyricLine[]>([]);
   const [progressWidth, setProgressWidth] = useState(0);
   const [editingOpen, setEditingOpen] = useState(false);
+  const [actionsFor, setActionsFor] = useState<string | null>(null);
   const dockAnim = useRef(new Animated.Value(0)).current;
 
   // Temporary userId placeholder (should come from auth context)
@@ -571,7 +573,15 @@ export function AudioPlayerHost({
               </View>
 
               <View style={styles.lyricsPanel}>
-                <View style={styles.lyricsHeader}>
+                <Pressable
+                  style={styles.lyricsHeader}
+                  onLongPress={() => {
+                    if (activeLyric) {
+                      setActionsFor(activeLyric.id);
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+                    }
+                  }}
+                >
                   <View style={{ flex: 1 }}>
                     <Text style={styles.lyricsKicker}>Lyrics</Text>
                     <Text style={styles.lyricsLead} numberOfLines={2}>
@@ -591,7 +601,7 @@ export function AudioPlayerHost({
                   <TouchableOpacity onPress={addLyricLine} activeOpacity={0.82} style={styles.lyricIconButton}>
                     <Plus size={18} color="#ffffff" strokeWidth={2.2} />
                   </TouchableOpacity>
-                </View>
+                </Pressable>
 
                 <View style={styles.pasteGrid}>
                   <TextInput
@@ -759,6 +769,48 @@ export function AudioPlayerHost({
           currentTime={currentTime}
           isPlaying={isPlaying}
           onPlayPause={togglePlay}
+        />
+
+        <LyricActions
+          open={!!actionsFor}
+          line={lyricLines.find((l) => l.id === actionsFor) ? {
+            id: actionsFor || '',
+            text: lyricLines.find((l) => l.id === actionsFor)?.original || '',
+            translation: lyricLines.find((l) => l.id === actionsFor)?.translation,
+            script: lyricLines.find((l) => l.id === actionsFor)?.romanization,
+            startTime: lyricLines.find((l) => l.id === actionsFor)?.time || 0,
+            endTime: 0,
+            note: lyricLines.find((l) => l.id === actionsFor)?.note,
+          } : null}
+          onClose={() => setActionsFor(null)}
+          onEdit={() => setEditingOpen(true)}
+          onAddNote={(note) => {
+            const updated = lyricLines.map((l) =>
+              l.id === actionsFor ? { ...l, note } : l
+            );
+            setLyricLines(updated);
+            saveLyrics(userId, track!.id, updated.map((l) => ({
+              id: l.id,
+              text: l.original,
+              translation: l.translation,
+              script: l.romanization,
+              startTime: l.time || 0,
+              endTime: 0,
+              note: l.note,
+            }))).catch(console.error);
+          }}
+          onDelete={() => {
+            const updated = lyricLines.filter((l) => l.id !== actionsFor);
+            setLyricLines(updated);
+            saveLyrics(userId, track!.id, updated.map((l) => ({
+              id: l.id,
+              text: l.original,
+              translation: l.translation,
+              script: l.romanization,
+              startTime: l.time || 0,
+              endTime: 0,
+            }))).catch(console.error);
+          }}
         />
       </Modal>
 
