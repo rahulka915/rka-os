@@ -15,6 +15,7 @@ import {
   getMedicationLogs,
   getItemsForDate,
   getInstancesForDate,
+  getDb,
 } from '../db/database';
 import type { Item, ItemInstance } from '../db/types';
 
@@ -117,4 +118,17 @@ export function useCalendar(date: string) {
   useEffect(() => { refresh(); }, [refresh]);
 
   return { items, instances, refresh };
+}
+
+export function completeAllInTimeBlock(timeOfDay: 'anytime' | 'morning' | 'afternoon' | 'evening'): void {
+  const todayItems = getTodayItems();
+
+  todayItems.forEach((item) => {
+    const meta = item.metadata ? JSON.parse(item.metadata) : {};
+    const itemTimeOfDay = meta.timeOfDay || 'anytime';
+
+    if (itemTimeOfDay === timeOfDay && item.status !== 'completed') {
+      updateItemStatus(item.id, 'completed');
+    }
+  });
 }
