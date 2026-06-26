@@ -91,7 +91,7 @@ export function PersistentTimerBanner() {
     refresh,
   } = usePersistentTimerState();
   const [layout, setLayout] = useState<WidgetSize>({ width: 0, height: 0 });
-  const [localPosition, setLocalPosition] = useState<Point>(() => position ?? { x: MARGIN, y: windowHeight - insets.bottom - DEFAULT_COMPACT_SIZE.height - 148 });
+  const [localPosition, setLocalPosition] = useState<Point>(() => position ?? { x: (windowWidth - DEFAULT_COMPACT_SIZE.width) / 2, y: insets.top + 12 });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -139,9 +139,10 @@ export function PersistentTimerBanner() {
     }
 
     const size = getWidgetSize(presentation, layout);
+    // Position at top-center (Dynamic Island area) by default
     const next = {
       x: (windowWidth - size.width) / 2,
-      y: Math.max(insets.top + MARGIN, windowHeight - insets.bottom - size.height - 148),
+      y: insets.top + 12,
     };
     const clamped = clampPosition(next, size, windowWidth, windowHeight, insets);
     setLocalPosition(clamped);
