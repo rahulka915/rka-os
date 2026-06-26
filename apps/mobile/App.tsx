@@ -126,8 +126,8 @@ export default function App() {
   return (
     <ThemeContext.Provider value={themeCtx}>
       <TamaguiProvider config={config as any} defaultTheme={isDark ? 'dark' : 'light'}>
-        <GestureHandlerRootView style={{ flex: 1 }}>
-          <SafeAreaProvider>
+        <SafeAreaProvider>
+          <GestureHandlerRootView style={{ flex: 1 }}>
             <StatusBar style={isDark ? 'light' : 'dark'} />
             <NavigationContainer>
               <Tab.Navigator
@@ -157,10 +157,12 @@ export default function App() {
               onOpen={() => setAudioPlayerOpen(true)}
               onClose={() => setAudioPlayerOpen(false)}
             />
-            <InboxScreen visible={inboxOpen} onClose={() => setInboxOpen(false)} />
-            <QuickAddScreen visible={quickAddOpen} onClose={() => setQuickAddOpen(false)} />
-          </SafeAreaProvider>
-        </GestureHandlerRootView>
+          </GestureHandlerRootView>
+
+          {/* Modals outside GestureHandlerRootView */}
+          <InboxScreen visible={inboxOpen} onClose={() => setInboxOpen(false)} />
+          <QuickAddScreen visible={quickAddOpen} onClose={() => setQuickAddOpen(false)} />
+        </SafeAreaProvider>
       </TamaguiProvider>
     </ThemeContext.Provider>
   );
