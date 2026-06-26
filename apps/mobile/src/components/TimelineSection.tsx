@@ -62,6 +62,65 @@ export function TimelineSection({
     }));
   };
 
+  function TimeBlockItems({
+    items,
+    onItemTap,
+  }: {
+    items: Item[];
+    onItemTap?: (item: Item) => void;
+  }) {
+    if (items.length === 0) {
+      return null;
+    }
+
+    return (
+      <View style={[styles.itemsContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.01)' : 'rgba(0,0,0,0.01)' }]}>
+        {items.map((item, index) => (
+          <TouchableOpacity
+            key={item.id}
+            onPress={() => onItemTap?.(item)}
+            activeOpacity={0.5}
+          >
+            <View>
+              <View style={[styles.itemRow, { paddingHorizontal: 16, paddingVertical: 12 }]}>
+                <View
+                  style={[
+                    styles.itemCircle,
+                    {
+                      borderColor: isDark ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.18)',
+                    },
+                  ]}
+                />
+                <View style={styles.itemContent}>
+                  <Text style={[styles.itemTitle, { color: palette.text }]} numberOfLines={2}>
+                    {item.title}
+                  </Text>
+                  {item.notes && (
+                    <Text style={[styles.itemNotes, { color: palette.textMuted }]} numberOfLines={1}>
+                      {item.notes}
+                    </Text>
+                  )}
+                </View>
+              </View>
+
+              {index < items.length - 1 && (
+                <View
+                  style={[
+                    styles.hairline,
+                    {
+                      backgroundColor: palette.separator,
+                      marginLeft: 56,
+                    },
+                  ]}
+                />
+              )}
+            </View>
+          </TouchableOpacity>
+        ))}
+      </View>
+    );
+  }
+
   function TimeBlockHeader({
     block,
     label,
@@ -117,6 +176,13 @@ export function TimelineSection({
             isExpanded={expandedSections[block.key]}
             onToggle={() => toggleSection(block.key)}
           />
+
+          {expandedSections[block.key] && (
+            <TimeBlockItems
+              items={block.items}
+              onItemTap={onItemTap}
+            />
+          )}
         </View>
       ))}
     </View>
@@ -168,5 +234,38 @@ const styles = StyleSheet.create({
   headerArrow: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  itemsContainer: {
+    paddingVertical: 8,
+  },
+  itemRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  itemCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    flexShrink: 0,
+    marginTop: 2,
+  },
+  itemContent: {
+    flex: 1,
+  },
+  itemTitle: {
+    fontSize: 16,
+    fontWeight: '400',
+    lineHeight: 22,
+  },
+  itemNotes: {
+    fontSize: 13,
+    fontWeight: '400',
+    lineHeight: 18,
+    marginTop: 2,
+  },
+  hairline: {
+    height: StyleSheet.hairlineWidth,
   },
 });
