@@ -460,6 +460,77 @@ export function deleteItem(id: string): void {
   );
 }
 
+export type GtdDestination =
+  | 'today' | 'morning' | 'evening'
+  | 'project' | 'habit' | 'medication'
+  | 'reference' | 'someday' | 'delete';
+
+export function processInboxItem(id: string, destination: GtdDestination): void {
+  const db = getDb();
+  const now = Date.now();
+  const today = formatDate(new Date());
+
+  if (destination === 'delete') {
+    db.runSync('UPDATE items SET deletedAt = ?, updatedAt = ? WHERE id = ?', [now, now, id]);
+    return;
+  }
+
+  const item = getItemWithMetadata(id);
+  const meta = item?.metadata ? JSON.parse(item.metadata) : {};
+
+  switch (destination) {
+    case 'today':
+      db.runSync(
+        'UPDATE items SET status = ?, scheduledDate = ?, metadata = ?, updatedAt = ? WHERE id = ?',
+        ['active', today, JSON.stringify({ ...meta, gtdContext: 'today' }), now, id]
+      );
+      break;
+    case 'morning':
+      db.runSync(
+        'UPDATE items SET status = ?, scheduledDate = ?, metadata = ?, updatedAt = ? WHERE id = ?',
+        ['active', today, JSON.stringify({ ...meta, timeOfDay: 'morning', gtdContext: 'scheduled' }), now, id]
+      );
+      break;
+    case 'evening':
+      db.runSync(
+        'UPDATE items SET status = ?, scheduledDate = ?, metadata = ?, updatedAt = ? WHERE id = ?',
+        ['active', today, JSON.stringify({ ...meta, timeOfDay: 'evening', gtdContext: 'scheduled' }), now, id]
+      );
+      break;
+    case 'project':
+      db.runSync(
+        'UPDATE items SET status = ?, metadata = ?, updatedAt = ? WHERE id = ?',
+        ['active', JSON.stringify({ ...meta, gtdContext: 'project' }), now, id]
+      );
+      break;
+    case 'habit':
+      db.runSync(
+        'UPDATE items SET type = ?, status = ?, metadata = ?, updatedAt = ? WHERE id = ?',
+        ['habit', 'active', JSON.stringify({ ...meta, gtdContext: 'habit' }), now, id]
+      );
+      break;
+    case 'medication':
+      db.runSync(
+        'UPDATE items SET type = ?, status = ?, metadata = ?, updatedAt = ? WHERE id = ?',
+        ['medication', 'active', JSON.stringify({ ...meta, gtdContext: 'medication' }), now, id]
+      );
+      break;
+    case 'reference':
+      db.runSync(
+        'UPDATE items SET status = ?, metadata = ?, updatedAt = ? WHERE id = ?',
+        ['archived', JSON.stringify({ ...meta, gtdContext: 'reference' }), now, id]
+      );
+      break;
+    case 'someday':
+      db.runSync(
+        'UPDATE items SET status = ?, metadata = ?, updatedAt = ? WHERE id = ?',
+        ['archived', JSON.stringify({ ...meta, gtdContext: 'someday' }), now, id]
+      );
+      break;
+  }
+  logActivity(id, 'status-changed', JSON.stringify({ destination }));
+}
+
 // ── Instances ──────────────────────────────────────────────────────────
 
 export function getTodayInstances(): ItemInstance[] {

@@ -151,7 +151,6 @@ export default function App() {
               </Tab.Navigator>
             </NavigationContainer>
 
-            <PersistentTimerBanner />
             <AudioPlayerHost
               open={audioPlayerOpen}
               onOpen={() => setAudioPlayerOpen(true)}
@@ -159,9 +158,12 @@ export default function App() {
             />
           </GestureHandlerRootView>
 
-          {/* Modals outside GestureHandlerRootView */}
+          {/* Sheets — rendered above navigation */}
           <InboxScreen visible={inboxOpen} onClose={() => setInboxOpen(false)} />
           <QuickAddScreen visible={quickAddOpen} onClose={() => setQuickAddOpen(false)} />
+
+          {/* Timer always on top of everything */}
+          <PersistentTimerBanner />
         </SafeAreaProvider>
       </TamaguiProvider>
     </ThemeContext.Provider>

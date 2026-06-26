@@ -36,3 +36,5 @@ export { default as Archive } from 'react-native-heroicons/outline/ArchiveBoxIco
 export { default as ArrowUpRight } from 'react-native-heroicons/outline/ArrowUpRightIcon';
 export { default as AlertTriangle } from 'react-native-heroicons/outline/ExclamationTriangleIcon';
 export { default as Sunset } from 'react-native-heroicons/outline/CloudIcon';
+export { default as Heart } from 'react-native-heroicons/outline/HeartIcon';
+export { default as Sparkles } from 'react-native-heroicons/outline/SparklesIcon';
