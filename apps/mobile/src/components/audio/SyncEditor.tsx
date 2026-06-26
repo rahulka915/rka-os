@@ -11,6 +11,7 @@ import {
   SafeAreaView,
   Platform,
   Pressable,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -141,111 +142,118 @@ export const SyncEditor = ({
             },
           ]}
         >
-          <View
-            style={[
-              styles.header,
-              {
-                borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
-              },
-            ]}
+          <KeyboardAvoidingView
+            style={styles.flex}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={0}
           >
-            <TouchableOpacity onPress={onClose} hitSlop={10}>
-              <ChevronLeft size={24} color={isDark ? '#f2f2f2' : '#000'} />
-            </TouchableOpacity>
-            <Text
+            <View
               style={[
-                styles.headerTitle,
-                { color: isDark ? '#f2f2f2' : '#000' },
-              ]}
-            >
-              Paste Lyrics
-            </Text>
-            <View style={{ width: 24 }} />
-          </View>
-
-          <ScrollView
-            contentContainerStyle={styles.content}
-            showsVerticalScrollIndicator={false}
-          >
-            <Text
-              style={[
-                styles.subtitle,
-                { color: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' },
-              ]}
-            >
-              Paste lyrics with optional timestamps:
-            </Text>
-            <Text
-              style={[
-                styles.example,
-                { color: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)' },
-              ]}
-            >
-              [0:15.50] Script | Text | Translation
-            </Text>
-
-            <TextInput
-              value={pasted}
-              onChangeText={setPasted}
-              placeholder="[00:15.00] Paste lyrics here..."
-              placeholderTextColor={
-                isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'
-              }
-              multiline
-              textAlignVertical="top"
-              style={[
-                styles.pasteInput,
+                styles.header,
                 {
-                  backgroundColor: isDark
-                    ? 'rgba(255,255,255,0.08)'
-                    : 'rgba(0,0,0,0.05)',
-                  borderColor: isDark
-                    ? 'rgba(255,255,255,0.12)'
-                    : 'rgba(0,0,0,0.1)',
-                  color: isDark ? '#f2f2f2' : '#000',
+                  borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
                 },
               ]}
-            />
-
-            {errors.length > 0 && (
-              <View
+            >
+              <TouchableOpacity onPress={onClose} hitSlop={10}>
+                <ChevronLeft size={24} color={isDark ? '#f2f2f2' : '#000'} />
+              </TouchableOpacity>
+              <Text
                 style={[
-                  styles.errorBox,
-                  { backgroundColor: isDark ? 'rgba(255,59,48,0.15)' : 'rgba(255,59,48,0.1)' },
+                  styles.headerTitle,
+                  { color: isDark ? '#f2f2f2' : '#000' },
                 ]}
               >
-                <Text style={styles.errorTitle}>Errors:</Text>
-                {errors.map((error, i) => (
-                  <Text
-                    key={i}
-                    style={[styles.errorText, { color: '#ff3b30' }]}
-                  >
-                    • {error}
-                  </Text>
-                ))}
-              </View>
-            )}
-          </ScrollView>
+                Paste Lyrics
+              </Text>
+              <View style={{ width: 24 }} />
+            </View>
 
-          <View
-            style={[
-              styles.footer,
-              { borderTopColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' },
-            ]}
-          >
-            <TouchableOpacity
-              onPress={handlePaste}
-              style={[
-                styles.nextButton,
-                { backgroundColor: isDark ? '#007aff' : '#007aff' },
-                pasted.trim().length === 0 && { opacity: 0.5 },
-              ]}
-              disabled={pasted.trim().length === 0}
+            <ScrollView
+              contentContainerStyle={styles.content}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
             >
-              <Text style={styles.nextButtonText}>Next</Text>
-              <ChevronRight size={18} color="#fff" />
-            </TouchableOpacity>
-          </View>
+              <Text
+                style={[
+                  styles.subtitle,
+                  { color: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' },
+                ]}
+              >
+                Paste lyrics with optional timestamps:
+              </Text>
+              <Text
+                style={[
+                  styles.example,
+                  { color: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)' },
+                ]}
+              >
+                [0:15.50] Script | Text | Translation
+              </Text>
+
+              <TextInput
+                value={pasted}
+                onChangeText={setPasted}
+                placeholder="[00:15.00] Paste lyrics here..."
+                placeholderTextColor={
+                  isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'
+                }
+                multiline
+                textAlignVertical="top"
+                style={[
+                  styles.pasteInput,
+                  {
+                    backgroundColor: isDark
+                      ? 'rgba(255,255,255,0.08)'
+                      : 'rgba(0,0,0,0.05)',
+                    borderColor: isDark
+                      ? 'rgba(255,255,255,0.12)'
+                      : 'rgba(0,0,0,0.1)',
+                    color: isDark ? '#f2f2f2' : '#000',
+                  },
+                ]}
+              />
+
+              {errors.length > 0 && (
+                <View
+                  style={[
+                    styles.errorBox,
+                    { backgroundColor: isDark ? 'rgba(255,59,48,0.15)' : 'rgba(255,59,48,0.1)' },
+                  ]}
+                >
+                  <Text style={styles.errorTitle}>Errors:</Text>
+                  {errors.map((error, i) => (
+                    <Text
+                      key={i}
+                      style={[styles.errorText, { color: '#ff3b30' }]}
+                    >
+                      • {error}
+                    </Text>
+                  ))}
+                </View>
+              )}
+            </ScrollView>
+
+            <View
+              style={[
+                styles.footer,
+                { borderTopColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' },
+              ]}
+            >
+              <TouchableOpacity
+                onPress={handlePaste}
+                style={[
+                  styles.nextButton,
+                  { backgroundColor: '#007aff' },
+                  pasted.trim().length === 0 && { opacity: 0.5 },
+                ]}
+                disabled={pasted.trim().length === 0}
+              >
+                <Text style={styles.nextButtonText}>Next</Text>
+                <ChevronRight size={18} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
         </SafeAreaView>
       </Modal>
     );
@@ -528,6 +536,9 @@ export const SyncEditor = ({
 
 const styles = StyleSheet.create({
   safeArea: {
+    flex: 1,
+  },
+  flex: {
     flex: 1,
   },
   header: {
