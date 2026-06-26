@@ -40,6 +40,7 @@ import { SyncEditor } from './SyncEditor';
 import { LyricActions } from './LyricActions';
 import { useLyrics } from '../../hooks/useLyrics';
 import { saveLyrics } from '../../services/lyricsSync';
+import { saveLastTrack, loadLastTrack, loadLyrics } from '../../lib/lyricsStorage';
 
 type AudioTrack = {
   id: string;
@@ -361,6 +362,35 @@ export function AudioPlayerHost({
       playsInSilentMode: true,
       interruptionMode: 'doNotMix',
     }).catch(() => {});
+
+    // Restore last track + lyrics on mount
+    loadLastTrack().then(async (saved) => {
+      if (!saved) return;
+      const restored: AudioTrack = {
+        id: saved.id,
+        title: saved.title,
+        artist: saved.artist,
+        subtitle: 'Local MP3',
+        source: saved.source,
+        coverArtUri: saved.coverArtUri,
+        palette: saved.palette,
+      };
+      setTrack(restored);
+
+      const savedLyrics = await loadLyrics(saved.id);
+      if (savedLyrics.length > 0) {
+        setLyricLines(
+          savedLyrics.map((l) => ({
+            id: l.id || '',
+            original: l.text,
+            romanization: l.script || '',
+            translation: l.translation || '',
+            time: l.startTime ?? null,
+            note: l.note,
+          }))
+        );
+      }
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -424,6 +454,33 @@ export function AudioPlayerHost({
     setLyricLines([]);
     setOriginalDraft('');
     setTranslationDraft('');
+
+    // Persist track + any existing lyrics for this track
+    saveLastTrack({
+      id: nextTrack.id,
+      title: nextTrack.title,
+      artist: nextTrack.artist,
+      source: nextTrack.source,
+      coverArtUri: nextTrack.coverArtUri,
+      palette: nextTrack.palette,
+    }).catch(() => {});
+
+    // Load any previously saved lyrics for this file
+    loadLyrics(nextTrack.id).then((saved) => {
+      if (saved.length > 0) {
+        setLyricLines(
+          saved.map((l) => ({
+            id: l.id || '',
+            original: l.text,
+            romanization: l.script || '',
+            translation: l.translation || '',
+            time: l.startTime ?? null,
+            note: l.note,
+          }))
+        );
+      }
+    }).catch(() => {});
+
     onOpen();
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
   };

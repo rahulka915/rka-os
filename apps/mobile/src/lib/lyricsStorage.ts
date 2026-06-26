@@ -3,6 +3,7 @@ import { LyricLine } from './lyricTypes';
 import { normalizeLyricLines } from './lyricsUtils';
 
 const LYRICS_DIR = `${FileSystem.documentDirectory}lyrics/`;
+const LAST_TRACK_PATH = `${FileSystem.documentDirectory}last_track.json`;
 
 async function ensureDir(): Promise<void> {
   const info = await FileSystem.getInfoAsync(LYRICS_DIR);
@@ -66,5 +67,34 @@ export async function hasCustomLyrics(trackId: string): Promise<boolean> {
     return info.exists;
   } catch {
     return false;
+  }
+}
+
+// Track metadata persistence — saves the last loaded track so it survives restarts
+export interface PersistedTrack {
+  id: string;
+  title: string;
+  artist: string;
+  source: string;
+  coverArtUri?: string;
+  palette: [string, string, string];
+}
+
+export async function saveLastTrack(track: PersistedTrack): Promise<void> {
+  try {
+    await FileSystem.writeAsStringAsync(LAST_TRACK_PATH, JSON.stringify(track));
+  } catch (error) {
+    console.error('Failed to save last track:', error);
+  }
+}
+
+export async function loadLastTrack(): Promise<PersistedTrack | null> {
+  try {
+    const info = await FileSystem.getInfoAsync(LAST_TRACK_PATH);
+    if (!info.exists) return null;
+    const content = await FileSystem.readAsStringAsync(LAST_TRACK_PATH);
+    return JSON.parse(content);
+  } catch {
+    return null;
   }
 }
