@@ -4,23 +4,21 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  Platform,
 } from 'react-native';
 import { LyricLine as LyricLineType } from '../../lib/lyricTypes';
-import { useThemeContext } from '../../hooks/useThemeContext';
 
 interface LyricLineProps {
   line: LyricLineType;
   active: boolean;
   progress: number; // 0-1
+  focusDistance?: number;
+  focusOffset?: number;
   onTap?: () => void;
   onLongPress?: () => void;
 }
 
 export const LyricLine = React.forwardRef<View, LyricLineProps>(
-  ({ line, active, progress, onTap, onLongPress }, ref) => {
-    const { isDark } = useThemeContext();
-
+  ({ line, active, progress, focusDistance = active ? 0 : 3, focusOffset = 0, onTap, onLongPress }, ref) => {
     // Instrumental rendering
     if (line.kind === 'instrumental') {
       return (
@@ -31,20 +29,66 @@ export const LyricLine = React.forwardRef<View, LyricLineProps>(
             active && styles.instrumentalActive,
           ]}
         >
-          <Text style={[styles.instrumentalText, { color: isDark ? '#999' : '#ccc' }]}>
+          <Text style={[styles.instrumentalText, { color: 'rgba(255,255,255,0.62)' }]}>
             ♪ {line.label || 'Instrumental'}
           </Text>
         </View>
       );
     }
 
-    // Lyric rendering
-    const textColor = isDark ? '#f2f2f2' : '#000000';
-    const secondaryColor = isDark ? 'rgba(255,255,255,0.56)' : 'rgba(0,0,0,0.56)';
-    const fillColor = isDark ? '#7c5cff' : '#007aff';
-    const activeBackgroundColor = isDark
-      ? 'rgba(124, 92, 255, 0.15)'
-      : 'rgba(0, 122, 255, 0.1)';
+    const textColor = '#f8fafc';
+    const secondaryColor = 'rgba(255,255,255,0.76)';
+    const tertiaryColor = 'rgba(255,255,255,0.56)';
+    const fillColor = '#ffffff';
+    const clampedDistance = Math.max(0, Math.min(focusDistance, 4));
+    const isFuture = focusOffset > 0;
+    const distanceScale = active
+      ? 1
+      : clampedDistance === 1
+        ? 0.992
+        : clampedDistance === 2
+          ? 0.974
+          : 0.95;
+    const mainOpacity = active
+      ? 1
+      : isFuture
+        ? clampedDistance === 1
+          ? 0.84
+          : clampedDistance === 2
+            ? 0.56
+            : 0.3
+        : clampedDistance === 1
+          ? 0.58
+          : clampedDistance === 2
+            ? 0.3
+            : 0.14;
+    const scriptOpacity = active
+      ? 0.92
+      : isFuture
+        ? clampedDistance === 1
+          ? 0.64
+          : clampedDistance === 2
+            ? 0.4
+            : 0.2
+        : clampedDistance === 1
+          ? 0.4
+          : clampedDistance === 2
+            ? 0.22
+            : 0.1;
+    const translationOpacity = active
+      ? 0.96
+      : isFuture
+        ? clampedDistance === 1
+          ? 0.74
+          : clampedDistance === 2
+            ? 0.46
+            : 0.22
+        : clampedDistance === 1
+          ? 0.5
+          : clampedDistance === 2
+            ? 0.26
+            : 0.12;
+    const verticalPadding = active ? 20 : clampedDistance === 1 ? 15 : 12;
 
     return (
       <Pressable
@@ -53,8 +97,9 @@ export const LyricLine = React.forwardRef<View, LyricLineProps>(
         onLongPress={onLongPress}
         style={[
           styles.container,
-          active && {
-            backgroundColor: activeBackgroundColor,
+          {
+            paddingVertical: verticalPadding,
+            transform: [{ scale: distanceScale }],
           },
         ]}
       >
@@ -79,7 +124,7 @@ export const LyricLine = React.forwardRef<View, LyricLineProps>(
                 styles.scriptText,
                 {
                   color: textColor,
-                  opacity: active ? 1 : 0.7,
+                  opacity: scriptOpacity,
                 },
               ]}
             >
@@ -92,7 +137,7 @@ export const LyricLine = React.forwardRef<View, LyricLineProps>(
               styles.mainText,
               {
                 color: textColor,
-                opacity: active ? 1 : 0.7,
+                opacity: mainOpacity,
               },
             ]}
           >
@@ -111,8 +156,8 @@ export const LyricLine = React.forwardRef<View, LyricLineProps>(
               style={[
                 styles.translationText,
                 {
-                  color: secondaryColor,
-                  opacity: active ? 0.8 : 0.56,
+                  color: active ? secondaryColor : tertiaryColor,
+                  opacity: translationOpacity,
                 },
               ]}
             >
@@ -143,38 +188,42 @@ LyricLine.displayName = 'LyricLine';
 const styles = StyleSheet.create({
   container: {
     paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    marginVertical: 4,
+    paddingHorizontal: 4,
+    borderRadius: 0,
+    marginVertical: 0,
     position: 'relative',
     overflow: 'hidden',
   },
   fillBar: {
     position: 'absolute',
     left: 0,
-    top: 0,
-    height: '100%',
-    opacity: 0.2,
+    right: 0,
+    bottom: 0,
+    height: 3,
+    opacity: 0.65,
   },
   content: {
     zIndex: 1,
   },
   scriptText: {
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '600',
-    marginBottom: 4,
+    fontSize: 16,
+    lineHeight: 21,
+    fontWeight: '700',
+    marginBottom: 8,
   },
   mainText: {
-    fontSize: 16,
-    lineHeight: 22,
-    fontWeight: '700',
+    fontSize: 32,
+    lineHeight: 38,
+    fontWeight: '800',
+    letterSpacing: -0.9,
+    maxWidth: '96%',
   },
   translationText: {
-    fontSize: 14,
-    lineHeight: 18,
-    fontWeight: '600',
-    marginTop: 4,
+    fontSize: 19,
+    lineHeight: 25,
+    fontWeight: '700',
+    marginTop: 10,
+    maxWidth: '94%',
   },
   noteText: {
     fontSize: 12,

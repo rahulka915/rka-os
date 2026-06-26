@@ -3,7 +3,7 @@ import { LyricLine } from '../lib/lyricTypes';
 import { loadLyrics } from '../lib/lyricsStorage';
 import { subscribeLyrics } from '../services/lyricsSync';
 
-export function useLyrics(trackId: string, userId: string) {
+export function useLyrics(trackId: string, userId: string | null | undefined) {
   const [lyrics, setLyrics] = useState<LyricLine[]>([]);
   const [loading, setLoading] = useState(true);
 

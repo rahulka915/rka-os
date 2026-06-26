@@ -16,7 +16,7 @@ export function useLongPress(options: UseLongPressOptions = {}) {
     tolerance = 12,
   } = options;
 
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startPosRef = useRef<{ x: number; y: number } | null>(null);
   const [isPressed, setIsPressed] = useState(false);
 

@@ -9,8 +9,8 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -25,10 +25,8 @@ import {
   Disc3,
   Pause,
   Play,
-  Plus,
   SkipBack,
   SkipForward,
-  TimerReset,
   Upload,
   X,
 } from '../../icons';
@@ -38,17 +36,20 @@ import { useThemeContext } from '../../hooks/useThemeContext';
 import { DragHandle } from '../ui/DragHandle';
 import { SyncEditor } from './SyncEditor';
 import { LyricActions } from './LyricActions';
-import { useLyrics } from '../../hooks/useLyrics';
+import { LyricLine as PlaybackLyricRow } from './LyricLine';
+import { BY_MY_SIDE_DEMO_LYRICS } from './demoByMySide';
 import { saveLyrics } from '../../services/lyricsSync';
-import { saveLastTrack, loadLastTrack, loadLyrics } from '../../lib/lyricsStorage';
+import { saveLastTrack, loadLastTrack, loadLyrics, loadTrackVisual, saveTrackVisual } from '../../lib/lyricsStorage';
+import { getLyricScrollTarget, useLyricSync } from '../../hooks/useLyricSync';
 
 type AudioTrack = {
   id: string;
   title: string;
   artist: string;
   subtitle: string;
-  source: string;
+  source: string | number;
   coverArtUri?: string;
+  visualArtUri?: string;
   palette: [string, string, string];
 };
 
@@ -58,15 +59,26 @@ type LyricLine = {
   romanization: string;
   translation: string;
   time: number | null;
+  note?: string;
+};
+
+type PersistedLyricLine = {
+  id: string;
+  text: string;
+  translation: string;
+  script: string;
+  startTime: number;
+  endTime: number;
+  note?: string;
 };
 
 const SAMPLE_TRACK: AudioTrack = {
-  id: 'sample-track',
-  title: 'Where Is My Husband!',
-  artist: 'Demo track',
-  subtitle: 'Synced lyrics will land here later',
-  source: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
-  palette: ['#0c1220', '#2a2740', '#a56b57'],
+  id: 'demo-by-my-side',
+  title: 'By My Side',
+  artist: 'AP Dhillon',
+  subtitle: 'Bundled demo with synced lyrics',
+  source: require('../../../assets/audio/ap-dhillon-by-my-side.mp3'),
+  palette: ['#08141c', '#12343a', '#d59e5f'],
 };
 
 const PALLETTES: Array<[string, string, string]> = [
@@ -288,10 +300,12 @@ function ControlButton({
 }
 
 function TrackArt({ track }: { track: AudioTrack }) {
-  if (track.coverArtUri) {
+  const artUri = track.visualArtUri ?? track.coverArtUri;
+
+  if (artUri) {
     return (
       <View style={styles.artShell}>
-        <Image source={{ uri: track.coverArtUri }} style={styles.coverArt} resizeMode="cover" />
+        <Image source={{ uri: artUri }} style={styles.coverArt} resizeMode="cover" />
       </View>
     );
   }
@@ -308,6 +322,89 @@ function TrackArt({ track }: { track: AudioTrack }) {
   );
 }
 
+function WaveformBackdrop() {
+  const bars = useRef(Array.from({ length: 14 }, () => new Animated.Value(0.35))).current;
+
+  useEffect(() => {
+    const loops = bars.map((bar, index) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(index * 70),
+          Animated.timing(bar, {
+            toValue: 1,
+            duration: 620 + (index % 4) * 110,
+            useNativeDriver: true,
+          }),
+          Animated.timing(bar, {
+            toValue: 0.3,
+            duration: 620 + ((index + 2) % 4) * 120,
+            useNativeDriver: true,
+          }),
+        ])
+      )
+    );
+
+    loops.forEach((loop) => loop.start());
+    return () => {
+      loops.forEach((loop) => loop.stop());
+      bars.forEach((bar) => bar.stopAnimation());
+    };
+  }, [bars]);
+
+  return (
+    <View style={styles.waveformWrap} pointerEvents="none">
+      {bars.map((bar, index) => (
+        <Animated.View
+          key={index}
+          style={[
+            styles.waveformBar,
+            {
+              transform: [{ scaleY: bar }],
+              opacity: bar.interpolate({
+                inputRange: [0.3, 1],
+                outputRange: [0.28, 0.82],
+              }),
+            },
+          ]}
+        />
+      ))}
+    </View>
+  );
+}
+
+function LyricsBackdrop({
+  uri,
+  palette,
+}: {
+  uri?: string | null;
+  palette: [string, string, string];
+}) {
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      {uri ? (
+        <Image source={{ uri }} style={styles.backdropImage} resizeMode="cover" />
+      ) : (
+        <LinearGradient
+          colors={[palette[0], palette[1], '#05070b']}
+          locations={[0, 0.48, 1]}
+          style={StyleSheet.absoluteFillObject}
+        />
+      )}
+      <LinearGradient
+        colors={[
+          'rgba(5,7,11,0.22)',
+          'rgba(5,7,11,0.56)',
+          'rgba(5,7,11,0.86)',
+          'rgba(5,7,11,0.98)',
+        ]}
+        locations={[0, 0.28, 0.68, 1]}
+        style={StyleSheet.absoluteFillObject}
+      />
+      <View style={styles.backdropNoise} />
+    </View>
+  );
+}
+
 export function AudioPlayerHost({
   open,
   onOpen,
@@ -319,44 +416,75 @@ export function AudioPlayerHost({
 }) {
   const { isDark } = useThemeContext();
   const insets = useSafeAreaInsets();
+  const { height: screenHeight } = useWindowDimensions();
   const [track, setTrack] = useState<AudioTrack | null>(null);
-  const [originalDraft, setOriginalDraft] = useState('');
-  const [translationDraft, setTranslationDraft] = useState('');
   const [lyricLines, setLyricLines] = useState<LyricLine[]>([]);
   const [progressWidth, setProgressWidth] = useState(0);
   const [editingOpen, setEditingOpen] = useState(false);
   const [actionsFor, setActionsFor] = useState<string | null>(null);
+  const [trackCopyHeight, setTrackCopyHeight] = useState(0);
+  const [footerHeight, setFooterHeight] = useState(0);
+  const [lyricsViewportHeight, setLyricsViewportHeight] = useState(0);
   const dockAnim = useRef(new Animated.Value(0)).current;
+  const lyricsScrollRef = useRef<ScrollView | null>(null);
+  const lyricRowOffsetsRef = useRef<Record<string, number>>({});
+  const autoScrollResumeRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scrollYRef = useRef(0);
+  const [autoScrollPaused, setAutoScrollPaused] = useState(false);
 
-  // Temporary userId placeholder (should come from auth context)
-  const userId = 'anonymous';
+  // Mobile auth is not wired here yet, so remote lyric sync is disabled until a real user id is available.
+  const userId: string | null = null;
 
   const activeTrack = track ?? (open ? SAMPLE_TRACK : null);
-  const player = useAudioPlayer(activeTrack?.source ?? null, { updateInterval: 250 });
+  const player = useAudioPlayer(activeTrack?.source ?? null, { updateInterval: 90 });
   const status = useAudioPlayerStatus(player);
 
   const isPlaying = Boolean(status.playing);
   const currentTime = status.currentTime ?? 0;
   const duration = status.duration ?? 0;
   const progress = duration > 0 ? Math.min(1, currentTime / duration) : 0;
+  const emptyLyrics = lyricLines.length === 0;
+  const lyricsBackdropUri = activeTrack?.visualArtUri ?? activeTrack?.coverArtUri ?? null;
 
   const sourceLabel = useMemo(() => {
     if (!activeTrack) return '';
     return activeTrack.id === SAMPLE_TRACK.id ? 'Demo sample' : 'Local MP3';
   }, [activeTrack]);
+  const availableLyricsHeight = lyricsViewportHeight > 0
+    ? lyricsViewportHeight
+    : Math.max(
+        260,
+        screenHeight -
+          insets.top -
+          insets.bottom -
+          trackCopyHeight -
+          footerHeight -
+          150
+      );
+  const lyricAnchorY = Math.round(availableLyricsHeight * 0.48);
+  const lyricTopPadding = Math.max(120, lyricAnchorY - 90);
+  const lyricBottomPadding = Math.max(
+    footerHeight + insets.bottom + 120,
+    Math.round(availableLyricsHeight * 0.65)
+  );
 
-  const activeLyric = useMemo(() => {
+  const playbackLyrics = useMemo(() => {
     const stamped = lyricLines
-      .filter(line => line.time !== null)
-      .sort((a, b) => (a.time ?? 0) - (b.time ?? 0));
+      .filter((line): line is LyricLine & { time: number } => line.time !== null)
+      .sort((a, b) => a.time - b.time);
 
-    let current: LyricLine | null = null;
-    for (const line of stamped) {
-      if ((line.time ?? 0) <= currentTime + 0.15) current = line;
-    }
-    return current;
-  }, [currentTime, lyricLines]);
+    return stamped.map((line, index, arr) => ({
+      id: line.id,
+      text: line.original,
+      script: line.romanization || undefined,
+      translation: line.translation || undefined,
+      startTime: line.time,
+      endTime: arr[index + 1]?.time ?? line.time + 4,
+      note: line.note,
+    }));
+  }, [lyricLines]);
 
+  const { activeIndex, progress: lyricProgress } = useLyricSync(currentTime, playbackLyrics);
   useEffect(() => {
     setAudioModeAsync({
       playsInSilentMode: true,
@@ -373,8 +501,13 @@ export function AudioPlayerHost({
         subtitle: 'Local MP3',
         source: saved.source,
         coverArtUri: saved.coverArtUri,
+        visualArtUri: saved.visualArtUri,
         palette: saved.palette,
       };
+      const savedVisual = await loadTrackVisual(saved.id);
+      if (savedVisual) {
+        restored.visualArtUri = savedVisual;
+      }
       setTrack(restored);
 
       const savedLyrics = await loadLyrics(saved.id);
@@ -389,6 +522,8 @@ export function AudioPlayerHost({
             note: l.note,
           }))
         );
+      } else if (saved.id === SAMPLE_TRACK.id) {
+        setLyricLines(BY_MY_SIDE_DEMO_LYRICS);
       }
     }).catch(() => {});
   }, []);
@@ -400,12 +535,53 @@ export function AudioPlayerHost({
   }, [open, track]);
 
   useEffect(() => {
+    if (activeTrack?.id === SAMPLE_TRACK.id && lyricLines.length === 0) {
+      setLyricLines(BY_MY_SIDE_DEMO_LYRICS);
+    }
+  }, [activeTrack?.id, lyricLines.length]);
+
+  useEffect(() => {
     Animated.timing(dockAnim, {
       toValue: track && !open ? 1 : 0,
       duration: 220,
       useNativeDriver: true,
     }).start();
   }, [dockAnim, open, track]);
+
+  useEffect(() => {
+    return () => {
+      if (autoScrollResumeRef.current) {
+        clearTimeout(autoScrollResumeRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (autoScrollPaused || playbackLyrics.length === 0) return;
+    const targetY = getLyricScrollTarget({
+      lyrics: playbackLyrics,
+      activeIndex,
+      progress: lyricProgress,
+      currentTime,
+      rowOffsets: lyricRowOffsetsRef.current,
+      anchorY: lyricAnchorY,
+      preRollSeconds: 6.5,
+      preRollTravel: 64,
+    });
+    if (targetY === null) return;
+
+    const currentScrollY = scrollYRef.current;
+    const smoothing = activeIndex < 0 ? 0.16 : 0.22;
+    const nextScrollY = currentScrollY + (targetY - currentScrollY) * smoothing;
+
+    if (Math.abs(nextScrollY - currentScrollY) < 0.5) return;
+
+    scrollYRef.current = nextScrollY;
+    lyricsScrollRef.current?.scrollTo({
+      y: nextScrollY,
+      animated: false,
+    });
+  }, [activeIndex, autoScrollPaused, currentTime, lyricAnchorY, lyricProgress, playbackLyrics]);
 
   const seekBy = (deltaSeconds: number) => {
     if (!activeTrack) return;
@@ -423,6 +599,16 @@ export function AudioPlayerHost({
       void player.seekTo(0).catch(() => {});
     }
     player.play();
+  };
+
+  const pauseAutoScrollTemporarily = () => {
+    setAutoScrollPaused(true);
+    if (autoScrollResumeRef.current) {
+      clearTimeout(autoScrollResumeRef.current);
+    }
+    autoScrollResumeRef.current = setTimeout(() => {
+      setAutoScrollPaused(false);
+    }, 1600);
   };
 
   const loadFromDevice = async () => {
@@ -447,13 +633,15 @@ export function AudioPlayerHost({
       coverArtUri: metadata.coverArtUri,
       palette: hashPalette(title || asset.uri),
     };
+    const savedVisual = await loadTrackVisual(asset.uri);
+    if (savedVisual) {
+      nextTrack.visualArtUri = savedVisual;
+    }
 
     player.pause();
     void player.seekTo(0).catch(() => {});
     setTrack(nextTrack);
     setLyricLines([]);
-    setOriginalDraft('');
-    setTranslationDraft('');
 
     // Persist track + any existing lyrics for this track
     saveLastTrack({
@@ -462,6 +650,7 @@ export function AudioPlayerHost({
       artist: nextTrack.artist,
       source: nextTrack.source,
       coverArtUri: nextTrack.coverArtUri,
+      visualArtUri: nextTrack.visualArtUri,
       palette: nextTrack.palette,
     }).catch(() => {});
 
@@ -490,56 +679,55 @@ export function AudioPlayerHost({
     void player.seekTo(0).catch(() => {});
     setTrack(null);
     setLyricLines([]);
-    setOriginalDraft('');
-    setTranslationDraft('');
     onClose();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
   };
 
+  const uploadVisual = async () => {
+    if (!track) return;
 
-  const buildLyricLines = () => {
-    const timedLines = parsePastedTimedLyrics(originalDraft);
-    if (timedLines.some(line => line.time !== null || line.romanization || line.translation)) {
-      setLyricLines(timedLines);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-      return;
-    }
+    const result = await DocumentPicker.getDocumentAsync({
+      type: 'image/*',
+      copyToCacheDirectory: true,
+      multiple: false,
+    });
 
-    const originals = splitLyricText(originalDraft);
-    const translations = splitLyricText(translationDraft);
-    const count = Math.max(originals.length, translations.length);
-    if (count === 0) return;
+    if (result.canceled || !result.assets?.length) return;
 
-    setLyricLines(Array.from({ length: count }, (_, index) => ({
-      id: `${Date.now()}-${index}`,
-      original: originals[index] ?? '',
-      romanization: '',
-      translation: translations[index] ?? '',
-      time: null,
-    })));
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    const visualArtUri = result.assets[0].uri;
+    const updatedTrack: AudioTrack = {
+      ...track,
+      visualArtUri,
+    };
+
+    setTrack(updatedTrack);
+    await saveTrackVisual(track.id, visualArtUri);
+    await saveLastTrack({
+      id: updatedTrack.id,
+      title: updatedTrack.title,
+      artist: updatedTrack.artist,
+      source: updatedTrack.source,
+      coverArtUri: updatedTrack.coverArtUri,
+      visualArtUri: updatedTrack.visualArtUri,
+      palette: updatedTrack.palette,
+    });
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
   };
 
-  const addLyricLine = () => {
-    setLyricLines(lines => [
-      ...lines,
-      {
-        id: `${Date.now()}-${lines.length}`,
-        original: '',
-        romanization: '',
-        translation: '',
-        time: null,
-      },
-    ]);
-  };
+  const buildPersistedLyrics = (lines: LyricLine[]): PersistedLyricLine[] => {
+    const stamped = lines
+      .filter((line): line is LyricLine & { time: number } => line.time !== null)
+      .sort((a, b) => a.time - b.time);
 
-  const updateLyricLine = (id: string, patch: Partial<LyricLine>) => {
-    setLyricLines(lines => lines.map(line => line.id === id ? { ...line, ...patch } : line));
-  };
-
-  const stampLyricLine = (id: string) => {
-    updateLyricLine(id, { time: currentTime });
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    return stamped.map((line, index, arr) => ({
+      id: line.id,
+      text: line.original,
+      translation: line.translation,
+      script: line.romanization,
+      startTime: line.time,
+      endTime: arr[index + 1]?.time ?? line.time + 4,
+      note: line.note,
+    }));
   };
 
   const dockTranslate = dockAnim.interpolate({
@@ -608,204 +796,224 @@ export function AudioPlayerHost({
               </View>
             </View>
 
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              contentContainerStyle={styles.content}
-            >
-              <TrackArt track={activeTrack ?? SAMPLE_TRACK} />
+            <View style={styles.content}>
+              <LyricsBackdrop
+                uri={lyricsBackdropUri}
+                palette={(activeTrack ?? SAMPLE_TRACK).palette}
+              />
 
-              <View style={styles.trackCopy}>
+              <View
+                onLayout={(event) => {
+                  setTrackCopyHeight(event.nativeEvent.layout.height);
+                }}
+                style={styles.trackCopy}
+              >
                 <Text style={styles.trackTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.72}>
                   {activeTrack?.title ?? SAMPLE_TRACK.title}
                 </Text>
                 <Text style={styles.trackArtist} numberOfLines={1}>
                   {activeTrack?.artist ?? SAMPLE_TRACK.artist}
                 </Text>
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>
-                    {activeTrack?.subtitle ?? SAMPLE_TRACK.subtitle}
-                  </Text>
-                </View>
+                <Text style={styles.badgeText} numberOfLines={1}>
+                  {activeTrack?.subtitle ?? SAMPLE_TRACK.subtitle}
+                </Text>
               </View>
 
-              <View style={styles.lyricsPanel}>
-                <Pressable
-                  style={styles.lyricsHeader}
-                  onLongPress={() => {
-                    if (activeLyric) {
-                      setActionsFor(activeLyric.id);
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-                    }
-                  }}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.lyricsKicker}>Lyrics</Text>
-                    <Text style={styles.lyricsLead} numberOfLines={2}>
-                      {activeLyric?.original || 'Paste script and translation'}
-                    </Text>
-                    {activeLyric?.romanization ? (
-                      <Text style={styles.lyricsRomanization} numberOfLines={2}>
-                        {activeLyric.romanization}
+              {emptyLyrics ? (
+                <View style={styles.emptyLyricsFullscreen}>
+                  <View style={styles.emptyArtworkShell}>
+                    {!lyricsBackdropUri ? <WaveformBackdrop /> : null}
+                    <View style={styles.emptyArtworkGlow} />
+                    <View style={styles.emptyLyricsCopy}>
+                      <Text style={styles.lyricsKicker}>Lyrics</Text>
+                      <Text style={styles.emptyLyricsTitle}>
+                        {lyricsBackdropUri ? 'No synced lyrics yet' : 'Add lyrics for full-screen playback'}
                       </Text>
-                    ) : null}
-                    {activeLyric?.translation ? (
-                      <Text style={styles.lyricsTranslation} numberOfLines={2}>
-                        {activeLyric.translation}
+                      <Text style={styles.emptyLyricsBody}>
+                        {lyricsBackdropUri
+                          ? 'Artwork is ready. Add synced lyrics to switch into the immersive player.'
+                          : 'Upload artwork or keep the animated backdrop, then add synced lyrics.'}
                       </Text>
-                    ) : null}
+                    </View>
                   </View>
-                  <TouchableOpacity onPress={addLyricLine} activeOpacity={0.82} style={styles.lyricIconButton}>
-                    <Plus size={18} color="#ffffff" strokeWidth={2.2} />
-                  </TouchableOpacity>
-                </Pressable>
 
-                <View style={styles.pasteGrid}>
-                  <TextInput
-                    value={originalDraft}
-                    onChangeText={setOriginalDraft}
-                    placeholder="[00:15.00] ਪੰਜਾਬੀ | Romanization | Translation"
-                    placeholderTextColor="rgba(255,255,255,0.36)"
-                    multiline
-                    textAlignVertical="top"
-                    style={styles.pasteInput}
-                  />
-                  <TextInput
-                    value={translationDraft}
-                    onChangeText={setTranslationDraft}
-                    placeholder="Translation"
-                    placeholderTextColor="rgba(255,255,255,0.36)"
-                    multiline
-                    textAlignVertical="top"
-                    style={styles.pasteInput}
-                  />
+                  <View style={styles.emptyLyricsActions}>
+                    <TouchableOpacity onPress={() => setEditingOpen(true)} activeOpacity={0.82} style={styles.emptyPrimaryButton}>
+                      <Text style={styles.emptyPrimaryButtonText}>Add lyrics</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={uploadVisual} activeOpacity={0.82} style={styles.emptySecondaryButton}>
+                      <Upload size={14} color="#ffffff" strokeWidth={2} />
+                      <Text style={styles.emptySecondaryButtonText}>
+                        {lyricsBackdropUri ? 'Change image' : 'Upload image'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
+              ) : (
+                <View
+                  onLayout={(event) => {
+                    setLyricsViewportHeight(event.nativeEvent.layout.height);
+                  }}
+                  style={styles.lyricsViewport}
+                >
+                  <LinearGradient
+                    colors={['rgba(5,7,11,0.82)', 'rgba(5,7,11,0.08)', 'rgba(5,7,11,0)']}
+                    locations={[0, 0.52, 1]}
+                    pointerEvents="none"
+                    style={styles.lyricsTopScrim}
+                  />
+                  <LinearGradient
+                    colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.055)', 'rgba(255,255,255,0)']}
+                    locations={[0, 0.5, 1]}
+                    pointerEvents="none"
+                    style={[styles.lyricsFocusGlow, { top: lyricAnchorY - 86 }]}
+                  />
+                  <LinearGradient
+                    colors={['rgba(5,7,11,0)', 'rgba(5,7,11,0.14)', 'rgba(5,7,11,0.88)']}
+                    locations={[0, 0.36, 1]}
+                    pointerEvents="none"
+                    style={styles.lyricsBottomScrim}
+                  />
+                  <LinearGradient
+                    pointerEvents="none"
+                    colors={[
+                      'rgba(5,7,11,0)',
+                      'rgba(5,7,11,0)',
+                      'rgba(5,7,11,0.92)',
+                    ]}
+                    locations={[0, 0.72, 1]}
+                    style={styles.lyricsBottomFade}
+                  />
+                  <ScrollView
+                    ref={lyricsScrollRef}
+                    style={styles.lyricsScroll}
+                    contentContainerStyle={[
+                      styles.lyricsFullscreenContent,
+                      { paddingTop: lyricTopPadding, paddingBottom: lyricBottomPadding },
+                    ]}
+                    showsVerticalScrollIndicator={false}
+                    onScrollBeginDrag={pauseAutoScrollTemporarily}
+                    onMomentumScrollBegin={pauseAutoScrollTemporarily}
+                    onScrollEndDrag={pauseAutoScrollTemporarily}
+                    onMomentumScrollEnd={pauseAutoScrollTemporarily}
+                    onScroll={(event) => {
+                      scrollYRef.current = event.nativeEvent.contentOffset.y;
+                    }}
+                    scrollEventThrottle={16}
+                  >
+                    {playbackLyrics.map((line, index) => {
+                      const isCurrent = index === activeIndex;
+                      const focusDistance = activeIndex >= 0 ? Math.abs(index - activeIndex) : 3;
+                      const focusOffset = activeIndex >= 0 ? index - activeIndex : index;
+                      return (
+                        <Pressable
+                          key={line.id}
+                          onPress={() => {
+                            void player.seekTo(line.startTime).catch(() => {});
+                          }}
+                          onLongPress={() => {
+                            setActionsFor(line.id);
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+                          }}
+                          onLayout={(event) => {
+                            lyricRowOffsetsRef.current[line.id] = event.nativeEvent.layout.y;
+                          }}
+                          style={styles.fullscreenLyricPressable}
+                        >
+                          <PlaybackLyricRow
+                            line={line}
+                            active={isCurrent}
+                            progress={isCurrent ? lyricProgress : 0}
+                            focusDistance={focusDistance}
+                            focusOffset={focusOffset}
+                          />
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              )}
 
+              <View
+                onLayout={(event) => {
+                  setFooterHeight(event.nativeEvent.layout.height);
+                }}
+                style={[styles.bottomPlayerDock, { paddingBottom: insets.bottom + 8 }]}
+              >
                 <View style={styles.lyricToolbar}>
-                  <TouchableOpacity onPress={buildLyricLines} activeOpacity={0.82} style={styles.lyricToolbarButton}>
-                    <Text style={styles.lyricToolbarText}>Build lines</Text>
-                  </TouchableOpacity>
+                  <Text style={styles.lyricToolbarLabel}>
+                    {emptyLyrics ? 'Artwork mode' : 'Synced lyrics'}
+                  </Text>
                   <Text style={styles.lyricCountText}>
-                    {lyricLines.length} line{lyricLines.length === 1 ? '' : 's'}
+                    {emptyLyrics ? 'Ready for lyrics' : `${playbackLyrics.length} lines`}
                   </Text>
                 </View>
 
-                <View style={styles.lyricRows}>
-                  {lyricLines.map((line, index) => {
-                    const isActive = activeLyric?.id === line.id;
-                    return (
-                      <View key={line.id} style={[styles.lyricRow, isActive && styles.lyricRowActive]}>
-                        <TouchableOpacity
-                          activeOpacity={0.82}
-                          style={styles.timestampButton}
-                          onPress={() => stampLyricLine(line.id)}
-                          onLongPress={() => {
-                            if (line.time !== null) void player.seekTo(line.time).catch(() => {});
-                          }}
-                        >
-                          <TimerReset size={13} color="#ffffff" strokeWidth={2.2} />
-                          <Text style={styles.timestampText}>
-                            {line.time === null ? `L${index + 1}` : formatTime(line.time)}
-                          </Text>
-                        </TouchableOpacity>
+                <View style={styles.progressGlass}>
+                  <Pressable
+                    onLayout={(event) => setProgressWidth(event.nativeEvent.layout.width)}
+                    onPress={(event) => {
+                      if (!duration || progressWidth <= 0) return;
+                      const next = Math.min(
+                        duration,
+                        Math.max(0, (event.nativeEvent.locationX / progressWidth) * duration),
+                      );
+                      void player.seekTo(next).catch(() => {});
+                    }}
+                    style={styles.progressTrack}
+                  >
+                    <View style={styles.progressBase} />
+                    <View style={[styles.progressFill, { width: `${Math.max(0, progress * 100)}%` }]} />
+                    <View style={[styles.progressThumb, { left: `${Math.max(0, progress * 100)}%` }]} />
+                  </Pressable>
 
-                        <View style={styles.lyricTextInputs}>
-                          <TextInput
-                            value={line.original}
-                            onChangeText={(value) => updateLyricLine(line.id, { original: value })}
-                            placeholder="Original"
-                            placeholderTextColor="rgba(255,255,255,0.32)"
-                            multiline
-                            style={styles.lyricLineInput}
-                          />
-                          <TextInput
-                            value={line.romanization}
-                            onChangeText={(value) => updateLyricLine(line.id, { romanization: value })}
-                            placeholder="Romanization"
-                            placeholderTextColor="rgba(255,255,255,0.32)"
-                            multiline
-                            style={[styles.lyricLineInput, styles.romanizationInput]}
-                          />
-                          <TextInput
-                            value={line.translation}
-                            onChangeText={(value) => updateLyricLine(line.id, { translation: value })}
-                            placeholder="Translation"
-                            placeholderTextColor="rgba(255,255,255,0.32)"
-                            multiline
-                            style={[styles.lyricLineInput, styles.translationInput]}
-                          />
-                        </View>
-                      </View>
-                    );
-                  })}
+                  <View style={styles.timeRow}>
+                    <Text style={styles.timeText}>{formatTime(currentTime)}</Text>
+                    <Text style={styles.timeText}>{formatTime(Math.max(0, duration - currentTime))}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.controlsRow}>
+                  <ControlButton onPress={() => seekBy(-15)} size={52} backgroundColor="rgba(255,255,255,0.12)">
+                    <SkipBack size={22} color="#f8fafc" strokeWidth={1.9} />
+                  </ControlButton>
+
+                  <ControlButton onPress={togglePlay} size={88} backgroundColor="#f8fafc">
+                    {isPlaying ? (
+                      <Pause size={34} color="#0c1018" strokeWidth={2.4} />
+                    ) : (
+                      <Play size={34} color="#0c1018" fill="#0c1018" strokeWidth={2.1} />
+                    )}
+                  </ControlButton>
+
+                  <ControlButton onPress={() => seekBy(15)} size={52} backgroundColor="rgba(255,255,255,0.12)">
+                    <SkipForward size={22} color="#f8fafc" strokeWidth={1.9} />
+                  </ControlButton>
+                </View>
+
+                <View style={styles.footerRow}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setEditingOpen(true);
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+                    }}
+                    activeOpacity={0.8}
+                    style={styles.footerPill}
+                  >
+                    <Text style={styles.footerPillText}>Edit lyrics</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={loadFromDevice}
+                    activeOpacity={0.8}
+                    style={styles.footerPill}
+                  >
+                    <Upload size={14} color="rgba(255,255,255,0.9)" strokeWidth={2.2} />
+                    <Text style={styles.footerPillText}>Load MP3</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
-
-              <View style={styles.progressBlock}>
-                <Pressable
-                  onLayout={(event) => setProgressWidth(event.nativeEvent.layout.width)}
-                  onPress={(event) => {
-                    if (!duration || progressWidth <= 0) return;
-                    const next = Math.min(
-                      duration,
-                      Math.max(0, (event.nativeEvent.locationX / progressWidth) * duration),
-                    );
-                    void player.seekTo(next).catch(() => {});
-                  }}
-                  style={styles.progressTrack}
-                >
-                  <View style={styles.progressBase} />
-                  <View style={[styles.progressFill, { width: `${Math.max(0, progress * 100)}%` }]} />
-                  <View style={[styles.progressThumb, { left: `${Math.max(0, progress * 100)}%` }]} />
-                </Pressable>
-
-                <View style={styles.timeRow}>
-                  <Text style={styles.timeText}>{formatTime(currentTime)}</Text>
-                  <Text style={styles.timeText}>{formatTime(Math.max(0, duration - currentTime))}</Text>
-                </View>
-              </View>
-
-              <View style={styles.controlsRow}>
-                <ControlButton onPress={() => seekBy(-15)} size={48} backgroundColor="rgba(255,255,255,0.06)">
-                  <SkipBack size={22} color="#f8fafc" strokeWidth={1.9} />
-                </ControlButton>
-
-                <ControlButton onPress={togglePlay} size={72} backgroundColor="#f8fafc">
-                  {isPlaying ? (
-                    <Pause size={32} color="#0c1018" strokeWidth={2.4} />
-                  ) : (
-                    <Play size={32} color="#0c1018" fill="#0c1018" strokeWidth={2.1} />
-                  )}
-                </ControlButton>
-
-                <ControlButton onPress={() => seekBy(15)} size={48} backgroundColor="rgba(255,255,255,0.06)">
-                  <SkipForward size={22} color="#f8fafc" strokeWidth={1.9} />
-                </ControlButton>
-              </View>
-
-              <View style={styles.footerRow}>
-                <TouchableOpacity
-                  onPress={() => {
-                    onClose();
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-                  }}
-                  activeOpacity={0.8}
-                  style={styles.footerPill}
-                >
-                  <ChevronUp size={14} color="rgba(255,255,255,0.9)" strokeWidth={2.2} />
-                  <Text style={styles.footerPillText}>Minimize</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={loadFromDevice}
-                  activeOpacity={0.8}
-                  style={styles.footerPill}
-                >
-                  <Upload size={14} color="rgba(255,255,255,0.9)" strokeWidth={2.2} />
-                  <Text style={styles.footerPillText}>Load MP3</Text>
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
+            </View>
           </KeyboardAvoidingView>
         </View>
         <SyncEditor
@@ -826,6 +1034,7 @@ export function AudioPlayerHost({
           currentTime={currentTime}
           isPlaying={isPlaying}
           onPlayPause={togglePlay}
+          initialLyrics={playbackLyrics}
         />
 
         <LyricActions
@@ -846,27 +1055,12 @@ export function AudioPlayerHost({
               l.id === actionsFor ? { ...l, note } : l
             );
             setLyricLines(updated);
-            saveLyrics(userId, track!.id, updated.map((l) => ({
-              id: l.id,
-              text: l.original,
-              translation: l.translation,
-              script: l.romanization,
-              startTime: l.time || 0,
-              endTime: 0,
-              note: l.note,
-            }))).catch(console.error);
+            saveLyrics(userId, track!.id, buildPersistedLyrics(updated)).catch(console.error);
           }}
           onDelete={() => {
             const updated = lyricLines.filter((l) => l.id !== actionsFor);
             setLyricLines(updated);
-            saveLyrics(userId, track!.id, updated.map((l) => ({
-              id: l.id,
-              text: l.original,
-              translation: l.translation,
-              script: l.romanization,
-              startTime: l.time || 0,
-              endTime: 0,
-            }))).catch(console.error);
+            saveLyrics(userId, track!.id, buildPersistedLyrics(updated)).catch(console.error);
           }}
         />
       </Modal>
@@ -955,7 +1149,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
   },
   headerCenter: {
     flex: 1,
@@ -982,7 +1176,7 @@ const styles = StyleSheet.create({
     height: 40,
     paddingHorizontal: 14,
     borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.11)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   pickButtonText: {
     color: '#ffffff',
@@ -999,7 +1193,7 @@ const styles = StyleSheet.create({
     height: 40,
     paddingHorizontal: 12,
     borderRadius: 8,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1010,9 +1204,17 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
   },
   content: {
-    alignItems: 'center',
-    paddingTop: 8,
-    paddingBottom: 24,
+    flex: 1,
+    paddingTop: 12,
+  },
+  backdropImage: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
+  },
+  backdropNoise: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255,255,255,0.03)',
   },
   artShell: {
     width: 246,
@@ -1050,36 +1252,31 @@ const styles = StyleSheet.create({
   },
   trackCopy: {
     alignSelf: 'stretch',
-    marginTop: 22,
+    marginTop: 24,
+    paddingHorizontal: 8,
   },
   trackTitle: {
     color: '#ffffff',
-    fontSize: 28,
-    lineHeight: 32,
+    fontSize: 31,
+    lineHeight: 37,
     fontWeight: '800',
-    letterSpacing: 0,
+    letterSpacing: -1,
+    textAlign: 'center',
   },
   trackArtist: {
     marginTop: 6,
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 16,
+    color: 'rgba(255,255,255,0.78)',
+    fontSize: 17,
     fontWeight: '600',
-  },
-  badge: {
-    alignSelf: 'flex-start',
-    marginTop: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.12)',
+    textAlign: 'center',
   },
   badgeText: {
-    color: 'rgba(255,255,255,0.72)',
-    fontSize: 11,
+    marginTop: 10,
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 12,
     fontWeight: '600',
-    letterSpacing: 0.2,
+    letterSpacing: 0.1,
+    textAlign: 'center',
   },
   lyricsPanel: {
     alignSelf: 'stretch',
@@ -1089,6 +1286,137 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255,255,255,0.08)',
+  },
+  emptyLyricsFullscreen: {
+    flex: 1,
+    justifyContent: 'center',
+    gap: 16,
+  },
+  emptyLyricsState: {
+    gap: 14,
+  },
+  emptyArtworkShell: {
+    minHeight: 260,
+    borderRadius: 24,
+    overflow: 'hidden',
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  emptyArtworkImage: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
+  },
+  emptyArtworkGlow: {
+    position: 'absolute',
+    width: 180,
+    height: 180,
+    borderRadius: 999,
+    top: -30,
+    right: -20,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    opacity: 0.35,
+  },
+  emptyLyricsCopy: {
+    paddingHorizontal: 18,
+    paddingVertical: 20,
+    gap: 8,
+  },
+  emptyLyricsTitle: {
+    color: '#ffffff',
+    fontSize: 24,
+    lineHeight: 28,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  emptyLyricsBody: {
+    color: 'rgba(255,255,255,0.72)',
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '600',
+    maxWidth: '88%',
+  },
+  emptyLyricsActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  emptyPrimaryButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ffffff',
+  },
+  emptyPrimaryButtonText: {
+    color: '#0d121b',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  emptySecondaryButton: {
+    minHeight: 48,
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255,255,255,0.11)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.14)',
+  },
+  emptySecondaryButtonText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  lyricsViewport: {
+    flex: 1,
+    marginTop: 12,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  lyricsScroll: {
+    flex: 1,
+  },
+  lyricsFullscreenContent: {
+    paddingHorizontal: 14,
+  },
+  fullscreenLyricPressable: {
+    marginBottom: 10,
+  },
+  lyricsTopScrim: {
+    position: 'absolute',
+    top: 0,
+    left: -16,
+    right: -16,
+    height: 120,
+    zIndex: 2,
+  },
+  lyricsFocusGlow: {
+    position: 'absolute',
+    left: -16,
+    right: -16,
+    height: 190,
+    zIndex: 1,
+  },
+  lyricsBottomScrim: {
+    position: 'absolute',
+    left: -16,
+    right: -16,
+    bottom: 0,
+    height: 220,
+    zIndex: 2,
+  },
+  lyricsBottomFade: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 160,
+    zIndex: 3,
   },
   lyricsHeader: {
     flexDirection: 'row',
@@ -1133,6 +1461,60 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255,255,255,0.14)',
   },
+  playbackEditText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  playbackStage: {
+    minHeight: 280,
+    marginTop: 16,
+    borderRadius: 24,
+    overflow: 'hidden',
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  playbackStageImage: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
+  },
+  playbackHero: {
+    paddingHorizontal: 18,
+    paddingVertical: 20,
+  },
+  playbackHeroTime: {
+    color: 'rgba(255,255,255,0.52)',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  playbackHeroText: {
+    marginTop: 10,
+    color: '#ffffff',
+    fontSize: 30,
+    lineHeight: 36,
+    fontWeight: '800',
+    letterSpacing: -0.7,
+  },
+  playbackHeroScript: {
+    marginTop: 10,
+    color: 'rgba(255,255,255,0.86)',
+    fontSize: 17,
+    lineHeight: 23,
+    fontWeight: '700',
+  },
+  playbackHeroTranslation: {
+    marginTop: 10,
+    color: 'rgba(255,255,255,0.68)',
+    fontSize: 15,
+    lineHeight: 21,
+    fontWeight: '600',
+  },
   pasteGrid: {
     flexDirection: 'row',
     gap: 10,
@@ -1156,25 +1538,48 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 12,
+    marginTop: 4,
+    paddingHorizontal: 2,
   },
-  lyricToolbarButton: {
-    minHeight: 40,
-    borderRadius: 999,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.14)',
-  },
-  lyricToolbarText: {
-    color: '#ffffff',
-    fontSize: 13,
+  lyricToolbarLabel: {
+    color: 'rgba(255,255,255,0.82)',
+    fontSize: 12,
     fontWeight: '800',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
   },
   lyricCountText: {
-    color: 'rgba(255,255,255,0.48)',
-    fontSize: 12,
+    color: 'rgba(255,255,255,0.42)',
+    fontSize: 11,
     fontWeight: '700',
+  },
+  bottomPlayerDock: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 18,
+    paddingTop: 16,
+    zIndex: 5,
+  },
+  progressGlass: {
+    marginTop: 10,
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 8,
+    borderRadius: 18,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(8,11,18,0.66)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.08)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.28,
+    shadowRadius: 24,
+  },
+  playbackLyricsList: {
+    marginTop: 10,
+    gap: 2,
   },
   lyricRows: {
     gap: 10,
@@ -1232,6 +1637,20 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontWeight: '700',
   },
+  waveformWrap: {
+    ...StyleSheet.absoluteFillObject,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 22,
+  },
+  waveformBar: {
+    width: 10,
+    height: 118,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.88)',
+  },
   progressBlock: {
     alignSelf: 'stretch',
     marginTop: 22,
@@ -1265,7 +1684,7 @@ const styles = StyleSheet.create({
   timeRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 8,
+    marginTop: 6,
   },
   timeText: {
     color: 'rgba(255,255,255,0.56)',
@@ -1277,8 +1696,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 18,
-    marginTop: 22,
+    gap: 22,
+    marginTop: 12,
   },
   controlButton: {
     alignItems: 'center',
@@ -1287,21 +1706,21 @@ const styles = StyleSheet.create({
   footerRow: {
     flexDirection: 'row',
     gap: 10,
-    marginTop: 22,
+    marginTop: 10,
     alignSelf: 'stretch',
   },
   footerPill: {
     flex: 1,
-    height: 44,
+    height: 40,
     borderRadius: 999,
     paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.10)',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: 'rgba(255,255,255,0.06)',
   },
   footerPillText: {
     color: '#ffffff',

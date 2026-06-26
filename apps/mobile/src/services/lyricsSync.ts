@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { REALTIME_SUBSCRIBE_STATES, RealtimePostgresChangesPayload } from '@supabase/realtime-js';
 import { LyricLine } from '../lib/lyricTypes';
 import { normalizeLyricLines } from '../lib/lyricsUtils';
 import { saveLyricsLocal } from '../lib/lyricsStorage';
@@ -9,6 +10,21 @@ const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 // Lazy client — only created if env vars are present
 let _supabase: SupabaseClient | null = null;
 
+type LyricsRow = {
+  id: string;
+  lines: LyricLine[];
+  userId: string;
+  updatedAt?: string;
+};
+
+function isLyricsRow(value: unknown): value is LyricsRow {
+  if (!value || typeof value !== 'object') return false;
+  const row = value as Partial<LyricsRow>;
+  return typeof row.id === 'string'
+    && typeof row.userId === 'string'
+    && Array.isArray(row.lines);
+}
+
 function getSupabase(): SupabaseClient | null {
   if (!supabaseUrl || !supabaseKey) return null;
   if (!_supabase) {
@@ -17,8 +33,17 @@ function getSupabase(): SupabaseClient | null {
   return _supabase;
 }
 
+function isUuid(value: string | null | undefined): value is string {
+  return typeof value === 'string'
+    && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function lyricsRowId(userId: string, trackId: string): string {
+  return `${userId}:${trackId}`;
+}
+
 export async function saveLyrics(
-  userId: string,
+  userId: string | null | undefined,
   trackId: string,
   lines: LyricLine[]
 ): Promise<void> {
@@ -34,7 +59,7 @@ export async function saveLyrics(
 }
 
 async function syncToSupabase(
-  userId: string,
+  userId: string | null | undefined,
   trackId: string,
   lines: LyricLine[]
 ): Promise<void> {
@@ -43,11 +68,18 @@ async function syncToSupabase(
     console.warn('Supabase not configured, skipping remote sync');
     return;
   }
+  if (!isUuid(userId)) {
+    console.warn('Skipping lyric sync because no authenticated mobile user is available');
+    return;
+  }
 
   const { error } = await client
     .from('lyrics')
-    .upsert({ id: trackId, lines, userId })
-    .eq('userId', userId);
+    .upsert({
+      id: lyricsRowId(userId, trackId),
+      lines,
+      userId,
+    });
 
   if (error) {
     throw new Error(`Supabase sync failed: ${error.message}`);
@@ -55,7 +87,7 @@ async function syncToSupabase(
 }
 
 export function subscribeLyrics(
-  userId: string,
+  userId: string | null | undefined,
   trackId: string,
   onUpdate: (lines: LyricLine[]) => void
 ): () => void {
@@ -64,18 +96,36 @@ export function subscribeLyrics(
     console.warn('Supabase not configured, skipping subscription');
     return () => {};
   }
+  if (!isUuid(userId)) {
+    return () => {};
+  }
 
-  const subscription = client
-    .from('lyrics')
-    .on('*', (payload) => {
-      if (payload.new?.userId === userId && payload.new?.id === trackId) {
-        const lines = normalizeLyricLines(payload.new.lines || []);
-        onUpdate(lines);
+  const rowId = lyricsRowId(userId, trackId);
+  const channel = client
+    .channel(`lyrics:${rowId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'lyrics',
+        filter: `id=eq.${rowId}`,
+      },
+      (payload: RealtimePostgresChangesPayload<LyricsRow>) => {
+        const nextRow = 'new' in payload && isLyricsRow(payload.new) ? payload.new : null;
+        if (nextRow && nextRow.userId === userId && nextRow.id === rowId) {
+          const lines = normalizeLyricLines(nextRow.lines || []);
+          onUpdate(lines);
+        }
       }
-    })
-    .subscribe();
+    )
+    .subscribe((status) => {
+      if (status === REALTIME_SUBSCRIBE_STATES.CHANNEL_ERROR) {
+        console.warn('Lyrics realtime channel failed to subscribe');
+      }
+    });
 
   return () => {
-    subscription.unsubscribe();
+    void client.removeChannel(channel);
   };
 }

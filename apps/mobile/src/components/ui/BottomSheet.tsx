@@ -157,6 +157,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: radius.sheet,
     borderTopRightRadius: radius.sheet,
     borderWidth: StyleSheet.hairlineWidth,
+    flex: 1,
     maxHeight: SCREEN_HEIGHT * 0.92,
     overflow: 'hidden',
   },

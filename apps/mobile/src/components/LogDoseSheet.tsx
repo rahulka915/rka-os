@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { TouchableOpacity, Alert, ScrollView, Keyboard } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { YStack, XStack, Text, Input, View } from 'tamagui';
 import { getMedicationLogs, deleteMedicationLog, editMedicationLog, resumeMedicationTimer, getPersistentMedicationTimers, pauseMedicationTimer, stopMedicationTimer, resetMedicationTimer } from '../db/database';
@@ -135,7 +135,7 @@ function LogEntry({
         <View width={6} height={6} borderRadius="$6" backgroundColor="$blue" flexShrink={0} />
         <XStack flex={1} alignItems="center" gap="$1">
           <View backgroundColor="$surface" borderRadius="$2" borderWidth={0.5} borderColor="$separator" paddingHorizontal="$2" width={44}>
-            <Input unstyled fontSize="$2" color="$text" paddingVertical={4} keyboardType="numeric" value={editHour} onChangeText={setEditHour} selectTextOnFocus autoFocus />
+            <Input unstyled fontSize="$2" color="$text" paddingVertical={4} keyboardType="numeric" value={editHour} onChangeText={setEditHour} selectTextOnFocus />
           </View>
           <Text fontSize="$2" color="$textSecondary">:</Text>
           <View backgroundColor="$surface" borderRadius="$2" borderWidth={0.5} borderColor="$separator" paddingHorizontal="$2" width={44}>
@@ -208,21 +208,27 @@ export function LogDoseSheet({ visible, medicationName, medicationId, onClose, o
           setMinutes('');
           setExactHour('');
           setExactMin('');
+          Keyboard.dismiss();
           onClose();
         },
       },
     ]);
   };
 
+  const handleSheetClose = () => {
+    Keyboard.dismiss();
+    onClose();
+  };
+
   return (
     <BottomSheet
       visible={visible}
-      onClose={onClose}
+      onClose={handleSheetClose}
       isDark={isDark}
       title={medicationName}
       subtitle="Dose Log"
       headerLeft={
-        <TouchableOpacity onPress={onClose} hitSlop={12}>
+        <TouchableOpacity onPress={handleSheetClose} hitSlop={12}>
           <Text fontSize={16} color="$textSecondary" fontWeight="400">Cancel</Text>
         </TouchableOpacity>
       }
@@ -232,8 +238,12 @@ export function LogDoseSheet({ visible, medicationName, medicationId, onClose, o
         </TouchableOpacity>
       }
     >
-      <YStack backgroundColor="$bg">
-        <ScrollView contentContainerStyle={{ paddingBottom: 28 }} keyboardShouldPersistTaps="handled">
+      <YStack flex={1} backgroundColor="$bg">
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingBottom: 28 }}
+          keyboardShouldPersistTaps="handled"
+        >
           {activeTimer ? (
             <YStack
               marginHorizontal="$4"
@@ -330,13 +340,13 @@ export function LogDoseSheet({ visible, medicationName, medicationId, onClose, o
             {mode === 'relative' ? (
               <XStack gap="$3">
                 {[
-                  { label: 'Hours ago', val: hours, set: setHours, auto: true },
-                  { label: 'Minutes ago', val: minutes, set: setMinutes, auto: false },
-                ].map(({ label, val, set, auto }) => (
+                  { label: 'Hours ago', val: hours, set: setHours },
+                  { label: 'Minutes ago', val: minutes, set: setMinutes },
+                ].map(({ label, val, set }) => (
                   <YStack key={label} flex={1} gap="$1">
                     <Text fontSize="$2" fontWeight="600" color="$textSecondary">{label}</Text>
                     <View backgroundColor="$surface" borderRadius="$3" borderWidth={0.5} borderColor="$separator" paddingHorizontal="$3">
-                      <Input unstyled fontSize="$3" color="$text" paddingVertical="$3" placeholder="0" placeholderTextColor={palette.textTertiary} keyboardType="numeric" value={val} onChangeText={set} autoFocus={auto} />
+                      <Input unstyled fontSize="$3" color="$text" paddingVertical="$3" placeholder="0" placeholderTextColor={palette.textTertiary} keyboardType="numeric" value={val} onChangeText={set} />
                     </View>
                   </YStack>
                 ))}
@@ -346,7 +356,7 @@ export function LogDoseSheet({ visible, medicationName, medicationId, onClose, o
                 <YStack flex={1} gap="$1">
                   <Text fontSize="$2" fontWeight="600" color="$textSecondary">Hour (0–23)</Text>
                   <View backgroundColor="$surface" borderRadius="$3" borderWidth={0.5} borderColor="$separator" paddingHorizontal="$3">
-                    <Input unstyled fontSize="$3" color="$text" paddingVertical="$3" placeholder="14" placeholderTextColor={palette.textTertiary} keyboardType="numeric" value={exactHour} onChangeText={setExactHour} autoFocus />
+                    <Input unstyled fontSize="$3" color="$text" paddingVertical="$3" placeholder="14" placeholderTextColor={palette.textTertiary} keyboardType="numeric" value={exactHour} onChangeText={setExactHour} />
                   </View>
                 </YStack>
                 <Text fontSize="$5" fontWeight="700" color="$textSecondary" paddingBottom="$3">:</Text>

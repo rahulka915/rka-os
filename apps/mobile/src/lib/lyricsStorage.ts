@@ -1,9 +1,18 @@
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { LyricLine } from './lyricTypes';
 import { normalizeLyricLines } from './lyricsUtils';
 
-const LYRICS_DIR = `${FileSystem.documentDirectory}lyrics/`;
-const LAST_TRACK_PATH = `${FileSystem.documentDirectory}last_track.json`;
+function getDocumentDirectory(): string {
+  if (!FileSystem.documentDirectory) {
+    throw new Error('expo-file-system documentDirectory is unavailable');
+  }
+  return FileSystem.documentDirectory;
+}
+
+const DOCUMENT_DIR = getDocumentDirectory();
+const LYRICS_DIR = `${DOCUMENT_DIR}lyrics/`;
+const LAST_TRACK_PATH = `${DOCUMENT_DIR}last_track.json`;
+const TRACK_VISUALS_DIR = `${DOCUMENT_DIR}track_visuals/`;
 
 async function ensureDir(): Promise<void> {
   const info = await FileSystem.getInfoAsync(LYRICS_DIR);
@@ -12,10 +21,22 @@ async function ensureDir(): Promise<void> {
   }
 }
 
+async function ensureTrackVisualsDir(): Promise<void> {
+  const info = await FileSystem.getInfoAsync(TRACK_VISUALS_DIR);
+  if (!info.exists) {
+    await FileSystem.makeDirectoryAsync(TRACK_VISUALS_DIR, { intermediates: true });
+  }
+}
+
 function lyricsPath(trackId: string): string {
   // Sanitize trackId for use as filename
   const safe = trackId.replace(/[^a-zA-Z0-9_-]/g, '_');
   return `${LYRICS_DIR}${safe}.json`;
+}
+
+function trackVisualPath(trackId: string): string {
+  const safe = trackId.replace(/[^a-zA-Z0-9_-]/g, '_');
+  return `${TRACK_VISUALS_DIR}${safe}.json`;
 }
 
 export async function loadLyrics(trackId: string): Promise<LyricLine[]> {
@@ -75,9 +96,36 @@ export interface PersistedTrack {
   id: string;
   title: string;
   artist: string;
-  source: string;
+  source: string | number;
   coverArtUri?: string;
+  visualArtUri?: string;
   palette: [string, string, string];
+}
+
+export async function saveTrackVisual(trackId: string, visualArtUri: string): Promise<void> {
+  try {
+    await ensureTrackVisualsDir();
+    await FileSystem.writeAsStringAsync(
+      trackVisualPath(trackId),
+      JSON.stringify({ visualArtUri })
+    );
+  } catch (error) {
+    console.error('Failed to save track visual:', error);
+  }
+}
+
+export async function loadTrackVisual(trackId: string): Promise<string | null> {
+  try {
+    const path = trackVisualPath(trackId);
+    const info = await FileSystem.getInfoAsync(path);
+    if (!info.exists) return null;
+    const content = await FileSystem.readAsStringAsync(path);
+    const parsed = JSON.parse(content);
+    return typeof parsed.visualArtUri === 'string' ? parsed.visualArtUri : null;
+  } catch (error) {
+    console.error('Failed to load track visual:', error);
+    return null;
+  }
 }
 
 export async function saveLastTrack(track: PersistedTrack): Promise<void> {
