@@ -174,15 +174,6 @@ fn main() {
                 .menu(&menu)
                 .show_menu_on_left_click(true)
                 .on_menu_event(|app, event| handle_menu_event(app, event))
-                .on_tray_icon_event(|tray, event| {
-                    // Rebuild menu on click so uptime text is current
-                    if let TrayIconEvent::Click { .. } = event {
-                        let app = tray.app_handle();
-                        if let Ok(menu) = build_tray_menu(app) {
-                            let _ = tray.set_menu(Some(menu));
-                        }
-                    }
-                })
                 .build(app)?;
 
             Ok(())
