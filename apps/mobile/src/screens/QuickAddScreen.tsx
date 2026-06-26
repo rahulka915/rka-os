@@ -5,6 +5,7 @@ import { useThemeContext } from '../hooks/useThemeContext';
 import { createItem } from '../db/database';
 import { Calendar, Tag, Flag } from '../icons';
 import { BottomSheet } from '../components/ui/BottomSheet';
+import { VoiceMicButton } from '../components/voice/VoiceMicButton';
 import { getThemeColors, spacing } from '../theme';
 
 interface QuickAddScreenProps {
@@ -52,25 +53,35 @@ export function QuickAddScreen({ visible, onClose, defaultStatus = 'inbox' }: Qu
       }
       headerRight={
         <TouchableOpacity onPress={handleSave} hitSlop={12} disabled={!title.trim()}>
-          <Text style={[styles.actionText, styles.saveText, { color: palette.blue, opacity: title.trim() ? 1 : 0.28 }]}>
+          <Text style={[styles.actionText, styles.saveText, { color: palette.primary, opacity: title.trim() ? 1 : 0.28 }]}>
             Save
           </Text>
         </TouchableOpacity>
       }
       contentContainerStyle={styles.sheetContent}
     >
-      <TextInput
-        style={[styles.titleInput, { color: palette.text }]}
-        placeholder="New To-Do"
-        placeholderTextColor={palette.textTertiary}
-        value={title}
-        onChangeText={setTitle}
-        returnKeyType="done"
-        onSubmitEditing={handleSave}
-        autoFocus
-        multiline
-        autoCorrect={false}
-      />
+      <View style={styles.titleRow}>
+        <TextInput
+          style={[styles.titleInput, { color: palette.text, flex: 1 }]}
+          placeholder="New To-Do"
+          placeholderTextColor={palette.textTertiary}
+          value={title}
+          onChangeText={setTitle}
+          returnKeyType="done"
+          onSubmitEditing={handleSave}
+          autoFocus
+          multiline
+          autoCorrect={false}
+        />
+        <VoiceMicButton
+          isDark={isDark}
+          context={{
+            context: 'quick-add',
+            onSave: (transcript) => setTitle(transcript),
+          }}
+          size="small"
+        />
+      </View>
 
       <View style={[styles.sep, { backgroundColor: palette.separator }]} />
 
@@ -84,9 +95,9 @@ export function QuickAddScreen({ visible, onClose, defaultStatus = 'inbox' }: Qu
       />
 
       <View style={[styles.metaRow, { borderTopColor: palette.separator }]}>
-        <TouchableOpacity style={[styles.pill, { backgroundColor: palette.blueSoft }]} hitSlop={8} activeOpacity={0.7}>
-          <Calendar size={12} color={palette.blue} strokeWidth={1.5} />
-          <Text style={[styles.pillText, { color: palette.blue }]}>When</Text>
+        <TouchableOpacity style={[styles.pill, { backgroundColor: palette.maroonSoft }]} hitSlop={8} activeOpacity={0.7}>
+          <Calendar size={12} color={palette.maroon} strokeWidth={1.5} />
+          <Text style={[styles.pillText, { color: palette.maroon }]}>When</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[styles.pill, { backgroundColor: palette.fill }]} hitSlop={8} activeOpacity={0.7}>
           <Tag size={12} color={palette.iconMuted} strokeWidth={1.5} />
@@ -104,6 +115,11 @@ export function QuickAddScreen({ visible, onClose, defaultStatus = 'inbox' }: Qu
 const styles = StyleSheet.create({
   sheetContent: {
     paddingBottom: spacing[5],
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
   },
   titleInput: {
     fontSize: 20,

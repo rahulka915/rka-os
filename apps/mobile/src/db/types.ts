@@ -7,6 +7,7 @@ export interface Item {
   title: string;
   status: ItemStatus;
   notes?: string;
+  voice_transcript?: string; // Original voice transcript before editing
   scheduledDate?: string; // YYYY-MM-DD
   dueDate?: string;       // YYYY-MM-DD
   rrule?: string;

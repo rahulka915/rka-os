@@ -21,6 +21,7 @@ function initSchema() {
       title TEXT NOT NULL,
       status TEXT NOT NULL,
       notes TEXT,
+      voice_transcript TEXT,
       scheduledDate TEXT,
       dueDate TEXT,
       rrule TEXT,
@@ -432,14 +433,15 @@ export function createItem(
   title: string,
   status: Item['status'] = 'inbox',
   scheduledDate?: string,
-  notes?: string
+  notes?: string,
+  voice_transcript?: string
 ): string {
   const id = uuid();
   const now = Date.now();
   getDb().runSync(
-    `INSERT INTO items (id, type, title, status, scheduledDate, notes, createdAt, updatedAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, type, title, status, scheduledDate ?? null, notes ?? null, now, now]
+    `INSERT INTO items (id, type, title, status, scheduledDate, notes, voice_transcript, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, type, title, status, scheduledDate ?? null, notes ?? null, voice_transcript ?? null, now, now]
   );
   logActivity(id, 'created');
   return id;
