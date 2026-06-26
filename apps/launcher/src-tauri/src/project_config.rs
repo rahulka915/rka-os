@@ -43,5 +43,9 @@ pub fn make_default_config(path: String) -> ProjectConfig {
         commands: ProjectCommands::default(),
         preferred_editor: Editor::Cursor,
         auto_start: false,
+        reopen_last_project: true,
+        show_qr_on_ready: true,
+        auto_hide_after_connect: true,
+        launch_at_login: false,
     }
 }

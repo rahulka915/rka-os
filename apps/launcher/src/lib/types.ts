@@ -36,4 +36,8 @@ export interface ProjectConfig {
   commands: ProjectCommands;
   preferred_editor: Editor;
   auto_start: boolean;
+  reopen_last_project: boolean;
+  show_qr_on_ready: boolean;
+  auto_hide_after_connect: boolean;
+  launch_at_login: boolean;
 }

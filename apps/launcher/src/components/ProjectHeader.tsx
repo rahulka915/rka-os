@@ -4,9 +4,10 @@ import type { ProjectConfig } from '../lib/types';
 interface Props {
   config: ProjectConfig;
   onChangePath: () => void;
+  onOpenSettings: () => void;
 }
 
-export function ProjectHeader({ config, onChangePath }: Props) {
+export function ProjectHeader({ config, onChangePath, onOpenSettings }: Props) {
   return (
     <div className="project-header">
       <div className="project-info">
@@ -21,6 +22,9 @@ export function ProjectHeader({ config, onChangePath }: Props) {
         </button>
         <button className="btn-ghost icon-btn" title="Open in editor" onClick={() => api.openInEditor(config.path)}>
           ✏
+        </button>
+        <button className="btn-ghost icon-btn" title="Settings" onClick={onOpenSettings}>
+          ⚙
         </button>
         <button className="btn-ghost" onClick={onChangePath}>
           Change

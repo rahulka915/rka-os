@@ -1,0 +1,12 @@
+/Users/rahulkrishanand/Downloads/Coding Projects/rka-os/apps/launcher/src-tauri/target/debug/deps/serde-42b81d1008848483.d: /Users/rahulkrishanand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /Users/rahulkrishanand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /Users/rahulkrishanand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /Users/rahulkrishanand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /Users/rahulkrishanand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /Users/rahulkrishanand/Downloads/Coding\ Projects/rka-os/apps/launcher/src-tauri/target/debug/build/serde-fd8d8320745a88da/out/private.rs
+
+/Users/rahulkrishanand/Downloads/Coding Projects/rka-os/apps/launcher/src-tauri/target/debug/deps/libserde-42b81d1008848483.rmeta: /Users/rahulkrishanand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /Users/rahulkrishanand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /Users/rahulkrishanand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /Users/rahulkrishanand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /Users/rahulkrishanand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /Users/rahulkrishanand/Downloads/Coding\ Projects/rka-os/apps/launcher/src-tauri/target/debug/build/serde-fd8d8320745a88da/out/private.rs
+
+/Users/rahulkrishanand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs:
+/Users/rahulkrishanand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs:
+/Users/rahulkrishanand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs:
+/Users/rahulkrishanand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs:
+/Users/rahulkrishanand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs:
+/Users/rahulkrishanand/Downloads/Coding\ Projects/rka-os/apps/launcher/src-tauri/target/debug/build/serde-fd8d8320745a88da/out/private.rs:
+
+# env-dep:OUT_DIR=/Users/rahulkrishanand/Downloads/Coding Projects/rka-os/apps/launcher/src-tauri/target/debug/build/serde-fd8d8320745a88da/out

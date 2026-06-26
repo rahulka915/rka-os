@@ -129,6 +129,17 @@ pub fn check_environment(app: AppHandle) -> ProjectHealth {
     }
 }
 
+/// Reads the major version of expo from node_modules (e.g. "54" from "54.0.3")
+pub fn read_expo_sdk_version(project_path: &str) -> Option<String> {
+    let pkg = std::path::Path::new(project_path)
+        .join("node_modules/expo/package.json");
+    let content = std::fs::read_to_string(pkg).ok()?;
+    let v: serde_json::Value = serde_json::from_str(&content).ok()?;
+    v["version"].as_str().map(|s| {
+        s.split('.').next().unwrap_or(s).to_string()
+    })
+}
+
 #[tauri::command]
 pub fn open_in_finder(path: String) {
     let _ = std::process::Command::new("open").arg(&path).spawn();

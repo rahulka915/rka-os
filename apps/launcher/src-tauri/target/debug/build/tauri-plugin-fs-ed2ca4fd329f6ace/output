@@ -1,0 +1,8 @@
+cargo:rerun-if-changed=permissions
+cargo:PERMISSION_FILES_PATH=/Users/rahulkrishanand/Downloads/Coding Projects/rka-os/apps/launcher/src-tauri/target/debug/build/tauri-plugin-fs-ed2ca4fd329f6ace/out/tauri-plugin-fs-permission-files
+cargo:rerun-if-env-changed=REMOVE_UNUSED_COMMANDS
+cargo:GLOBAL_SCOPE_SCHEMA_PATH=/Users/rahulkrishanand/Downloads/Coding Projects/rka-os/apps/launcher/src-tauri/target/debug/build/tauri-plugin-fs-ed2ca4fd329f6ace/out/global-scope.json
+cargo:GLOBAL_API_SCRIPT_PATH=/Users/rahulkrishanand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-plugin-fs-2.5.1/api-iife.js
+cargo:rustc-check-cfg=cfg(mobile)
+cargo:rustc-check-cfg=cfg(desktop)
+cargo:rustc-cfg=desktop

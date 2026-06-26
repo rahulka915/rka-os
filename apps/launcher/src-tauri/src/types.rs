@@ -81,6 +81,10 @@ pub enum Editor {
     Xcode,
 }
 
+fn default_true() -> bool {
+    true
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectConfig {
     pub id: String,
@@ -89,4 +93,35 @@ pub struct ProjectConfig {
     pub commands: ProjectCommands,
     pub preferred_editor: Editor,
     pub auto_start: bool,
+    /// Reload saved project path on next launch (always true by default)
+    #[serde(default = "default_true")]
+    pub reopen_last_project: bool,
+    /// Show QR popup when Metro is ready
+    #[serde(default = "default_true")]
+    pub show_qr_on_ready: bool,
+    /// Auto-hide window 1s after a device connects
+    #[serde(default = "default_true")]
+    pub auto_hide_after_connect: bool,
+    /// Launch at login (stored; wired to LaunchAgent in a future build)
+    #[serde(default)]
+    pub launch_at_login: bool,
+}
+
+/// In-memory tray/menu bar state — updated by events, read when building the menu
+pub struct TrayAppState {
+    pub process_state: ProcessState,
+    pub dev_state: DevState,
+    pub device_connected: bool,
+    pub start_time: Option<std::time::Instant>,
+}
+
+impl Default for TrayAppState {
+    fn default() -> Self {
+        Self {
+            process_state: ProcessState::Stopped,
+            dev_state: DevState::Idle,
+            device_connected: false,
+            start_time: None,
+        }
+    }
 }

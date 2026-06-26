@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { SettingsPanel } from './components/SettingsPanel';
+import { SettingsSheet } from './components/SettingsSheet';
 import { ProjectHeader } from './components/ProjectHeader';
 import { ServerStatusCard } from './components/ServerStatusCard';
 import { ActionBar } from './components/ActionBar';
@@ -15,9 +16,10 @@ import { useLogs } from './hooks/useLogs';
 import * as api from './lib/tauri';
 
 export default function App() {
-  const { config, health, loadingHealth, selectPath, refreshHealth } = useProject();
+  const { config, health, loadingHealth, selectPath, updateConfig, refreshHealth } = useProject();
   const { processState, devState, expoUrl, crashCount, isDeviceConnected } = useServerEvents();
   const { logs, clear: clearLogs, downloadDiagnostics } = useLogs();
+  const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
     if (config?.auto_start && processState === 'Stopped') {
@@ -30,8 +32,7 @@ export default function App() {
   }, [config?.id]);
 
   useEffect(() => {
-    if (isDeviceConnected) {
-      // Auto-hide window after device connects (they're now using Expo Go)
+    if (isDeviceConnected && config?.auto_hide_after_connect !== false) {
       setTimeout(() => {
         invoke('hide_window').catch(console.error);
       }, 1000);
@@ -46,9 +47,20 @@ export default function App() {
     );
   }
 
+  const showQRModal = expoUrl && config.show_qr_on_ready !== false;
+
   return (
     <>
-      <QRModal url={expoUrl || ''} isDeviceConnected={isDeviceConnected} />
+      {showQRModal && (
+        <QRModal url={expoUrl} isDeviceConnected={isDeviceConnected} />
+      )}
+      {showSettings && (
+        <SettingsSheet
+          config={config}
+          onSave={updateConfig}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
       <div className="app-shell">
         <ProjectHeader
           config={config}
@@ -56,34 +68,35 @@ export default function App() {
             const selected = await open({ directory: true, title: 'Select Expo project folder' });
             if (typeof selected === 'string') selectPath(selected);
           }}
+          onOpenSettings={() => setShowSettings(true)}
         />
 
-      <div className="main-content">
-        <ServerStatusCard
-          processState={processState}
-          devState={devState}
-          crashCount={crashCount}
-        />
+        <div className="main-content">
+          <ServerStatusCard
+            processState={processState}
+            devState={devState}
+            crashCount={crashCount}
+          />
 
-        <ActionBar
-          processState={processState}
-          onInstall={() => api.installDependencies()}
-        />
+          <ActionBar
+            processState={processState}
+            onInstall={() => api.installDependencies()}
+          />
 
-        <QRPanel url={expoUrl} />
+          <QRPanel url={expoUrl} />
 
-        <EnvironmentBanner
-          health={health}
-          loading={loadingHealth}
-          onRefresh={refreshHealth}
-        />
+          <EnvironmentBanner
+            health={health}
+            loading={loadingHealth}
+            onRefresh={refreshHealth}
+          />
 
-        <LogViewer
-          logs={logs}
-          onClear={clearLogs}
-          onDownload={downloadDiagnostics}
-        />
-      </div>
+          <LogViewer
+            logs={logs}
+            onClear={clearLogs}
+            onDownload={downloadDiagnostics}
+          />
+        </div>
       </div>
     </>
   );
