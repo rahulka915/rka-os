@@ -5,6 +5,7 @@
   "dependencies": {
     "@react-navigation/bottom-tabs": "^6.5.20",
     "@react-navigation/native": "^6.1.17",
+    "@supabase/supabase-js": "^2.108.2",
     "@tamagui/babel-plugin": "^1.144.4",
     "@tamagui/config": "^1.144.4",
     "@tamagui/core": "^1.144.4",
