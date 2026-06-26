@@ -1,39 +1,19 @@
-import { ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { ScrollView, View, Alert, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { YStack, XStack, Text, View } from 'tamagui';
+import { YStack } from 'tamagui';
 import { AppHeader } from '../components/AppHeader';
-import { AvatarCompanion } from '../components/AvatarCompanion';
 import { TimelineSection } from '../components/TimelineSection';
+import { HeroSection } from '../components/hero/HeroSection';
+import { InboxScrollCard } from '../components/home/InboxScrollCard';
 import { useHomeData, completeAllInTimeBlock } from '../hooks/useDb';
 import { useThemeContext } from '../hooks/useThemeContext';
+import { getThemeColors } from '../theme';
 import { updateItemStatus, deleteItem } from '../db/database';
-import { ArrowRight, Inbox } from '../icons';
-
-function getGreeting() {
-  const hour = new Date().getHours();
-  if (hour < 5)  return { word: 'Late Night', name: 'Rahul' };
-  if (hour < 12) return { word: 'Good Morning', name: 'Rahul' };
-  if (hour < 17) return { word: 'Good Afternoon', name: 'Rahul' };
-  return { word: 'Good Evening', name: 'Rahul' };
-}
-
-function getCompanionMessage(inboxCount: number, todayCount: number, hour: number): string {
-  if (inboxCount === 0 && todayCount === 0) {
-    if (hour < 12) return "Morning clear. What are we building today?";
-    if (hour < 17) return "Afternoon's yours. Nothing on the schedule.";
-    return "Evening is clear. Time to wind down or plan ahead.";
-  }
-  if (inboxCount > 5) return `${inboxCount} things in your inbox. Let's process them.`;
-  if (todayCount > 0 && inboxCount > 0) return `${todayCount} scheduled, ${inboxCount} waiting. Good momentum.`;
-  if (todayCount > 0) return `${todayCount} thing${todayCount > 1 ? 's' : ''} on today's plan. Let's go.`;
-  return `${inboxCount} item${inboxCount > 1 ? 's' : ''} to process in your inbox.`;
-}
 
 export function HomeScreen({ onInboxPress }: { onInboxPress: () => void }) {
   const { isDark } = useThemeContext();
+  const palette = getThemeColors(isDark);
   const { inboxCount, todayItems, anytime, morningItems, afternoonItems, eveningItems, refresh } = useHomeData();
-  const hour = new Date().getHours();
-  const companionMsg = getCompanionMessage(inboxCount, todayItems.length, hour);
 
   return (
     <YStack flex={1} backgroundColor="$bg">
@@ -41,63 +21,29 @@ export function HomeScreen({ onInboxPress }: { onInboxPress: () => void }) {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
 
-        {/* Companion message at top */}
-        <XStack
-          marginHorizontal="$4" marginTop="$3"
-          backgroundColor="$surface" borderRadius="$4"
-          padding="$4" alignItems="center" gap="$3"
-          shadowColor="$shadowColor" shadowOffset={{ width: 0, height: 2 }}
-          shadowOpacity={1} shadowRadius={8} elevation={1}
-          borderWidth={0.5} borderColor="$separator"
-        >
-          <AvatarCompanion size="md" showRing />
+        {/* 1. Animated Hero */}
+        <View style={{ marginHorizontal: 12, marginTop: 10, height: 200, borderRadius: 16, overflow: 'hidden' }}>
+          <HeroSection timeOfDay="day" />
+        </View>
 
-          <YStack flex={1}>
-            <Text fontSize="$2" fontWeight="500" color="$text" lineHeight={20}>
-              {companionMsg}
-            </Text>
-            <Text fontSize={11} color="$textTertiary" marginTop={4} fontWeight="500">
-              Your personal OS companion
-            </Text>
-          </YStack>
-        </XStack>
+        {/* 2. Practice cards — empty placeholders */}
+        <View style={s.practicesContainer}>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <TouchableOpacity key={i} style={[s.practiceCard, { backgroundColor: palette.fill, borderColor: palette.separator }]} activeOpacity={0.6} />
+          ))}
+        </View>
 
-        {/* Inbox card */}
-        <TouchableOpacity onPress={onInboxPress} activeOpacity={0.7}>
-          <XStack
-            marginHorizontal="$4" marginTop="$3"
-            backgroundColor="$surface" borderRadius="$3" padding="$4"
-            alignItems="center" gap="$3"
-            borderWidth={1} borderColor={inboxCount > 0 ? '$blueSoft' : '$separator'}
-            shadowColor="$shadowColor" shadowOffset={{ width: 0, height: 2 }}
-            shadowOpacity={1} shadowRadius={6} elevation={1}
-          >
-            <View width={34} height={34} borderRadius="$6" backgroundColor={inboxCount > 0 ? '$blueSoft' : '$bg'} alignItems="center" justifyContent="center">
-              <Inbox size={16} color={inboxCount > 0 ? '#007aff' : '$textMuted'} strokeWidth={1.5} />
-            </View>
-            <YStack flex={1}>
-              {inboxCount > 0 ? (
-                <>
-                  <Text fontSize="$3" fontWeight="700" color="$text">
-                    {inboxCount} item{inboxCount > 1 ? 's' : ''} to process
-                  </Text>
-                  <Text fontSize="$2" color="$textSecondary">Tap to review</Text>
-                </>
-              ) : (
-                <>
-                  <Text fontSize="$3" fontWeight="700" color="$text">
-                    Inbox zero
-                  </Text>
-                  <Text fontSize="$2" color="$textSecondary">You're all caught up! 🎉</Text>
-                </>
-              )}
-            </YStack>
-            {inboxCount > 0 && <ArrowRight size={14} color="$blue" strokeWidth={2} />}
-          </XStack>
-        </TouchableOpacity>
+        {/* 3. Inbox scroll card */}
+        <View style={{ marginHorizontal: 12, marginTop: 12 }}>
+          <InboxScrollCard
+            inboxCount={inboxCount}
+            onPress={onInboxPress}
+            isDark={isDark}
+          />
+        </View>
 
-        {/* Timeline section */}
-        <YStack marginTop="$4">
+        {/* 4. Today timeline */}
+        <YStack marginTop="$5">
           <TimelineSection
             todayItems={todayItems}
             anytime={anytime}
@@ -105,7 +51,6 @@ export function HomeScreen({ onInboxPress }: { onInboxPress: () => void }) {
             afternoon={afternoonItems}
             evening={eveningItems}
             onItemTap={(item) => {
-              // TODO: Navigate to item detail/edit screen
               console.log('Navigate to item:', item.id);
             }}
             onItemComplete={(id) => {
@@ -143,16 +88,12 @@ export function HomeScreen({ onInboxPress }: { onInboxPress: () => void }) {
                 );
               } else if (action === 'quickAdd') {
                 console.log('Quick add for:', block);
-                // TODO: Open QuickAddScreen with timeOfDay pre-filled
               } else if (action === 'addItem') {
                 console.log('Add item to:', block);
-                // TODO: Open QuickAddScreen with timeOfDay pre-filled
               } else if (action === 'moveItems') {
                 console.log('Move items to:', block);
-                // TODO: Open move items modal
               } else if (action === 'sort') {
                 console.log('Sort items in:', block);
-                // TODO: Open sort modal or implement local sorting
               }
             }}
           />
@@ -162,3 +103,23 @@ export function HomeScreen({ onInboxPress }: { onInboxPress: () => void }) {
     </YStack>
   );
 }
+
+const s = StyleSheet.create({
+  practicesContainer: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: 12,
+    marginTop: 16,
+  },
+  practiceCard: {
+    flex: 1,
+    aspectRatio: 1,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  practiceIcon: {
+    fontSize: 28,
+  },
+});
