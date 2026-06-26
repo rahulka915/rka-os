@@ -142,9 +142,11 @@ const styles = StyleSheet.create({
   },
   body: {
     paddingHorizontal: spacing[5],
+    flex: 1,
   },
   scrollContent: {
     paddingHorizontal: spacing[5],
+    flexGrow: 1,
   },
   footer: {
     paddingHorizontal: spacing[5],
