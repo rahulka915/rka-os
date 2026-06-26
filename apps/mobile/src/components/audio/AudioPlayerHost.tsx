@@ -36,6 +36,9 @@ import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-au
 
 import { useThemeContext } from '../../hooks/useThemeContext';
 import { DragHandle } from '../ui/DragHandle';
+import { SyncEditor } from './SyncEditor';
+import { useLyrics } from '../../hooks/useLyrics';
+import { saveLyrics } from '../../services/lyricsSync';
 
 type AudioTrack = {
   id: string;
@@ -319,7 +322,11 @@ export function AudioPlayerHost({
   const [translationDraft, setTranslationDraft] = useState('');
   const [lyricLines, setLyricLines] = useState<LyricLine[]>([]);
   const [progressWidth, setProgressWidth] = useState(0);
+  const [editingOpen, setEditingOpen] = useState(false);
   const dockAnim = useRef(new Animated.Value(0)).current;
+
+  // Temporary userId placeholder (should come from auth context)
+  const userId = 'anonymous';
 
   const activeTrack = track ?? (open ? SAMPLE_TRACK : null);
   const player = useAudioPlayer(activeTrack?.source ?? null, { updateInterval: 250 });
@@ -522,14 +529,24 @@ export function AudioPlayerHost({
                 <Text style={styles.headerMeta}>{sourceLabel}</Text>
               </View>
 
-              <TouchableOpacity
-                onPress={loadFromDevice}
-                activeOpacity={0.8}
-                style={styles.pickButton}
-              >
-                <Upload size={14} color="#f8fafc" strokeWidth={2} />
-                <Text style={styles.pickButtonText}>MP3</Text>
-              </TouchableOpacity>
+              <View style={styles.headerButtons}>
+                <TouchableOpacity
+                  onPress={() => setEditingOpen(true)}
+                  activeOpacity={0.8}
+                  style={styles.editButton}
+                >
+                  <Text style={styles.editButtonText}>Edit</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={loadFromDevice}
+                  activeOpacity={0.8}
+                  style={styles.pickButton}
+                >
+                  <Upload size={14} color="#f8fafc" strokeWidth={2} />
+                  <Text style={styles.pickButtonText}>MP3</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             <ScrollView
@@ -724,6 +741,25 @@ export function AudioPlayerHost({
             </ScrollView>
           </KeyboardAvoidingView>
         </View>
+        <SyncEditor
+          open={editingOpen}
+          onClose={() => setEditingOpen(false)}
+          onSave={async (newLyrics) => {
+            await saveLyrics(userId, track!.id, newLyrics);
+            setLyricLines(
+              newLyrics.map((l) => ({
+                id: l.id || '',
+                original: l.text,
+                romanization: l.script || '',
+                translation: l.translation || '',
+                time: l.startTime,
+              }))
+            );
+          }}
+          currentTime={currentTime}
+          isPlaying={isPlaying}
+          onPlayPause={togglePlay}
+        />
       </Modal>
 
       <Animated.View
@@ -840,6 +876,25 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.11)',
   },
   pickButtonText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  editButton: {
+    height: 40,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editButtonText: {
     color: '#ffffff',
     fontSize: 12,
     fontWeight: '700',
