@@ -5,6 +5,7 @@ import {
   getTodayInstances,
   getTodayLogs,
   getItemsByStatus,
+  getItemsByType,
   createItem,
   updateItemStatus,
   deleteItem,
@@ -118,6 +119,15 @@ export function useCalendar(date: string) {
   useEffect(() => { refresh(); }, [refresh]);
 
   return { items, instances, refresh };
+}
+
+export function useWorkouts() {
+  const [workouts, setWorkouts] = useState<Item[]>([]);
+  const refresh = useCallback(() => {
+    setWorkouts(getItemsByType('workout-template'));
+  }, []);
+  useEffect(() => { refresh(); }, [refresh]);
+  return { workouts, refresh };
 }
 
 export function completeAllInTimeBlock(timeOfDay: 'anytime' | 'morning' | 'afternoon' | 'evening'): void {

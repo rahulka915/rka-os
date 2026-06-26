@@ -225,6 +225,7 @@ export function LogDoseSheet({ visible, medicationName, medicationId, onClose, o
       visible={visible}
       onClose={handleSheetClose}
       isDark={isDark}
+      contentContainerStyle={{ flex: 0, paddingHorizontal: 0 }}
       title={medicationName}
       subtitle="Dose Log"
       headerLeft={
@@ -238,9 +239,8 @@ export function LogDoseSheet({ visible, medicationName, medicationId, onClose, o
         </TouchableOpacity>
       }
     >
-      <YStack flex={1} backgroundColor="$bg">
+      <YStack>
         <ScrollView
-          style={{ flex: 1 }}
           contentContainerStyle={{ paddingBottom: 28 }}
           keyboardShouldPersistTaps="handled"
         >

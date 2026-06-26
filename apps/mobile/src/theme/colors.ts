@@ -17,6 +17,8 @@ export const colors = {
   textTertiary: 'rgba(60,60,67,0.42)',
   textMuted: 'rgba(60,60,67,0.52)',
 
+  maroon: '#a41e34',
+  maroonSoft: 'rgba(164,30,52,0.12)',
   blue: '#007aff',
   blueSoft: 'rgba(0,122,255,0.12)',
   green: '#34a853',
@@ -46,6 +48,8 @@ export const darkColors = {
   textTertiary: 'rgba(255,255,255,0.42)',
   textMuted: 'rgba(255,255,255,0.52)',
 
+  maroon: '#c1121f',
+  maroonSoft: 'rgba(193,18,31,0.18)',
   blue: '#3d9dff',
   blueSoft: 'rgba(61,157,255,0.18)',
   green: '#3dbb5e',
@@ -56,6 +60,16 @@ export const darkColors = {
   orangeSoft: 'rgba(255,159,90,0.18)',
 } as const;
 
+export const themeColors = {
+  ...colors,
+  primary: colors.maroon,
+};
+
+export const darkThemeColors = {
+  ...darkColors,
+  primary: darkColors.maroon,
+};
+
 export function getThemeColors(isDark: boolean) {
-  return isDark ? darkColors : colors;
+  return isDark ? darkThemeColors : themeColors;
 }

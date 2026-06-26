@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AccessibilityInfo,
   Animated,
   KeyboardAvoidingView,
   Image,
@@ -271,18 +272,22 @@ function ControlButton({
   children,
   size = 54,
   backgroundColor = 'rgba(255,255,255,0.08)',
+  accessibilityLabel,
 }: {
   onPress: () => void;
   disabled?: boolean;
   children: React.ReactNode;
   size?: number;
   backgroundColor?: string;
+  accessibilityLabel?: string;
 }) {
   return (
     <TouchableOpacity
       onPress={onPress}
       activeOpacity={0.82}
       disabled={disabled}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityRole="button"
       style={[
         styles.controlButton,
         {
@@ -322,10 +327,14 @@ function TrackArt({ track }: { track: AudioTrack }) {
   );
 }
 
-function WaveformBackdrop() {
+function WaveformBackdrop({ reduceMotion = false }: { reduceMotion?: boolean }) {
   const bars = useRef(Array.from({ length: 14 }, () => new Animated.Value(0.35))).current;
 
   useEffect(() => {
+    if (reduceMotion) {
+      bars.forEach((bar) => bar.setValue(0.5));
+      return;
+    }
     const loops = bars.map((bar, index) =>
       Animated.loop(
         Animated.sequence([
@@ -349,7 +358,7 @@ function WaveformBackdrop() {
       loops.forEach((loop) => loop.stop());
       bars.forEach((bar) => bar.stopAnimation());
     };
-  }, [bars]);
+  }, [bars, reduceMotion]);
 
   return (
     <View style={styles.waveformWrap} pointerEvents="none">
@@ -358,13 +367,15 @@ function WaveformBackdrop() {
           key={index}
           style={[
             styles.waveformBar,
-            {
-              transform: [{ scaleY: bar }],
-              opacity: bar.interpolate({
-                inputRange: [0.3, 1],
-                outputRange: [0.28, 0.82],
-              }),
-            },
+            reduceMotion
+              ? { opacity: 0.5 }
+              : {
+                  transform: [{ scaleY: bar }],
+                  opacity: bar.interpolate({
+                    inputRange: [0.3, 1],
+                    outputRange: [0.28, 0.82],
+                  }),
+                },
           ]}
         />
       ))}
@@ -405,6 +416,32 @@ function LyricsBackdrop({
   );
 }
 
+function MiniTrackHeader({ track }: { track: AudioTrack }) {
+  const artUri = track.visualArtUri ?? track.coverArtUri;
+  return (
+    <View style={styles.miniTrackHeader}>
+      <View style={styles.miniArtShell}>
+        {artUri ? (
+          <Image source={{ uri: artUri }} style={styles.miniArtImage} resizeMode="cover" />
+        ) : (
+          <>
+            <LinearGradient colors={track.palette} style={StyleSheet.absoluteFillObject} />
+            <Disc3 size={20} color="rgba(255,255,255,0.9)" strokeWidth={1.6} />
+          </>
+        )}
+      </View>
+      <View style={styles.miniTrackCopy}>
+        <Text style={styles.miniTrackTitle} numberOfLines={1}>
+          {track.title}
+        </Text>
+        <Text style={styles.miniTrackArtist} numberOfLines={1}>
+          {track.artist}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 export function AudioPlayerHost({
   open,
   onOpen,
@@ -422,14 +459,14 @@ export function AudioPlayerHost({
   const [progressWidth, setProgressWidth] = useState(0);
   const [editingOpen, setEditingOpen] = useState(false);
   const [actionsFor, setActionsFor] = useState<string | null>(null);
-  const [trackCopyHeight, setTrackCopyHeight] = useState(0);
-  const [footerHeight, setFooterHeight] = useState(0);
   const [lyricsViewportHeight, setLyricsViewportHeight] = useState(0);
+  const [reduceMotion, setReduceMotion] = useState(false);
   const dockAnim = useRef(new Animated.Value(0)).current;
   const lyricsScrollRef = useRef<ScrollView | null>(null);
   const lyricRowOffsetsRef = useRef<Record<string, number>>({});
   const autoScrollResumeRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scrollYRef = useRef(0);
+  const lastSettledLyricTargetRef = useRef<number | null>(null);
   const [autoScrollPaused, setAutoScrollPaused] = useState(false);
 
   // Mobile auth is not wired here yet, so remote lyric sync is disabled until a real user id is available.
@@ -452,21 +489,10 @@ export function AudioPlayerHost({
   }, [activeTrack]);
   const availableLyricsHeight = lyricsViewportHeight > 0
     ? lyricsViewportHeight
-    : Math.max(
-        260,
-        screenHeight -
-          insets.top -
-          insets.bottom -
-          trackCopyHeight -
-          footerHeight -
-          150
-      );
-  const lyricAnchorY = Math.round(availableLyricsHeight * 0.48);
-  const lyricTopPadding = Math.max(120, lyricAnchorY - 90);
-  const lyricBottomPadding = Math.max(
-    footerHeight + insets.bottom + 120,
-    Math.round(availableLyricsHeight * 0.65)
-  );
+    : Math.max(260, screenHeight - insets.top - insets.bottom - 150);
+  const lyricAnchorY = Math.round(availableLyricsHeight * 0.445);
+  const lyricTopPadding = Math.max(132, lyricAnchorY - 72);
+  const lyricBottomPadding = Math.max(132, Math.round(availableLyricsHeight * 0.58));
 
   const playbackLyrics = useMemo(() => {
     const stamped = lyricLines
@@ -485,6 +511,12 @@ export function AudioPlayerHost({
   }, [lyricLines]);
 
   const { activeIndex, progress: lyricProgress } = useLyricSync(currentTime, playbackLyrics);
+  useEffect(() => {
+    AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion).catch(() => {});
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
+    return () => sub.remove();
+  }, []);
+
   useEffect(() => {
     setAudioModeAsync({
       playsInSilentMode: true,
@@ -571,17 +603,31 @@ export function AudioPlayerHost({
     if (targetY === null) return;
 
     const currentScrollY = scrollYRef.current;
+    if (!isPlaying) {
+      if (lastSettledLyricTargetRef.current !== null && Math.abs(lastSettledLyricTargetRef.current - targetY) < 0.5) {
+        return;
+      }
+      lastSettledLyricTargetRef.current = targetY;
+      scrollYRef.current = targetY;
+      lyricsScrollRef.current?.scrollTo({
+        y: targetY,
+        animated: false,
+      });
+      return;
+    }
+
     const smoothing = activeIndex < 0 ? 0.16 : 0.22;
     const nextScrollY = currentScrollY + (targetY - currentScrollY) * smoothing;
 
     if (Math.abs(nextScrollY - currentScrollY) < 0.5) return;
 
+    lastSettledLyricTargetRef.current = null;
     scrollYRef.current = nextScrollY;
     lyricsScrollRef.current?.scrollTo({
       y: nextScrollY,
       animated: false,
     });
-  }, [activeIndex, autoScrollPaused, currentTime, lyricAnchorY, lyricProgress, playbackLyrics]);
+  }, [activeIndex, autoScrollPaused, currentTime, isPlaying, lyricAnchorY, lyricProgress, playbackLyrics]);
 
   const seekBy = (deltaSeconds: number) => {
     if (!activeTrack) return;
@@ -761,12 +807,15 @@ export function AudioPlayerHost({
           >
             <DragHandle isDark width={44} style={styles.handle} />
 
+            {/* ── Header ── */}
             <View style={styles.headerRow}>
               <TouchableOpacity
                 onPress={onClose}
                 activeOpacity={0.8}
                 style={styles.headerIconButton}
                 hitSlop={10}
+                accessibilityLabel="Close player"
+                accessibilityRole="button"
               >
                 <ChevronDown size={18} color="rgba(255,255,255,0.92)" strokeWidth={1.8} />
               </TouchableOpacity>
@@ -796,59 +845,61 @@ export function AudioPlayerHost({
               </View>
             </View>
 
+            {/* ── Mini track header (only when lyrics exist) ── */}
+            {!emptyLyrics && activeTrack && (
+              <MiniTrackHeader track={activeTrack} />
+            )}
+
+            {/* ── Content: flex:1, never overlapped by controls ── */}
             <View style={styles.content}>
               <LyricsBackdrop
                 uri={lyricsBackdropUri}
                 palette={(activeTrack ?? SAMPLE_TRACK).palette}
               />
 
-              <View
-                onLayout={(event) => {
-                  setTrackCopyHeight(event.nativeEvent.layout.height);
-                }}
-                style={styles.trackCopy}
-              >
-                <Text style={styles.trackTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.72}>
-                  {activeTrack?.title ?? SAMPLE_TRACK.title}
-                </Text>
-                <Text style={styles.trackArtist} numberOfLines={1}>
-                  {activeTrack?.artist ?? SAMPLE_TRACK.artist}
-                </Text>
-                <Text style={styles.badgeText} numberOfLines={1}>
-                  {activeTrack?.subtitle ?? SAMPLE_TRACK.subtitle}
-                </Text>
-              </View>
-
               {emptyLyrics ? (
-                <View style={styles.emptyLyricsFullscreen}>
-                  <View style={styles.emptyArtworkShell}>
-                    {!lyricsBackdropUri ? <WaveformBackdrop /> : null}
-                    <View style={styles.emptyArtworkGlow} />
-                    <View style={styles.emptyLyricsCopy}>
-                      <Text style={styles.lyricsKicker}>Lyrics</Text>
-                      <Text style={styles.emptyLyricsTitle}>
-                        {lyricsBackdropUri ? 'No synced lyrics yet' : 'Add lyrics for full-screen playback'}
-                      </Text>
-                      <Text style={styles.emptyLyricsBody}>
-                        {lyricsBackdropUri
-                          ? 'Artwork is ready. Add synced lyrics to switch into the immersive player.'
-                          : 'Upload artwork or keep the animated backdrop, then add synced lyrics.'}
-                      </Text>
+                <>
+                  <View style={styles.trackCopy}>
+                    <Text style={styles.trackTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.72}>
+                      {activeTrack?.title ?? SAMPLE_TRACK.title}
+                    </Text>
+                    <Text style={styles.trackArtist} numberOfLines={1}>
+                      {activeTrack?.artist ?? SAMPLE_TRACK.artist}
+                    </Text>
+                    <Text style={styles.badgeText} numberOfLines={1}>
+                      {activeTrack?.subtitle ?? SAMPLE_TRACK.subtitle}
+                    </Text>
+                  </View>
+                  <View style={styles.emptyLyricsFullscreen}>
+                    <View style={styles.emptyArtworkShell}>
+                      {!lyricsBackdropUri ? <WaveformBackdrop reduceMotion={reduceMotion} /> : null}
+                      <View style={styles.emptyArtworkGlow} />
+                      <View style={styles.emptyLyricsCopy}>
+                        <Text style={styles.lyricsKicker}>Lyrics</Text>
+                        <Text style={styles.emptyLyricsTitle}>
+                          {lyricsBackdropUri ? 'No synced lyrics yet' : 'Add lyrics for full-screen playback'}
+                        </Text>
+                        <Text style={styles.emptyLyricsBody}>
+                          {lyricsBackdropUri
+                            ? 'Artwork is ready. Add synced lyrics to switch into the immersive player.'
+                            : 'Upload artwork or keep the animated backdrop, then add synced lyrics.'}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.emptyLyricsActions}>
+                      <TouchableOpacity onPress={() => setEditingOpen(true)} activeOpacity={0.82} style={styles.emptyPrimaryButton}>
+                        <Text style={styles.emptyPrimaryButtonText}>Add lyrics</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={uploadVisual} activeOpacity={0.82} style={styles.emptySecondaryButton}>
+                        <Upload size={14} color="#ffffff" strokeWidth={2} />
+                        <Text style={styles.emptySecondaryButtonText}>
+                          {lyricsBackdropUri ? 'Change image' : 'Upload image'}
+                        </Text>
+                      </TouchableOpacity>
                     </View>
                   </View>
-
-                  <View style={styles.emptyLyricsActions}>
-                    <TouchableOpacity onPress={() => setEditingOpen(true)} activeOpacity={0.82} style={styles.emptyPrimaryButton}>
-                      <Text style={styles.emptyPrimaryButtonText}>Add lyrics</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={uploadVisual} activeOpacity={0.82} style={styles.emptySecondaryButton}>
-                      <Upload size={14} color="#ffffff" strokeWidth={2} />
-                      <Text style={styles.emptySecondaryButtonText}>
-                        {lyricsBackdropUri ? 'Change image' : 'Upload image'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
+                </>
               ) : (
                 <View
                   onLayout={(event) => {
@@ -866,7 +917,7 @@ export function AudioPlayerHost({
                     colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.055)', 'rgba(255,255,255,0)']}
                     locations={[0, 0.5, 1]}
                     pointerEvents="none"
-                    style={[styles.lyricsFocusGlow, { top: lyricAnchorY - 86 }]}
+                    style={[styles.lyricsFocusGlow, { top: lyricAnchorY - 104 }]}
                   />
                   <LinearGradient
                     colors={['rgba(5,7,11,0)', 'rgba(5,7,11,0.14)', 'rgba(5,7,11,0.88)']}
@@ -876,11 +927,7 @@ export function AudioPlayerHost({
                   />
                   <LinearGradient
                     pointerEvents="none"
-                    colors={[
-                      'rgba(5,7,11,0)',
-                      'rgba(5,7,11,0)',
-                      'rgba(5,7,11,0.92)',
-                    ]}
+                    colors={['rgba(5,7,11,0)', 'rgba(5,7,11,0)', 'rgba(5,7,11,0.92)']}
                     locations={[0, 0.72, 1]}
                     style={styles.lyricsBottomFade}
                   />
@@ -919,6 +966,9 @@ export function AudioPlayerHost({
                             lyricRowOffsetsRef.current[line.id] = event.nativeEvent.layout.y;
                           }}
                           style={styles.fullscreenLyricPressable}
+                          accessibilityRole="button"
+                          accessibilityLabel={line.text}
+                          accessibilityHint="Seek to this lyric"
                         >
                           <PlaybackLyricRow
                             line={line}
@@ -933,85 +983,93 @@ export function AudioPlayerHost({
                   </ScrollView>
                 </View>
               )}
+            </View>
 
-              <View
-                onLayout={(event) => {
-                  setFooterHeight(event.nativeEvent.layout.height);
-                }}
-                style={[styles.bottomPlayerDock, { paddingBottom: insets.bottom + 8 }]}
-              >
-                <View style={styles.lyricToolbar}>
-                  <Text style={styles.lyricToolbarLabel}>
-                    {emptyLyrics ? 'Artwork mode' : 'Synced lyrics'}
-                  </Text>
-                  <Text style={styles.lyricCountText}>
-                    {emptyLyrics ? 'Ready for lyrics' : `${playbackLyrics.length} lines`}
-                  </Text>
+            {/* ── Controls: in normal flow, below lyrics ── */}
+            <View style={styles.bottomPlayerDock}>
+              <View style={styles.progressGlass}>
+                <Pressable
+                  onLayout={(event) => setProgressWidth(event.nativeEvent.layout.width)}
+                  onPress={(event) => {
+                    if (!duration || progressWidth <= 0) return;
+                    const next = Math.min(
+                      duration,
+                      Math.max(0, (event.nativeEvent.locationX / progressWidth) * duration),
+                    );
+                    void player.seekTo(next).catch(() => {});
+                  }}
+                  style={styles.progressTrack}
+                  accessibilityRole="adjustable"
+                  accessibilityLabel="Playback position"
+                  accessibilityValue={{ now: Math.round(currentTime), min: 0, max: Math.round(duration) }}
+                >
+                  <View style={styles.progressBase} />
+                  <View style={[styles.progressFill, { width: `${Math.max(0, progress * 100)}%` }]} />
+                  <View style={[styles.progressThumb, { left: `${Math.max(0, progress * 100)}%` }]} />
+                </Pressable>
+
+                <View style={styles.timeRow}>
+                  <Text style={styles.timeText}>{formatTime(currentTime)}</Text>
+                  <Text style={styles.timeText}>{formatTime(Math.max(0, duration - currentTime))}</Text>
                 </View>
+              </View>
 
-                <View style={styles.progressGlass}>
-                  <Pressable
-                    onLayout={(event) => setProgressWidth(event.nativeEvent.layout.width)}
-                    onPress={(event) => {
-                      if (!duration || progressWidth <= 0) return;
-                      const next = Math.min(
-                        duration,
-                        Math.max(0, (event.nativeEvent.locationX / progressWidth) * duration),
-                      );
-                      void player.seekTo(next).catch(() => {});
-                    }}
-                    style={styles.progressTrack}
-                  >
-                    <View style={styles.progressBase} />
-                    <View style={[styles.progressFill, { width: `${Math.max(0, progress * 100)}%` }]} />
-                    <View style={[styles.progressThumb, { left: `${Math.max(0, progress * 100)}%` }]} />
-                  </Pressable>
+              <View style={styles.controlsRow}>
+                <ControlButton
+                  onPress={() => seekBy(-15)}
+                  size={52}
+                  backgroundColor="rgba(255,255,255,0.12)"
+                  accessibilityLabel="Skip back 15 seconds"
+                >
+                  <SkipBack size={22} color="#f8fafc" strokeWidth={1.9} />
+                </ControlButton>
 
-                  <View style={styles.timeRow}>
-                    <Text style={styles.timeText}>{formatTime(currentTime)}</Text>
-                    <Text style={styles.timeText}>{formatTime(Math.max(0, duration - currentTime))}</Text>
-                  </View>
-                </View>
+                <ControlButton
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+                    togglePlay();
+                  }}
+                  size={88}
+                  backgroundColor="#f8fafc"
+                  accessibilityLabel={isPlaying ? 'Pause' : 'Play'}
+                >
+                  {isPlaying ? (
+                    <Pause size={34} color="#0c1018" strokeWidth={2.4} />
+                  ) : (
+                    <Play size={34} color="#0c1018" fill="#0c1018" strokeWidth={2.1} />
+                  )}
+                </ControlButton>
 
-                <View style={styles.controlsRow}>
-                  <ControlButton onPress={() => seekBy(-15)} size={52} backgroundColor="rgba(255,255,255,0.12)">
-                    <SkipBack size={22} color="#f8fafc" strokeWidth={1.9} />
-                  </ControlButton>
+                <ControlButton
+                  onPress={() => seekBy(15)}
+                  size={52}
+                  backgroundColor="rgba(255,255,255,0.12)"
+                  accessibilityLabel="Skip forward 15 seconds"
+                >
+                  <SkipForward size={22} color="#f8fafc" strokeWidth={1.9} />
+                </ControlButton>
+              </View>
 
-                  <ControlButton onPress={togglePlay} size={88} backgroundColor="#f8fafc">
-                    {isPlaying ? (
-                      <Pause size={34} color="#0c1018" strokeWidth={2.4} />
-                    ) : (
-                      <Play size={34} color="#0c1018" fill="#0c1018" strokeWidth={2.1} />
-                    )}
-                  </ControlButton>
+              <View style={styles.footerRow}>
+                <TouchableOpacity
+                  onPress={() => {
+                    setEditingOpen(true);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+                  }}
+                  activeOpacity={0.8}
+                  style={styles.footerPill}
+                >
+                  <Text style={styles.footerPillText}>Edit lyrics</Text>
+                </TouchableOpacity>
 
-                  <ControlButton onPress={() => seekBy(15)} size={52} backgroundColor="rgba(255,255,255,0.12)">
-                    <SkipForward size={22} color="#f8fafc" strokeWidth={1.9} />
-                  </ControlButton>
-                </View>
-
-                <View style={styles.footerRow}>
-                  <TouchableOpacity
-                    onPress={() => {
-                      setEditingOpen(true);
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-                    }}
-                    activeOpacity={0.8}
-                    style={styles.footerPill}
-                  >
-                    <Text style={styles.footerPillText}>Edit lyrics</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    onPress={loadFromDevice}
-                    activeOpacity={0.8}
-                    style={styles.footerPill}
-                  >
-                    <Upload size={14} color="rgba(255,255,255,0.9)" strokeWidth={2.2} />
-                    <Text style={styles.footerPillText}>Load MP3</Text>
-                  </TouchableOpacity>
-                </View>
+                <TouchableOpacity
+                  onPress={loadFromDevice}
+                  activeOpacity={0.8}
+                  style={styles.footerPill}
+                >
+                  <Upload size={14} color="rgba(255,255,255,0.9)" strokeWidth={2.2} />
+                  <Text style={styles.footerPillText}>Load MP3</Text>
+                </TouchableOpacity>
               </View>
             </View>
           </KeyboardAvoidingView>
@@ -1032,8 +1090,11 @@ export function AudioPlayerHost({
             );
           }}
           currentTime={currentTime}
+          duration={duration}
           isPlaying={isPlaying}
           onPlayPause={togglePlay}
+          onSeek={(t) => { void player.seekTo(t).catch(() => {}); }}
+          onSetSpeed={(rate) => { player.playbackRate = rate; }}
           initialLyrics={playbackLyrics}
         />
 
@@ -1077,7 +1138,14 @@ export function AudioPlayerHost({
         ]}
       >
         <View style={[styles.dock, !isDark && styles.dockLight]}>
-          <TouchableOpacity onPress={onOpen} activeOpacity={0.85} style={styles.dockMain}>
+          <TouchableOpacity
+            onPress={onOpen}
+            activeOpacity={0.85}
+            style={styles.dockMain}
+            accessibilityLabel={`${activeTrack?.title ?? SAMPLE_TRACK.title} by ${activeTrack?.artist ?? SAMPLE_TRACK.artist}`}
+            accessibilityHint="Open player"
+            accessibilityRole="button"
+          >
             <View style={styles.dockArt}>
               {(activeTrack ?? SAMPLE_TRACK).coverArtUri ? (
                 <Image
@@ -1103,7 +1171,13 @@ export function AudioPlayerHost({
             </View>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={togglePlay} activeOpacity={0.8} style={styles.dockAction}>
+          <TouchableOpacity
+            onPress={togglePlay}
+            activeOpacity={0.8}
+            style={styles.dockAction}
+            accessibilityLabel={isPlaying ? 'Pause' : 'Play'}
+            accessibilityRole="button"
+          >
             {isPlaying ? (
               <Pause size={20} color="#f8fafc" strokeWidth={2.2} />
             ) : (
@@ -1111,7 +1185,13 @@ export function AudioPlayerHost({
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={dismissTrack} activeOpacity={0.8} style={styles.dockClose}>
+          <TouchableOpacity
+            onPress={dismissTrack}
+            activeOpacity={0.8}
+            style={styles.dockClose}
+            accessibilityLabel="Dismiss player"
+            accessibilityRole="button"
+          >
             <X size={16} color="rgba(255,255,255,0.85)" strokeWidth={2} />
           </TouchableOpacity>
         </View>
@@ -1144,9 +1224,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   headerIconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.05)',
@@ -1173,7 +1253,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    height: 40,
+    height: 44,
     paddingHorizontal: 14,
     borderRadius: 999,
     backgroundColor: 'rgba(255,255,255,0.08)',
@@ -1190,7 +1270,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   editButton: {
-    height: 40,
+    height: 44,
     paddingHorizontal: 12,
     borderRadius: 8,
     backgroundColor: 'rgba(255,255,255,0.08)',
@@ -1534,33 +1614,46 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255,255,255,0.10)',
   },
-  lyricToolbar: {
+  miniTrackHeader: {
+    height: 56,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 4,
-    paddingHorizontal: 2,
+    gap: 12,
+    paddingHorizontal: 4,
+    marginBottom: 4,
   },
-  lyricToolbarLabel: {
-    color: 'rgba(255,255,255,0.82)',
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 0.4,
-    textTransform: 'uppercase',
+  miniArtShell: {
+    width: 46,
+    height: 46,
+    borderRadius: 10,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
-  lyricCountText: {
-    color: 'rgba(255,255,255,0.42)',
-    fontSize: 11,
+  miniArtImage: {
+    width: '100%',
+    height: '100%',
+  },
+  miniTrackCopy: {
+    flex: 1,
+  },
+  miniTrackTitle: {
+    color: '#ffffff',
+    fontSize: 14,
     fontWeight: '700',
+    lineHeight: 18,
+  },
+  miniTrackArtist: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 12,
+    lineHeight: 16,
+    marginTop: 2,
   },
   bottomPlayerDock: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
     paddingHorizontal: 18,
-    paddingTop: 16,
-    zIndex: 5,
+    paddingTop: 12,
+    paddingBottom: 12,
   },
   progressGlass: {
     marginTop: 10,
@@ -1656,7 +1749,7 @@ const styles = StyleSheet.create({
     marginTop: 22,
   },
   progressTrack: {
-    height: 18,
+    height: 44,
     justifyContent: 'center',
   },
   progressBase: {
@@ -1674,7 +1767,7 @@ const styles = StyleSheet.create({
   },
   progressThumb: {
     position: 'absolute',
-    top: 4,
+    top: 16,
     width: 12,
     height: 12,
     marginLeft: -6,
@@ -1711,7 +1804,7 @@ const styles = StyleSheet.create({
   },
   footerPill: {
     flex: 1,
-    height: 40,
+    minHeight: 44,
     borderRadius: 999,
     paddingHorizontal: 14,
     flexDirection: 'row',
@@ -1795,9 +1888,9 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   dockClose: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.08)',

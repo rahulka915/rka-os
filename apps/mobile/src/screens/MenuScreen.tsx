@@ -1,13 +1,16 @@
 import { useState } from 'react';
-import { TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Modal } from 'react-native';
-import { YStack, XStack, Text, View } from 'tamagui';
+import * as Haptics from 'expo-haptics';
 import { MedicationsScreen } from './MedicationsScreen';
+import { useThemeContext } from '../hooks/useThemeContext';
+import { getThemeColors } from '../theme';
 import { FolderKanban, Dumbbell, Pill, ChevronRight, X, Disc3 } from '../icons';
 
 export function MenuScreen({ onAudioPlayerPress }: { onAudioPlayerPress: () => void }) {
   const insets = useSafeAreaInsets();
+  const { isDark } = useThemeContext();
+  const palette = getThemeColors(isDark);
   const [medOpen, setMedOpen] = useState(false);
 
   const menuItems = [
@@ -18,46 +21,89 @@ export function MenuScreen({ onAudioPlayerPress }: { onAudioPlayerPress: () => v
   ];
 
   return (
-    <YStack flex={1} backgroundColor="$bg" paddingTop={insets.top + 16} paddingHorizontal="$4">
-      <Text fontSize="$6" fontWeight="700" color="$text" marginBottom="$3">Apps</Text>
+    <View style={[styles.container, { backgroundColor: palette.bg, paddingTop: insets.top + 12 }]}>
+      <Text style={[styles.title, { color: palette.textTertiary }]}>APPS</Text>
 
-      <YStack
-        backgroundColor="$surface" borderRadius="$4"
-        shadowColor="black" shadowOffset={{ width: 0, height: 8 }}
-        shadowOpacity={0.08} shadowRadius={12} elevation={3}
-        overflow="hidden"
-      >
-        {menuItems.map(({ label, sub, icon: Icon, onPress }, i) => (
-          <TouchableOpacity key={label} onPress={onPress} activeOpacity={0.7}>
-            <XStack
-              alignItems="center" gap="$3" padding="$4"
-              borderBottomWidth={i < menuItems.length - 1 ? 0.5 : 0}
-              borderBottomColor="$separator"
-            >
-              <View width={36} height={36} borderRadius="$3" backgroundColor="$fill" alignItems="center" justifyContent="center">
-                <Icon size={18} color="rgba(60,60,67,0.66)" strokeWidth={1.5} />
-              </View>
-              <YStack flex={1}>
-                <Text fontSize="$3" fontWeight="500" color="$text">{label}</Text>
-                <Text fontSize="$2" color="$textSecondary" marginTop={2}>{sub}</Text>
-              </YStack>
-              <ChevronRight size={16} color="rgba(60,60,67,0.42)" strokeWidth={1.5} />
-            </XStack>
-          </TouchableOpacity>
-        ))}
-      </YStack>
+      {menuItems.map(({ label, sub, icon: Icon, onPress }, i) => (
+        <TouchableOpacity
+          key={label}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            onPress();
+          }}
+          activeOpacity={0.5}
+        >
+          <View style={[styles.row, { paddingHorizontal: 16, paddingVertical: 12 }]}>
+            <Icon size={16} color={palette.textSecondary} strokeWidth={1.5} />
+            <View style={styles.content}>
+              <Text style={[styles.label, { color: palette.text }]}>{label}</Text>
+              <Text style={[styles.sub, { color: palette.textSecondary }]} numberOfLines={1}>{sub}</Text>
+            </View>
+            <ChevronRight size={14} color={palette.textMuted} strokeWidth={1.5} />
+          </View>
+          {i < menuItems.length - 1 && (
+            <View style={[styles.sep, { backgroundColor: palette.separator, marginLeft: 40 }]} />
+          )}
+        </TouchableOpacity>
+      ))}
 
       {/* Medications modal */}
       <Modal visible={medOpen} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setMedOpen(false)}>
-        <YStack flex={1} backgroundColor="$bg">
-          <XStack paddingTop="$4" paddingHorizontal="$4" paddingBottom="$2" alignItems="center" justifyContent="flex-end">
-            <TouchableOpacity onPress={() => setMedOpen(false)} style={{ width: 32, height: 32, borderRadius: 999, backgroundColor: 'rgba(118,118,128,0.12)', alignItems: 'center', justifyContent: 'center' }} hitSlop={12}>
-              <X size={18} color="rgba(60,60,67,0.66)" strokeWidth={2} />
+        <View style={[styles.modalContainer, { backgroundColor: palette.bg, paddingTop: insets.top }]}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setMedOpen(false)} hitSlop={12}>
+              <X size={16} color={palette.text} strokeWidth={2.5} />
             </TouchableOpacity>
-          </XStack>
+          </View>
           <MedicationsScreen />
-        </YStack>
+        </View>
       </Modal>
-    </YStack>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    paddingHorizontal: 0,
+  },
+  title: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  content: {
+    flex: 1,
+  },
+  label: {
+    fontSize: 15,
+    fontWeight: '500',
+    letterSpacing: -0.2,
+  },
+  sub: {
+    fontSize: 12,
+    fontWeight: '400',
+    marginTop: 2,
+  },
+  sep: {
+    height: StyleSheet.hairlineWidth,
+  },
+  modalContainer: {
+    flex: 1,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+});

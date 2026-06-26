@@ -38,3 +38,4 @@ export { default as AlertTriangle } from 'react-native-heroicons/outline/Exclama
 export { default as Sunset } from 'react-native-heroicons/outline/CloudIcon';
 export { default as Heart } from 'react-native-heroicons/outline/HeartIcon';
 export { default as Sparkles } from 'react-native-heroicons/outline/SparklesIcon';
+export { default as MusicNote } from 'react-native-heroicons/outline/MusicalNoteIcon';

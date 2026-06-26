@@ -18,7 +18,7 @@ import { HomeScreen } from './src/screens/HomeScreen';
 import { CalendarScreen } from './src/screens/CalendarScreen';
 import { MenuScreen } from './src/screens/MenuScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
-import { InboxScreen } from './src/screens/InboxScreen';
+import { InboxScreenV2 } from './src/screens/InboxScreenV2';
 import { QuickAddScreen } from './src/screens/QuickAddScreen';
 import { AudioPlayerHost } from './src/components/audio/AudioPlayerHost';
 import { PersistentTimerBanner } from './src/components/PersistentTimerBanner';
@@ -97,7 +97,7 @@ function AppleTabBar({ state, navigation, isDark, onFabPress }: any) {
 
 export default function App() {
   const systemScheme = useColorScheme();
-  const [manualDark, setManualDark] = useState<boolean | null>(null);
+  const [manualDark, setManualDark] = useState<boolean | null>(true);
   const isDark = manualDark !== null ? manualDark : systemScheme === 'dark';
 
   const [inboxOpen, setInboxOpen] = useState(false);
@@ -159,7 +159,7 @@ export default function App() {
           </GestureHandlerRootView>
 
           {/* Sheets — rendered above navigation */}
-          <InboxScreen visible={inboxOpen} onClose={() => setInboxOpen(false)} />
+          <InboxScreenV2 visible={inboxOpen} onClose={() => setInboxOpen(false)} />
           <QuickAddScreen visible={quickAddOpen} onClose={() => setQuickAddOpen(false)} />
 
           {/* Timer always on top of everything */}

@@ -29,4 +29,6 @@ export interface DraftLine {
   text: string;
   translation: string;
   startTime: number | null;
+  kind?: 'lyric' | 'instrumental';
+  label?: string;
 }

@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { ScrollView, TouchableOpacity } from 'react-native';
+import { ScrollView, TouchableOpacity, View as RNView, Text as RNText, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { YStack, XStack, Text, View } from 'tamagui';
 import { useCalendar } from '../hooks/useDb';
 import { formatDate, completeInstance } from '../db/database';
 import * as Haptics from 'expo-haptics';
+import { useThemeContext } from '../hooks/useThemeContext';
+import { getThemeColors } from '../theme';
 import { ChevronLeft, ChevronRight, Check } from '../icons';
 
 const DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -16,13 +17,20 @@ function addDays(date: Date, n: number): Date {
   return d;
 }
 
-function WeekStrip({ selected, onSelect }: { selected: Date; onSelect: (d: Date) => void }) {
+interface WeekStripProps {
+  selected: Date;
+  onSelect: (d: Date) => void;
+  isDark: boolean;
+}
+
+function WeekStrip({ selected, onSelect, isDark }: WeekStripProps) {
+  const palette = getThemeColors(isDark);
   const startOfWeek = new Date(selected);
   startOfWeek.setDate(selected.getDate() - selected.getDay());
   const today = formatDate(new Date());
 
   return (
-    <XStack paddingHorizontal="$4" gap="$1">
+    <RNView style={s.weekStrip}>
       {Array.from({ length: 7 }, (_, i) => {
         const day = addDays(startOfWeek, i);
         const isSelected = formatDate(day) === formatDate(selected);
@@ -32,36 +40,44 @@ function WeekStrip({ selected, onSelect }: { selected: Date; onSelect: (d: Date)
           <TouchableOpacity
             key={i}
             onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onSelect(day); }}
-            style={{ flex: 1, alignItems: 'center', gap: 6 }}
+            style={s.weekDay}
+            activeOpacity={0.6}
           >
-            <Text fontSize={10} fontWeight="600" color="$textTertiary" style={{ letterSpacing: 0.5 }}>
+            <RNText style={[s.dayLabel, { color: palette.textTertiary }]}>
               {DAYS[day.getDay()]}
-            </Text>
-            <View
-              width={34} height={34} borderRadius="$6"
-              backgroundColor={isSelected ? '$text' : 'transparent'}
-              alignItems="center" justifyContent="center"
+            </RNText>
+            <RNView
+              style={[
+                s.dayCircle,
+                { backgroundColor: isSelected ? palette.text : 'transparent' },
+              ]}
             >
-              <Text
-                fontSize="$3"
-                fontWeight={isToday ? '800' : '400'}
-                color={isSelected ? 'white' : isToday ? '$blue' : '$text'}
+              <RNText
+                style={[
+                  s.dayNumber,
+                  {
+                    color: isSelected ? palette.bg : isToday ? '#007aff' : palette.text,
+                    fontWeight: isToday ? '800' : '400',
+                  },
+                ]}
               >
                 {day.getDate()}
-              </Text>
-            </View>
+              </RNText>
+            </RNView>
             {isToday && !isSelected && (
-              <View width={4} height={4} borderRadius="$6" backgroundColor="$blue" />
+              <RNView style={s.todayDot} />
             )}
           </TouchableOpacity>
         );
       })}
-    </XStack>
+    </RNView>
   );
 }
 
 export function CalendarScreen() {
   const insets = useSafeAreaInsets();
+  const { isDark } = useThemeContext();
+  const palette = getThemeColors(isDark);
   const [selected, setSelected] = useState(new Date());
   const dateStr = formatDate(selected);
   const { items, instances, refresh } = useCalendar(dateStr);
@@ -79,144 +95,292 @@ export function CalendarScreen() {
   const isEmpty = items.length === 0 && instances.length === 0;
 
   return (
-    <YStack flex={1} backgroundColor="$bg" paddingTop={insets.top + 16}>
-
+    <RNView style={[s.container, { backgroundColor: palette.bg, paddingTop: insets.top + 12 }]}>
       {/* Month + nav */}
-      <XStack paddingHorizontal="$4" alignItems="center" justifyContent="space-between" marginBottom="$4">
+      <RNView style={s.monthNav}>
         <TouchableOpacity onPress={() => goWeek(-1)} hitSlop={16}>
-          <ChevronLeft size={20} color="rgba(13,13,13,0.4)" strokeWidth={2} />
+          <ChevronLeft size={18} color={palette.textSecondary} strokeWidth={2} />
         </TouchableOpacity>
 
-        <YStack alignItems="center">
-          <Text fontSize="$5" fontWeight="800" color="$text" style={{ letterSpacing: -0.3 }}>
+        <RNView style={s.monthCenter}>
+          <RNText style={[s.monthTitle, { color: palette.text }]}>
             {MONTHS[selected.getMonth()]}
-          </Text>
-          <Text fontSize={11} fontWeight="600" color={isToday ? '$blue' : '$textTertiary'}>
+          </RNText>
+          <RNText style={[s.monthSub, { color: isToday ? '#007aff' : palette.textTertiary }]}>
             {isToday ? 'Today' : selected.getFullYear()}
-          </Text>
-        </YStack>
+          </RNText>
+        </RNView>
 
         <TouchableOpacity onPress={() => goWeek(1)} hitSlop={16}>
-          <ChevronRight size={20} color="rgba(13,13,13,0.4)" strokeWidth={2} />
+          <ChevronRight size={18} color={palette.textSecondary} strokeWidth={2} />
         </TouchableOpacity>
-      </XStack>
+      </RNView>
 
       {/* Week strip */}
-      <WeekStrip selected={selected} onSelect={setSelected} />
+      <WeekStrip selected={selected} onSelect={setSelected} isDark={isDark} />
 
       {/* Divider */}
-      <View height={0.5} backgroundColor="$separator" marginTop="$4" marginBottom="$4" />
+      <RNView style={[s.divider, { backgroundColor: palette.separator }]} />
 
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
-
+      <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
         {isEmpty ? (
-          <YStack alignItems="center" paddingTop={60} gap="$3">
-            <Text fontSize={44} style={{ opacity: 0.2 }}>◯</Text>
-            <Text fontSize="$5" fontWeight="800" color="$text">Nothing here</Text>
-            <Text fontSize="$2" color="$textSecondary" textAlign="center">
+          <RNView style={s.empty}>
+            <RNText style={s.emptyIcon}>◯</RNText>
+            <RNText style={[s.emptyTitle, { color: palette.text }]}>Nothing here</RNText>
+            <RNText style={[s.emptySub, { color: palette.textSecondary }]}>
               {isToday ? 'Your day is clear.' : 'No items for this date.'}
-            </Text>
+            </RNText>
             {!isToday && (
-              <TouchableOpacity onPress={() => setSelected(new Date())} style={{ marginTop: 8 }}>
-                <Text fontSize="$2" color="$blue" fontWeight="700">Go to today →</Text>
+              <TouchableOpacity onPress={() => setSelected(new Date())} style={{ marginTop: 12 }}>
+                <RNText style={s.goToday}>Go to today →</RNText>
               </TouchableOpacity>
             )}
-          </YStack>
+          </RNView>
         ) : (
-          <YStack gap="$4">
-
-            {/* Instances — protocol style */}
+          <>
+            {/* Instances */}
             {instances.length > 0 && (
-              <YStack>
-                <Text fontSize={11} fontWeight="700" color="$textTertiary" style={{ letterSpacing: 1, textTransform: 'uppercase' }} marginBottom="$3">
-                  Scheduled ({instances.length})
-                </Text>
+              <RNView style={s.section}>
+                <RNText style={[s.sectionTitle, { color: palette.textTertiary }]}>
+                  SCHEDULED ({instances.length})
+                </RNText>
                 {instances.map((instance, i) => {
                   const isDone = instance.status === 'completed';
                   const isLast = i === instances.length - 1;
                   return (
-                    <XStack key={instance.id}>
-                      <YStack width={36} alignItems="center">
-                        <TouchableOpacity
-                          onPress={() => !isDone && handleComplete(instance.id)}
-                          style={{
-                            width: 22, height: 22, borderRadius: 11, marginTop: 13,
-                            borderWidth: isDone ? 0 : 2,
-                            borderColor: isDone ? 'transparent' : 'rgba(13,13,13,0.2)',
-                            backgroundColor: isDone ? '#34a853' : 'transparent',
-                            alignItems: 'center', justifyContent: 'center',
-                          }}
-                        >
-                          {isDone && <Check size={12} color="white" strokeWidth={3} />}
-                        </TouchableOpacity>
-                        {!isLast && (
-                          <View width={1.5} flex={1} backgroundColor="rgba(13,13,13,0.08)" marginTop={2} />
-                        )}
-                      </YStack>
-                      <YStack
-                        flex={1} marginLeft="$2" marginBottom={isLast ? 0 : "$2"}
-                        backgroundColor="$surface" borderRadius="$3" padding="$4"
-                        shadowColor="black" shadowOffset={{ width: 0, height: 2 }}
-                        shadowOpacity={0.04} shadowRadius={6} elevation={1}
-                        opacity={isDone ? 0.5 : 1}
-                      >
-                        <Text fontSize="$3" fontWeight="500" color="$text"
-                          textDecorationLine={isDone ? 'line-through' : 'none'}
-                        >
-                          {instance.itemId}
-                        </Text>
-                        <Text fontSize={11} color="$textTertiary" marginTop={2} fontWeight="600">
-                          {isDone ? 'Completed' : 'Pending'}
-                        </Text>
-                      </YStack>
-                    </XStack>
+                    <RNView key={instance.id}>
+                      <RNView style={s.timelineItem}>
+                        <RNView style={s.timelineLeft}>
+                          <TouchableOpacity
+                            onPress={() => !isDone && handleComplete(instance.id)}
+                            style={[
+                              s.checkbox,
+                              {
+                                borderColor: isDone ? 'transparent' : palette.textMuted,
+                                backgroundColor: isDone ? '#34a853' : 'transparent',
+                              },
+                            ]}
+                          >
+                            {isDone && <Check size={11} color="white" strokeWidth={3} />}
+                          </TouchableOpacity>
+                          {!isLast && <RNView style={[s.timelineConnector, { backgroundColor: palette.separator }]} />}
+                        </RNView>
+                        <RNView style={s.timelineContent}>
+                          <RNText style={[s.itemTitle, { color: palette.text, textDecorationLine: isDone ? 'line-through' : 'none', opacity: isDone ? 0.5 : 1 }]}>
+                            {instance.itemId}
+                          </RNText>
+                          <RNText style={[s.itemStatus, { color: palette.textTertiary }]}>
+                            {isDone ? 'Completed' : 'Pending'}
+                          </RNText>
+                        </RNView>
+                      </RNView>
+                      {!isLast && <RNView style={[s.sep, { backgroundColor: palette.separator }]} />}
+                    </RNView>
                   );
                 })}
-              </YStack>
+              </RNView>
             )}
 
-            {/* Scheduled items */}
+            {/* Items */}
             {items.length > 0 && (
-              <YStack>
-                <Text fontSize={11} fontWeight="700" color="$textTertiary" style={{ letterSpacing: 1, textTransform: 'uppercase' }} marginBottom="$3">
-                  Items ({items.length})
-                </Text>
+              <RNView style={s.section}>
+                <RNText style={[s.sectionTitle, { color: palette.textTertiary }]}>
+                  ITEMS ({items.length})
+                </RNText>
                 {items.map((item, i) => {
                   const isLast = i === items.length - 1;
                   return (
-                    <XStack key={item.id}>
-                      <YStack width={36} alignItems="center">
-                        <View width={8} height={8} borderRadius="$6" backgroundColor="$blue" marginTop={18} />
-                        {!isLast && <View width={1.5} flex={1} backgroundColor="rgba(13,13,13,0.08)" marginTop={2} />}
-                      </YStack>
-                      <YStack
-                        flex={1} marginLeft="$2" marginBottom={isLast ? 0 : "$2"}
-                        backgroundColor="$surface" borderRadius="$3" padding="$4"
-                        shadowColor="black" shadowOffset={{ width: 0, height: 2 }}
-                        shadowOpacity={0.04} shadowRadius={6} elevation={1}
-                      >
-                        <Text fontSize="$3" fontWeight="500" color="$text">{item.title}</Text>
-                        {item.notes && (
-                          <Text fontSize="$2" color="$textSecondary" marginTop={2}>{item.notes}</Text>
-                        )}
-                        <View
-                          alignSelf="flex-start" paddingHorizontal="$2" paddingVertical={2}
-                          borderRadius="$2" backgroundColor="$fill" marginTop="$2"
-                        >
-                          <Text fontSize={10} fontWeight="700" color="$textSecondary" style={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                            {item.type}
-                          </Text>
-                        </View>
-                      </YStack>
-                    </XStack>
+                    <RNView key={item.id}>
+                      <RNView style={s.timelineItem}>
+                        <RNView style={s.timelineLeft}>
+                          <RNView style={[s.dot, { backgroundColor: '#007aff' }]} />
+                          {!isLast && <RNView style={[s.timelineConnector, { backgroundColor: palette.separator }]} />}
+                        </RNView>
+                        <RNView style={s.timelineContent}>
+                          <RNText style={[s.itemTitle, { color: palette.text }]}>{item.title}</RNText>
+                          {item.notes && (
+                            <RNText style={[s.itemNotes, { color: palette.textSecondary }]}>{item.notes}</RNText>
+                          )}
+                          <RNView style={[s.typeBadge, { backgroundColor: palette.fill }]}>
+                            <RNText style={[s.typeBadgeText, { color: palette.textSecondary }]}>
+                              {item.type}
+                            </RNText>
+                          </RNView>
+                        </RNView>
+                      </RNView>
+                      {!isLast && <RNView style={[s.sep, { backgroundColor: palette.separator }]} />}
+                    </RNView>
                   );
                 })}
-              </YStack>
+              </RNView>
             )}
-
-          </YStack>
+          </>
         )}
       </ScrollView>
-    </YStack>
+    </RNView>
   );
 }
+
+const s = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  monthNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+  },
+  monthCenter: {
+    alignItems: 'center',
+  },
+  monthTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  monthSub: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  weekStrip: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    gap: 8,
+    marginBottom: 12,
+  },
+  weekDay: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 6,
+  },
+  dayLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+  dayCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dayNumber: {
+    fontSize: 14,
+    letterSpacing: -0.2,
+  },
+  todayDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#007aff',
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    marginHorizontal: 16,
+    marginBottom: 12,
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 100,
+  },
+  empty: {
+    alignItems: 'center',
+    paddingTop: 60,
+    gap: 8,
+  },
+  emptyIcon: {
+    fontSize: 44,
+    opacity: 0.2,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  emptySub: {
+    fontSize: 13,
+    fontWeight: '400',
+    textAlign: 'center',
+  },
+  goToday: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#007aff',
+  },
+  section: {
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    marginBottom: 12,
+  },
+  timelineItem: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  timelineLeft: {
+    width: 36,
+    alignItems: 'center',
+    paddingTop: 2,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginTop: 8,
+  },
+  timelineConnector: {
+    width: 1.5,
+    flex: 1,
+    marginTop: 4,
+  },
+  timelineContent: {
+    flex: 1,
+    paddingVertical: 10,
+  },
+  itemTitle: {
+    fontSize: 15,
+    fontWeight: '500',
+    letterSpacing: -0.2,
+  },
+  itemNotes: {
+    fontSize: 13,
+    fontWeight: '400',
+    marginTop: 4,
+  },
+  itemStatus: {
+    fontSize: 11,
+    fontWeight: '500',
+    marginTop: 4,
+  },
+  typeBadge: {
+    alignSelf: 'flex-start',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    marginTop: 6,
+  },
+  typeBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  sep: {
+    height: StyleSheet.hairlineWidth,
+  },
+});

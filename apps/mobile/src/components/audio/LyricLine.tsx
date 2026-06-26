@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Pressable,
 } from 'react-native';
+import { Heart, Sparkles, Pencil } from '../../icons';
 import { LyricLine as LyricLineType } from '../../lib/lyricTypes';
 
 interface LyricLineProps {
@@ -89,6 +90,14 @@ export const LyricLine = React.forwardRef<View, LyricLineProps>(
             ? 0.26
             : 0.12;
     const verticalPadding = active ? 20 : clampedDistance === 1 ? 15 : 12;
+    const progressPercent = `${Math.max(0, Math.min(1, progress)) * 100}%` as const;
+
+    const renderHighlight = () => {
+      if (!line.highlight) return null;
+      if (line.highlightStyle === 'sparkle') return <Sparkles size={14} color="rgba(255,255,255,0.9)" />;
+      if (line.highlightStyle === 'heart') return <Heart size={14} color="rgba(255,160,180,0.9)" />;
+      return <Sparkles size={14} color="rgba(255,215,0,0.9)" />;
+    };
 
     return (
       <Pressable
@@ -103,19 +112,6 @@ export const LyricLine = React.forwardRef<View, LyricLineProps>(
           },
         ]}
       >
-        {/* Fill bar background */}
-        {active && (
-          <View
-            style={[
-              styles.fillBar,
-              {
-                backgroundColor: fillColor,
-                width: `${Math.max(0, progress * 100)}%`,
-              },
-            ]}
-          />
-        )}
-
         {/* Content */}
         <View style={styles.content}>
           {line.script && (
@@ -132,26 +128,90 @@ export const LyricLine = React.forwardRef<View, LyricLineProps>(
             </Text>
           )}
 
-          <Text
-            style={[
-              styles.mainText,
-              {
-                color: textColor,
-                opacity: mainOpacity,
-              },
-            ]}
-          >
-            {line.text}
-            {line.highlight && (
-              <Text style={styles.highlightMarker}>
-                {' '}
-                {line.highlightStyle === 'sparkle' ? '✨' :
-                 line.highlightStyle === 'heart' ? '❤️' : '⭐'}
+          {active ? (
+            <View style={styles.activeTextTrack}>
+              <View style={styles.textWithHighlight}>
+                <Text
+                  style={[
+                    styles.mainText,
+                    styles.activeBaseText,
+                    {
+                      color: textColor,
+                      opacity: 0.34,
+                    },
+                  ]}
+                >
+                  {line.text}
+                </Text>
+                {renderHighlight()}
+              </View>
+              <View style={[styles.activeTextFill, { width: progressPercent }]}>
+                <View style={styles.textWithHighlight}>
+                  <Text
+                    style={[
+                      styles.mainText,
+                      styles.activeForegroundText,
+                      {
+                        color: '#ffffff',
+                        opacity: 1,
+                      },
+                    ]}
+                  >
+                    {line.text}
+                  </Text>
+                  {renderHighlight()}
+                </View>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.textWithHighlight}>
+              <Text
+                style={[
+                  styles.mainText,
+                  {
+                    color: textColor,
+                    opacity: mainOpacity,
+                  },
+                ]}
+              >
+                {line.text}
               </Text>
-            )}
-          </Text>
+              {renderHighlight()}
+            </View>
+          )}
 
-          {line.translation && (
+          {line.translation && active ? (
+            <View style={styles.activeTextTrack}>
+              <Text
+                style={[
+                  styles.translationText,
+                  styles.activeBaseText,
+                  {
+                    color: secondaryColor,
+                    opacity: 0.32,
+                  },
+                ]}
+              >
+                {line.translation}
+              </Text>
+              <View style={[styles.activeTextFill, { width: progressPercent }]}>
+                <Text
+                  style={[
+                    styles.translationText,
+                    styles.activeForegroundText,
+                    {
+                      color: '#ffffff',
+                      opacity: 0.94,
+                    },
+                  ]}
+                >
+                  {line.translation}
+                </Text>
+              </View>
+            </View>
+          ) : null}
+
+          {line.translation && !active ? (
             <Text
               style={[
                 styles.translationText,
@@ -163,19 +223,15 @@ export const LyricLine = React.forwardRef<View, LyricLineProps>(
             >
               {line.translation}
             </Text>
-          )}
+          ) : null}
 
           {line.note && (
-            <Text
-              style={[
-                styles.noteText,
-                {
-                  color: secondaryColor,
-                },
-              ]}
-            >
-              📝 {line.note}
-            </Text>
+            <View style={styles.noteRow}>
+              <Pencil size={10} color={secondaryColor} />
+              <Text style={[styles.noteText, { color: secondaryColor, fontStyle: 'italic' }]}>
+                {line.note}
+              </Text>
+            </View>
           )}
         </View>
       </Pressable>
@@ -194,16 +250,29 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
   },
-  fillBar: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 3,
-    opacity: 0.65,
-  },
   content: {
     zIndex: 1,
+  },
+  activeTextTrack: {
+    position: 'relative',
+    alignSelf: 'stretch',
+  },
+  activeTextFill: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    overflow: 'hidden',
+  },
+  activeBaseText: {
+    textShadowColor: 'rgba(255,255,255,0.08)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 8,
+  },
+  activeForegroundText: {
+    textShadowColor: 'rgba(255,255,255,0.28)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 18,
   },
   scriptText: {
     fontSize: 16,
@@ -232,6 +301,18 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontStyle: 'italic',
   },
+  textWithHighlight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    flexWrap: 'wrap',
+  },
+  noteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+  },
   instrumentalText: {
     fontSize: 14,
     lineHeight: 20,
@@ -239,8 +320,5 @@ const styles = StyleSheet.create({
   },
   instrumentalActive: {
     backgroundColor: 'rgba(124, 92, 255, 0.25)',
-  },
-  highlightMarker: {
-    fontSize: 16,
   },
 });

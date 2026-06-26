@@ -6,6 +6,7 @@ import { ContextMenu } from './ContextMenu';
 import type { Item } from '../db/types';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
+import { Clock, Sun, Sunset, Moon } from '../icons';
 
 export interface TimelineSectionProps {
   todayItems: Item[];
@@ -25,7 +26,7 @@ export type TimeBlockType = 'anytime' | 'morning' | 'afternoon' | 'evening';
 interface TimeBlockData {
   key: TimeBlockType;
   label: string;
-  icon: string;
+  icon: React.ReactElement;
   items: Item[];
 }
 
@@ -44,11 +45,12 @@ export function TimelineSection({
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
 
+  const iconColor = isDark ? 'rgba(255,255,255,0.38)' : 'rgba(0,0,0,0.35)';
   const blocks: TimeBlockData[] = [
-    { key: 'anytime', label: 'Anytime', icon: '⏰', items: anytime },
-    { key: 'morning', label: 'Morning', icon: '☀', items: morning },
-    { key: 'afternoon', label: 'Afternoon', icon: '☁', items: afternoon },
-    { key: 'evening', label: 'Evening', icon: '🌙', items: evening },
+    { key: 'anytime', label: 'Anytime', icon: <Clock size={13} color={iconColor} strokeWidth={1.5} />, items: anytime },
+    { key: 'morning', label: 'Morning', icon: <Sun size={13} color={iconColor} strokeWidth={1.5} />, items: morning },
+    { key: 'afternoon', label: 'Afternoon', icon: <Sunset size={13} color={iconColor} strokeWidth={1.5} />, items: afternoon },
+    { key: 'evening', label: 'Evening', icon: <Moon size={13} color={iconColor} strokeWidth={1.5} />, items: evening },
   ];
 
   const [expandedSections, setExpandedSections] = useState<Record<TimeBlockType, boolean>>({
@@ -109,7 +111,7 @@ export function TimelineSection({
               activeOpacity={0.5}
             >
               <View>
-                <View style={[styles.itemRow, { paddingHorizontal: 16, paddingVertical: 12 }]}>
+                <View style={[styles.itemRow, { paddingHorizontal: 16, paddingVertical: 10 }]}>
                   <View
                     style={[
                       styles.itemCircle,
@@ -160,7 +162,7 @@ export function TimelineSection({
   }: {
     block: TimeBlockType;
     label: string;
-    icon: string;
+    icon: React.ReactElement;
     count: number;
     isExpanded: boolean;
     onToggle: () => void;
@@ -179,16 +181,15 @@ export function TimelineSection({
         <TouchableOpacity
           onPress={onToggle}
           activeOpacity={0.6}
-          style={[
-            styles.blockHeader,
-            {
-              backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)',
-              borderBottomColor: palette.separator,
-            },
-          ]}
+          style={[styles.blockHeader, { borderBottomColor: palette.separator }]}
         >
-          <View style={styles.headerLeft}>
-            <Text style={styles.headerIcon}>{icon}</Text>
+          <View
+            style={[
+              styles.headerChip,
+              { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)' },
+            ]}
+          >
+            {icon}
             <Text style={[styles.headerLabel, { color: palette.text }]}>{label}</Text>
           </View>
           <View style={styles.headerRight}>
@@ -204,7 +205,7 @@ export function TimelineSection({
 
   return (
     <View style={[styles.container, { backgroundColor: palette.bg }]}>
-      <Text style={[styles.title, { color: palette.textTertiary }]}>TODAY'S TIMELINE</Text>
+      <Text style={[styles.title, { color: palette.textTertiary }]}>TODAY</Text>
 
       {blocks.map((block) => (
         <SwipeableItem
@@ -253,7 +254,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 1.2,
+    letterSpacing: 0.6,
     textTransform: 'uppercase',
     marginBottom: 12,
   },
@@ -262,19 +263,25 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  headerChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    alignSelf: 'flex-start',
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
-  headerIcon: {
-    fontSize: 18,
-  },
   headerLabel: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '500',
   },
   headerRight: {

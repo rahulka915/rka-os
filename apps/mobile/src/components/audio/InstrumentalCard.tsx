@@ -1,10 +1,12 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Animated,
+  AccessibilityInfo,
 } from 'react-native';
+import { Disc3, Sparkles, Heart } from '../../icons';
 import { useThemeContext } from '../../hooks/useThemeContext';
 
 interface InstrumentalCardProps {
@@ -20,33 +22,35 @@ export const InstrumentalCard = React.memo(({
 }: InstrumentalCardProps) => {
   const { isDark } = useThemeContext();
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const [reduceMotion, setReduceMotion] = useState(false);
 
-  // Pulsing animation
   useEffect(() => {
-    Animated.loop(
+    AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion).catch(() => {});
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
+    return () => sub.remove();
+  }, []);
+
+  useEffect(() => {
+    if (reduceMotion) return;
+    const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.02,
-          duration: 1200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1200,
-          useNativeDriver: true,
-        }),
+        Animated.timing(pulseAnim, { toValue: 1.02, duration: 1200, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 1200, useNativeDriver: true }),
       ])
-    ).start();
-  }, [pulseAnim]);
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulseAnim, reduceMotion]);
 
   const bgColor = isDark
     ? 'rgba(124, 92, 255, 0.15)'
     : 'rgba(0, 122, 255, 0.1)';
 
-  const doodleEmoji = style === 'energetic' ? '✨' :
-                      style === 'calm' ? '❤️' :
-                      style === 'intro' ? '🎵' :
-                      style === 'outro' ? '🌙' : '⭐';
+  const DoodleIcon = () => {
+    if (style === 'energetic') return <Sparkles size={22} color="rgba(255,215,0,0.85)" />;
+    if (style === 'calm') return <Heart size={22} color="rgba(255,100,130,0.85)" />;
+    return <Disc3 size={22} color={isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.5)'} strokeWidth={1.6} />;
+  };
 
   return (
     <Animated.View
@@ -54,12 +58,12 @@ export const InstrumentalCard = React.memo(({
         styles.container,
         {
           backgroundColor: bgColor,
-          transform: [{ scale: pulseAnim }],
+          transform: reduceMotion ? undefined : [{ scale: pulseAnim }],
         },
       ]}
     >
       <View style={styles.content}>
-        <Text style={[styles.doodle, { fontSize: 24 }]}>{doodleEmoji}</Text>
+        <DoodleIcon />
         <Text
           style={[
             styles.label,
@@ -72,7 +76,6 @@ export const InstrumentalCard = React.memo(({
         </Text>
       </View>
 
-      {/* Progress bar */}
       <View
         style={[
           styles.progressBar,
@@ -101,9 +104,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-  },
-  doodle: {
-    fontWeight: '600',
   },
   label: {
     fontSize: 16,

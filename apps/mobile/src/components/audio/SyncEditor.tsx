@@ -6,21 +6,23 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
+  Pressable,
   TextInput,
   FlatList,
   SafeAreaView,
   Platform,
   KeyboardAvoidingView,
+  LayoutChangeEvent,
+  GestureResponderEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ChevronLeft, ChevronRight } from '../../icons';
+import { ChevronLeft, ChevronRight, Play, Pause, Trash2 } from '../../icons';
 import { useThemeContext } from '../../hooks/useThemeContext';
 import { LyricLine, DraftLine } from '../../lib/lyricTypes';
 import { parseRawLyrics, round, formatTime } from '../../lib/lyricsUtils';
 import { getLyricScrollTarget, useLyricSync } from '../../hooks/useLyricSync';
-import { LyricLine as LyricLineComponent } from './LyricLine';
 import { InstrumentalCard } from './InstrumentalCard';
 
 type Step = 'paste' | 'sync' | 'preview';
@@ -30,8 +32,11 @@ interface SyncEditorProps {
   onClose: () => void;
   onSave: (lyrics: LyricLine[]) => Promise<void>;
   currentTime?: number;
+  duration?: number;
   isPlaying?: boolean;
   onPlayPause?: () => void;
+  onSeek?: (time: number) => void;
+  onSetSpeed?: (rate: number) => void;
   initialLyrics?: LyricLine[];
 }
 
@@ -40,8 +45,11 @@ export const SyncEditor = ({
   onClose,
   onSave,
   currentTime = 0,
+  duration = 0,
   isPlaying = false,
   onPlayPause,
+  onSeek,
+  onSetSpeed,
   initialLyrics = [],
 }: SyncEditorProps) => {
   const { isDark } = useThemeContext();
@@ -53,18 +61,40 @@ export const SyncEditor = ({
   const [errors, setErrors] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [seekBarWidth, setSeekBarWidth] = useState(0);
+  const openedWithExistingRef = useRef(false);
+
+  // Task 1: cursor
+  const [cursor, setCursor] = useState(0);
+
+  // Task 2: count-in
+  const [countIn, setCountIn] = useState<number | null>(null);
+  const countTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Task 4: per-row overflow
+  const [overflowFor, setOverflowFor] = useState<string | null>(null);
+
+  // Task 8: copy JSON
+  const [copied, setCopied] = useState(false);
+
   const [previewViewportHeight, setPreviewViewportHeight] = useState(0);
   const [previewFooterHeight, setPreviewFooterHeight] = useState(0);
   const [previewAutoScrollPaused, setPreviewAutoScrollPaused] = useState(false);
   const previewListRef = useRef<FlatList<LyricLine> | null>(null);
   const previewRowOffsetsRef = useRef<Record<string, number>>({});
   const previewScrollYRef = useRef(0);
+  const lastSettledPreviewTargetRef = useRef<number | null>(null);
   const previewAutoScrollResumeRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      if (countTimerRef.current) clearInterval(countTimerRef.current);
+      setCountIn(null);
+      return;
+    }
 
     if (initialLyrics.length > 0) {
+      openedWithExistingRef.current = true;
       const nextDraft = [...initialLyrics]
         .sort((a, b) => a.startTime - b.startTime)
         .map((line, index) => ({
@@ -73,29 +103,49 @@ export const SyncEditor = ({
           text: line.text || '',
           translation: line.translation || '',
           startTime: line.startTime,
+          kind: line.kind,
+          label: line.label,
         }));
 
       setDraft(nextDraft);
       setPasted('');
       setErrors([]);
+      setCursor(0);
       setStep('preview');
       return;
     }
 
+    openedWithExistingRef.current = false;
     setDraft([]);
     setPasted('');
     setErrors([]);
+    setCursor(0);
     setStep('paste');
   }, [open, initialLyrics]);
 
   const builtLines = useMemo(() => buildLines(draft), [draft]);
   const { activeIndex, progress } = useLyricSync(currentTime, builtLines);
-  const previewAnchorY = Math.round((previewViewportHeight || 420) * 0.46);
-  const previewTopPadding = Math.max(110, previewAnchorY - 80);
+  const previewAnchorY = Math.round((previewViewportHeight || 420) * 0.44);
+  const previewTopPadding = Math.max(124, previewAnchorY - 68);
   const previewBottomPadding = Math.max(
-    previewFooterHeight + insets.bottom + 92,
-    Math.round((previewViewportHeight || 420) * 0.52)
+    previewFooterHeight + insets.bottom + 112,
+    Math.round((previewViewportHeight || 420) * 0.5)
   );
+
+  // Task 3: derived out-of-order / progress stats
+  const stampedCount = draft.filter((l) => l.startTime != null).length;
+  const unstampedCount = draft.length - stampedCount;
+  const outOfOrder = draft.some((l, i) => {
+    if (l.startTime == null || i === 0) return false;
+    const prev = draft[i - 1];
+    return prev.startTime != null && l.startTime < prev.startTime;
+  });
+
+  // Task 7: live parse stats for paste step
+  const { lines: parsedPreview, errors: liveErrors } = useMemo(() => parseRawLyrics(pasted), [pasted]);
+  const withTranslation = parsedPreview.filter((l) => l.translation).length;
+  const withScript = parsedPreview.filter((l) => l.script).length;
+  const allTimestamped = parsedPreview.length > 0 && parsedPreview.every((l) => l.startTime !== null);
 
   useEffect(() => {
     return () => {
@@ -125,18 +175,32 @@ export const SyncEditor = ({
     }
 
     const currentScrollY = previewScrollYRef.current;
+    if (!isPlaying) {
+      if (lastSettledPreviewTargetRef.current !== null && Math.abs(lastSettledPreviewTargetRef.current - targetY) < 0.5) {
+        return;
+      }
+      lastSettledPreviewTargetRef.current = targetY;
+      previewScrollYRef.current = targetY;
+      previewListRef.current?.scrollToOffset({
+        offset: targetY,
+        animated: false,
+      });
+      return;
+    }
+
     const smoothing = activeIndex < 0 ? 0.16 : 0.2;
     const nextScrollY = currentScrollY + (targetY - currentScrollY) * smoothing;
     if (Math.abs(nextScrollY - currentScrollY) < 0.5) {
       return;
     }
 
+    lastSettledPreviewTargetRef.current = null;
     previewScrollYRef.current = nextScrollY;
     previewListRef.current?.scrollToOffset({
       offset: nextScrollY,
       animated: false,
     });
-  }, [activeIndex, builtLines, currentTime, previewAnchorY, previewAutoScrollPaused, progress, step]);
+  }, [activeIndex, builtLines, currentTime, isPlaying, previewAnchorY, previewAutoScrollPaused, progress, step]);
 
   const pausePreviewAutoScrollTemporarily = () => {
     setPreviewAutoScrollPaused(true);
@@ -154,36 +218,62 @@ export const SyncEditor = ({
     setErrors(parseErrors);
 
     if (parseErrors.length > 0) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(
-        () => {}
-      );
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       return;
     }
 
     if (lines.length === 0) {
       setErrors(['No valid lines found']);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(
-        () => {}
-      );
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       return;
     }
 
-    // Check if all lines are timestamped
-    const allTimestamped = lines.every((l) => l.startTime !== null);
-
     setDraft(lines);
+    setCursor(0);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-
-    if (allTimestamped) {
-      // Skip to preview
-      setStep('preview');
-    } else {
-      // Go to sync
-      setStep('sync');
-    }
+    setStep('sync');
   };
 
   // ============ STEP 2: SYNC HELPERS ============
+
+  // Task 1: stamp()
+  const stamp = () => {
+    if (!isPlaying || cursor >= draft.length) return;
+    const target = draft[cursor];
+    updateLine(target.id, { startTime: currentTime });
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    setCursor((c) => Math.min(c + 1, draft.length));
+  };
+
+  // Task 2: playWithCountIn()
+  const playWithCountIn = () => {
+    if (countTimerRef.current) clearInterval(countTimerRef.current);
+    let n = 3;
+    setCountIn(n);
+    countTimerRef.current = setInterval(() => {
+      n -= 1;
+      if (n <= 0) {
+        clearInterval(countTimerRef.current!);
+        countTimerRef.current = null;
+        setCountIn(null);
+        onPlayPause?.();
+      } else {
+        setCountIn(n);
+      }
+    }, 700);
+  };
+
+  // Task 3: sortDraftByTime()
+  const sortDraftByTime = () => {
+    setDraft((d) => {
+      const sorted = [...d].sort((a, b) => (a.startTime ?? Infinity) - (b.startTime ?? Infinity));
+      const firstUnstamped = sorted.findIndex((l) => l.startTime == null);
+      setCursor(firstUnstamped >= 0 ? firstUnstamped : sorted.length);
+      return sorted;
+    });
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+  };
+
   const stampLyricLine = (id: string) => {
     updateLine(id, { startTime: currentTime });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
@@ -211,6 +301,60 @@ export const SyncEditor = ({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
   };
 
+  // Task 4: per-row helpers
+  const moveLine = (id: string, dir: -1 | 1) => {
+    setDraft((d) => {
+      const i = d.findIndex((l) => l.id === id);
+      const j = i + dir;
+      if (j < 0 || j >= d.length) return d;
+      const next = [...d];
+      [next[i], next[j]] = [next[j], next[i]];
+      return next;
+    });
+  };
+
+  const insertLineAfter = (id: string, text: string, extra?: Partial<DraftLine>) => {
+    setDraft((d) => {
+      const i = d.findIndex((l) => l.id === id);
+      const prev = d[i]?.startTime;
+      const nextT = d[i + 1]?.startTime;
+      const startTime =
+        prev != null && nextT != null
+          ? round((prev + nextT) / 2)
+          : prev != null
+          ? round(prev + 1)
+          : null;
+      const newLine: DraftLine = {
+        id: `draft-new-${Date.now()}`,
+        text,
+        script: '',
+        translation: '',
+        startTime,
+        ...extra,
+      };
+      return [...d.slice(0, i + 1), newLine, ...d.slice(i + 1)];
+    });
+  };
+
+  const clearLineTiming = (id: string) => {
+    updateLine(id, { startTime: null });
+    const index = draft.findIndex((l) => l.id === id);
+    if (index >= 0) setCursor(index);
+  };
+
+  // Task 8: copyJson()
+  const copyJson = async () => {
+    try {
+      const Clipboard = await import('expo-clipboard');
+      await Clipboard.setStringAsync(JSON.stringify(builtLines, null, 2));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    } catch {
+      // expo-clipboard not available
+    }
+  };
+
   // ============ STEP 3: BUILD LINES ============
   function buildLines(lines: DraftLine[]): LyricLine[] {
     const stamped = lines.filter((l) => l.startTime !== null);
@@ -226,6 +370,8 @@ export const SyncEditor = ({
       text: line.text,
       translation: line.translation,
       script: line.script,
+      kind: line.kind,
+      label: line.label,
       startTime: round(line.startTime ?? 0),
       endTime: arr[i + 1]?.startTime ?? (line.startTime ?? 0) + 4,
     }));
@@ -320,6 +466,16 @@ export const SyncEditor = ({
                 ]}
               />
 
+              {/* Task 7: parse stats */}
+              {parsedPreview.length > 0 && (
+                <Text style={[styles.parseStats, { color: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)' }]}>
+                  {parsedPreview.length} line{parsedPreview.length === 1 ? '' : 's'}
+                  {withScript > 0 ? ` · ${withScript} with script` : ''}
+                  {withTranslation > 0 ? ` · ${withTranslation} with translation` : ''}
+                  {allTimestamped ? ' · all timestamps present ✓' : ''}
+                </Text>
+              )}
+
               {errors.length > 0 && (
                 <View
                   style={[
@@ -346,18 +502,44 @@ export const SyncEditor = ({
                 { borderTopColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' },
               ]}
             >
-              <TouchableOpacity
-                onPress={handlePaste}
-                style={[
-                  styles.nextButton,
-                  { backgroundColor: '#007aff' },
-                  pasted.trim().length === 0 && { opacity: 0.5 },
-                ]}
-                disabled={pasted.trim().length === 0}
-              >
-                <Text style={styles.nextButtonText}>Next</Text>
-                <ChevronRight size={18} color="#fff" />
-              </TouchableOpacity>
+              {/* Task 7: two-button footer when all timestamps present */}
+              {allTimestamped && liveErrors.length === 0 ? (
+                <View style={{ gap: 8 }}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      const { lines } = parseRawLyrics(pasted);
+                      setDraft(lines);
+                      setCursor(0);
+                      setStep('preview');
+                    }}
+                    style={[styles.nextButton, { backgroundColor: '#34a853' }]}
+                  >
+                    <Text style={styles.nextButtonText}>Skip to preview</Text>
+                    <ChevronRight size={18} color="#fff" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={handlePaste}
+                    style={[styles.nextButton, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.07)' }]}
+                  >
+                    <Text style={[styles.nextButtonText, { color: isDark ? '#f2f2f2' : '#333' }]}>
+                      Fine-tune timings
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  onPress={handlePaste}
+                  style={[
+                    styles.nextButton,
+                    { backgroundColor: '#007aff' },
+                    pasted.trim().length === 0 && { opacity: 0.5 },
+                  ]}
+                  disabled={pasted.trim().length === 0}
+                >
+                  <Text style={styles.nextButtonText}>Next</Text>
+                  <ChevronRight size={18} color="#fff" />
+                </TouchableOpacity>
+              )}
             </View>
           </KeyboardAvoidingView>
         </SafeAreaView>
@@ -405,40 +587,139 @@ export const SyncEditor = ({
             <View style={{ width: 24 }} />
           </View>
 
-          {/* Player controls */}
+          {/* Player transport */}
           <View
             style={[
               styles.playerControls,
               {
-                backgroundColor: isDark
-                  ? 'rgba(255,255,255,0.05)'
-                  : 'rgba(0,0,0,0.05)',
-                borderBottomColor: isDark
-                  ? 'rgba(255,255,255,0.1)'
-                  : 'rgba(0,0,0,0.1)',
+                backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
+                borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
               },
             ]}
           >
-            <TouchableOpacity
-              onPress={onPlayPause}
-              style={styles.playButton}
-            >
-              <Text style={{ fontSize: 20 }}>
-                {isPlaying ? '⏸' : '▶️'}
+            {/* Time row */}
+            <View style={styles.syncTimeRow}>
+              <Text style={[styles.syncTimeText, { color: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)' }]}>
+                {formatTime(currentTime)}
               </Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  const next = playbackSpeed === 1 ? 0.75 : 1;
+                  setPlaybackSpeed(next);
+                  onSetSpeed?.(next);
+                }}
+                style={[styles.syncSpeedBtn, { backgroundColor: isDark ? 'rgba(124,92,255,0.18)' : 'rgba(0,122,255,0.1)' }]}
+              >
+                <Text style={{ color: isDark ? '#7c5cff' : '#007aff', fontWeight: '700', fontSize: 12 }}>
+                  {playbackSpeed === 1 ? '1×' : '¾×'}
+                </Text>
+              </TouchableOpacity>
+              <Text style={[styles.syncTimeText, { color: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)' }]}>
+                {duration > 0 ? formatTime(duration) : '--:--'}
+              </Text>
+            </View>
 
-            {/* Speed selector */}
-            <TouchableOpacity
-              onPress={() => {
-                setPlaybackSpeed(playbackSpeed === 1 ? 0.75 : 1);
+            {/* Seek bar */}
+            <Pressable
+              onLayout={(e) => setSeekBarWidth(e.nativeEvent.layout.width)}
+              onPress={(e) => {
+                if (!duration || seekBarWidth <= 0) return;
+                onSeek?.(Math.max(0, Math.min(duration, (e.nativeEvent.locationX / seekBarWidth) * duration)));
               }}
-              style={styles.speedButton}
+              style={styles.syncSeekBar}
             >
-              <Text style={{ color: isDark ? '#7c5cff' : '#007aff', fontWeight: '700' }}>
-                {playbackSpeed}×
+              <View style={[styles.syncSeekTrack, { backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)' }]} />
+              <View
+                style={[
+                  styles.syncSeekFill,
+                  {
+                    width: duration > 0 ? `${Math.min(100, (currentTime / duration) * 100)}%` : '0%',
+                    backgroundColor: isDark ? '#7c5cff' : '#007aff',
+                  },
+                ]}
+              />
+            </Pressable>
+
+            {/* Controls row */}
+            <View style={styles.syncControlsRow}>
+              <TouchableOpacity
+                onPress={() => onSeek?.(Math.max(0, currentTime - 5))}
+                style={styles.syncSkipBtn}
+                accessibilityLabel="Back 5 seconds"
+              >
+                <Text style={{ color: isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)', fontSize: 12, fontWeight: '700' }}>−5s</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={onPlayPause}
+                style={[styles.playButton, { backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)' }]}
+                accessibilityLabel={isPlaying ? 'Pause' : 'Play'}
+                accessibilityRole="button"
+              >
+                {isPlaying
+                  ? <Pause size={22} color={isDark ? '#f8fafc' : '#1c1c1e'} strokeWidth={2.2} />
+                  : <Play size={22} color={isDark ? '#f8fafc' : '#1c1c1e'} fill={isDark ? '#f8fafc' : '#1c1c1e'} strokeWidth={2} />
+                }
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => onSeek?.(Math.min(duration || 9999, currentTime + 5))}
+                style={styles.syncSkipBtn}
+                accessibilityLabel="Forward 5 seconds"
+              >
+                <Text style={{ color: isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)', fontSize: 12, fontWeight: '700' }}>+5s</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Task 2: Play with 3-2-1 */}
+            {!isPlaying && (
+              <TouchableOpacity onPress={playWithCountIn} style={styles.countInBtn}>
+                <Text style={[styles.countInBtnText, { color: isDark ? '#7c5cff' : '#007aff' }]}>
+                  Play with 3-2-1
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Task 3: Out-of-order warning */}
+          {outOfOrder && (
+            <View style={[styles.warnBanner, { backgroundColor: isDark ? 'rgba(255,180,0,0.15)' : 'rgba(255,180,0,0.12)' }]}>
+              <Text style={[styles.warnText, { color: isDark ? '#ffd060' : '#a06000' }]}>
+                Lines are out of time order.
               </Text>
-            </TouchableOpacity>
+              <TouchableOpacity onPress={sortDraftByTime}>
+                <Text style={{ color: isDark ? '#ffd060' : '#a06000', fontWeight: '700', fontSize: 12 }}>
+                  Sort by time
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          {unstampedCount > 0 && stampedCount > 0 && (
+            <Text style={[styles.stampProgress, { color: isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.4)' }]}>
+              {stampedCount}/{draft.length} stamped · {unstampedCount} will be dropped
+            </Text>
+          )}
+
+          {/* Task 5: Edit toolbar */}
+          <View style={styles.editToolbar}>
+            {(['♪ Add instrumental', '+ Add line'] as const).map((label, i) => (
+              <TouchableOpacity
+                key={label}
+                onPress={() => {
+                  const lastId = draft[draft.length - 1]?.id ?? '';
+                  if (i === 0) {
+                    insertLineAfter(lastId, '♪ Instrumental', { kind: 'instrumental', label: 'Instrumental' });
+                  } else {
+                    insertLineAfter(lastId, '');
+                  }
+                }}
+                style={[styles.toolbarBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)' }]}
+              >
+                <Text style={[styles.toolbarBtnText, { color: isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)' }]}>
+                  {label}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
 
           {/* Lyrics list */}
@@ -446,7 +727,17 @@ export const SyncEditor = ({
             data={draft}
             keyExtractor={(item) => item.id}
             renderItem={({ item, index }) => (
-              <View style={styles.lyricRow}>
+              <TouchableOpacity
+                activeOpacity={0.92}
+                onPress={() => setCursor(index)}
+                style={[
+                  styles.lyricRow,
+                  index === cursor && {
+                    backgroundColor: isDark ? 'rgba(124,92,255,0.18)' : 'rgba(0,122,255,0.12)',
+                    borderColor: isDark ? 'rgba(124,92,255,0.35)' : 'rgba(0,122,255,0.25)',
+                  },
+                ]}
+              >
                 <View style={styles.lyricRowTop}>
                   <TouchableOpacity
                     onPress={() => stampLyricLine(item.id)}
@@ -471,40 +762,62 @@ export const SyncEditor = ({
                   </TouchableOpacity>
 
                   <View style={styles.textInputGroup}>
+                    <Text style={[styles.inputLabel, { color: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)' }]}>Script</Text>
                     <TextInput
                       value={item.script}
                       onChangeText={(value) => updateLine(item.id, { script: value })}
                       placeholder="Script"
+                      placeholderTextColor={isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'}
                       style={[
                         styles.lineInput,
-                        { color: isDark ? '#f2f2f2' : '#000' },
+                        {
+                          color: isDark ? '#f2f2f2' : '#000',
+                          borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)',
+                          backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+                        },
                       ]}
                     />
+                    <Text style={[styles.inputLabel, { color: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)' }]}>Lyrics</Text>
                     <TextInput
                       value={item.text}
                       onChangeText={(value) => updateLine(item.id, { text: value })}
                       placeholder="Text"
+                      placeholderTextColor={isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'}
                       style={[
                         styles.lineInput,
-                        { color: isDark ? '#f2f2f2' : '#000' },
+                        {
+                          color: isDark ? '#f2f2f2' : '#000',
+                          borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)',
+                          backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+                        },
                       ]}
                     />
+                    <Text style={[styles.inputLabel, { color: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)' }]}>Translation</Text>
                     <TextInput
                       value={item.translation}
                       onChangeText={(value) => updateLine(item.id, { translation: value })}
                       placeholder="Translation"
+                      placeholderTextColor={isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'}
                       style={[
                         styles.lineInput,
-                        { color: isDark ? '#f2f2f2' : '#000' },
+                        {
+                          color: isDark ? '#f2f2f2' : '#000',
+                          borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)',
+                          backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+                        },
                       ]}
                     />
                   </View>
 
+                  {/* Task 4: ⋮ overflow button */}
                   <TouchableOpacity
-                    onPress={() => deleteLine(item.id)}
-                    style={styles.deleteButton}
+                    onPress={() => setOverflowFor(item.id)}
+                    style={styles.overflowBtn}
+                    hitSlop={10}
                   >
-                    <Text style={{ fontSize: 18 }}>🗑️</Text>
+                    <Text style={{ color: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.35)', fontSize: 20, lineHeight: 24 }}>
+                      ⋮
+                    </Text>
                   </TouchableOpacity>
                 </View>
 
@@ -521,11 +834,30 @@ export const SyncEditor = ({
                     </TouchableOpacity>
                   ))}
                 </View>
-              </View>
+              </TouchableOpacity>
             )}
             contentContainerStyle={styles.lyricsList}
             scrollEnabled
           />
+
+          {/* Task 1: Big STAMP button */}
+          <TouchableOpacity
+            onPress={stamp}
+            disabled={!isPlaying || cursor >= draft.length}
+            activeOpacity={0.82}
+            style={[
+              styles.stampBigButton,
+              (!isPlaying || cursor >= draft.length) && { opacity: 0.42 },
+            ]}
+          >
+            <Text style={styles.stampBigButtonText}>
+              {cursor >= draft.length
+                ? 'All lines stamped ✓'
+                : !isPlaying
+                ? 'Press play, then tap'
+                : 'Tap on the beat'}
+            </Text>
+          </TouchableOpacity>
 
           <View
             style={[
@@ -537,13 +869,92 @@ export const SyncEditor = ({
               onPress={() => setStep('preview')}
               style={[
                 styles.nextButton,
-                { backgroundColor: isDark ? '#007aff' : '#007aff' },
+                { backgroundColor: '#007aff' },
               ]}
             >
               <Text style={styles.nextButtonText}>Preview</Text>
               <ChevronRight size={18} color="#fff" />
             </TouchableOpacity>
           </View>
+
+          {/* Task 2: Count-in overlay */}
+          {countIn !== null && (
+            <View style={styles.countInOverlay} pointerEvents="none">
+              <Text style={styles.countInNumber}>{countIn}</Text>
+            </View>
+          )}
+
+          {/* Task 4: Overflow modal */}
+          <Modal
+            visible={overflowFor !== null}
+            transparent
+            animationType="slide"
+            onRequestClose={() => setOverflowFor(null)}
+          >
+            <TouchableOpacity
+              style={styles.overflowBackdrop}
+              activeOpacity={1}
+              onPress={() => setOverflowFor(null)}
+            />
+            <View style={[styles.overflowSheet, { backgroundColor: isDark ? '#1c1c1e' : '#fff' }]}>
+              {overflowFor !== null && (() => {
+                const idx = draft.findIndex((l) => l.id === overflowFor);
+                const line = draft[idx];
+                const actions: Array<{
+                  label: string;
+                  disabled?: boolean;
+                  destructive?: boolean;
+                  onPress: () => void;
+                }> = [
+                  {
+                    label: 'Move up',
+                    disabled: idx === 0,
+                    onPress: () => { moveLine(overflowFor, -1); setOverflowFor(null); },
+                  },
+                  {
+                    label: 'Move down',
+                    disabled: idx === draft.length - 1,
+                    onPress: () => { moveLine(overflowFor, 1); setOverflowFor(null); },
+                  },
+                  {
+                    label: 'Insert line below',
+                    onPress: () => { insertLineAfter(overflowFor, ''); setOverflowFor(null); },
+                  },
+                  {
+                    label: '♪ Insert instrumental below',
+                    onPress: () => {
+                      insertLineAfter(overflowFor, '♪ Instrumental', { kind: 'instrumental', label: 'Instrumental' });
+                      setOverflowFor(null);
+                    },
+                  },
+                  ...(line?.startTime != null
+                    ? [{ label: 'Clear timing', onPress: () => { clearLineTiming(overflowFor); setOverflowFor(null); } }]
+                    : []),
+                  {
+                    label: 'Delete line',
+                    destructive: true,
+                    onPress: () => { deleteLine(overflowFor); setOverflowFor(null); },
+                  },
+                ];
+                return actions.map((a) => (
+                  <TouchableOpacity
+                    key={a.label}
+                    onPress={a.disabled ? undefined : a.onPress}
+                    style={[styles.overflowAction, a.disabled && { opacity: 0.35 }]}
+                  >
+                    <Text
+                      style={[
+                        styles.overflowActionText,
+                        { color: a.destructive ? '#ff3b30' : isDark ? '#f2f2f2' : '#000' },
+                      ]}
+                    >
+                      {a.label}
+                    </Text>
+                  </TouchableOpacity>
+                ));
+              })()}
+            </View>
+          </Modal>
         </SafeAreaView>
       </Modal>
     );
@@ -571,24 +982,14 @@ export const SyncEditor = ({
               style={StyleSheet.absoluteFill}
             />
           </View>
-          <View
-            style={[
-              styles.previewHeader,
-            ]}
-          >
+          <View style={styles.previewHeader}>
             <TouchableOpacity
-              onPress={() => setStep('sync')}
+              onPress={() => { openedWithExistingRef.current ? onClose() : setStep('sync'); }}
               hitSlop={10}
             >
               <ChevronLeft size={24} color="#f8fafc" />
             </TouchableOpacity>
-            <Text
-              style={[
-                styles.previewHeaderTitle,
-              ]}
-            >
-              Preview
-            </Text>
+            <Text style={styles.previewHeaderTitle}>Preview</Text>
             <View style={{ width: 24 }} />
           </View>
 
@@ -622,29 +1023,74 @@ export const SyncEditor = ({
               keyExtractor={(item) => item.id || ''}
               renderItem={({ item, index }) => {
                 const isActive = index === activeIndex;
-                const focusDistance = activeIndex >= 0 ? Math.abs(index - activeIndex) : 3;
-                const focusOffset = activeIndex >= 0 ? index - activeIndex : index;
-                return item.kind === 'instrumental' ? (
-                  <InstrumentalCard
-                    label={item.label || 'Instrumental'}
-                    style={item.style}
-                    progress={isActive ? progress : 0}
-                  />
-                ) : (
+                const fill =
+                  isActive && item.endTime > item.startTime
+                    ? Math.min(1, Math.max(0, (currentTime - item.startTime) / (item.endTime - item.startTime)))
+                    : 0;
+
+                if (item.kind === 'instrumental') {
+                  return (
+                    <View
+                      onLayout={(e) => {
+                        const key = item.id ?? `${index}`;
+                        previewRowOffsetsRef.current[key] = e.nativeEvent.layout.y;
+                      }}
+                    >
+                      <InstrumentalCard
+                        label={item.label || 'Instrumental'}
+                        style={item.style}
+                        progress={isActive ? progress : 0}
+                      />
+                    </View>
+                  );
+                }
+
+                return (
                   <View
-                    onLayout={(event) => {
-                      const previewOffsetKey =
-                        item.id ?? `${index}:${item.startTime}:${item.text}:${item.translation ?? ''}`;
-                      previewRowOffsetsRef.current[previewOffsetKey] = event.nativeEvent.layout.y;
+                    onLayout={(e) => {
+                      const key = item.id ?? `${index}:${item.startTime}:${item.text}`;
+                      previewRowOffsetsRef.current[key] = e.nativeEvent.layout.y;
                     }}
+                    style={[styles.previewRow, { opacity: isActive ? 1 : 0.38 }]}
                   >
-                    <LyricLineComponent
-                      line={item}
-                      active={isActive}
-                      progress={isActive ? progress : 0}
-                      focusDistance={focusDistance}
-                      focusOffset={focusOffset}
-                    />
+                    {/* Task 6: karaoke fill row */}
+                    <View style={styles.previewTextTrack}>
+                      <Text
+                        style={[styles.previewText, { color: 'rgba(255,255,255,0.32)' }]}
+                        numberOfLines={2}
+                      >
+                        {item.text}
+                      </Text>
+                      {isActive && (
+                        <View style={[styles.previewFillClip, { width: `${fill * 100}%` as any }]}>
+                          <Text
+                            style={[
+                              styles.previewText,
+                              {
+                                color: '#fff',
+                                textShadowColor: 'rgba(255,255,255,0.3)',
+                                textShadowRadius: 12,
+                                textShadowOffset: { width: 0, height: 0 },
+                              },
+                            ]}
+                            numberOfLines={2}
+                          >
+                            {item.text}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                    {item.translation ? (
+                      <Text
+                        style={[
+                          styles.previewTranslation,
+                          { color: isActive ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.3)' },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {item.translation}
+                      </Text>
+                    ) : null}
                   </View>
                 );
               }}
@@ -669,24 +1115,34 @@ export const SyncEditor = ({
 
           <View
             onLayout={(event) => setPreviewFooterHeight(event.nativeEvent.layout.height)}
-            style={[
-              styles.previewFooter,
-            ]}
+            style={[styles.previewFooter, { paddingBottom: Math.max(12, insets.bottom) }]}
           >
+            {/* Task 8: Copy JSON button */}
+            <TouchableOpacity
+              onPress={copyJson}
+              style={[
+                styles.nextButton,
+                {
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+                  marginBottom: 8,
+                },
+              ]}
+            >
+              <Text style={[styles.nextButtonText, { color: isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)' }]}>
+                {copied ? '✓ Copied' : 'Copy JSON'}
+              </Text>
+            </TouchableOpacity>
+
             <TouchableOpacity
               onPress={async () => {
                 setSaving(true);
                 try {
                   await onSave(builtLines);
-                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
-                    () => {}
-                  );
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
                   onClose();
                 } catch (error) {
                   console.error('Failed to save:', error);
-                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(
-                    () => {}
-                  );
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
                 } finally {
                   setSaving(false);
                 }
@@ -694,7 +1150,7 @@ export const SyncEditor = ({
               disabled={saving}
               style={[
                 styles.saveButton,
-                { backgroundColor: isDark ? '#34a853' : '#34a853', opacity: saving ? 0.6 : 1 },
+                { backgroundColor: '#34a853', opacity: saving ? 0.6 : 1 },
               ]}
             >
               <Text style={styles.saveButtonText}>
@@ -752,7 +1208,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     fontWeight: '500',
-    marginBottom: 16,
+    marginBottom: 8,
+  },
+  parseStats: {
+    fontSize: 12,
+    marginTop: 4,
+    marginBottom: 8,
   },
   errorBox: {
     borderRadius: 12,
@@ -790,26 +1251,156 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   playerControls: {
+    flexDirection: 'column',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 8,
+    borderBottomWidth: 1,
+  },
+  syncTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  syncTimeText: {
+    fontSize: 12,
+    fontVariant: ['tabular-nums'],
+    fontWeight: '600',
+  },
+  syncSpeedBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    minWidth: 44,
+    minHeight: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  syncSeekBar: {
+    height: 44,
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  syncSeekTrack: {
+    height: 4,
+    borderRadius: 2,
+    position: 'absolute',
+    left: 0,
+    right: 0,
+  },
+  syncSeekFill: {
+    height: 4,
+    borderRadius: 2,
+    position: 'absolute',
+    left: 0,
+  },
+  syncControlsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
+    gap: 20,
   },
-  playButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  syncSkipBtn: {
+    width: 52,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
   },
-  speedButton: {
+  playButton: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Task 2
+  countInBtn: {
+    alignSelf: 'center',
+    paddingVertical: 8,
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: 'rgba(0,122,255,0.15)',
+  },
+  countInBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  countInOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 20,
+  },
+  countInNumber: {
+    fontSize: 96,
+    fontWeight: '900',
+    color: '#fff',
+  },
+  // Task 3
+  warnBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  warnText: {
+    fontSize: 12,
+    flex: 1,
+  },
+  stampProgress: {
+    fontSize: 12,
+    paddingHorizontal: 16,
+    paddingBottom: 6,
+  },
+  // Task 4
+  overflowBtn: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  overflowBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  overflowSheet: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 8,
+    paddingBottom: 32,
+  },
+  overflowAction: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  overflowActionText: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  // Task 5
+  editToolbar: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  toolbarBtn: {
+    flex: 1,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  toolbarBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  inputLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    marginTop: 6,
+    marginBottom: 2,
   },
   lyricsList: {
     paddingHorizontal: 16,
@@ -877,6 +1468,48 @@ const styles = StyleSheet.create({
   adjustChipText: {
     fontSize: 12,
     fontWeight: '700',
+  },
+  // Task 1
+  stampBigButton: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    height: 64,
+    borderRadius: 20,
+    backgroundColor: '#7c5cff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stampBigButtonText: {
+    color: '#fff',
+    fontSize: 17,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+  // Task 6
+  previewRow: {
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+  },
+  previewTextTrack: {
+    position: 'relative',
+  },
+  previewText: {
+    fontSize: 22,
+    fontWeight: '800',
+    lineHeight: 28,
+    letterSpacing: -0.5,
+  },
+  previewFillClip: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    bottom: 0,
+    overflow: 'hidden',
+  },
+  previewTranslation: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginTop: 4,
   },
   previewList: {
     paddingHorizontal: 20,
