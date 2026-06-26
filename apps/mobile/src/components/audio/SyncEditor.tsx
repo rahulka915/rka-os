@@ -251,7 +251,278 @@ export const SyncEditor = ({
     );
   }
 
-  // Placeholder for Steps 2 & 3 (to be implemented in next tasks)
+  // ============ RENDER STEP 2: SYNC ============
+  if (step === 'sync') {
+    return (
+      <Modal
+        visible={open}
+        animationType="slide"
+        onRequestClose={onClose}
+        statusBarTranslucent
+      >
+        <SafeAreaView
+          style={[
+            styles.safeArea,
+            { backgroundColor: isDark ? '#0c0c0c' : '#f2f2f7' },
+          ]}
+        >
+          <View
+            style={[
+              styles.header,
+              {
+                borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+              },
+            ]}
+          >
+            <TouchableOpacity
+              onPress={() => setStep('paste')}
+              hitSlop={10}
+            >
+              <ChevronLeft size={24} color={isDark ? '#f2f2f2' : '#000'} />
+            </TouchableOpacity>
+            <Text
+              style={[
+                styles.headerTitle,
+                { color: isDark ? '#f2f2f2' : '#000' },
+              ]}
+            >
+              Sync Lyrics
+            </Text>
+            <View style={{ width: 24 }} />
+          </View>
+
+          {/* Player controls */}
+          <View
+            style={[
+              styles.playerControls,
+              {
+                backgroundColor: isDark
+                  ? 'rgba(255,255,255,0.05)'
+                  : 'rgba(0,0,0,0.05)',
+                borderBottomColor: isDark
+                  ? 'rgba(255,255,255,0.1)'
+                  : 'rgba(0,0,0,0.1)',
+              },
+            ]}
+          >
+            <TouchableOpacity
+              onPress={onPlayPause}
+              style={styles.playButton}
+            >
+              <Text style={{ fontSize: 20 }}>
+                {isPlaying ? '⏸' : '▶️'}
+              </Text>
+            </TouchableOpacity>
+
+            {/* Speed selector */}
+            <TouchableOpacity
+              onPress={() => {
+                setPlaybackSpeed(playbackSpeed === 1 ? 0.75 : 1);
+              }}
+              style={styles.speedButton}
+            >
+              <Text style={{ color: isDark ? '#7c5cff' : '#007aff', fontWeight: '700' }}>
+                {playbackSpeed}×
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Lyrics list */}
+          <FlatList
+            data={draft}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item, index }) => (
+              <View style={styles.lyricRow}>
+                <TouchableOpacity
+                  onPress={() => stampLyricLine(item.id)}
+                  style={[
+                    styles.stampButton,
+                    {
+                      backgroundColor: isDark
+                        ? 'rgba(124,92,255,0.2)'
+                        : 'rgba(0,122,255,0.1)',
+                    },
+                  ]}
+                >
+                  <Text
+                    style={{
+                      color: isDark ? '#7c5cff' : '#007aff',
+                      fontSize: 11,
+                      fontWeight: '700',
+                    }}
+                  >
+                    {item.startTime === null ? `L${index + 1}` : formatTime(item.startTime)}
+                  </Text>
+                </TouchableOpacity>
+
+                <View style={styles.textInputGroup}>
+                  <TextInput
+                    value={item.script}
+                    onChangeText={(value) => updateLine(item.id, { script: value })}
+                    placeholder="Script"
+                    style={[
+                      styles.lineInput,
+                      { color: isDark ? '#f2f2f2' : '#000' },
+                    ]}
+                  />
+                  <TextInput
+                    value={item.text}
+                    onChangeText={(value) => updateLine(item.id, { text: value })}
+                    placeholder="Text"
+                    style={[
+                      styles.lineInput,
+                      { color: isDark ? '#f2f2f2' : '#000' },
+                    ]}
+                  />
+                  <TextInput
+                    value={item.translation}
+                    onChangeText={(value) => updateLine(item.id, { translation: value })}
+                    placeholder="Translation"
+                    style={[
+                      styles.lineInput,
+                      { color: isDark ? '#f2f2f2' : '#000' },
+                    ]}
+                  />
+                </View>
+
+                <TouchableOpacity
+                  onPress={() => deleteLine(item.id)}
+                  style={styles.deleteButton}
+                >
+                  <Text style={{ fontSize: 18 }}>🗑️</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            contentContainerStyle={styles.lyricsList}
+            scrollEnabled
+          />
+
+          <View
+            style={[
+              styles.footer,
+              { borderTopColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' },
+            ]}
+          >
+            <TouchableOpacity
+              onPress={() => setStep('preview')}
+              style={[
+                styles.nextButton,
+                { backgroundColor: isDark ? '#007aff' : '#007aff' },
+              ]}
+            >
+              <Text style={styles.nextButtonText}>Preview</Text>
+              <ChevronRight size={18} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </Modal>
+    );
+  }
+
+  // ============ RENDER STEP 3: PREVIEW ============
+  if (step === 'preview') {
+    const builtLines = buildLines();
+
+    return (
+      <Modal
+        visible={open}
+        animationType="slide"
+        onRequestClose={onClose}
+        statusBarTranslucent
+      >
+        <SafeAreaView
+          style={[
+            styles.safeArea,
+            { backgroundColor: isDark ? '#0c0c0c' : '#f2f2f7' },
+          ]}
+        >
+          <View
+            style={[
+              styles.header,
+              {
+                borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+              },
+            ]}
+          >
+            <TouchableOpacity
+              onPress={() => setStep('sync')}
+              hitSlop={10}
+            >
+              <ChevronLeft size={24} color={isDark ? '#f2f2f2' : '#000'} />
+            </TouchableOpacity>
+            <Text
+              style={[
+                styles.headerTitle,
+                { color: isDark ? '#f2f2f2' : '#000' },
+              ]}
+            >
+              Preview
+            </Text>
+            <View style={{ width: 24 }} />
+          </View>
+
+          <FlatList
+            data={builtLines}
+            keyExtractor={(item) => item.id || ''}
+            renderItem={({ item, index }) => {
+              const isActive = index === activeIndex;
+              return item.kind === 'instrumental' ? (
+                <InstrumentalCard
+                  label={item.label || 'Instrumental'}
+                  style={item.style}
+                  progress={isActive ? progress : 0}
+                />
+              ) : (
+                <LyricLineComponent
+                  line={item}
+                  active={isActive}
+                  progress={isActive ? progress : 0}
+                />
+              );
+            }}
+            contentContainerStyle={styles.previewList}
+          />
+
+          <View
+            style={[
+              styles.footer,
+              { borderTopColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' },
+            ]}
+          >
+            <TouchableOpacity
+              onPress={async () => {
+                setSaving(true);
+                try {
+                  await onSave(builtLines);
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
+                    () => {}
+                  );
+                  onClose();
+                } catch (error) {
+                  console.error('Failed to save:', error);
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(
+                    () => {}
+                  );
+                } finally {
+                  setSaving(false);
+                }
+              }}
+              disabled={saving}
+              style={[
+                styles.saveButton,
+                { backgroundColor: isDark ? '#34a853' : '#34a853', opacity: saving ? 0.6 : 1 },
+              ]}
+            >
+              <Text style={styles.saveButtonText}>
+                {saving ? 'Saving...' : 'Save'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </Modal>
+    );
+  }
+
   return null;
 };
 
@@ -327,6 +598,81 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   nextButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  playerControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  playButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  speedButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: 'rgba(0,122,255,0.15)',
+  },
+  lyricsList: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  lyricRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginVertical: 8,
+    alignItems: 'flex-start',
+  },
+  stampButton: {
+    width: 50,
+    minHeight: 50,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  textInputGroup: {
+    flex: 1,
+    gap: 4,
+  },
+  lineInput: {
+    minHeight: 32,
+    padding: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  deleteButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,59,48,0.1)',
+  },
+  previewList: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  saveButton: {
+    height: 48,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveButtonText: {
     fontSize: 16,
     fontWeight: '700',
     color: '#fff',
