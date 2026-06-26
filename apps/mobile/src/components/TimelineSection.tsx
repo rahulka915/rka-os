@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import { SwipeableItem } from './SwipeableItem';
 import type { Item } from '../db/types';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
@@ -65,9 +67,13 @@ export function TimelineSection({
   function TimeBlockItems({
     items,
     onItemTap,
+    onItemComplete,
+    onItemArchive,
   }: {
     items: Item[];
     onItemTap?: (item: Item) => void;
+    onItemComplete?: (id: string) => void;
+    onItemArchive?: (id: string) => void;
   }) {
     if (items.length === 0) {
       return null;
@@ -76,46 +82,57 @@ export function TimelineSection({
     return (
       <View style={[styles.itemsContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.01)' : 'rgba(0,0,0,0.01)' }]}>
         {items.map((item, index) => (
-          <TouchableOpacity
+          <SwipeableItem
             key={item.id}
-            onPress={() => onItemTap?.(item)}
-            activeOpacity={0.5}
+            onActivate={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              onItemComplete?.(item.id);
+            }}
+            onArchive={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              onItemArchive?.(item.id);
+            }}
           >
-            <View>
-              <View style={[styles.itemRow, { paddingHorizontal: 16, paddingVertical: 12 }]}>
-                <View
-                  style={[
-                    styles.itemCircle,
-                    {
-                      borderColor: isDark ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.18)',
-                    },
-                  ]}
-                />
-                <View style={styles.itemContent}>
-                  <Text style={[styles.itemTitle, { color: palette.text }]} numberOfLines={2}>
-                    {item.title}
-                  </Text>
-                  {item.notes && (
-                    <Text style={[styles.itemNotes, { color: palette.textMuted }]} numberOfLines={1}>
-                      {item.notes}
+            <TouchableOpacity
+              onPress={() => onItemTap?.(item)}
+              activeOpacity={0.5}
+            >
+              <View>
+                <View style={[styles.itemRow, { paddingHorizontal: 16, paddingVertical: 12 }]}>
+                  <View
+                    style={[
+                      styles.itemCircle,
+                      {
+                        borderColor: isDark ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.18)',
+                      },
+                    ]}
+                  />
+                  <View style={styles.itemContent}>
+                    <Text style={[styles.itemTitle, { color: palette.text }]} numberOfLines={2}>
+                      {item.title}
                     </Text>
-                  )}
+                    {item.notes && (
+                      <Text style={[styles.itemNotes, { color: palette.textMuted }]} numberOfLines={1}>
+                        {item.notes}
+                      </Text>
+                    )}
+                  </View>
                 </View>
-              </View>
 
-              {index < items.length - 1 && (
-                <View
-                  style={[
-                    styles.hairline,
-                    {
-                      backgroundColor: palette.separator,
-                      marginLeft: 56,
-                    },
-                  ]}
-                />
-              )}
-            </View>
-          </TouchableOpacity>
+                {index < items.length - 1 && (
+                  <View
+                    style={[
+                      styles.hairline,
+                      {
+                        backgroundColor: palette.separator,
+                        marginLeft: 56,
+                      },
+                    ]}
+                  />
+                )}
+              </View>
+            </TouchableOpacity>
+          </SwipeableItem>
         ))}
       </View>
     );
@@ -181,6 +198,8 @@ export function TimelineSection({
             <TimeBlockItems
               items={block.items}
               onItemTap={onItemTap}
+              onItemComplete={onItemComplete}
+              onItemArchive={onItemArchive}
             />
           )}
         </View>
