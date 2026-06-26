@@ -126,7 +126,6 @@ export function InboxScreen({ visible, onClose }: { visible: boolean; onClose: (
       title="Inbox"
       subtitle={items.length === 0 ? 'All clear' : `${items.length} item${items.length > 1 ? 's' : ''} to process`}
       fullHeight
-      sheetStyle={styles.sheet}
       contentContainerStyle={styles.sheetContent}
       headerRight={
         <SurfaceIconButton isDark={isDark} onPress={onClose} size={30}>
