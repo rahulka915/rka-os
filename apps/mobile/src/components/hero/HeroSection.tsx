@@ -1,11 +1,9 @@
 import React from 'react';
-import { View, StyleSheet, Dimensions, Animated } from 'react-native';
+import { View, StyleSheet, Dimensions, Animated, Image } from 'react-native';
 import { useParallaxLayers } from '../../hooks/useParallaxLayers';
 import { useAmbientShift } from '../../hooks/useAmbientShift';
 import { useParticleSystem } from '../../hooks/useParticleSystem';
-import { HeroLayer } from './HeroLayer';
 import { ParticleCanvas } from './ParticleCanvas';
-import { HERO_LAYERS } from '../../utils/heroConfig';
 
 interface Props {
   timeOfDay: 'dawn' | 'day' | 'ember' | 'night';
@@ -17,7 +15,6 @@ export function HeroSection({ timeOfDay }: Props) {
   const { overlayOpacity, gradientOffset } = useAmbientShift();
   const particles = useParticleSystem();
 
-  // Map time-of-day to asset set
   const assetMap: Record<string, any> = {
     dawn: require('../../../assets/hero-dawn.png'),
     day: require('../../../assets/hero-day.png'),
@@ -25,18 +22,38 @@ export function HeroSection({ timeOfDay }: Props) {
     night: require('../../../assets/hero-night.png'),
   };
 
-  // For now, use single composite asset. Later, split into layers.
   const heroAsset = assetMap[timeOfDay];
 
-  // Interpolate gradient based on ambient cycle
   const backgroundColor = gradientOffset.interpolate({
     inputRange: [0, 1],
-    outputRange: ['#87CEEB', '#FF6B35'], // day blue → ember orange (simplified)
+    outputRange: ['#87CEEB', '#FF6B35'],
   });
+
+  const animatedStyle = {
+    transform: [
+      {
+        translateX: tiltX.interpolate({
+          inputRange: [-15, 0, 15],
+          outputRange: [-10, 0, 10],
+        }),
+      },
+      {
+        translateY: tiltY.interpolate({
+          inputRange: [-15, 0, 15],
+          outputRange: [-10, 0, 10],
+        }),
+      },
+    ],
+  };
 
   return (
     <View style={[s.container, { width, height }]}>
-      {/* Background gradient overlay */}
+      <Image
+        source={heroAsset}
+        style={[s.image, { width, height }]}
+        resizeMode="cover"
+      />
+
       <Animated.View
         style={[
           s.overlay,
@@ -47,20 +64,6 @@ export function HeroSection({ timeOfDay }: Props) {
         ]}
       />
 
-      {/* Hero layers with parallax */}
-      {HERO_LAYERS.map((layer) => (
-        <HeroLayer
-          key={layer.id}
-          layer={layer}
-          source={heroAsset}
-          parallaxX={tiltX}
-          parallaxY={tiltY}
-          width={width}
-          height={height}
-        />
-      ))}
-
-      {/* Particles */}
       <View style={s.particleContainer} pointerEvents="none">
         <ParticleCanvas particles={particles} />
       </View>
@@ -72,6 +75,9 @@ const s = StyleSheet.create({
   container: {
     position: 'relative',
     overflow: 'hidden',
+  },
+  image: {
+    position: 'absolute',
   },
   overlay: {
     position: 'absolute',

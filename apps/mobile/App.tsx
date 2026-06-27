@@ -156,11 +156,11 @@ export default function App() {
               onOpen={() => setAudioPlayerOpen(true)}
               onClose={() => setAudioPlayerOpen(false)}
             />
-          </GestureHandlerRootView>
 
-          {/* Sheets — rendered above navigation */}
-          <InboxScreenV2 visible={inboxOpen} onClose={() => setInboxOpen(false)} />
-          <QuickAddScreen visible={quickAddOpen} onClose={() => setQuickAddOpen(false)} />
+            {/* Sheets — rendered above navigation, inside GestureHandlerRootView */}
+            <InboxScreenV2 visible={inboxOpen} onClose={() => setInboxOpen(false)} />
+            <QuickAddScreen visible={quickAddOpen} onClose={() => setQuickAddOpen(false)} />
+          </GestureHandlerRootView>
 
           {/* Timer always on top of everything */}
           <PersistentTimerBanner />
