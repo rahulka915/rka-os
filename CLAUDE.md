@@ -203,6 +203,18 @@
 - `docs/migration/MAINTENANCE_MODE.md` — PWA maintenance mode policy
 - `docs/migration/SHARED_LOGIC.md` — How to keep shared logic in sync between platforms
 
+## Launcher
+
+**RKA OS is managed by RKA Launcher** — a separate top-level project at `../rka-launcher/`.
+
+The launcher (Tauri v2 macOS app) handles starting/stopping dev servers for this project and others. It is **not** part of this repo. To work on the launcher, open `../rka-launcher/` as a separate Claude Code session.
+
+Registered in the launcher as:
+- **RKA OS (PWA)** — `npm run dev` on port 5173, path: this repo root
+- **RKA OS Mobile** — `npx expo start --go` on port 8081, path: `apps/mobile/`
+
+---
+
 ## Status: DUAL PLATFORM (TRANSITIONING)
 
 **Primary:** React Native + Expo (iOS) — ACTIVE DEVELOPMENT

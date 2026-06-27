@@ -1,8 +1,0 @@
-/Users/rahulkrishanand/Downloads/Coding Projects/rka-os/apps/launcher/src-tauri/target/debug/deps/icu_normalizer-16e196dad1637e35.d: /Users/rahulkrishanand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/icu_normalizer-2.2.0/src/lib.rs /Users/rahulkrishanand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/icu_normalizer-2.2.0/src/properties.rs /Users/rahulkrishanand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/icu_normalizer-2.2.0/src/provider.rs /Users/rahulkrishanand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/icu_normalizer-2.2.0/src/uts46.rs
-
-/Users/rahulkrishanand/Downloads/Coding Projects/rka-os/apps/launcher/src-tauri/target/debug/deps/libicu_normalizer-16e196dad1637e35.rmeta: /Users/rahulkrishanand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/icu_normalizer-2.2.0/src/lib.rs /Users/rahulkrishanand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/icu_normalizer-2.2.0/src/properties.rs /Users/rahulkrishanand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/icu_normalizer-2.2.0/src/provider.rs /Users/rahulkrishanand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/icu_normalizer-2.2.0/src/uts46.rs
-
-/Users/rahulkrishanand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/icu_normalizer-2.2.0/src/lib.rs:
-/Users/rahulkrishanand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/icu_normalizer-2.2.0/src/properties.rs:
-/Users/rahulkrishanand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/icu_normalizer-2.2.0/src/provider.rs:
-/Users/rahulkrishanand/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/icu_normalizer-2.2.0/src/uts46.rs:

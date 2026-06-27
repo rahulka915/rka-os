@@ -20,22 +20,24 @@ The architecture uses a unified Item lifecycle:
 - **ItemInstance**: The materialized occurrence of an Item scheduled for a specific date.
 - **Tags**: M:N relational tags parsed via natural language (`#tag`).
 
-## Setup Instructions
+## Development
 
-1. **Install Dependencies:**
-   ```bash
-   npm install
-   ```
+This project is managed by **[RKA Launcher](../rka-launcher/)** — a native macOS app that handles starting/stopping dev servers. Register this repo in the launcher and use it instead of running commands manually.
 
-2. **Run Development Server:**
-   ```bash
-   npm run dev
-   ```
+Manual commands (if not using the launcher):
 
-3. **Build for Production:**
-   ```bash
-   npm run build
-   ```
+```bash
+npm install       # install dependencies
+npm run dev       # start Vite dev server (PWA, port 5173)
+npm run build     # production build
+```
+
+For the React Native app:
+
+```bash
+cd apps/mobile
+npx expo start --go    # start Expo Go server (port 8081)
+```
 
 ## Current Features
 - **Home Command Centre**: Unified dashboard of all active areas of responsibility.
