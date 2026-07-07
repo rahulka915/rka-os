@@ -24,7 +24,6 @@ export { default as SkipBack } from 'react-native-heroicons/outline/ArrowUturnLe
 export { default as SkipForward } from 'react-native-heroicons/outline/ArrowUturnRightIcon';
 export { default as TimerReset } from 'react-native-heroicons/outline/ArrowPathIcon';
 export { default as Upload } from 'react-native-heroicons/outline/ArrowUpTrayIcon';
-export { default as Disc3 } from 'react-native-heroicons/outline/CircleStackIcon';
 export { default as Plus } from 'react-native-heroicons/outline/PlusIcon';
 export { default as ArrowRight } from 'react-native-heroicons/outline/ArrowRightIcon';
 export { default as Inbox } from 'react-native-heroicons/outline/InboxIcon';
@@ -39,3 +38,4 @@ export { default as Sunset } from 'react-native-heroicons/outline/CloudIcon';
 export { default as Heart } from 'react-native-heroicons/outline/HeartIcon';
 export { default as Sparkles } from 'react-native-heroicons/outline/SparklesIcon';
 export { default as MusicNote } from 'react-native-heroicons/outline/MusicalNoteIcon';
+export { default as ListChecks } from 'react-native-heroicons/outline/ListBulletIcon';

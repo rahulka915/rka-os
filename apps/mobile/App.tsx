@@ -20,7 +20,6 @@ import { MenuScreen } from './src/screens/MenuScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { InboxScreenV2 } from './src/screens/InboxScreenV2';
 import { QuickAddScreen } from './src/screens/QuickAddScreen';
-import { AudioPlayerHost } from './src/components/audio/AudioPlayerHost';
 import { PersistentTimerBanner } from './src/components/PersistentTimerBanner';
 import { requestNotificationPermission, setBadgeCount } from './src/hooks/useNotifications';
 import { getInboxItems, getDb } from './src/db/database';
@@ -34,7 +33,7 @@ const Tab = createBottomTabNavigator();
 const TAB_ITEMS = [
   { name: 'Home',     label: 'Home',     Icon: Home        },
   { name: 'Calendar', label: 'Calendar', Icon: CalendarDays },
-  { name: 'Menu',     label: 'Apps',     Icon: LayoutGrid  },
+  { name: 'Menu',     label: 'More',     Icon: LayoutGrid  },
   { name: 'Profile',  label: 'Me',       Icon: User        },
 ];
 
@@ -102,7 +101,6 @@ export default function App() {
 
   const [inboxOpen, setInboxOpen] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
-  const [audioPlayerOpen, setAudioPlayerOpen] = useState(false);
 
   const themeCtx = useMemo(() => ({
     isDark,
@@ -141,21 +139,21 @@ export default function App() {
                 screenOptions={{ headerShown: false }}
               >
                 <Tab.Screen name="Home">
-                  {() => <HomeScreen onInboxPress={() => setInboxOpen(true)} />}
+                  {({ navigation }) => (
+                    <HomeScreen
+                      onInboxPress={() => setInboxOpen(true)}
+                      inboxOpen={inboxOpen}
+                      onHeroPress={() => navigation.navigate('Profile')}
+                    />
+                  )}
                 </Tab.Screen>
                 <Tab.Screen name="Calendar" component={CalendarScreen} />
                 <Tab.Screen name="Menu">
-                  {() => <MenuScreen onAudioPlayerPress={() => setAudioPlayerOpen(true)} />}
+                  {() => <MenuScreen />}
                 </Tab.Screen>
                 <Tab.Screen name="Profile" component={ProfileScreen} />
               </Tab.Navigator>
             </NavigationContainer>
-
-            <AudioPlayerHost
-              open={audioPlayerOpen}
-              onOpen={() => setAudioPlayerOpen(true)}
-              onClose={() => setAudioPlayerOpen(false)}
-            />
 
             {/* Sheets — rendered above navigation, inside GestureHandlerRootView */}
             <InboxScreenV2 visible={inboxOpen} onClose={() => setInboxOpen(false)} />

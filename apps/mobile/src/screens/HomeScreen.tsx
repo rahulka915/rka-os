@@ -1,19 +1,67 @@
-import { ScrollView, View, Alert, StyleSheet, TouchableOpacity, Text } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ScrollView, View, Alert, StyleSheet, Text } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { YStack } from 'tamagui';
 import { AppHeader } from '../components/AppHeader';
 import { TimelineSection } from '../components/TimelineSection';
-import { HeroSection } from '../components/hero/HeroSection';
+import { RoninHero } from '../components/home/RoninHero';
 import { InboxScrollCard } from '../components/home/InboxScrollCard';
+import { NextUpCard } from '../components/home/NextUpCard';
 import { useHomeData, completeAllInTimeBlock } from '../hooks/useDb';
 import { useThemeContext } from '../hooks/useThemeContext';
+import { usePersistentTimerState } from '../hooks/usePersistentTimerState';
 import { getThemeColors } from '../theme';
 import { updateItemStatus, deleteItem } from '../db/database';
+import { getRoninMood } from '../utils/roninMood';
+import { findNextUpItem } from '../utils/nextUpItem';
 
-export function HomeScreen({ onInboxPress }: { onInboxPress: () => void }) {
+interface HomeScreenProps {
+  onInboxPress: () => void;
+  inboxOpen: boolean;
+  onHeroPress: () => void;
+}
+
+function greetingForHour(hour: number): string {
+  if (hour < 12) return 'Good morning, Rahul';
+  if (hour < 17) return 'Good afternoon, Rahul';
+  return 'Good evening, Rahul';
+}
+
+export function HomeScreen({ onInboxPress, inboxOpen, onHeroPress }: HomeScreenProps) {
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
   const { inboxCount, todayItems, anytime, morningItems, afternoonItems, eveningItems, refresh } = useHomeData();
+
+  // useHomeData only fetches on mount — Inbox lives in a sibling modal (App.tsx), not a child
+  // of this screen, so bulk actions there (delete, triage) never trigger a refetch here on
+  // their own, and this isn't a navigation transition so useFocusEffect wouldn't fire either.
+  // Refetch whenever the Inbox modal closes.
+  useEffect(() => {
+    if (!inboxOpen) refresh();
+  }, [inboxOpen, refresh]);
+
+  const { timers } = usePersistentTimerState();
+  const [completedJustNow, setCompletedJustNow] = useState(false);
+  const completedResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const flashCompletedJustNow = () => {
+    setCompletedJustNow(true);
+    if (completedResetTimer.current) clearTimeout(completedResetTimer.current);
+    completedResetTimer.current = setTimeout(() => setCompletedJustNow(false), 4000);
+  };
+
+  const overdueCount = todayItems.filter((item) => item.status === 'overdue').length;
+  const hour = new Date().getHours();
+  const roninMood = getRoninMood({
+    isTimerRunning: timers.length > 0,
+    overdueCount,
+    inboxCount,
+    completedJustNow,
+    hour,
+  });
+
+  const activeTimerItemIds = timers.map((t) => t.med.id);
+  const nextUp = findNextUpItem(todayItems, activeTimerItemIds, hour);
 
   return (
     <YStack flex={1} backgroundColor="$bg">
@@ -21,19 +69,29 @@ export function HomeScreen({ onInboxPress }: { onInboxPress: () => void }) {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
 
-        {/* 1. Animated Hero */}
-        <View style={{ marginHorizontal: 12, marginTop: 10, height: 200, borderRadius: 16, overflow: 'hidden' }}>
-          <HeroSection timeOfDay="day" />
+        {/* Greeting */}
+        <View style={s.greeting}>
+          <Text style={[s.greetingTitle, { color: palette.text }]}>{greetingForHour(hour)} ✨</Text>
+          <Text style={[s.greetingSubtitle, { color: palette.textSecondary }]}>Let's make today count.</Text>
         </View>
 
-        {/* 2. Practice cards — empty placeholders */}
-        <View style={s.practicesContainer}>
-          {Array.from({ length: 4 }).map((_, i) => (
-            <TouchableOpacity key={i} style={[s.practiceCard, { backgroundColor: palette.fill, borderColor: palette.separator }]} activeOpacity={0.6} />
-          ))}
+        {/* Ronin hero — mood-driven, tappable through to Profile for now */}
+        <View style={{ marginHorizontal: 12, marginTop: 4, borderRadius: 28, overflow: 'hidden' }}>
+          <RoninHero mood={roninMood} onPress={onHeroPress} />
         </View>
 
-        {/* 3. Inbox scroll card */}
+        {/* Next Up — single nearest pending item, or a calm empty state */}
+        <View style={{ marginHorizontal: 12, marginTop: 16 }}>
+          <NextUpCard
+            result={nextUp}
+            isDark={isDark}
+            onAction={(result) => {
+              console.log('Next Up action for:', result.id, result.actionLabel);
+            }}
+          />
+        </View>
+
+        {/* Contextual unattended-matters status */}
         <View style={{ marginHorizontal: 12, marginTop: 12 }}>
           <InboxScrollCard
             inboxCount={inboxCount}
@@ -42,7 +100,7 @@ export function HomeScreen({ onInboxPress }: { onInboxPress: () => void }) {
           />
         </View>
 
-        {/* 4. Today timeline */}
+        {/* Today timeline */}
         <YStack marginTop="$5">
           <TimelineSection
             todayItems={todayItems}
@@ -81,6 +139,7 @@ export function HomeScreen({ onInboxPress }: { onInboxPress: () => void }) {
                       onPress: () => {
                         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                         completeAllInTimeBlock(block as 'anytime' | 'morning' | 'afternoon' | 'evening');
+                        flashCompletedJustNow();
                         refresh();
                       },
                     },
@@ -105,21 +164,17 @@ export function HomeScreen({ onInboxPress }: { onInboxPress: () => void }) {
 }
 
 const s = StyleSheet.create({
-  practicesContainer: {
-    flexDirection: 'row',
-    gap: 10,
-    paddingHorizontal: 12,
-    marginTop: 16,
+  greeting: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
   },
-  practiceCard: {
-    flex: 1,
-    aspectRatio: 1,
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    alignItems: 'center',
-    justifyContent: 'center',
+  greetingTitle: {
+    fontSize: 22,
+    fontWeight: '800',
   },
-  practiceIcon: {
-    fontSize: 28,
+  greetingSubtitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginTop: 2,
   },
 });

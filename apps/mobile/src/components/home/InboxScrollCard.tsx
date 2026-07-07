@@ -17,47 +17,49 @@ export function InboxScrollCard({ inboxCount, onPress, isDark }: InboxScrollCard
   };
 
   const cardBg = isDark ? '#1e1e1e' : '#ffffff';
+  const textColor = isDark ? '#f2f2f2' : '#1c1c1e';
+  const secondaryColor = isDark ? 'rgba(255,255,255,0.40)' : 'rgba(60,60,67,0.5)';
 
   return (
     <View style={styles.container}>
       {/* Shadow cards — stacked paper effect */}
-      <View style={[styles.shadowCard, styles.shadowCard3, { backgroundColor: isDark ? '#161616' : '#e8e8e8' }]} />
-      <View style={[styles.shadowCard, styles.shadowCard2, { backgroundColor: isDark ? '#191919' : '#efefef' }]} />
+      <View style={[styles.shadowCard, styles.shadowCard3, { backgroundColor: isDark ? '#161616' : '#ece6da' }]} />
+      <View style={[styles.shadowCard, styles.shadowCard2, { backgroundColor: isDark ? '#191919' : '#f5efe2' }]} />
 
       {/* Foreground card */}
       <TouchableOpacity
-        onPress={handlePress}
-        activeOpacity={0.75}
+        onPress={hasItems ? handlePress : undefined}
+        activeOpacity={hasItems ? 0.75 : 1}
         style={[styles.foregroundCard, { backgroundColor: cardBg }]}
       >
         {/* Icon bubble */}
         <View
           style={[
             styles.iconBubble,
-            { backgroundColor: hasItems ? 'rgba(193,18,31,0.15)' : 'rgba(52,171,83,0.14)' },
+            { backgroundColor: hasItems ? 'rgba(164,30,52,0.12)' : 'rgba(52,168,83,0.14)' },
           ]}
         >
           {hasItems ? (
-            <Inbox size={17} color="#c1121f" strokeWidth={1.5} />
+            <Inbox size={17} color="#a41e34" strokeWidth={1.5} />
           ) : (
-            <CheckCircle2 size={17} color="#34ab53" strokeWidth={1.5} />
+            <CheckCircle2 size={17} color="#34a853" strokeWidth={1.5} />
           )}
         </View>
 
         {/* Text */}
         <View style={styles.textGroup}>
-          <Text style={styles.primaryText}>
+          <Text style={[styles.primaryText, { color: textColor }]}>
             {hasItems
               ? `${inboxCount} unopened scroll${inboxCount > 1 ? 's' : ''}`
-              : 'No unattended matters remain'}
+              : 'All clear'}
           </Text>
-          <Text style={styles.secondaryText}>
-            {hasItems ? 'Tap to review' : 'All resolved'}
+          <Text style={[styles.secondaryText, { color: secondaryColor }]}>
+            {hasItems ? 'Tap to review' : 'No unattended matters.'}
           </Text>
         </View>
 
         {/* Chevron */}
-        {hasItems && <ChevronRight size={14} color="#c1121f" strokeWidth={2} />}
+        {hasItems && <ChevronRight size={14} color="#a41e34" strokeWidth={2} />}
       </TouchableOpacity>
     </View>
   );
@@ -111,11 +113,9 @@ const styles = StyleSheet.create({
   primaryText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#f2f2f2',
   },
   secondaryText: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.40)',
     marginTop: 2,
   },
 });

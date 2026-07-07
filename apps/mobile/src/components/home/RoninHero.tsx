@@ -1,117 +1,151 @@
-import { View, Text, StyleSheet, Dimensions, Image } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-
-const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
-const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+import Animated, { useSharedValue, withTiming } from 'react-native-reanimated';
+import type { RoninMood } from '../../utils/roninMood';
+import { getRoninProgress } from '../../utils/roninProgress';
 
 interface RoninHeroProps {
-  date: Date;
-  isDark: boolean;
+  mood: RoninMood;
+  onPress?: () => void;
 }
 
-function getSceneImage(hour: number) {
-  if (hour >= 5 && hour < 12) return require('../../../assets/hero-dawn.png');
-  if (hour >= 12 && hour < 17) return require('../../../assets/hero-day.png');
-  if (hour >= 17 && hour < 21) return require('../../../assets/hero-ember.png');
-  return require('../../../assets/hero-night.png');
-}
+const MOOD_IMAGES: Record<RoninMood, number> = {
+  normal: require('../../../assets/ronin/moods/normal.png'),
+  alert: require('../../../assets/ronin/moods/alert.png'),
+  tired: require('../../../assets/ronin/moods/tired.png'),
+  focused: require('../../../assets/ronin/moods/focused.png'),
+  overwhelmed: require('../../../assets/ronin/moods/overwhelmed.png'),
+  resolved: require('../../../assets/ronin/moods/resolved.png'),
+};
 
-export function RoninHero({ date, isDark }: RoninHeroProps) {
-  const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
-  const cardWidth = screenWidth - 24;
-  const cardHeight = Math.round(screenHeight * 0.27);
+const MOOD_LABELS: Record<RoninMood, string> = {
+  normal: 'Ronin is steady today.',
+  alert: 'Ronin noticed a few things waiting.',
+  tired: 'Ronin is winding down.',
+  focused: 'Ronin is focused today.',
+  overwhelmed: 'Ronin could use a hand today.',
+  resolved: 'Ronin is glad that’s done.',
+};
 
-  const hour = date.getHours();
-  const sceneImage = getSceneImage(hour);
+const CROSSFADE_MS = 350;
 
-  const dateLabel = `${DAYS[date.getDay()]} · ${date.getDate()} ${MONTHS[date.getMonth()]}`;
+// Placeholder for the mood-based character until the animation system (breathing,
+// aura, tap-poke) is redesigned — see docs/superpowers/specs. For now this is a
+// plain image swap with a crossfade, not a static-forever asset.
+export function RoninHero({ mood, onPress }: RoninHeroProps) {
+  const [prevMood, setPrevMood] = useState<RoninMood | null>(null);
+  const prevOpacity = useSharedValue(0);
+  const currentOpacity = useSharedValue(1);
+  const moodRef = useRef(mood);
+  const progress = getRoninProgress();
+
+  useEffect(() => {
+    if (moodRef.current === mood) return;
+    setPrevMood(moodRef.current);
+    moodRef.current = mood;
+
+    prevOpacity.value = 1;
+    currentOpacity.value = 0;
+    prevOpacity.value = withTiming(0, { duration: CROSSFADE_MS });
+    currentOpacity.value = withTiming(1, { duration: CROSSFADE_MS });
+  }, [mood]);
+
+  const xpRatio = Math.min(1, progress.xp / progress.xpToNext);
 
   return (
-    <View style={[styles.card, { width: cardWidth, height: cardHeight }]}>
-      {/* Background scene image */}
-      <Image
-        source={sceneImage}
-        style={StyleSheet.absoluteFillObject}
-        resizeMode="cover"
-      />
-
-      {/* Gradient only covers the bottom portion for text legibility — keeps ronin visible */}
+    <TouchableOpacity activeOpacity={onPress ? 0.9 : 1} onPress={onPress} style={styles.card}>
       <LinearGradient
-        colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.82)']}
-        start={{ x: 0, y: 0.48 }}
-        end={{ x: 0, y: 1 }}
+        colors={['#fef6e4', '#fbe8c8', '#f3d9a6']}
+        locations={[0, 0.55, 1]}
         style={StyleSheet.absoluteFillObject}
       />
 
-      {/* Text content */}
-      <View style={styles.content}>
-        {/* Date — top */}
-        <Text style={styles.dateLabel}>{dateLabel}</Text>
-
-        <View style={{ flex: 1 }} />
-
-        {/* Forged state — bottom */}
-        <Text style={styles.forgedLabel}>Today is still being forged</Text>
-        <View style={styles.progressIndicator}>
-          <Text style={styles.lantern}>🏮</Text>
-          <Text style={styles.dot}>○</Text>
-          <Text style={styles.dot}>○</Text>
-          <Text style={styles.dot}>○</Text>
-          <Text style={styles.dot}>○</Text>
-        </View>
-        <Text style={styles.practiceLabel}>1 Practice awaits</Text>
+      <View style={styles.moodBubble}>
+        <Text style={styles.moodText}>{MOOD_LABELS[mood]}</Text>
       </View>
-    </View>
+
+      {prevMood && (
+        <Animated.View style={[styles.character, { opacity: prevOpacity }]} pointerEvents="none">
+          <Image source={MOOD_IMAGES[prevMood]} resizeMode="contain" style={styles.image} />
+        </Animated.View>
+      )}
+
+      <Animated.View style={[styles.character, { opacity: currentOpacity }]} pointerEvents="none">
+        <Image source={MOOD_IMAGES[mood]} resizeMode="contain" style={styles.image} />
+      </Animated.View>
+
+      <View style={styles.progressBar}>
+        <Text style={styles.levelText}>Level {progress.level}</Text>
+        <View style={styles.xpTrack}>
+          <View style={[styles.xpFill, { width: `${xpRatio * 100}%` }]} />
+        </View>
+        <Text style={styles.xpText}>{progress.xp} / {progress.xpToNext} XP</Text>
+      </View>
+    </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 18,
-    overflow: 'hidden',
-    backgroundColor: '#060a10',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.08)',
-  },
-  content: {
-    ...StyleSheet.absoluteFillObject,
-    padding: 18,
-    paddingBottom: 16,
-    justifyContent: 'space-between',
-  },
-  dateLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-    letterSpacing: 1.6,
-    color: 'rgba(255,255,255,0.50)',
-  },
-  forgedLabel: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#f0f0f0',
-    letterSpacing: -0.1,
-    marginBottom: 6,
-    textShadowColor: 'rgba(0,0,0,0.5)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
-  },
-  progressIndicator: {
-    flexDirection: 'row',
+    width: '100%',
+    minHeight: 280,
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
+    justifyContent: 'flex-end',
+    overflow: 'hidden',
   },
-  lantern: {
-    fontSize: 16,
+  moodBubble: {
+    position: 'absolute',
+    top: 18,
+    left: 18,
+    right: 18,
+    backgroundColor: 'rgba(255,255,255,0.85)',
+    borderRadius: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
   },
-  dot: {
+  moodText: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.40)',
+    fontWeight: '600',
+    color: '#3a2b12',
   },
-  practiceLabel: {
+  character: {
+    position: 'absolute',
+    width: '46%',
+    aspectRatio: 234 / 330,
+    maxHeight: '78%',
+    bottom: 56,
+  },
+  image: {
+    width: '100%',
+    height: '100%',
+  },
+  progressBar: {
+    width: '100%',
+    paddingHorizontal: 18,
+    paddingBottom: 16,
+  },
+  levelText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#3a2b12',
+    marginBottom: 6,
+  },
+  xpTrack: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(58,43,18,0.15)',
+    overflow: 'hidden',
+  },
+  xpFill: {
+    height: '100%',
+    borderRadius: 3,
+    backgroundColor: '#a41e34',
+  },
+  xpText: {
     fontSize: 12,
-    fontWeight: '500',
-    color: 'rgba(255,255,255,0.52)',
-    letterSpacing: 0.2,
+    fontWeight: '600',
+    color: 'rgba(58,43,18,0.65)',
+    marginTop: 6,
   },
 });
