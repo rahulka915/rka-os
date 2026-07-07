@@ -31,3 +31,4 @@ __MACOSX
 references
 .env.local
 .env.vercel.local
+.worktrees/
