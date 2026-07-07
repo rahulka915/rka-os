@@ -3,33 +3,36 @@ import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { MedicationsScreen } from './MedicationsScreen';
+import { ProjectsScreen } from './ProjectsScreen';
+import { WorkoutsScreen } from './WorkoutsScreen';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
-import { FolderKanban, Dumbbell, Pill, ChevronRight, X, Disc3 } from '../icons';
+import { FolderKanban, Dumbbell, Pill, ChevronRight, X } from '../icons';
 
-export function MenuScreen({ onAudioPlayerPress }: { onAudioPlayerPress: () => void }) {
+type ModalKey = 'projects' | 'workouts' | 'medications' | null;
+
+export function MenuScreen() {
   const insets = useSafeAreaInsets();
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
-  const [medOpen, setMedOpen] = useState(false);
+  const [openModal, setOpenModal] = useState<ModalKey>(null);
 
-  const menuItems = [
-    { label: 'Audio Player', sub: 'Pick an MP3 and dock it into a mini-player', icon: Disc3, onPress: onAudioPlayerPress },
-    { label: 'Projects', sub: 'Manage your projects and tasks', icon: FolderKanban, onPress: () => {} },
-    { label: 'Workouts', sub: 'Templates and exercise library', icon: Dumbbell, onPress: () => {} },
-    { label: 'Medications', sub: 'Inventory and schedules', icon: Pill, onPress: () => setMedOpen(true) },
+  const menuItems: { key: ModalKey; label: string; sub: string; icon: typeof FolderKanban }[] = [
+    { key: 'projects', label: 'Projects', sub: 'Manage your projects and tasks', icon: FolderKanban },
+    { key: 'workouts', label: 'Workouts', sub: 'Templates and exercise library', icon: Dumbbell },
+    { key: 'medications', label: 'Medications', sub: 'Inventory and schedules', icon: Pill },
   ];
 
   return (
     <View style={[styles.container, { backgroundColor: palette.bg, paddingTop: insets.top + 12 }]}>
-      <Text style={[styles.title, { color: palette.textTertiary }]}>APPS</Text>
+      <Text style={[styles.title, { color: palette.textTertiary }]}>MORE</Text>
 
-      {menuItems.map(({ label, sub, icon: Icon, onPress }, i) => (
+      {menuItems.map(({ key, label, sub, icon: Icon }, i) => (
         <TouchableOpacity
           key={label}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            onPress();
+            setOpenModal(key);
           }}
           activeOpacity={0.5}
         >
@@ -47,11 +50,35 @@ export function MenuScreen({ onAudioPlayerPress }: { onAudioPlayerPress: () => v
         </TouchableOpacity>
       ))}
 
-      {/* Medications modal */}
-      <Modal visible={medOpen} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setMedOpen(false)}>
+      <Modal visible={openModal === 'projects'} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setOpenModal(null)}>
         <View style={[styles.modalContainer, { backgroundColor: palette.bg, paddingTop: insets.top }]}>
-          <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => setMedOpen(false)} hitSlop={12}>
+          <View style={[styles.modalHeader, { borderBottomColor: palette.separator }]}>
+            <Text style={[styles.modalTitle, { color: palette.text }]}>Projects</Text>
+            <TouchableOpacity onPress={() => setOpenModal(null)} hitSlop={12}>
+              <X size={16} color={palette.text} strokeWidth={2.5} />
+            </TouchableOpacity>
+          </View>
+          <ProjectsScreen />
+        </View>
+      </Modal>
+
+      <Modal visible={openModal === 'workouts'} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setOpenModal(null)}>
+        <View style={[styles.modalContainer, { backgroundColor: palette.bg, paddingTop: insets.top }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: palette.separator }]}>
+            <Text style={[styles.modalTitle, { color: palette.text }]}>Workouts</Text>
+            <TouchableOpacity onPress={() => setOpenModal(null)} hitSlop={12}>
+              <X size={16} color={palette.text} strokeWidth={2.5} />
+            </TouchableOpacity>
+          </View>
+          <WorkoutsScreen />
+        </View>
+      </Modal>
+
+      <Modal visible={openModal === 'medications'} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setOpenModal(null)}>
+        <View style={[styles.modalContainer, { backgroundColor: palette.bg, paddingTop: insets.top }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: palette.separator }]}>
+            <Text style={[styles.modalTitle, { color: palette.text }]}>Medications</Text>
+            <TouchableOpacity onPress={() => setOpenModal(null)} hitSlop={12}>
               <X size={16} color={palette.text} strokeWidth={2.5} />
             </TouchableOpacity>
           </View>
@@ -101,9 +128,14 @@ const styles = StyleSheet.create({
   },
   modalHeader: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: '700',
   },
 });
