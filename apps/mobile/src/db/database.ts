@@ -710,6 +710,27 @@ export function resetMedicationTimer(logId: string, itemId: string): void {
   _syncLastTakenAt(itemId);
 }
 
+// Attaches a timer to a dose that was already logged without one (e.g. forgot to tap
+// "Take + Start Timer" at the time). Starts counting from when the dose was actually
+// taken (the log's own timestamp), not from now, so the elapsed time is accurate rather
+// than restarting from zero.
+export function startTimerFromLoggedDose(logId: string, itemId: string): void {
+  const log = getDb().getAllSync<ActivityLog>(`SELECT * FROM activityLogs WHERE id = ? LIMIT 1`, [logId])[0];
+  if (!log) return;
+  const details = parseDetails(log.details);
+  details.timerActive = true;
+  details.startedAt = log.timestamp;
+  details.accumulatedMs = 0;
+  delete details.pausedAt;
+  delete details.stoppedAt;
+  details.notified = false;
+  getDb().runSync(
+    `UPDATE activityLogs SET details = ? WHERE id = ?`,
+    [JSON.stringify(details), logId]
+  );
+  _syncLastTakenAt(itemId);
+}
+
 export function getActiveMedicationTimers(): Array<{ log: ActivityLog; med: Item; details: MedicationTimerDetails }> {
   const logs = getDb().getAllSync<ActivityLog>(
     `SELECT * FROM activityLogs WHERE actionType = 'medication-taken' ORDER BY timestamp DESC`

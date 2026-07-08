@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Modal, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Alert, View as RNView, Text as RNText, StyleSheet, TextInput, FlatList } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useMedications } from '../hooks/useDb';
-import { createMedication, updateMedication, deleteItem, getLastTakenLog, getMedicationDoseHistory, getMedicationLogs, getTotalStock, getStockBreakdown, restockMedication, type MedicationMeta } from '../db/database';
+import { createMedication, updateMedication, deleteItem, getLastTakenLog, getMedicationDoseHistory, getMedicationLogs, getTotalStock, getStockBreakdown, restockMedication, startTimerFromLoggedDose, type MedicationMeta } from '../db/database';
 import { LogDoseSheet } from '../components/LogDoseSheet';
 import { LensSurface } from '../components/LensSurface';
 import { LensFAB } from '../components/LensFAB';
@@ -83,9 +83,10 @@ interface TodayRowProps {
   onEdit: () => void;
   onDelete: () => void;
   onRestock: () => void;
+  onStartTimer: () => void;
 }
 
-function TodayRow({ item, isDark, onTake, onLogPast, onEdit, onDelete, onRestock }: TodayRowProps) {
+function TodayRow({ item, isDark, onTake, onLogPast, onEdit, onDelete, onRestock, onStartTimer }: TodayRowProps) {
   const palette = getThemeColors(isDark);
   const { meta, lastLog, stock, isTrackingStock, canTake } = useMedState(item);
   const timeSince = useTimeSince(lastLog?.timestamp);
@@ -119,6 +120,9 @@ function TodayRow({ item, isDark, onTake, onLogPast, onEdit, onDelete, onRestock
     Alert.alert(item.title, undefined, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Take + Start Timer', onPress: () => handleTake(true) },
+      // Forgot to start the timer when you took it? Attach one now to the dose
+      // you already logged, instead of logging a second (fake) dose.
+      ...(lastLog ? [{ text: 'Start Timer for Last Dose', onPress: onStartTimer }] : []),
       { text: 'Log Past Dose', onPress: onLogPast },
       ...(isTrackingStock ? [{ text: 'Restock', onPress: onRestock }] : []),
       { text: 'Edit', onPress: onEdit },
@@ -395,6 +399,14 @@ export function MedicationsScreen() {
     );
   };
 
+  const handleStartTimer = (item: Item) => {
+    const log = getLastTakenLog(item.id);
+    if (!log) return;
+    startTimerFromLoggedDose(log.id, item.id);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    refresh();
+  };
+
   return (
     <LensSurface title="Medications" headerRight={<LensFAB onPress={() => setAddOpen(true)} />}>
       {medications.length === 0 ? (
@@ -429,6 +441,7 @@ export function MedicationsScreen() {
                   onEdit={() => setEditTarget(item)}
                   onDelete={() => handleDelete(item)}
                   onRestock={() => handleRestock(item)}
+                  onStartTimer={() => handleStartTimer(item)}
                 />
               ))}
             </RNView>
