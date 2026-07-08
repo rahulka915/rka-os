@@ -67,7 +67,8 @@
         {
           "backgroundColor": "#f6f5f1"
         }
-      ]
+      ],
+      "expo-widgets"
     ],
     "extra": {
       "eas": {
