@@ -7,6 +7,7 @@ import { useInspector } from '../components/shell/InspectorContext';
 import { ActionList } from '../components/actions/ActionList';
 import { formatDate } from '../db/actions';
 import { EmptyState, IconButton, PageHeader, SegmentedControl } from '../components/ui/primitives';
+import { extractTimelineMinutes, formatMinutesToTime } from '../utils/time';
 import './calendar.css';
 
 const DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -63,6 +64,22 @@ export function Calendar() {
     }
   };
 
+  const getDayItems = (dateString: string) => {
+    return (items?.filter(item => item.scheduledDate === dateString || item.metadata?.dueDate === dateString) || [])
+      .slice()
+      .sort((a, b) => {
+        const minutesA = extractTimelineMinutes({ metadata: a.metadata, status: a.status }) ?? Number.POSITIVE_INFINITY;
+        const minutesB = extractTimelineMinutes({ metadata: b.metadata, status: b.status }) ?? Number.POSITIVE_INFINITY;
+        if (minutesA !== minutesB) return minutesA - minutesB;
+        return a.createdAt - b.createdAt;
+      });
+  };
+
+  const getItemTimeLabel = (item: any) => {
+    const minutes = extractTimelineMinutes({ metadata: item.metadata, status: item.status });
+    return minutes == null ? null : formatMinutesToTime(minutes);
+  };
+
   const renderMonthOrWeek = (isWeek: boolean) => {
     const daysInMonth = getDaysInMonth(currentDate);
     const firstDay = getFirstDayOfMonth(currentDate);
@@ -87,9 +104,7 @@ export function Calendar() {
         const isToday = today.getDate() === d.getDate() && today.getMonth() === d.getMonth() && today.getFullYear() === d.getFullYear();
         const dateString = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         
-        const dayItems = items?.filter(item => {
-          return item.scheduledDate === dateString || item.metadata?.dueDate === dateString;
-        }) || [];
+        const dayItems = getDayItems(dateString);
 
         cells.push(renderCell(d.getDate(), isToday, false, dateString, dayItems, isWeek));
       }
@@ -106,9 +121,7 @@ export function Calendar() {
       const isToday = today.getDate() === i && today.getMonth() === currentDate.getMonth() && today.getFullYear() === currentDate.getFullYear();
       const dateString = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
       
-      const dayItems = items?.filter(item => {
-        return item.scheduledDate === dateString || item.metadata?.dueDate === dateString;
-      }) || [];
+      const dayItems = getDayItems(dateString);
 
       cells.push(renderCell(i, isToday, false, dateString, dayItems, false));
     }
@@ -130,19 +143,25 @@ export function Calendar() {
         <div className={`calendar-items ${dense ? 'dense' : ''}`}>
           {dayItems.slice(0, 4).map(item => {
             const style = getItemStyles(item.type);
+            const timeLabel = getItemTimeLabel(item);
             return (
               <div 
                 key={item.id} 
                 className={`cal-chip ${dense ? 'icon-only' : ''}`}
                 style={{ background: style.bg, color: style.color }}
-                title={item.title}
+                title={timeLabel ? `${timeLabel} ${item.title}` : item.title}
                 onClick={(e) => {
                   e.stopPropagation();
                   inspectEntity(item.id, item.type);
                 }}
               >
                 <span>{style.icon}</span>
-                {!dense && <span>{item.title}</span>}
+                {!dense && (
+                  <span className="cal-chip-text">
+                    {timeLabel && <span className="cal-chip-time">{timeLabel}</span>}
+                    <span className="cal-chip-title">{item.title}</span>
+                  </span>
+                )}
               </div>
             );
           })}
@@ -163,7 +182,7 @@ export function Calendar() {
 
     for (let i = 1; i <= daysInMonth; i++) {
       const dateString = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-      const dayItems = items?.filter(item => item.scheduledDate === dateString || item.metadata?.dueDate === dateString) || [];
+      const dayItems = getDayItems(dateString);
       
       if (dayItems.length > 0) {
         agendaDays.push(
@@ -173,12 +192,19 @@ export function Calendar() {
             </div>
             {dayItems.map(item => {
               const style = getItemStyles(item.type);
+              const timeLabel = getItemTimeLabel(item);
               return (
                 <div key={item.id} className="agenda-item" onClick={() => inspectEntity(item.id, item.type)}>
                   <div className="agenda-item-icon" style={{ background: style.bg, color: style.color }}>
                     {style.icon}
                   </div>
-                  <div className="agenda-item-title">{item.title}</div>
+                  <div className="agenda-item-copy">
+                    <div className="agenda-item-title">{item.title}</div>
+                    <div className="agenda-item-meta">
+                      {timeLabel && <span>{timeLabel}</span>}
+                      <span>{item.type}</span>
+                    </div>
+                  </div>
                 </div>
               );
             })}

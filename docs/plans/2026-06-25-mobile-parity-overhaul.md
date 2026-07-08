@@ -30,7 +30,6 @@ These provide the correct product skeleton and data behavior. They should be ref
 - `apps/mobile/src/components/PersistentTimerBanner.tsx`
 - `apps/mobile/src/components/LogDoseSheet.tsx`
 - `apps/mobile/src/components/AppHeader.tsx`
-- `apps/mobile/src/components/audio/AudioPlayerHost.tsx`
 - `apps/mobile/App.tsx` tab bar shell
 
 These work, but they do not yet match the old web app in interaction depth, visual hierarchy, or persistence.
@@ -72,7 +71,6 @@ These work, but they do not yet match the old web app in interaction depth, visu
 Review repeated border radius, blur-like fills, hairlines, shadows, paddings, and icon button treatments in:
 - `apps/mobile/src/components/PersistentTimerBanner.tsx`
 - `apps/mobile/src/components/LogDoseSheet.tsx`
-- `apps/mobile/src/components/audio/AudioPlayerHost.tsx`
 - `apps/mobile/src/screens/QuickAddScreen.tsx`
 - `apps/mobile/src/screens/InboxScreen.tsx`
 
@@ -96,7 +94,7 @@ Normalize:
 
 **Step 4: Verify visual consistency**
 
-Check that timer, quick add, inbox, and audio player all read as the same product family.
+Check that timer, quick add, and inbox all read as the same product family.
 
 **Step 5: Commit**
 
@@ -296,48 +294,6 @@ Check the app as a whole:
 **Step 6: Commit**
 
 Keep shell polish isolated from feature overhauls.
-
----
-
-### Task 5: Bring the audio player and dock behavior into the same system
-
-**Files:**
-- Modify: `apps/mobile/src/components/audio/AudioPlayerHost.tsx`
-- Create: `apps/mobile/src/components/audio/AudioDock.tsx`
-- Create: `apps/mobile/src/components/audio/LyricLineEditor.tsx`
-- Reference: `src/components/shell/QuickAddSheet.tsx`
-- Reference images already provided in thread
-
-**Step 1: Split the current player into subcomponents**
-
-Extract:
-- expanded player shell
-- minimized dock
-- artwork block
-- lyric line editor
-
-**Step 2: Align the visual language**
-
-Make the player feel like the same system as the timer and sheets:
-- matching glass / surface treatment
-- matching spacing and controls
-- stronger minimize affordance
-
-**Step 3: Preserve current functionality**
-
-Do not regress:
-- local MP3 selection
-- ID3 title / artist / artwork parsing
-- manual lyric line creation
-- timestamp stamping
-
-**Step 4: Improve minimize / restore motion**
-
-The dock transition should feel intentional, not just present.
-
-**Step 5: Commit**
-
-Commit audio separately because it is visually large and easy to review independently.
 
 ---
 

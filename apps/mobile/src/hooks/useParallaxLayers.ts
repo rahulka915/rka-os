@@ -12,7 +12,7 @@ export function useParallaxLayers(): ParallaxState {
   const tiltY = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // In Expo Go, device motion is limited. Fallback to scroll position.
+    // Device motion is limited in some runtimes, so keep a lightweight fallback.
     // For now, we'll use a simple oscillation as placeholder (will wire to real motion later).
 
     const oscillation = Animated.loop(

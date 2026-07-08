@@ -1,10 +1,11 @@
-import { TouchableOpacity } from 'react-native';
+import { StyleSheet, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { XStack, Text, View } from 'tamagui';
 import * as Haptics from 'expo-haptics';
 import { AvatarCompanion } from './AvatarCompanion';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { CheckCircle2, Moon, Sun } from '../icons';
+import { usePersistentTimerState } from '../hooks/usePersistentTimerState';
 
 interface AppHeaderProps {
   onProfilePress?: () => void;
@@ -13,6 +14,8 @@ interface AppHeaderProps {
 export function AppHeader({ onProfilePress }: AppHeaderProps) {
   const insets = useSafeAreaInsets();
   const { isDark, toggle } = useThemeContext();
+  const { timers, isHidden, restorePresentation } = usePersistentTimerState();
+  const showTimerRestore = isHidden && timers.length > 0;
 
   return (
     <XStack
@@ -38,6 +41,20 @@ export function AppHeader({ onProfilePress }: AppHeaderProps) {
 
       {/* Right: dark toggle + sync */}
       <XStack alignItems="center" gap="$3">
+        {showTimerRestore ? (
+          <TouchableOpacity
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              restorePresentation();
+            }}
+            hitSlop={14}
+            accessibilityLabel="Show hidden timer"
+            accessibilityRole="button"
+            style={styles.timerRestoreButton}
+          >
+            <View style={[styles.timerRestoreDot, { backgroundColor: isDark ? '#ff9f5a' : '#ff9500' }]} />
+          </TouchableOpacity>
+        ) : null}
         <TouchableOpacity
           onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); toggle(); }}
           hitSlop={12}
@@ -55,3 +72,21 @@ export function AppHeader({ onProfilePress }: AppHeaderProps) {
     </XStack>
   );
 }
+
+const styles = StyleSheet.create({
+  timerRestoreButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,149,0,0.10)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,149,0,0.18)',
+  },
+  timerRestoreDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 999,
+  },
+});

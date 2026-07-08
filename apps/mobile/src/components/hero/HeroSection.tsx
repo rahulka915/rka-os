@@ -1,20 +1,13 @@
 import React from 'react';
-import { View, StyleSheet, Dimensions, Animated, Image } from 'react-native';
-import { useParallaxLayers } from '../../hooks/useParallaxLayers';
-import { useAmbientShift } from '../../hooks/useAmbientShift';
-import { useParticleSystem } from '../../hooks/useParticleSystem';
-import { ParticleCanvas } from './ParticleCanvas';
+import { View, StyleSheet, Dimensions, Image } from 'react-native';
+import { Text as TamaguiText } from 'tamagui';
 
 interface Props {
   timeOfDay: 'dawn' | 'day' | 'ember' | 'night';
 }
 
 export function HeroSection({ timeOfDay }: Props) {
-  const { width, height } = Dimensions.get('window');
-  const { tiltX, tiltY } = useParallaxLayers();
-  const { overlayOpacity, gradientOffset } = useAmbientShift();
-  const particles = useParticleSystem();
-
+  const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
   const assetMap: Record<string, any> = {
     dawn: require('../../../assets/hero-dawn.png'),
     day: require('../../../assets/hero-day.png'),
@@ -23,72 +16,79 @@ export function HeroSection({ timeOfDay }: Props) {
   };
 
   const heroAsset = assetMap[timeOfDay];
-
-  const backgroundColor = gradientOffset.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['#87CEEB', '#FF6B35'],
+  const now = new Date();
+  const dateLabel = now.toLocaleDateString([], {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  }).toUpperCase();
+  const timeLabel = now.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
   });
 
-  const animatedStyle = {
-    transform: [
-      {
-        translateX: tiltX.interpolate({
-          inputRange: [-15, 0, 15],
-          outputRange: [-10, 0, 10],
-        }),
-      },
-      {
-        translateY: tiltY.interpolate({
-          inputRange: [-15, 0, 15],
-          outputRange: [-10, 0, 10],
-        }),
-      },
-    ],
-  };
-
   return (
-    <View style={[s.container, { width, height }]}>
-      <Image
-        source={heroAsset}
-        style={[s.image, { width, height }]}
-        resizeMode="cover"
-      />
+    <View style={[s.card, { width: screenWidth - 24, height: Math.round(screenHeight * 0.27) }]}>
+      <Image source={heroAsset} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+      <View style={s.scrim} />
 
-      <Animated.View
-        style={[
-          s.overlay,
-          {
-            backgroundColor,
-            opacity: overlayOpacity,
-          },
-        ]}
-      />
-
-      <View style={s.particleContainer} pointerEvents="none">
-        <ParticleCanvas particles={particles} />
+      <View style={s.content}>
+        <TamaguiText fontSize={10} fontWeight="600" letterSpacing={1.2} color="rgba(255,255,255,0.50)">
+          {dateLabel}
+        </TamaguiText>
+        <View style={{ flex: 1 }} />
+        <TamaguiText
+          fontSize={24}
+          fontWeight="700"
+          letterSpacing={-0.4}
+          fontVariant={['tabular-nums']}
+          color="#f7f7f7"
+          style={{
+            textShadowColor: 'rgba(0,0,0,0.35)',
+            textShadowOffset: { width: 0, height: 1 },
+            textShadowRadius: 4,
+          }}
+        >
+          {timeLabel}
+        </TamaguiText>
+        <TamaguiText
+          marginTop={6}
+          fontSize={12}
+          fontWeight="500"
+          letterSpacing={-0.1}
+          color="#f0f0f0"
+          style={{
+            textShadowColor: 'rgba(0,0,0,0.5)',
+            textShadowOffset: { width: 0, height: 1 },
+            textShadowRadius: 4,
+          }}
+        >
+          Today is still being forged
+        </TamaguiText>
+        <TamaguiText fontSize={11} fontWeight="500" letterSpacing={0.2} color="rgba(255,255,255,0.52)">
+          1 Practice awaits
+        </TamaguiText>
       </View>
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  container: {
-    position: 'relative',
+  card: {
+    borderRadius: 18,
     overflow: 'hidden',
+    backgroundColor: '#060a10',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.08)',
   },
-  image: {
-    position: 'absolute',
+  scrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.12)',
   },
-  overlay: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-    pointerEvents: 'none',
-  },
-  particleContainer: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-    pointerEvents: 'none',
+  content: {
+    ...StyleSheet.absoluteFillObject,
+    padding: 18,
+    paddingBottom: 16,
+    justifyContent: 'space-between',
   },
 });

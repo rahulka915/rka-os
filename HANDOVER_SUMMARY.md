@@ -1,5 +1,5 @@
 # RKA OS — Handover Summary
-**Last Updated:** 2026-06-25  
+**Last Updated:** 2026-07-07  
 **Status:** Dual platform — PWA (maintenance) + React Native iOS (active)
 
 ---
@@ -116,24 +116,154 @@ Full RKA design token parity with web CSS custom properties:
 - Reanimated plugin must be in `babel.config.js` ONLY (not in `app.json` plugins — causes crash)
 - `expo-background-fetch` is deprecated → use `expo-background-task` with dynamic import for Expo Go compatibility
 
+## Session 3 — Quick Add polish + BottomSheet keyboard fixes (2026-07-07)
+
+**Status of this session's work: all uncommitted in the working tree.** Nothing from
+Sessions 1–3 has been committed yet — `git status` on `apps/mobile` is dirty. See
+"Uncommitted state" below before doing anything destructive (`git checkout`, `stash`, etc.).
+
+### Context
+A prior session (Fable-audited, Sonnet-built, plan at
+`~/.claude/plans/only-audit-plan-using-ticklish-hoare.md`) rebuilt `BottomSheet.tsx` with
+`useAnimatedKeyboard` and started a 4-phase Quick Add polish round (When chip, dismiss-saves,
+keep-adding, draft persistence). Phases 2–4 never actually landed (the agent that reported
+"finished in 11s" hit a rate-limit error and wrote nothing). This session picked up from there.
+
+### What was done
+1. **Fixed the swipe-to-dismiss gesture conflict** — `GestureDetector`'s pan gesture no longer
+   wraps the Cancel/Save `TouchableOpacity`s, only the drag-handle bar itself
+   (`src/components/ui/BottomSheet.tsx`).
+2. **Implemented Quick Add Phases 2–4** (`src/screens/QuickAddScreen.tsx`):
+   - Phase 2: When chip (Today / This Evening / Tomorrow / Anytime / Clear), inline row, exact
+     `scheduledDate`/`status`/`timeOfDay` mapping per the plan doc.
+   - Phase 3: dismiss-saves (swipe/backdrop with text = silent save, success haptic, never a
+     dialog); keep-adding (return key saves, clears title, keeps `when`, refocuses, single-line
+     title).
+   - Phase 4: draft persistence — new `src/utils/quickAddDraft.ts` (AsyncStorage), backgrounding
+     with unsaved text saves a draft, reopening prefills once then clears.
+3. **Fixed Inbox staleness bug** — `InboxScreenV2.tsx`'s `useInbox()` only fetched once on mount;
+   items created via the global Quick Add FAB never appeared until app reload. Now refetches on
+   `visible` becoming true.
+4. **Rewrote BottomSheet's keyboard handling** — the `useAnimatedKeyboard`-based manual lift
+   math raced against the entrance spring on autofocus (sheet never lifted on cold open). Reverted
+   to native `KeyboardAvoidingView` (`behavior="padding"`), matching the already-proven pattern in
+   `MedicationsScreen.tsx`'s Add Medication modal. Kept the swipe gesture/backdrop/entrance spring.
+5. **Fixed a native crash on drag-handle swipe** — two compounding causes, both fixed:
+   - `Keyboard.dismiss()` was firing in the gesture's `.onStart` on every touch-down, racing a
+     native `KeyboardAvoidingView` layout pass against an in-flight Reanimated worklet. Moved it
+     to only fire in `.onEnd` when the dismiss threshold is actually crossed.
+   - The `onClose` callback (SQLite write + haptics + several `setState`s cascading into an
+     unmount) ran synchronously inside the `runOnJS` bridge right as the native pan recognizer was
+     tearing down. Deferred it with `setTimeout(onClose, 0)` so the recognizer finishes first.
+   - Also regenerated the native iOS project (`npx expo prebuild --clean`) and shipped a fresh EAS
+     dev-client build, since the installed binary predated a same-day `expo-dev-client` version fix
+     (`^56.0.20` → `~6.0.21`, a bad/typo'd entry) — this turned out NOT to be the actual crash
+     cause, but is still the correct, up-to-date state and worth keeping.
+6. **Fixed a stale-KeyboardAvoidingView bug on fast dismiss→reopen** — `BottomSheet`'s outer
+   mount-gate could reuse the same `SheetContainer`/`KeyboardAvoidingView` instance across a fast
+   swipe-dismiss-then-reopen, leaving its native keyboard-frame tracking stale. Now keyed on an
+   incrementing `openId` so every open mounts fresh.
+7. **Fixed double keyboard-inset compensation** — the scrollable body's `ScrollView` had
+   `automaticallyAdjustKeyboardInsets` stacked on top of the outer `KeyboardAvoidingView`'s own
+   padding, which double-shifted content and scrolled the title out of view. Removed the
+   `ScrollView` prop; `KeyboardAvoidingView` alone owns it now.
+8. **Added a `topAnchored` mode to `BottomSheet`** — after iterating on "half page" vs "full page"
+   with the user, landed on: content-sized (not stretched), anchored just below the safe-area top
+   (`justifyContent: 'flex-start'`, `paddingTop: insets.top + spacing[6]`) instead of
+   bottom-anchored. Applied to `QuickAddScreen` via the new `topAnchored` prop. (`fullHeight` is a
+   separate flex-fill variant still used by other consumers like `LogDoseSheet`/`CalendarScreen`;
+   not touched this session. `topAnchored` and `fullHeight` are orthogonal and were briefly
+   combined mid-session before settling on `topAnchored` alone — see below.)
+9. **Fixed a real layout bug this surfaced** — the scrollable body's `ScrollView` had
+   `style={{ flex: 1 }}` unconditionally. That only resolves when the parent chain is flex-bound
+   (true for `fullHeight`); in content-sized `topAnchored` mode the parent has no bound, so the
+   `ScrollView` collapsed to zero height and the whole card appeared empty (title/notes/pills
+   invisible). Fixed: `style={fullHeight ? { flex: 1 } : undefined}` — only flex when the parent
+   actually gives it something to flex against.
+10. **Restyled Quick Add as a Things-3-style floating card**, per Mobbin reference research
+    ([Things 3 "Creating a new to-do"](https://mobbin.com/flows/b1fa3cd6-e51a-4c76-9b52-747df82afefe)):
+    - Converted the inline When-picker row (Today/This Evening/Tomorrow/Anytime/Clear) into an
+      absolutely-positioned popover overlay anchored below the "When" pill, so opening it doesn't
+      grow the sheet's height (`whenPopover` in `QuickAddScreen.tsx`).
+    - `topAnchored` sheets now render with `sheetCardRadius` (all four corners rounded — Things 3
+      itself only rounds the bottom because its card is flush against the screen edge with zero
+      gap above; ours has a visible top gap for status-bar breathing room, so square-top would
+      look broken, not intentional) instead of the standard sheet's top-only radius.
+    - Backdrop tap-to-dismiss is **disabled** for `topAnchored` cards (`onPress={topAnchored ?
+      undefined : onClose}`) — the dimmed gap between a compact card and the keyboard is easy to
+      tap by accident while typing mid-note; dismissal still works via the drag-handle swipe and
+      Cancel/Save. The backdrop still blocks touches from reaching the app behind it, just no
+      longer closes on tap.
+    - Toolbar (Cancel/Save) deliberately stayed at the top, not moved to the bottom like Things
+      3's actual layout — kept consistent with every other `BottomSheet` consumer in the app
+      (LogDose, Medications). Flagged to the user as a scope call, not an oversight; revisit if
+      full Things 3 parity is wanted later.
+11. **Hardened position-reset on open** — `dragY` (the swipe-drag shared value) was never
+    explicitly zeroed when a swipe crossed the dismiss threshold; it relied entirely on the
+    `key={openId}` remount (item 6) giving every open a fresh shared value. Added an explicit
+    `dragY.value = 0` at the top of the entrance branch in `SheetContainer`'s `visible` effect, so
+    the reset is guaranteed regardless of remount timing, not just implied by it. (Deliberately did
+    *not* reset `dragY` in the gesture's `.onEnd` dismiss branch — doing so mid-exit-animation would
+    cause a visible snap/jump instead of a smooth continued slide-off.)
+
+### Verified on-device (physical iPhone, EAS dev-client build)
+- Quick Add keyboard lift on cold open — works.
+- Swipe-to-dismiss on drag handle (with text, triggers save) — no longer crashes.
+- Fast dismiss→reopen keyboard lift — works.
+- Inbox shows items added via the global Quick Add FAB without reload — works.
+- Card content (title/notes/pills) visible after the ScrollView flex fix — confirmed via
+  screenshot.
+- Card corners rounded on all sides, positioned with top breathing room — confirmed via
+  screenshot.
+
+### NOT yet verified on-device (pick up here)
+- When chip: Today/This Evening/Tomorrow/Anytime mapping actually landing items correctly on
+  Home's Today/Evening blocks. The new popover-overlay interaction itself also hasn't been
+  screenshotted/confirmed yet.
+- Keep-adding: return key 3× → 3 items, sheet stays open, `when` persists.
+- Draft persistence: background app with unsaved text → reopen Quick Add → draft prefills once.
+- Backdrop-tap-no-longer-dismisses for `topAnchored` — implemented, not yet confirmed on device.
+- Position-reset hardening (item 11) — implemented in response to a user request for extra
+  robustness, not a confirmed reproducible bug; user asked to stress-test rapid
+  swipe-dismiss→reopen cycles, not yet confirmed done.
+
+### Uncommitted state
+Everything above is **uncommitted**. Also present in the working tree but **untouched by this
+session** and unrelated to it: a large uncommitted diff removing the entire lyrics-player feature
+and audio files, and a ~1700-line `CalendarScreen.tsx` rewrite. These predate this session and
+were explicitly scoped out (see chat: user confirmed "1 yes definitely" to scoping this session to
+the keyboard/Quick Add work only, leaving that other churn alone). Do not commit everything
+together — separate these concerns before committing anything.
+
+### Known gap, explicitly deferred (not this session's scope)
+**There is no real sync/multi-device story.** `src/services/backgroundSync.ts` is a badge-count
+updater with a `// TODO: sync with Supabase when online` that was never implemented.
+`@supabase/supabase-js` is a dependency but no client is instantiated anywhere, no auth exists,
+and the SQLite schema's `userId TEXT` column (`src/db/database.ts:32`) is unused. Everything is
+100% local SQLite today — reinstall the app and all data is gone. The user is having a separate
+session with **Fable 5** scope this properly (auth approach, schema changes, sync trigger points,
+Supabase vs. alternatives). Don't start building this without checking whether that scoping
+session has produced a plan first.
+
 ---
 
-## Blocker: Apple Developer Account
+## Blocker: Apple Developer Account — RESOLVED
 
-**Cannot test until resolved:**
-- Expo Development Build (custom Expo Go with all native modules)
-- Skia, Rive, HealthKit, full background fetch
+~~Cannot test until resolved~~ — Apple Developer Program is active, EAS dev-client builds work.
+See "iOS Dev Build" — current flow:
 
-**Resolution:** Sign up at developer.apple.com — $99/yr, activates 24-48hrs.
-
-**Once account active, run:**
 ```bash
 cd apps/mobile
-npm install -g eas-cli
-eas login
-eas init          # links project to Expo account
-eas build --platform ios --profile development
-# Install IPA from link, then npm start → scan QR in dev client
+npx expo start --dev-client         # Metro; add --port <N> if 8081 is taken
+# On the iPhone dev-client: Enter URL manually → http://<mac-ip>:<port>
+```
+
+To ship a fresh native build after changing native deps or running `expo prebuild`:
+```bash
+cd apps/mobile
+npx expo prebuild --clean --platform ios   # regenerates ios/ (gitignored, safe to nuke)
+npx eas-cli build --platform ios --profile development --non-interactive
+# Install link printed at the end; same bundle ID so it overwrites in place (data preserved)
 ```
 
 ---

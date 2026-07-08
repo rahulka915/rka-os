@@ -14,9 +14,10 @@ interface ContextMenuProps {
   children: React.ReactNode;
   items: ContextMenuItem[];
   style?: ViewStyle;
+  onPress?: () => void;
 }
 
-export function ContextMenu({ children, items, style }: ContextMenuProps) {
+export function ContextMenu({ children, items, style, onPress }: ContextMenuProps) {
   const [visible, setVisible] = useState(false);
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
@@ -34,7 +35,7 @@ export function ContextMenu({ children, items, style }: ContextMenuProps) {
   return (
     <>
       <Animated.View style={[style, { transform: [{ scale: scaleAnim }] }]}>
-        <TouchableOpacity onLongPress={open} delayLongPress={400} activeOpacity={0.8}>
+        <TouchableOpacity onPress={onPress} onLongPress={open} delayLongPress={400} activeOpacity={0.8}>
           {children}
         </TouchableOpacity>
       </Animated.View>

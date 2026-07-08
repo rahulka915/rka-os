@@ -1,32 +1,15 @@
-import React, { useState, useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  FlatList,
-  Modal,
-  TextInput,
-  Alert,
-} from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  runOnJS,
-} from 'react-native-reanimated';
+import { useCallback, useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Modal } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import { Calendar, Sun, Moon, Archive, Trash2 } from '../icons';
 import { TaskSwipeItem } from '../components/TaskSwipeItem';
-import { VoiceMicButton } from '../components/voice/VoiceMicButton';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
 import { useInbox } from '../hooks/useDb';
-import { createItem, updateItemStatus } from '../db/database';
+import { updateItemStatus, processInboxItem } from '../db/database';
 import { Plus, X } from '../icons';
-import type { Item } from '../db/types';
-import type { VoiceIntent } from '../types/voice';
+import { QuickAddScreen } from './QuickAddScreen';
 
 interface InboxScreenV2Props {
   visible: boolean;
@@ -38,57 +21,59 @@ export function InboxScreenV2({ visible, onClose }: InboxScreenV2Props) {
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
   const { items: inboxItems, refresh } = useInbox();
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
 
-  const [showAddSheet, setShowAddSheet] = useState(false);
-  const [taskTitle, setTaskTitle] = useState('');
-  const [taskNotes, setTaskNotes] = useState('');
+  // Hold-to-select: long-press any row enters selection mode and selects it; tapping other
+  // rows (or their checkboxes) while active toggles them into/out of the set. A bottom
+  // toolbar then acts on the whole selection at once, matching Reminders/Things 3.
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  const sheetTranslateY = useSharedValue(500);
-  const scrimOpacity = useSharedValue(0);
+  // Items can be created elsewhere (e.g. the global Quick Add FAB) while this
+  // sheet is mounted-but-hidden, so refetch every time it's opened.
+  useEffect(() => {
+    if (visible) refresh();
+  }, [visible, refresh]);
 
-  const handleAddPress = useCallback(() => {
-    setShowAddSheet(true);
-    sheetTranslateY.value = withTiming(0, { duration: 200 });
-    scrimOpacity.value = withTiming(0.5, { duration: 200 });
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  }, []);
+  // QuickAddScreen creates items directly against the DB, bypassing this hook's own
+  // addItem/refresh — refetch whenever it closes so a freshly-added item shows up.
+  useEffect(() => {
+    if (!quickAddOpen) refresh();
+  }, [quickAddOpen, refresh]);
 
-  const handleCloseSheet = useCallback(() => {
-    sheetTranslateY.value = withTiming(500, { duration: 150 });
-    scrimOpacity.value = withTiming(0, { duration: 150 });
-    setTimeout(() => setShowAddSheet(false), 150);
-  }, []);
-
-  const handleSaveTask = useCallback(() => {
-    if (!taskTitle.trim()) {
-      Alert.alert('Error', 'Please enter a task title');
-      return;
-    }
-
-    createItem('task', taskTitle.trim(), 'inbox', undefined, taskNotes.trim() || undefined);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-    setTaskTitle('');
-    setTaskNotes('');
-    handleCloseSheet();
+  // Tap or swipe the checkbox marks it genuinely done, not just triaged out of Inbox —
+  // for trivial items that don't need scheduling. Real triage goes through handleBulkProcess.
+  const handleComplete = useCallback((id: string) => {
+    updateItemStatus(id, 'completed');
     refresh();
-  }, [taskTitle, taskNotes]);
+  }, [refresh]);
 
-  const handleCompleteTask = useCallback(
-    (id: string) => {
-      updateItemStatus(id, 'active');
-      refresh();
-    },
-    []
-  );
+  const enterSelection = useCallback((id: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    setSelectionMode(true);
+    setSelectedIds(new Set([id]));
+  }, []);
 
-  const sheetAnimStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: sheetTranslateY.value }],
-  }));
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      if (next.size === 0) setSelectionMode(false);
+      return next;
+    });
+  }, []);
 
-  const scrimAnimStyle = useAnimatedStyle(() => ({
-    opacity: scrimOpacity.value,
-  }));
+  const exitSelection = useCallback(() => {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+  }, []);
+
+  const handleBulkProcess = useCallback((destination: Parameters<typeof processInboxItem>[1]) => {
+    selectedIds.forEach((id) => processInboxItem(id, destination));
+    exitSelection();
+    refresh();
+  }, [selectedIds, exitSelection, refresh]);
 
   if (!visible) return null;
 
@@ -99,9 +84,24 @@ export function InboxScreenV2({ visible, onClose }: InboxScreenV2Props) {
       <View style={[s.container, { backgroundColor: palette.bg }]}>
         {/* Header */}
         <View style={[s.header, { paddingTop: insets.top }]}>
-          <Text style={[s.title, { color: palette.text }]}>Inbox</Text>
-          <TouchableOpacity onPress={onClose} hitSlop={12}>
-            <X size={20} color={palette.text} strokeWidth={2.5} />
+          {selectionMode ? (
+            <Text style={[s.title, { color: palette.text }]}>{selectedIds.size} Selected</Text>
+          ) : (
+            <View style={s.titleRow}>
+              <Text style={[s.title, { color: palette.text }]}>Inbox</Text>
+              {inboxItems.length > 0 ? (
+                <View style={[s.countBadge, { backgroundColor: palette.fill }]}>
+                  <Text style={[s.countText, { color: palette.textSecondary }]}>{inboxItems.length}</Text>
+                </View>
+              ) : null}
+            </View>
+          )}
+          <TouchableOpacity onPress={selectionMode ? exitSelection : onClose} hitSlop={12}>
+            {selectionMode ? (
+              <Text style={[s.cancelText, { color: palette.primary }]}>Cancel</Text>
+            ) : (
+              <X size={20} color={palette.text} strokeWidth={2.5} />
+            )}
           </TouchableOpacity>
         </View>
 
@@ -122,127 +122,67 @@ export function InboxScreenV2({ visible, onClose }: InboxScreenV2Props) {
                 item={item}
                 isDark={isDark}
                 index={index}
-                onComplete={handleCompleteTask}
+                onComplete={handleComplete}
+                onLongPress={() => enterSelection(item.id)}
+                selectionMode={selectionMode}
+                selected={selectedIds.has(item.id)}
+                onToggleSelect={toggleSelect}
               />
             )}
+            style={s.list}
             contentContainerStyle={s.listContent}
-            scrollEnabled={inboxItems.length > 6}
+            showsVerticalScrollIndicator={false}
           />
         )}
 
-        {/* Floating Add Button */}
-        <TouchableOpacity
-          onPress={handleAddPress}
-          style={[s.fab, { backgroundColor: palette.primary }]}
-          activeOpacity={0.8}
-          hitSlop={12}
-        >
-          <Plus size={22} color="#fff" strokeWidth={2.5} />
-        </TouchableOpacity>
+        {/* Floating Add Button — hidden during selection, replaced by the bulk toolbar */}
+        {!selectionMode ? (
+          <TouchableOpacity
+            onPress={() => setQuickAddOpen(true)}
+            style={[s.fab, { backgroundColor: palette.primary }]}
+            activeOpacity={0.8}
+            hitSlop={12}
+          >
+            <Plus size={22} color="#fff" strokeWidth={2.5} />
+          </TouchableOpacity>
+        ) : null}
 
-        {/* Quick Add Sheet */}
-        {showAddSheet && (
-          <>
-            {/* Scrim */}
-            <Animated.View
-              style={[s.scrim, scrimAnimStyle]}
-              onTouchEnd={handleCloseSheet}
-            />
-
-            {/* Sheet */}
-            <Animated.View
-              style={[
-                s.sheet,
-                { backgroundColor: palette.surface },
-                sheetAnimStyle,
-              ]}
+        {/* Bulk triage toolbar */}
+        {selectionMode ? (
+          <View style={[s.toolbar, { bottom: Math.max(insets.bottom, 16) }]}>
+            {[
+              { icon: Calendar, destination: 'today' as const, label: 'Today' },
+              { icon: Sun, destination: 'morning' as const, label: 'Morning' },
+              { icon: Moon, destination: 'evening' as const, label: 'Evening' },
+              { icon: Archive, destination: 'someday' as const, label: 'Someday' },
+            ].map(({ icon: Icon, destination, label }) => (
+              <TouchableOpacity
+                key={destination}
+                style={s.toolbarBtn}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  handleBulkProcess(destination);
+                }}
+                accessibilityLabel={label}
+              >
+                <Icon size={20} color="#fff" strokeWidth={1.75} />
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity
+              style={s.toolbarBtn}
+              onPress={() => {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                handleBulkProcess('delete');
+              }}
+              accessibilityLabel="Delete"
             >
-              <View style={s.dragHandle} />
-
-              <View style={s.sheetHeader}>
-                <Text style={[s.sheetTitle, { color: palette.text }]}>
-                  Add Task
-                </Text>
-                <TouchableOpacity onPress={handleCloseSheet} hitSlop={12}>
-                  <X size={18} color={palette.text} strokeWidth={2} />
-                </TouchableOpacity>
-              </View>
-
-              <View style={s.sheetContent}>
-                {/* Task name input */}
-                <View style={s.titleRow}>
-                  <TextInput
-                    style={[
-                      s.titleInput,
-                      { color: palette.text, borderColor: palette.separator, flex: 1 },
-                    ]}
-                    placeholder="Task name"
-                    placeholderTextColor={palette.textMuted}
-                    value={taskTitle}
-                    onChangeText={setTaskTitle}
-                    autoFocus
-                  />
-                  <VoiceMicButton
-                    isDark={isDark}
-                    context={{
-                      context: 'inbox',
-                      onSave: (transcript, intent) => {
-                        if (intent === 'note') {
-                          setTaskNotes(transcript);
-                        } else {
-                          setTaskTitle(transcript);
-                        }
-                      },
-                    }}
-                    size="small"
-                  />
-                </View>
-
-                <View style={[s.divider, { backgroundColor: palette.separator }]} />
-
-                {/* Notes input */}
-                <TextInput
-                  style={[s.notesInput, { color: palette.text }]}
-                  placeholder="Notes (optional)"
-                  placeholderTextColor={palette.textMuted}
-                  value={taskNotes}
-                  onChangeText={setTaskNotes}
-                  multiline
-                  numberOfLines={3}
-                />
-
-                <View style={[s.divider, { backgroundColor: palette.separator }]} />
-
-                {/* Actions */}
-                <View style={s.actions}>
-                  <TouchableOpacity
-                    onPress={handleCloseSheet}
-                    style={[s.cancelBtn, { backgroundColor: palette.fill }]}
-                  >
-                    <Text style={[s.cancelText, { color: palette.textSecondary }]}>
-                      Cancel
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    onPress={handleSaveTask}
-                    style={[
-                      s.saveBtn,
-                      {
-                        backgroundColor: palette.primary,
-                        opacity: taskTitle.trim() ? 1 : 0.5,
-                      },
-                    ]}
-                    disabled={!taskTitle.trim()}
-                  >
-                    <Text style={s.saveText}>Save</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </Animated.View>
-          </>
-        )}
+              <Trash2 size={20} color="#ff6b6b" strokeWidth={1.75} />
+            </TouchableOpacity>
+          </View>
+        ) : null}
       </View>
+
+      <QuickAddScreen visible={quickAddOpen} onClose={() => setQuickAddOpen(false)} defaultStatus="inbox" />
     </Modal>
   );
 }
@@ -258,13 +198,39 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 12,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   title: {
     fontSize: 24,
     fontWeight: '800',
     letterSpacing: -0.5,
   },
+  cancelText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  countBadge: {
+    minWidth: 24,
+    height: 24,
+    borderRadius: 12,
+    paddingHorizontal: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  countText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  list: {
+    flex: 1,
+  },
   listContent: {
     paddingHorizontal: 0,
+    paddingTop: 4,
+    paddingBottom: 96, // clears the floating add button / toolbar
   },
   empty: {
     flex: 1,
@@ -295,89 +261,25 @@ const s = StyleSheet.create({
     shadowRadius: 12,
     elevation: 5,
   },
-  scrim: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#000',
-  },
-  sheet: {
+  toolbar: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingVertical: 16,
-  },
-  dragHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: 'rgba(0,0,0,0.12)',
-    alignSelf: 'center',
-    marginBottom: 12,
-  },
-  sheetHeader: {
+    left: 24,
+    right: 24,
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'space-around',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    marginBottom: 16,
-  },
-  sheetTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  sheetContent: {
-    paddingHorizontal: 16,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-  },
-  titleInput: {
-    fontSize: 20,
-    fontWeight: '500',
-    letterSpacing: -0.3,
+    backgroundColor: '#1c1c1e',
+    borderRadius: 28,
     paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
   },
-  notesInput: {
-    fontSize: 15,
-    fontWeight: '400',
-    paddingVertical: 12,
-    textAlignVertical: 'top',
-  },
-  divider: {
-    height: StyleSheet.hairlineWidth,
-  },
-  actions: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 16,
-    marginBottom: 24,
-  },
-  cancelBtn: {
+  toolbarBtn: {
     flex: 1,
-    height: 48,
-    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  cancelText: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  saveBtn: {
-    flex: 1,
-    height: 48,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  saveText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#fff',
   },
 });

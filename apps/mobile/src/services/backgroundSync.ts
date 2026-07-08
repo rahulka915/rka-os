@@ -17,7 +17,7 @@ TaskManager.defineTask(BACKGROUND_SYNC_TASK, async () => {
 
 export async function registerBackgroundSync(): Promise<void> {
   try {
-    // Dynamically import so Expo Go doesn't crash on missing module
+    // Dynamically import so the app can skip this cleanly when native support is unavailable
     const BackgroundTask = await import('expo-background-task').catch(() => null);
     if (!BackgroundTask) return;
 
@@ -28,7 +28,7 @@ export async function registerBackgroundSync(): Promise<void> {
       });
     }
   } catch {
-    // silently skip in Expo Go
+    // silently skip when background task support is unavailable
   }
 }
 

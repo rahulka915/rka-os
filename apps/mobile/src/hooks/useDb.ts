@@ -16,9 +16,11 @@ import {
   getMedicationLogs,
   getItemsForDate,
   getInstancesForDate,
+  getTimelineEntriesForDate,
   getDb,
 } from '../db/database';
 import type { Item, ItemInstance } from '../db/types';
+import type { TimelineEntry } from '../db/database';
 
 export function useInbox() {
   const [items, setItems] = useState<Item[]>([]);
@@ -110,15 +112,17 @@ export function useMedications() {
 export function useCalendar(date: string) {
   const [items, setItems] = useState<Item[]>([]);
   const [instances, setInstances] = useState<ItemInstance[]>([]);
+  const [timelineEntries, setTimelineEntries] = useState<TimelineEntry[]>([]);
 
   const refresh = useCallback(() => {
     setItems(getItemsForDate(date));
     setInstances(getInstancesForDate(date));
+    setTimelineEntries(getTimelineEntriesForDate(date));
   }, [date]);
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  return { items, instances, refresh };
+  return { items, instances, timelineEntries, refresh };
 }
 
 export function useWorkouts() {
@@ -128,6 +132,15 @@ export function useWorkouts() {
   }, []);
   useEffect(() => { refresh(); }, [refresh]);
   return { workouts, refresh };
+}
+
+export function useProjects() {
+  const [projects, setProjects] = useState<Item[]>([]);
+  const refresh = useCallback(() => {
+    setProjects(getItemsByType('project'));
+  }, []);
+  useEffect(() => { refresh(); }, [refresh]);
+  return { projects, refresh };
 }
 
 export function completeAllInTimeBlock(timeOfDay: 'anytime' | 'morning' | 'afternoon' | 'evening'): void {

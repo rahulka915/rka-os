@@ -3,7 +3,7 @@ import { Modal, TouchableOpacity, FlatList, KeyboardAvoidingView, Platform, Aler
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useMedications } from '../hooks/useDb';
-import { createMedication, getLastTakenLog, type MedicationMeta } from '../db/database';
+import { createMedication, updateMedication, deleteItem, getLastTakenLog, type MedicationMeta } from '../db/database';
 import { LogDoseSheet } from '../components/LogDoseSheet';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
@@ -36,9 +36,11 @@ interface MedRowProps {
   isDark: boolean;
   onTake: (startTimer?: boolean) => void;
   onLogPast: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
 }
 
-function MedRow({ item, isDark, onTake, onLogPast }: MedRowProps) {
+function MedRow({ item, isDark, onTake, onLogPast, onEdit, onDelete }: MedRowProps) {
   const palette = getThemeColors(isDark);
   const meta: MedicationMeta = item.metadata ? JSON.parse(item.metadata) : {};
   const lastLog = getLastTakenLog(item.id);
@@ -76,9 +78,19 @@ function MedRow({ item, isDark, onTake, onLogPast }: MedRowProps) {
     ]);
   };
 
+  const handleLongPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    Alert.alert(item.title, undefined, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Log Past Dose', onPress: onLogPast },
+      { text: 'Edit', onPress: onEdit },
+      { text: 'Delete', style: 'destructive', onPress: onDelete },
+    ]);
+  };
+
   return (
     <TouchableOpacity
-      onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); onLogPast(); }}
+      onLongPress={handleLongPress}
       delayLongPress={400}
       activeOpacity={0.5}
     >
@@ -122,38 +134,63 @@ function MedRow({ item, isDark, onTake, onLogPast }: MedRowProps) {
   );
 }
 
-interface AddMedSheetProps {
+interface MedFormSheetProps {
   visible: boolean;
   onClose: () => void;
   onSaved: () => void;
   isDark: boolean;
+  editTarget?: Item | null;
 }
 
-function AddMedSheet({ visible, onClose, onSaved, isDark }: AddMedSheetProps) {
+function MedFormSheet({ visible, onClose, onSaved, isDark, editTarget }: MedFormSheetProps) {
   const palette = getThemeColors(isDark);
   const [title, setTitle] = useState('');
   const [dose, setDose] = useState('');
   const [stock, setStock] = useState('');
   const [minHours, setMinHours] = useState('');
+  const isEditing = !!editTarget;
+
+  // Prefill from the target medication's current metadata each time the sheet opens for it —
+  // stock shown here is the CURRENT remaining count, not the original initialStock, so editing
+  // it directly adjusts stockRemaining rather than resetting the running total.
+  useEffect(() => {
+    if (!visible) return;
+    if (editTarget) {
+      const meta: MedicationMeta = editTarget.metadata ? JSON.parse(editTarget.metadata) : {};
+      setTitle(editTarget.title);
+      setDose(meta.dose ?? '');
+      setStock(meta.stockRemaining !== undefined ? String(meta.stockRemaining) : '');
+      setMinHours(meta.minHoursBetweenDoses !== undefined ? String(meta.minHoursBetweenDoses) : '');
+    } else {
+      setTitle(''); setDose(''); setStock(''); setMinHours('');
+    }
+  }, [visible, editTarget]);
 
   const handleSave = () => {
     if (!title.trim()) return;
-    createMedication(title.trim(), {
-      dose: dose.trim() || undefined,
-      initialStock: stock ? parseInt(stock) : undefined,
-      stockRemaining: stock ? parseInt(stock) : undefined,
-      refillThreshold: 5,
-      minHoursBetweenDoses: minHours ? parseFloat(minHours) : undefined,
-    });
+    if (editTarget) {
+      updateMedication(editTarget.id, title.trim(), {
+        dose: dose.trim() || undefined,
+        stockRemaining: stock ? parseInt(stock) : undefined,
+        minHoursBetweenDoses: minHours ? parseFloat(minHours) : undefined,
+      });
+    } else {
+      createMedication(title.trim(), {
+        dose: dose.trim() || undefined,
+        initialStock: stock ? parseInt(stock) : undefined,
+        stockRemaining: stock ? parseInt(stock) : undefined,
+        refillThreshold: 5,
+        minHoursBetweenDoses: minHours ? parseFloat(minHours) : undefined,
+      });
+    }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setTitle(''); setDose(''); setStock(''); setMinHours('');
     onSaved(); onClose();
   };
 
   const fields = [
-    { label: 'Medication name', value: title, set: setTitle, placeholder: 'e.g. Ibuprofen', auto: true, kb: 'default' as const },
+    { label: 'Medication name', value: title, set: setTitle, placeholder: 'e.g. Ibuprofen', auto: !isEditing, kb: 'default' as const },
     { label: 'Dose', value: dose, set: setDose, placeholder: 'e.g. 400mg', auto: false, kb: 'default' as const },
-    { label: 'Stock (units)', value: stock, set: setStock, placeholder: 'e.g. 30', auto: false, kb: 'numeric' as const },
+    { label: isEditing ? 'Stock remaining (units)' : 'Stock (units)', value: stock, set: setStock, placeholder: 'e.g. 30', auto: false, kb: 'numeric' as const },
     { label: 'Min hours between doses', value: minHours, set: setMinHours, placeholder: 'e.g. 6', auto: false, kb: 'numeric' as const },
   ];
 
@@ -163,7 +200,7 @@ function AddMedSheet({ visible, onClose, onSaved, isDark }: AddMedSheetProps) {
         <RNView style={[s.addMedContainer, { backgroundColor: palette.bg }]}>
           <RNView style={s.dragHandle} />
           <RNView style={s.addMedHeader}>
-            <RNText style={[s.addMedTitle, { color: palette.text }]}>Add Medication</RNText>
+            <RNText style={[s.addMedTitle, { color: palette.text }]}>{isEditing ? 'Edit Medication' : 'Add Medication'}</RNText>
             <TouchableOpacity onPress={onClose} hitSlop={12}>
               <X size={16} color={palette.text} strokeWidth={2.5} />
             </TouchableOpacity>
@@ -181,6 +218,7 @@ function AddMedSheet({ visible, onClose, onSaved, isDark }: AddMedSheetProps) {
                   onChangeText={set}
                   autoFocus={auto}
                   keyboardType={kb}
+                  keyboardAppearance={isDark ? 'dark' : 'light'}
                 />
               </RNView>
             ))}
@@ -207,6 +245,22 @@ export function MedicationsScreen() {
   const { medications, refresh, takeMedication } = useMedications();
   const [addOpen, setAddOpen] = useState(false);
   const [logTarget, setLogTarget] = useState<Item | null>(null);
+  const [editTarget, setEditTarget] = useState<Item | null>(null);
+
+  const handleDelete = (item: Item) => {
+    Alert.alert(`Delete ${item.title}?`, 'This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          deleteItem(item.id);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          refresh();
+        },
+      },
+    ]);
+  };
 
   const lowStock = medications.filter(m => {
     const meta: MedicationMeta = m.metadata ? JSON.parse(m.metadata) : {};
@@ -281,6 +335,8 @@ export function MedicationsScreen() {
                 isDark={isDark}
                 onTake={(startTimer) => takeMedication(item.id, undefined, startTimer)}
                 onLogPast={() => setLogTarget(item)}
+                onEdit={() => setEditTarget(item)}
+                onDelete={() => handleDelete(item)}
               />
               {index < medications.length - 1 && (
                 <RNView style={[s.sep, { backgroundColor: palette.separator, marginLeft: 16 }]} />
@@ -290,7 +346,14 @@ export function MedicationsScreen() {
         />
       )}
 
-      <AddMedSheet visible={addOpen} onClose={() => setAddOpen(false)} onSaved={refresh} isDark={isDark} />
+      <MedFormSheet visible={addOpen} onClose={() => setAddOpen(false)} onSaved={refresh} isDark={isDark} />
+      <MedFormSheet
+        visible={!!editTarget}
+        editTarget={editTarget}
+        onClose={() => setEditTarget(null)}
+        onSaved={refresh}
+        isDark={isDark}
+      />
       {logTarget && (
         <LogDoseSheet
           visible={!!logTarget}

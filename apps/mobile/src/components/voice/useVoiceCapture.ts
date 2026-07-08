@@ -1,13 +1,5 @@
-import { useEffect, useRef, useCallback, useState } from 'react';
-import * as Haptics from 'expo-haptics';
+import { useCallback, useState } from 'react';
 import type { VoiceSession } from '../../types/voice';
-
-let Speech: any = null;
-try {
-  Speech = require('expo-speech-recognition');
-} catch {
-  // Speech recognition not available (e.g., Expo Go)
-}
 
 export function useVoiceCapture() {
   const [session, setSession] = useState<VoiceSession>({
@@ -18,99 +10,22 @@ export function useVoiceCapture() {
     state: 'idle',
   });
 
-  const sessionRef = useRef<VoiceSession>(session);
-
-  useEffect(() => {
-    sessionRef.current = session;
-  }, [session]);
-
   const startListening = useCallback(async () => {
-    if (!Speech) {
-      setSession((prev) => ({
-        ...prev,
-        error: 'Speech recognition not available (requires dev build)',
-        state: 'error',
-      }));
-      return;
-    }
-
-    try {
-      // Request mic permissions
-      const result = await Speech.requestMicrophonePermissionsAsync();
-      if (!result.granted) {
-        setSession((prev) => ({
-          ...prev,
-          error: 'Microphone permission denied',
-          state: 'error',
-        }));
-        return;
-      }
-
-      setSession((prev) => ({
-        ...prev,
-        isActive: true,
-        state: 'listening',
-        transcript: '',
-        error: null,
-      }));
-
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-      // Start speech recognition
-      await Speech.startSpeechRecognitionAsync({
-        language: 'en-US',
-        maxAlternatives: 1,
-        shouldReportPartialResults: true,
-        onStart: () => {
-          setSession((prev) => ({ ...prev, state: 'listening' }));
-        },
-        onResult: (result) => {
-          const { transcript, isFinal } = result;
-          setSession((prev) => ({
-            ...prev,
-            transcript,
-            isFinal,
-            state: isFinal ? 'processing' : 'listening',
-          }));
-
-          if (isFinal) {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          }
-        },
-        onError: (error) => {
-          setSession((prev) => ({
-            ...prev,
-            error: error.message || 'Speech recognition failed',
-            state: 'error',
-          }));
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        },
-      });
-    } catch (error: any) {
-      setSession((prev) => ({
-        ...prev,
-        error: error.message || 'Failed to start recording',
-        state: 'error',
-      }));
-    }
+    setSession({
+      isActive: false,
+      transcript: '',
+      isFinal: false,
+      error: 'Voice capture is disabled for now',
+      state: 'idle',
+    });
   }, []);
 
   const stopListening = useCallback(async () => {
-    try {
-      await Speech.stopSpeechRecognitionAsync();
-      setSession((prev) => ({
-        ...prev,
-        isActive: false,
-        state: 'idle',
-      }));
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch (error: any) {
-      setSession((prev) => ({
-        ...prev,
-        error: error.message || 'Failed to stop recording',
-        state: 'error',
-      }));
-    }
+    setSession((prev) => ({
+      ...prev,
+      isActive: false,
+      state: 'idle',
+    }));
   }, []);
 
   const reset = useCallback(() => {

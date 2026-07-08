@@ -25,6 +25,10 @@ interface TaskSwipeItemProps {
   index: number;
   onComplete: (id: string) => void;
   onArchive?: (id: string) => void;
+  onLongPress?: (id: string) => void;
+  selectionMode?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (id: string) => void;
 }
 
 // Spring config
@@ -42,12 +46,19 @@ export function TaskSwipeItem({
   index,
   onComplete,
   onArchive,
+  onLongPress,
+  selectionMode = false,
+  selected = false,
+  onToggleSelect,
 }: TaskSwipeItemProps) {
   const palette = getThemeColors(isDark);
 
   // Animations
   const translateX = useSharedValue(0);
-  const itemHeight = useSharedValue(64);
+  // null = auto height (natural content size); only pinned to a measured pixel value right
+  // before the collapse-to-0 animation on complete. A hardcoded starting height here caused
+  // clipping once the row grew taller (bigger checkbox/padding) than the guessed constant.
+  const itemHeight = useSharedValue<number | null>(null);
   const itemOpacity = useSharedValue(1);
   const enterOffsetY = useSharedValue(20);
   const enterOpacity = useSharedValue(0);
@@ -69,6 +80,7 @@ export function TaskSwipeItem({
 
   // Gesture handling
   const panGesture = Gesture.Pan()
+    .enabled(!selectionMode)
     .onUpdate((event) => {
       if (event.translationX < 0) {
         translateX.value = event.translationX;
@@ -80,7 +92,9 @@ export function TaskSwipeItem({
 
       if (shouldComplete) {
         translateX.value = withTiming(-300, { duration: 180 });
-        itemHeight.value = withTiming(0, { duration: 200 });
+        if (itemHeight.value !== null) {
+          itemHeight.value = withTiming(0, { duration: 200 });
+        }
         itemOpacity.value = withTiming(0, { duration: 150 });
 
         runOnJS(setTimeout)(() => {
@@ -95,6 +109,18 @@ export function TaskSwipeItem({
         runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
       }
     });
+
+  const longPressGesture = Gesture.LongPress()
+    .minDuration(400)
+    .onStart(() => {
+      runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Heavy);
+      if (onLongPress) runOnJS(onLongPress)(item.id);
+    });
+
+  // Race, not Simultaneous — a horizontal drag should claim the touch as a swipe and never
+  // also fire the long-press; composing both through GestureDetector avoids the legacy
+  // TouchableOpacity + RNGH conflict that wrapping this component externally would hit.
+  const composedGesture = Gesture.Race(panGesture, longPressGesture);
 
   const bgColor = interpolate(
     translateX.value,
@@ -128,15 +154,23 @@ export function TaskSwipeItem({
     transform: [{ translateY: enterOffsetY.value }],
   }));
 
+  const animatedContainerStyle = useAnimatedStyle(() => ({
+    height: itemHeight.value === null ? undefined : itemHeight.value,
+    opacity: itemOpacity.value,
+  }));
+
   return (
     <Animated.View
       style={[
         s.container,
         animatedEnterStyle,
-        { height: itemHeight, opacity: itemOpacity },
+        animatedContainerStyle,
       ]}
+      onLayout={(e) => {
+        if (itemHeight.value === null) itemHeight.value = e.nativeEvent.layout.height;
+      }}
     >
-      <GestureDetector gesture={panGesture}>
+      <GestureDetector gesture={composedGesture}>
         <Animated.View style={s.swipeContainer}>
           {/* Background reveal */}
           <Animated.View style={[s.swipeBg, animatedBgStyle]}>
@@ -154,15 +188,35 @@ export function TaskSwipeItem({
               animatedTaskStyle,
             ]}
           >
-            <View
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                if (selectionMode) {
+                  onToggleSelect?.(item.id);
+                } else {
+                  onComplete(item.id);
+                }
+              }}
+              hitSlop={8}
               style={[
                 s.checkbox,
-                {
-                  borderColor: palette.textMuted,
-                },
+                selectionMode && selected
+                  ? { borderColor: palette.primary, backgroundColor: palette.primary }
+                  : { borderColor: palette.textMuted },
               ]}
-            />
-            <View style={s.taskContent}>
+            >
+              {selectionMode && selected ? (
+                <Check size={16} color="#fff" strokeWidth={3} />
+              ) : null}
+            </Pressable>
+            <Pressable
+              style={s.taskContent}
+              disabled={!selectionMode}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                onToggleSelect?.(item.id);
+              }}
+            >
               <Text
                 style={[s.taskTitle, { color: palette.text }]}
                 numberOfLines={1}
@@ -177,8 +231,10 @@ export function TaskSwipeItem({
                   {item.notes}
                 </Text>
               )}
-            </View>
-            <Text style={[s.chevron, { color: palette.textMuted }]}>›</Text>
+            </Pressable>
+            {!selectionMode ? (
+              <Text style={[s.chevron, { color: palette.textMuted }]}>›</Text>
+            ) : null}
           </Animated.View>
         </Animated.View>
       </GestureDetector>
@@ -189,6 +245,9 @@ export function TaskSwipeItem({
 const s = StyleSheet.create({
   container: {
     overflow: 'hidden',
+    borderRadius: 999, // fully rounded — RN clips to a pill shape once radius exceeds half the row height
+    marginHorizontal: 16,
+    marginBottom: 8,
   },
   swipeContainer: {
     position: 'relative',
@@ -212,22 +271,24 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
+    paddingVertical: 14,
+    gap: 14,
   },
   checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 1.5,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 2,
     flexShrink: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   taskContent: {
     flex: 1,
   },
   taskTitle: {
-    fontSize: 15,
-    fontWeight: '500',
+    fontSize: 16,
+    fontWeight: '600',
     letterSpacing: -0.2,
   },
   taskNotes: {

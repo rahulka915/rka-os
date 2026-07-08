@@ -36,7 +36,7 @@ For the React Native app:
 
 ```bash
 cd apps/mobile
-npx expo start --go    # start Expo Go server (port 8081)
+npx expo start --dev-client    # start the iOS development client server (port 8081)
 ```
 
 ## Current Features

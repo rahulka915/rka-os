@@ -16,10 +16,12 @@ export function InspectorProvider({ children }: { children: ReactNode }) {
   const [inspectedDay, setInspectedDay] = useState<string | null>(null);
 
   const inspectEntity = (id: string, type: string) => {
+    setInspectedDay(null);
     setInspectedEntity({ id, type });
   };
 
   const inspectDay = (dateString: string) => {
+    setInspectedEntity(null);
     setInspectedDay(dateString);
   };
 

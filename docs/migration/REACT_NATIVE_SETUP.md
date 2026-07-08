@@ -1,7 +1,7 @@
 # RKA OS — React Native iOS Setup Guide
 
 **Last Updated:** 2026-06-25  
-**Status:** Active development — Expo Go (SDK 54) working on device, transitioning to EAS dev build
+**Status:** Active development — Expo development build is the default path on iOS
 
 ---
 
@@ -20,7 +20,7 @@ rka-os/
 
 | Item | Version | Notes |
 |------|---------|-------|
-| Expo SDK | 54.0.35 | Matches Expo Go on device |
+| Expo SDK | 54.0.35 | Matches the current dev client runtime |
 | React Native | 0.81.5 | |
 | React | 19.1.0 | |
 | TypeScript | 5.9.x | |
@@ -151,12 +151,12 @@ Tab icons: currently emoji — replace with lucide-react-native icons
 
 ## Running the App
 
-### Option A: Expo Go (current — works now)
+### Option A: Development Build (default)
 ```bash
 cd "/Users/rahulkrishanand/Downloads/Coding Projects/rka-os/apps/mobile"
 npm start -- --clear
 ```
-Scan QR with iPhone → opens in Expo Go. Background fetch and geofencing silently inactive.
+Open the installed "RKA OS" dev client on iPhone and scan the QR code. Background fetch and geofencing stay active in the dev build.
 
 ### Option B: EAS Development Build (next step — unlocks all native features)
 ```bash
@@ -190,9 +190,9 @@ npm start
 |-------|-----|
 | `react-native-worklets` must be `0.5.1` | Pinned in package.json |
 | `reanimated/plugin` goes in `babel.config.js` only | NOT in `app.json plugins` — crashes config |
-| `expo-dev-client` version mismatch | May need `~4.0.0` if EAS build fails |
+| `expo-dev-client` version mismatch | May need package alignment if EAS build fails |
 | Tab bar shows emoji | Replace with lucide-react-native icons when time permits |
-| Background fetch silent in Expo Go | Expected — only active in dev build |
+| Background fetch silent in dev client | Expected — only active in dev build |
 
 ---
 

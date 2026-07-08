@@ -2,6 +2,7 @@
   "expo": {
     "name": "RKA OS",
     "slug": "rka-os",
+    "scheme": "rkaos",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -21,8 +22,12 @@
         "UIBackgroundModes": [
           "fetch",
           "remote-notification",
+          "location",
+          "fetch",
+          "remote-notification",
           "location"
-        ]
+        ],
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -57,7 +62,7 @@
           "color": "#007aff"
         }
       ],
-      "expo-audio"
+      "expo-background-task"
     ],
     "extra": {
       "eas": {

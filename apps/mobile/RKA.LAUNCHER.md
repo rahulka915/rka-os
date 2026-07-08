@@ -1,33 +1,33 @@
 # RKA OS Mobile — Launcher Config
 
 **Project Type:** Expo (React Native)  
-**Primary Use:** iOS development via Expo Go  
+**Primary Use:** iOS development via Expo development build
 **Port:** 8081 (Metro bundler)  
 **QR Support:** ✅ Yes
 
 ## Quick Start
 ```bash
-npx expo start --go
+npx expo start --dev-client
 ```
 
 ## Dependencies
 None. Runs independently.
 
 ## Commands
-- **Start:** `npx expo start --go` — Start Metro bundler + Expo dev server
-- **Start Clean:** `npx expo start --go --clear` — Clear bundler cache before starting
+- **Start:** `npx expo start --dev-client` — Start Metro bundler + Expo dev server
+- **Start Clean:** `npx expo start --dev-client --clear` — Clear bundler cache before starting
 - **Install:** `npm install` — Install dependencies
 - **Doctor:** `npx expo-doctor` — Check project health
 
 ## Port & Network
 - **Metro Bundler:** port 8081 (HTTP)
 - **QR Code:** Will display in terminal and launcher once Metro is ready
-- **Expo Go App:** Use QR code or type `exp://your-ip:8081` into Expo Go
+- **Dev Client App:** Open the installed "RKA OS" app and scan the QR code
 
 ## Edge Cases
 - **Metro not starting:** Clear node_modules and reinstall: `rm -rf node_modules && npm install`
 - **Port 8081 in use:** Kill existing process: `lsof -ti:8081 | xargs kill -9`
-- **Expo Go connection fails:** Check device is on same WiFi network as dev machine
+- **Dev client connection fails:** Check device is on the same WiFi network as the dev machine
 
 ## Auto-start
 - **Recommended:** `false` (manual start only)
@@ -60,7 +60,7 @@ None. Runs independently.
 - ⚠️ **Network dependent** — Requires same WiFi, not localhost-only
 
 **What makes this launcher-ready:**
-1. Standard `npx expo start --go` command
+1. Standard `npx expo start --dev-client` command
 2. Predictable port (8081)
 3. Clear QR code output
 4. No complex build steps
@@ -73,7 +73,7 @@ None. Runs independently.
 
 **Tips for keeping launcher integration smooth:**
 - Don't change port unless absolutely needed (8081 is standard)
-- Keep `npx expo start --go` as your default command
+- Keep `npx expo start --dev-client` as your default command
 - If you add custom Expo config, document it here
 - Test with launcher: Start app, scan QR, verify device connects
 - Document any device-specific quirks (iOS vs Android issues)

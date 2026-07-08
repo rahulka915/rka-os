@@ -19,8 +19,9 @@ import {
   resetMedicationTimer,
   resumeMedicationTimer,
   stopMedicationTimer,
+  type TimerWidgetPresentation,
 } from '../db/database';
-import { ChevronDown, ChevronUp, Clock, Pause, Play, StopCircle, TimerReset } from '../icons';
+import { ChevronDown, Clock, Pause, Play, StopCircle, TimerReset, X } from '../icons';
 import { FloatingSurface } from './ui/FloatingSurface';
 import { ActionRow } from './ui/ActionRow';
 import { SurfaceCard, SurfaceIconButton } from './ui/SurfaceCard';
@@ -41,7 +42,7 @@ function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
 }
 
-function getWidgetSize(presentation: 'compact' | 'expanded' | 'minimized', layout: WidgetSize) {
+function getWidgetSize(presentation: TimerWidgetPresentation, layout: WidgetSize) {
   if (layout.width > 0 && layout.height > 0) return layout;
   if (presentation === 'expanded') return DEFAULT_EXPANDED_SIZE;
   if (presentation === 'minimized') return DEFAULT_MINIMIZED_SIZE;
@@ -77,7 +78,6 @@ export function PersistentTimerBanner() {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const {
     timers,
-    summary,
     presentation,
     setPresentation,
     position,
@@ -88,7 +88,9 @@ export function PersistentTimerBanner() {
     notificationsEnabled,
     setSoundEnabled,
     setNotificationsEnabled,
+    restorePresentation,
     refresh,
+    isHidden,
   } = usePersistentTimerState();
   const [layout, setLayout] = useState<WidgetSize>({ width: 0, height: 0 });
   const [localPosition, setLocalPosition] = useState<Point>(() => position ?? { x: (windowWidth - DEFAULT_COMPACT_SIZE.width) / 2, y: insets.top + 12 });
@@ -112,13 +114,13 @@ export function PersistentTimerBanner() {
 
   useEffect(() => {
     Animated.spring(visibilityAnim, {
-      toValue: timers.length > 0 ? 1 : 0,
+      toValue: timers.length > 0 && !isHidden ? 1 : 0,
       useNativeDriver: true,
       damping: 18,
       stiffness: 180,
       mass: 0.8,
     }).start();
-  }, [timers.length, visibilityAnim]);
+  }, [isHidden, timers.length, visibilityAnim]);
 
   useEffect(() => {
     Animated.spring(scaleAnim, {
@@ -152,7 +154,7 @@ export function PersistentTimerBanner() {
   }, [presentation, position?.x, position?.y, windowWidth, windowHeight, insets.top, insets.bottom, layout.width, layout.height]);
 
   useEffect(() => {
-    if (timers.length === 0 && presentation !== 'compact') {
+    if (timers.length === 0 && presentation !== 'compact' && presentation !== 'hidden') {
       setPresentation('compact');
     }
   }, [presentation, setPresentation, timers.length]);
@@ -265,11 +267,6 @@ export function PersistentTimerBanner() {
     refresh();
   };
 
-  const handleSetPresentation = (nextPresentation: 'compact' | 'expanded' | 'minimized') => {
-    Haptics.impactAsync(nextPresentation === 'expanded' ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    setPresentation(nextPresentation);
-  };
-
   const cyclePresentationState = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     // Full cycle: minimized → compact → expanded → minimized → ...
@@ -277,9 +274,16 @@ export function PersistentTimerBanner() {
       setPresentation('compact');
     } else if (presentation === 'compact') {
       setPresentation('expanded');
-    } else {
+    } else if (presentation === 'expanded') {
       setPresentation('minimized');
+    } else {
+      setPresentation('compact');
     }
+  };
+
+  const hideCompletely = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    setPresentation('hidden');
   };
 
   const rootContextItems = [
@@ -304,12 +308,13 @@ export function PersistentTimerBanner() {
       onPress: () => setSettingsOpen(true),
     },
     {
-      label: 'Close',
+      label: 'Hide completely',
       icon: <ChevronDown size={15} color={palette.textSecondary} />,
-      onPress: () => handleSetPresentation('minimized'),
+      onPress: hideCompletely,
     },
   ];
 
+  if (isHidden) return null;
   return (
     <>
       <Animated.View
@@ -462,6 +467,10 @@ export function PersistentTimerBanner() {
               <Text style={[styles.settingsLabel, { color: palette.text }]}>Notifications</Text>
               <Switch value={notificationsEnabled} onValueChange={setNotificationsEnabled} />
             </View>
+            <TouchableOpacity onPress={hideCompletely} style={[styles.settingsAction, { backgroundColor: palette.orangeSoft }]}>
+              <X size={14} color={palette.orange} strokeWidth={2} />
+              <Text style={[styles.settingsActionText, { color: palette.text }]}>Hide completely</Text>
+            </TouchableOpacity>
             <TouchableOpacity onPress={() => setSettingsOpen(false)} style={[styles.settingsClose, { backgroundColor: palette.fillStrong }]}>
               <Text style={[styles.settingsCloseText, { color: palette.textSecondary }]}>Done</Text>
             </TouchableOpacity>
@@ -656,6 +665,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 999,
+  },
+  settingsAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    alignSelf: 'stretch',
+    justifyContent: 'center',
+    minHeight: 44,
+    borderRadius: 14,
+  },
+  settingsActionText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   settingsCloseText: {
     fontSize: 13,

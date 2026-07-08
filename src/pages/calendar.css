@@ -107,6 +107,28 @@
   white-space: nowrap;
 }
 
+.cal-chip-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+}
+
+.cal-chip-time {
+  color: inherit;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  opacity: 0.75;
+}
+
+.cal-chip-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .cal-chip.icon-only {
   width: 20px;
   justify-content: center;
@@ -166,6 +188,22 @@
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.agenda-item-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.agenda-item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--rka-text-secondary);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 @media (min-width: 768px) {

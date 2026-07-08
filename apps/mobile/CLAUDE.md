@@ -3,7 +3,7 @@
 **Platform:** React Native + Expo SDK 54 (iOS-first)  
 **Database:** SQLite (expo-sqlite)  
 **Design System:** Things 3-inspired flat, minimal aesthetic  
-**Status:** Functional in Expo Go; features requiring native code (HealthKit, true background fetch) blocked on Apple Developer account
+**Status:** Ready for Expo development build; features requiring native code (HealthKit, true background fetch) need a dev client and Apple Developer signing
 
 ---
 
@@ -20,6 +20,55 @@ All sheets, forms, and input flows follow Things 3's minimalist patterns:
 - **Notes input** — secondary smaller input with hairline separator above
 - **Metadata pills** — optional tags/when/priority (visual, wiring TBD)
 - **Toolbar pattern** — single row at bottom: **Cancel** (left, gray) | future center area | **Save** (right, blue, disabled until text)
+
+### Things 3 Flow Handoff
+
+Use the following Mobbin references as the current source of truth for Things 3-style mobile flow work:
+
+- [Creating a new to do (shortcut)](https://mobbin.com/flows/b88466ae-38b3-4c00-bfd1-a30197abf09c)
+- [Creating a new to-do](https://mobbin.com/flows/b1fa3cd6-e51a-4c76-9b52-747df82afefe)
+- [Creating a new project](https://mobbin.com/flows/1999adcb-b259-4ae5-a6f2-2ea992810fbb)
+- [Task detail screen 1](https://mobbin.com/screens/18b05379-2af1-41ab-afef-0ca4870933c1)
+- [Task detail screen 2](https://mobbin.com/screens/838b35e9-1462-4b3b-bbae-215fb9cc12a0)
+- [Task detail screen 3](https://mobbin.com/screens/8de8b342-f6ab-40c7-ac9b-0599039b105f)
+- [Task detail screen 4](https://mobbin.com/screens/34ad19d8-7254-455e-a9f8-360e215228eb)
+
+Handoff summary for Claude:
+
+- Treat Things 3 as the flow reference, not the exact visual target.
+- Optimize for fast capture first, then progressive disclosure.
+- Keep creation flows short, modal, and keyboard-friendly.
+- Prefer bottom sheets / capture sheets over full-screen form stacks for quick actions.
+- Keep list views flat and lightweight: text first, minimal chrome, clear separators, obvious swipe affordances.
+- Project creation should feel guided and structured, not like a blank settings form.
+- Task detail should expose notes, schedule, and metadata without overwhelming the primary action.
+- If a UX change adds friction to capture, it needs a strong reason.
+
+### Reference Board
+
+Use these Mobbin references for the current RKA mobile visual direction:
+
+**Ronin hero / avatar direction**
+- [Shadow Ronin hero page](https://mobbin.com/screens/74201708-1b1b-4b6d-b804-92f9eb2d65c9)
+- [Shadow Ronin companion / avatar variants](https://mobbin.com/screens/00604675-8c71-49e9-b454-4924ace45e4d)
+- [Shadow Ronin avatar customization](https://mobbin.com/screens/68a30b4e-5c83-4deb-adcc-6c894e36692d)
+
+**Motion-heavy / never-static references**
+- [Not Boring Calculator onboarding](https://mobbin.com/flows/ee3a1e29-332d-4141-b2f1-781022885bf7)
+- [Not Boring Weather onboarding](https://mobbin.com/flows/9b497adc-67c2-4da9-b1bc-9fc583083113)
+- [Finch onboarding](https://mobbin.com/flows/80ef83ef-f872-4825-b18d-6b193d60a9aa)
+- [Gentler Streak onboarding](https://mobbin.com/flows/8d4fa57c-117e-4557-8d5c-4d241bfdf9d4)
+- [Opal celebration 1](https://mobbin.com/screens/5e08d4e5-1964-43b1-9261-9d7f470a6ba5)
+- [Opal celebration 2](https://mobbin.com/screens/1d74f26a-b6c3-4a99-9c7e-0574d6147482)
+
+**Quick add / bottom sheet flow**
+- [Things 3 new to-do](https://mobbin.com/flows/b1fa3cd6-e51a-4c76-9b52-747df82afefe)
+- [Things 3 shortcut quick add](https://mobbin.com/flows/b88466ae-38b3-4c00-bfd1-a30197abf09c)
+- [Tiimo add task](https://mobbin.com/flows/704b09e2-a516-4150-ba3e-14b0d411e4a5)
+- [Evernote new task](https://mobbin.com/flows/2954b6d8-6c44-40c7-ae25-648861602dbc)
+- [Asana new task](https://mobbin.com/flows/38f5c2dc-1887-4888-98ce-ee986910816d)
+
+Claude should treat these as direct design references and not invent a competing visual language unless the task explicitly calls for it.
 
 #### Inbox-Style Lists (InboxScreen)
 - **Flat rows** — no cards, no backgrounds, no shadows
@@ -101,7 +150,7 @@ Dark Mode:
 
 ### Services (`src/services/`)
 
-- **backgroundSync.ts** — 15-min background task (expo-background-task, dynamic import for Expo Go)
+- **backgroundSync.ts** — 15-min background task (expo-background-task, guarded import for runtimes without native support)
 - **locationReminders.ts** — geofencing with arrive/leave notifications
 
 ### Theme (`src/theme/`)
@@ -135,7 +184,7 @@ Used in Tamagui (XStack/YStack gap, padding). StyleSheet uses literal pt values.
 
 ## Known Constraints
 
-### Expo Go Limitations
+### Dev Build Requirements
 - **BlurView** — not available; using semi-transparent backgroundColor instead
 - **HealthKit** — requires dev build (react-native-health)
 - **Skia** — requires dev build (@shopify/react-native-skia)
@@ -167,11 +216,11 @@ Used in Tamagui (XStack/YStack gap, padding). StyleSheet uses literal pt values.
 
 ## Quick Reference
 
-### Run Expo Go
+### Run the Dev Client
 ```bash
 cd apps/mobile
 npm start -- --clear
-# Scan QR with iPhone
+# Open the installed RKA OS dev client and scan the QR code
 ```
 
 ### TypeScript Check

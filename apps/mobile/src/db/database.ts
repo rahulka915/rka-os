@@ -2,6 +2,7 @@ import * as SQLite from 'expo-sqlite';
 import { Item, ItemInstance, ActivityLog } from './types';
 import 'react-native-get-random-values';
 import { v4 as uuidv4 } from 'uuid';
+import { getTimeOfDayFromHour, normalizeTimeInput, timeToMinutes, type TimeOfDay } from '../utils/time';
 
 let db: SQLite.SQLiteDatabase;
 
@@ -74,6 +75,9 @@ export function uuid(): string {
   return uuidv4();
 }
 
+export type TimerWidgetPresentation = 'compact' | 'expanded' | 'minimized' | 'hidden';
+export type VisibleTimerWidgetPresentation = Exclude<TimerWidgetPresentation, 'hidden'>;
+
 // ── Items ──────────────────────────────────────────────────────────────
 
 export function getInboxItems(): Item[] {
@@ -111,9 +115,124 @@ export function updateItemMetadata(id: string, metadata: Record<string, any>): v
   );
 }
 
+export function updateItem(
+  id: string,
+  updates: Partial<Pick<Item, 'type' | 'title' | 'status' | 'notes' | 'scheduledDate' | 'dueDate' | 'rrule'>>,
+): void {
+  const fields: string[] = [];
+  const values: any[] = [];
+
+  if (updates.type !== undefined) {
+    fields.push('type = ?');
+    values.push(updates.type);
+  }
+  if (updates.title !== undefined) {
+    fields.push('title = ?');
+    values.push(updates.title);
+  }
+  if (updates.status !== undefined) {
+    fields.push('status = ?');
+    values.push(updates.status);
+  }
+  if (updates.notes !== undefined) {
+    fields.push('notes = ?');
+    values.push(updates.notes);
+  }
+  if (updates.scheduledDate !== undefined) {
+    fields.push('scheduledDate = ?');
+    values.push(updates.scheduledDate);
+  }
+  if (updates.dueDate !== undefined) {
+    fields.push('dueDate = ?');
+    values.push(updates.dueDate);
+  }
+  if (updates.rrule !== undefined) {
+    fields.push('rrule = ?');
+    values.push(updates.rrule);
+  }
+
+  if (fields.length === 0) return;
+
+  fields.push('updatedAt = ?');
+  values.push(Date.now());
+  values.push(id);
+
+  getDb().runSync(
+    `UPDATE items SET ${fields.join(', ')} WHERE id = ?`,
+    values
+  );
+}
+
+export function updateInstanceMetadata(instanceId: string, metadata: Record<string, any>): void {
+  getDb().runSync(
+    `UPDATE itemInstances SET instanceMetadata = ?, updatedAt = ? WHERE id = ?`,
+    [JSON.stringify(metadata), Date.now(), instanceId]
+  );
+}
+
 export function getItemWithMetadata(id: string): Item | null {
   const result = getDb().getAllSync<Item>(`SELECT * FROM items WHERE id = ?`, [id]);
   return result[0] ?? null;
+}
+
+type RepeatRule = 'DAILY' | 'WEEKDAYS' | 'WEEKEND' | 'WEEKLY' | `WEEKLY:${number}`;
+
+function parseDayCode(code: string): number | null {
+  switch (code) {
+    case 'SU': return 0;
+    case 'MO': return 1;
+    case 'TU': return 2;
+    case 'WE': return 3;
+    case 'TH': return 4;
+    case 'FR': return 5;
+    case 'SA': return 6;
+    default: return null;
+  }
+}
+
+function parseRepeatRule(rrule?: string | null): RepeatRule | null {
+  if (!rrule) return null;
+  const rule = rrule.trim().toUpperCase();
+  if (rule === 'FREQ=DAILY' || rule === 'DAILY') return 'DAILY';
+  if (rule === 'FREQ=WEEKDAYS' || rule === 'WEEKDAYS') return 'WEEKDAYS';
+  if (rule === 'FREQ=WEEKEND' || rule === 'WEEKEND') return 'WEEKEND';
+  if (rule === 'FREQ=WEEKLY' || rule === 'WEEKLY') return 'WEEKLY';
+  const byDayMatch = rule.match(/BYDAY=([A-Z,]+)/);
+  if (byDayMatch) return `WEEKLY:${parseDayCode(byDayMatch[1].split(',')[0]) ?? 0}` as RepeatRule;
+  return null;
+}
+
+function dayMatchesRepeat(rule: RepeatRule, date: string, startDate?: string): boolean {
+  const day = new Date(`${date}T00:00:00`).getDay();
+  if (startDate && date < startDate) return false;
+
+  if (rule === 'DAILY') return true;
+  if (rule === 'WEEKDAYS') return day >= 1 && day <= 5;
+  if (rule === 'WEEKEND') return day === 0 || day === 6;
+  if (rule === 'WEEKLY') {
+    const startDay = startDate ? new Date(`${startDate}T00:00:00`).getDay() : day;
+    return day === startDay;
+  }
+  const targetDay = Number(rule.split(':')[1]);
+  return day === targetDay;
+}
+
+function ensureItemInstance(item: Item, date: string): ItemInstance | null {
+  const existing = getDb().getAllSync<ItemInstance>(
+    `SELECT * FROM itemInstances WHERE itemId = ? AND scheduledDate = ? LIMIT 1`,
+    [item.id, date]
+  )[0];
+  if (existing) return existing;
+
+  const itemMeta = item.metadata ? JSON.parse(item.metadata) : {};
+  const now = Date.now();
+  const instanceId = uuid();
+  getDb().runSync(
+    `INSERT INTO itemInstances (id, itemId, scheduledDate, status, instanceMetadata, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [instanceId, item.id, date, 'pending', JSON.stringify({ ...itemMeta, time: itemMeta.time ?? null, timeOfDay: itemMeta.timeOfDay ?? null, generated: true }), now, now]
+  );
+  return getDb().getAllSync<ItemInstance>(`SELECT * FROM itemInstances WHERE id = ? LIMIT 1`, [instanceId])[0] ?? null;
 }
 
 // ── Medications ────────────────────────────────────────────────────────
@@ -141,7 +260,8 @@ export interface MedicationTimerDetails {
 }
 
 export interface TimerWidgetPreferences {
-  presentation: 'compact' | 'expanded' | 'minimized';
+  presentation: TimerWidgetPresentation;
+  resumePresentation?: VisibleTimerWidgetPresentation;
   position?: { x: number; y: number };
   pinned?: boolean;
   soundEnabled?: boolean;
@@ -202,6 +322,16 @@ export function createMedication(title: string, meta: MedicationMeta): string {
   );
   logActivity(id, 'created');
   return id;
+}
+
+// Merges into existing metadata rather than replacing it outright, so editing name/dose/stock
+// doesn't clobber tracking fields the edit form never shows (lastTakenAt, initialStock).
+export function updateMedication(id: string, title: string, meta: MedicationMeta): void {
+  const item = getItemWithMetadata(id);
+  const existing: MedicationMeta = item?.metadata ? JSON.parse(item.metadata) : {};
+  updateItem(id, { title });
+  updateItemMetadata(id, { ...existing, ...meta });
+  logActivity(id, 'edited');
 }
 
 export function logMedicationTaken(itemId: string, takenAt: number = Date.now(), startTimer = false): void {
@@ -428,6 +558,71 @@ export function getInstancesForDate(date: string): ItemInstance[] {
   );
 }
 
+export interface TimelineEntry {
+  item: Item;
+  instance?: ItemInstance;
+  time: string | null;
+  minutes: number | null;
+  timeOfDay: TimeOfDay;
+}
+
+function parseJson<T extends Record<string, any>>(value?: string | null): T {
+  if (!value) return {} as T;
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return {} as T;
+  }
+}
+
+function getEntryTiming(item: Item, instance?: ItemInstance) {
+  const itemMeta = parseJson<Record<string, any>>(item.metadata);
+  const instanceMeta = parseJson<Record<string, any>>(instance?.instanceMetadata);
+  const time = normalizeTimeInput(instanceMeta.time ?? itemMeta.time);
+  const minutes = timeToMinutes(time);
+  const derivedHour = minutes != null ? Math.floor(minutes / 60) : null;
+  const timeOfDay = (instanceMeta.timeOfDay ?? itemMeta.timeOfDay ?? (derivedHour != null ? getTimeOfDayFromHour(derivedHour) : 'anytime')) as TimeOfDay;
+
+  return { time, minutes, timeOfDay };
+}
+
+export function getTimelineEntriesForDate(date: string): TimelineEntry[] {
+  const items = getItemsForDate(date);
+  const instances = getInstancesForDate(date);
+  const instanceByItemId = new Map(instances.map((instance) => [instance.itemId, instance] as const));
+  const usedInstanceIds = new Set<string>();
+
+  const entries = items.map((item) => {
+    const instance = instanceByItemId.get(item.id);
+    if (instance) usedInstanceIds.add(instance.id);
+    const timing = getEntryTiming(item, instance);
+    return {
+      item,
+      instance,
+      ...timing,
+    };
+  });
+
+  for (const instance of instances) {
+    if (usedInstanceIds.has(instance.id)) continue;
+    const item = items.find((candidate) => candidate.id === instance.itemId);
+    if (!item) continue;
+    const timing = getEntryTiming(item, instance);
+    entries.push({
+      item,
+      instance,
+      ...timing,
+    });
+  }
+
+  return entries.sort((a, b) => {
+    const timeA = a.minutes ?? Number.POSITIVE_INFINITY;
+    const timeB = b.minutes ?? Number.POSITIVE_INFINITY;
+    if (timeA !== timeB) return timeA - timeB;
+    return a.item.createdAt - b.item.createdAt;
+  });
+}
+
 export function createItem(
   type: Item['type'],
   title: string,
@@ -447,11 +642,62 @@ export function createItem(
   return id;
 }
 
-export function updateItemStatus(id: string, status: Item['status']): void {
+export function createTimedItem(
+  type: Item['type'],
+  title: string,
+  scheduledDate: string,
+  time: string,
+  notes?: string,
+): { itemId: string; instanceId: string } {
+  const normalizedTime = normalizeTimeInput(time) ?? '09:00';
+  const itemId = createItem(type, title, 'scheduled', scheduledDate, notes);
+  const timeOfDay = getTimeOfDayFromHour(Math.floor(timeToMinutes(normalizedTime)! / 60));
+  const nextMeta = { time: normalizedTime, timeOfDay };
+  updateItemMetadata(itemId, nextMeta);
+
+  const now = Date.now();
+  const instanceId = uuid();
   getDb().runSync(
-    `UPDATE items SET status = ?, updatedAt = ? WHERE id = ?`,
-    [status, Date.now(), id]
+    `INSERT INTO itemInstances (id, itemId, scheduledDate, status, instanceMetadata, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [instanceId, itemId, scheduledDate, 'pending', JSON.stringify(nextMeta), now, now]
   );
+
+  return { itemId, instanceId };
+}
+
+export function updateTimelineItemTime(id: string, time: string, timeOfDay?: TimeOfDay): void {
+  const item = getItemWithMetadata(id);
+  if (!item) return;
+
+  const normalizedTime = normalizeTimeInput(time);
+  if (!normalizedTime) return;
+
+  const meta = item.metadata ? JSON.parse(item.metadata) : {};
+  const nextTimeOfDay = timeOfDay ?? getTimeOfDayFromHour(Math.floor(timeToMinutes(normalizedTime)! / 60));
+  updateItemMetadata(id, {
+    ...meta,
+    time: normalizedTime,
+    timeOfDay: nextTimeOfDay,
+  });
+
+  const instance = getDb().getAllSync<ItemInstance>(
+    `SELECT * FROM itemInstances WHERE itemId = ? AND scheduledDate = ? ORDER BY createdAt DESC LIMIT 1`,
+    [id, item.scheduledDate ?? '']
+  )[0];
+
+  if (instance) {
+    const parsed = instance.instanceMetadata ? JSON.parse(instance.instanceMetadata) : {};
+    updateInstanceMetadata(instance.id, {
+      ...parsed,
+      time: normalizedTime,
+      timeOfDay: nextTimeOfDay,
+    });
+  }
+}
+
+export function updateItemStatus(id: string, status: Item['status']): void {
+  updateItem(id, { status });
   logActivity(id, 'status-changed', JSON.stringify({ status }));
 }
 
