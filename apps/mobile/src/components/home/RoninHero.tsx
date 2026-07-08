@@ -1,86 +1,69 @@
-import { useEffect, useRef, useState } from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { useSharedValue, withTiming } from 'react-native-reanimated';
-import type { RoninMood } from '../../utils/roninMood';
+import type { RoninMood, RoninOutfit, RoninTimeOfDay } from '../../domain/ronin/types';
+import { getRoninMoodConfig } from '../../domain/ronin/moodConfig';
 import { getRoninProgress } from '../../utils/roninProgress';
+import { RoninCharacter } from './RoninCharacter';
+import { RoninScene } from './RoninScene';
 
 interface RoninHeroProps {
   mood: RoninMood;
+  // No outfit progression system exists yet — always 'base' until one is built.
+  outfit?: RoninOutfit;
+  timeOfDay: RoninTimeOfDay;
+  greeting: string;
   onPress?: () => void;
 }
 
-const MOOD_IMAGES: Record<RoninMood, number> = {
-  normal: require('../../../assets/ronin/moods/normal.png'),
-  alert: require('../../../assets/ronin/moods/alert.png'),
-  tired: require('../../../assets/ronin/moods/tired.png'),
-  focused: require('../../../assets/ronin/moods/focused.png'),
-  overwhelmed: require('../../../assets/ronin/moods/overwhelmed.png'),
-  resolved: require('../../../assets/ronin/moods/resolved.png'),
-};
-
-const MOOD_LABELS: Record<RoninMood, string> = {
-  normal: 'Ronin is steady today.',
-  alert: 'Ronin noticed a few things waiting.',
-  tired: 'Ronin is winding down.',
-  focused: 'Ronin is focused today.',
-  overwhelmed: 'Ronin could use a hand today.',
-  resolved: 'Ronin is glad that’s done.',
-};
-
-const CROSSFADE_MS = 350;
-
-// Placeholder for the mood-based character until the animation system (breathing,
-// aura, tap-poke) is redesigned — see docs/superpowers/specs. For now this is a
-// plain image swap with a crossfade, not a static-forever asset.
-export function RoninHero({ mood, onPress }: RoninHeroProps) {
-  const [prevMood, setPrevMood] = useState<RoninMood | null>(null);
-  const prevOpacity = useSharedValue(0);
-  const currentOpacity = useSharedValue(1);
-  const moodRef = useRef(mood);
+// RoninHeroCard: the scene art is the full card background (not an inset
+// strip) — greeting, character, and status/XP are stacked on top of it as
+// absolutely-positioned layers, with dark scrims top/bottom so white text
+// stays legible against all three time-of-day scenes. Composition only —
+// mood copy comes from moodConfig, character asset from getRoninAsset() via
+// RoninCharacter, scene art from getRoninSceneAsset() via RoninScene. No
+// mood/outfit/time conditionals live here; this component only lays things out.
+export function RoninHero({ mood, outfit = 'base', timeOfDay, greeting, onPress }: RoninHeroProps) {
+  const moodConfig = getRoninMoodConfig(mood);
   const progress = getRoninProgress();
-
-  useEffect(() => {
-    if (moodRef.current === mood) return;
-    setPrevMood(moodRef.current);
-    moodRef.current = mood;
-
-    prevOpacity.value = 1;
-    currentOpacity.value = 0;
-    prevOpacity.value = withTiming(0, { duration: CROSSFADE_MS });
-    currentOpacity.value = withTiming(1, { duration: CROSSFADE_MS });
-  }, [mood]);
-
   const xpRatio = Math.min(1, progress.xp / progress.xpToNext);
 
   return (
-    <TouchableOpacity activeOpacity={onPress ? 0.9 : 1} onPress={onPress} style={styles.card}>
-      <LinearGradient
-        colors={['#fef6e4', '#fbe8c8', '#f3d9a6']}
-        locations={[0, 0.55, 1]}
-        style={StyleSheet.absoluteFillObject}
-      />
+    <TouchableOpacity
+      activeOpacity={onPress ? 0.9 : 1}
+      onPress={onPress}
+      style={styles.card}
+      accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityLabel={moodConfig.accessibilityLabel}
+    >
+      <RoninScene timeOfDay={timeOfDay} style={styles.sceneFill} />
 
-      <View style={styles.moodBubble}>
-        <Text style={styles.moodText}>{MOOD_LABELS[mood]}</Text>
+      <LinearGradient colors={['rgba(0,0,0,0.5)', 'rgba(0,0,0,0)']} style={styles.topScrim} pointerEvents="none" />
+      <LinearGradient colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.6)']} style={styles.bottomScrim} pointerEvents="none" />
+
+      <View style={styles.greetingBlock}>
+        <Text style={styles.greetingTitle}>{greeting} ✨</Text>
+        <Text style={styles.greetingSubtitle}>Let's make today count.</Text>
       </View>
 
-      {prevMood && (
-        <Animated.View style={[styles.character, { opacity: prevOpacity }]} pointerEvents="none">
-          <Image source={MOOD_IMAGES[prevMood]} resizeMode="contain" style={styles.image} />
-        </Animated.View>
-      )}
-
-      <Animated.View style={[styles.character, { opacity: currentOpacity }]} pointerEvents="none">
-        <Image source={MOOD_IMAGES[mood]} resizeMode="contain" style={styles.image} />
-      </Animated.View>
-
-      <View style={styles.progressBar}>
-        <Text style={styles.levelText}>Level {progress.level}</Text>
-        <View style={styles.xpTrack}>
-          <View style={[styles.xpFill, { width: `${xpRatio * 100}%` }]} />
+      <View style={styles.characterDock} pointerEvents="none">
+        <View style={styles.characterPlatform}>
+          <RoninCharacter mood={mood} outfit={outfit} style={styles.character} />
         </View>
-        <Text style={styles.xpText}>{progress.xp} / {progress.xpToNext} XP</Text>
+      </View>
+
+      <View style={styles.footer}>
+        <View style={styles.statusRow}>
+          <View style={[styles.moodDot, { backgroundColor: moodConfig.accentColor }]} />
+          <Text style={styles.moodText} numberOfLines={2}>{moodConfig.supportingCopy}</Text>
+        </View>
+
+        <View style={styles.levelRow}>
+          <Text style={styles.levelText}>Level {progress.level}</Text>
+          <Text style={styles.xpText}>{progress.xp} / {progress.xpToNext} XP</Text>
+        </View>
+        <View style={styles.xpTrack}>
+          <View style={[styles.xpFill, { width: `${xpRatio * 100}%`, backgroundColor: moodConfig.accentColor }]} />
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -89,63 +72,130 @@ export function RoninHero({ mood, onPress }: RoninHeroProps) {
 const styles = StyleSheet.create({
   card: {
     width: '100%',
-    minHeight: 280,
-    alignItems: 'center',
-    justifyContent: 'flex-end',
+    height: 196,
+    position: 'relative',
     overflow: 'hidden',
   },
-  moodBubble: {
-    position: 'absolute',
-    top: 18,
-    left: 18,
-    right: 18,
-    backgroundColor: 'rgba(255,255,255,0.85)',
-    borderRadius: 16,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
+  sceneFill: {
+    ...StyleSheet.absoluteFillObject,
   },
-  moodText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#3a2b12',
+  topScrim: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 72,
+  },
+  bottomScrim: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 96,
+  },
+  greetingBlock: {
+    position: 'absolute',
+    top: 14,
+    left: 16,
+    right: 16,
+  },
+  greetingTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#ffffff',
+    textShadowColor: 'rgba(0,0,0,0.35)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+  greetingSubtitle: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.85)',
+    marginTop: 1,
+    textShadowColor: 'rgba(0,0,0,0.35)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+  characterDock: {
+    position: 'absolute',
+    bottom: 70,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  // Frosted "platform" behind the character so it reads as grounded/framed
+  // rather than pasted loose on the busy scene photo.
+  characterPlatform: {
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
   },
   character: {
+    // Placeholder assets are landscape (character + cat side by side) and
+    // vary slightly per outfit — a fixed box + resizeMode="contain" (set in
+    // RoninCharacter) keeps them all readable without distortion.
+    width: 190,
+    height: 64,
+  },
+  footer: {
     position: 'absolute',
-    width: '46%',
-    aspectRatio: 234 / 330,
-    maxHeight: '78%',
-    bottom: 56,
+    bottom: 12,
+    left: 16,
+    right: 16,
   },
-  image: {
-    width: '100%',
-    height: '100%',
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
   },
-  progressBar: {
-    width: '100%',
-    paddingHorizontal: 18,
-    paddingBottom: 16,
+  moodDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+  },
+  moodText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#ffffff',
+    textShadowColor: 'rgba(0,0,0,0.35)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+  levelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    marginTop: 8,
+    marginBottom: 6,
   },
   levelText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
-    color: '#3a2b12',
-    marginBottom: 6,
+    color: '#ffffff',
+    textShadowColor: 'rgba(0,0,0,0.35)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+  xpText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.85)',
+    textShadowColor: 'rgba(0,0,0,0.35)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
   xpTrack: {
     height: 6,
     borderRadius: 3,
-    backgroundColor: 'rgba(58,43,18,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.3)',
     overflow: 'hidden',
   },
   xpFill: {
     height: '100%',
     borderRadius: 3,
-    backgroundColor: '#a41e34',
-  },
-  xpText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: 'rgba(58,43,18,0.65)',
-    marginTop: 6,
   },
 });

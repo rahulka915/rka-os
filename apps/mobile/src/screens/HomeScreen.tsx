@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ScrollView, View, Alert, StyleSheet, Text } from 'react-native';
+import { ScrollView, View, Alert } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { YStack } from 'tamagui';
 import { AppHeader } from '../components/AppHeader';
@@ -13,6 +13,7 @@ import { usePersistentTimerState } from '../hooks/usePersistentTimerState';
 import { getThemeColors } from '../theme';
 import { updateItemStatus, deleteItem } from '../db/database';
 import { getRoninMood } from '../utils/roninMood';
+import { getTimeOfDay } from '../domain/ronin/roninScenes';
 import { findNextUpItem } from '../utils/nextUpItem';
 
 interface HomeScreenProps {
@@ -69,19 +70,18 @@ export function HomeScreen({ onInboxPress, inboxOpen, onHeroPress }: HomeScreenP
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
 
-        {/* Greeting */}
-        <View style={s.greeting}>
-          <Text style={[s.greetingTitle, { color: palette.text }]}>{greetingForHour(hour)} ✨</Text>
-          <Text style={[s.greetingSubtitle, { color: palette.textSecondary }]}>Let's make today count.</Text>
-        </View>
-
-        {/* Ronin hero — mood-driven, tappable through to Profile for now */}
-        <View style={{ marginHorizontal: 12, marginTop: 4, borderRadius: 28, overflow: 'hidden' }}>
-          <RoninHero mood={roninMood} onPress={onHeroPress} />
+        {/* Ronin hero — greeting + mood, tappable through to Profile for now */}
+        <View style={{ marginHorizontal: 12, marginTop: 8, borderRadius: 16, overflow: 'hidden' }}>
+          <RoninHero
+            mood={roninMood}
+            timeOfDay={getTimeOfDay(hour)}
+            greeting={greetingForHour(hour)}
+            onPress={onHeroPress}
+          />
         </View>
 
         {/* Next Up — single nearest pending item, or a calm empty state */}
-        <View style={{ marginHorizontal: 12, marginTop: 16 }}>
+        <View style={{ marginHorizontal: 12, marginTop: 12 }}>
           <NextUpCard
             result={nextUp}
             isDark={isDark}
@@ -163,18 +163,3 @@ export function HomeScreen({ onInboxPress, inboxOpen, onHeroPress }: HomeScreenP
   );
 }
 
-const s = StyleSheet.create({
-  greeting: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-  },
-  greetingTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-  },
-  greetingSubtitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginTop: 2,
-  },
-});
