@@ -68,7 +68,8 @@
           "backgroundColor": "#f6f5f1"
         }
       ],
-      "expo-widgets"
+      "expo-widgets",
+      "./plugins/withWidgetVersionSync.js"
     ],
     "extra": {
       "eas": {
