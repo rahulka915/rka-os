@@ -39,3 +39,4 @@ export { default as Heart } from 'react-native-heroicons/outline/HeartIcon';
 export { default as Sparkles } from 'react-native-heroicons/outline/SparklesIcon';
 export { default as MusicNote } from 'react-native-heroicons/outline/MusicalNoteIcon';
 export { default as ListChecks } from 'react-native-heroicons/outline/ListBulletIcon';
+export { default as Compass } from 'react-native-heroicons/outline/GlobeAltIcon';

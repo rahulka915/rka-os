@@ -60,10 +60,24 @@ function initSchema() {
       updatedAt INTEGER NOT NULL
     );
 
+    -- Generic Notion-style relation edges between items (e.g. a task related to a project
+    -- via relationType 'project', a project related to an area via relationType 'area').
+    -- One row per (sourceId, relationType) — each source has at most one target per relation
+    -- type, matching how Areas/Projects/Tasks link today (single-select relation, not multi).
+    CREATE TABLE IF NOT EXISTS itemRelations (
+      id TEXT PRIMARY KEY,
+      sourceId TEXT NOT NULL,
+      targetId TEXT NOT NULL,
+      relationType TEXT NOT NULL,
+      createdAt INTEGER NOT NULL,
+      UNIQUE(sourceId, relationType)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_items_status ON items(status);
     CREATE INDEX IF NOT EXISTS idx_items_scheduledDate ON items(scheduledDate);
     CREATE INDEX IF NOT EXISTS idx_instances_scheduledDate ON itemInstances(scheduledDate);
     CREATE INDEX IF NOT EXISTS idx_instances_itemId ON itemInstances(itemId);
+    CREATE INDEX IF NOT EXISTS idx_relations_target ON itemRelations(targetId, relationType);
   `);
 }
 
@@ -106,6 +120,69 @@ export function getItemsByType(type: string): Item[] {
     `SELECT * FROM items WHERE type = ? AND deletedAt IS NULL AND status != 'archived' ORDER BY createdAt DESC`,
     [type]
   );
+}
+
+// --- Generic relations (Notion-style single-select relation property) -------------------
+// One source item points at one target item per relationType (e.g. a task's 'project'
+// relation, a project's 'area' relation). Rollups (counts, related-item lists) are just
+// queries against this one table, so any future entity pair (medication -> area, habit ->
+// project, ...) reuses the same three functions instead of a bespoke metadata convention.
+
+export function setRelation(sourceId: string, relationType: string, targetId: string | null): void {
+  if (targetId === null) {
+    getDb().runSync(`DELETE FROM itemRelations WHERE sourceId = ? AND relationType = ?`, [sourceId, relationType]);
+    return;
+  }
+  getDb().runSync(
+    `INSERT INTO itemRelations (id, sourceId, targetId, relationType, createdAt)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(sourceId, relationType) DO UPDATE SET targetId = excluded.targetId`,
+    [uuidv4(), sourceId, targetId, relationType, Date.now()]
+  );
+}
+
+export function getRelation(sourceId: string, relationType: string): string | null {
+  const row = getDb().getAllSync<{ targetId: string }>(
+    `SELECT targetId FROM itemRelations WHERE sourceId = ? AND relationType = ? LIMIT 1`,
+    [sourceId, relationType]
+  );
+  return row[0]?.targetId ?? null;
+}
+
+// Rollup: items relating to `targetId` via `relationType` (e.g. all projects in an area).
+export function getRelatedItems(targetId: string, relationType: string): Item[] {
+  return getDb().getAllSync<Item>(
+    `SELECT items.* FROM items
+     JOIN itemRelations ON itemRelations.sourceId = items.id
+     WHERE itemRelations.targetId = ? AND itemRelations.relationType = ?
+       AND items.deletedAt IS NULL AND items.status != 'completed' AND items.status != 'archived'
+     ORDER BY items.createdAt DESC`,
+    [targetId, relationType]
+  );
+}
+
+// Rollup count — the RKA-OS equivalent of a Notion "Count" rollup property.
+export function countRelated(targetId: string, relationType: string): number {
+  const row = getDb().getAllSync<{ count: number }>(
+    `SELECT COUNT(*) as count FROM itemRelations
+     JOIN items ON items.id = itemRelations.sourceId
+     WHERE itemRelations.targetId = ? AND itemRelations.relationType = ?
+       AND items.deletedAt IS NULL AND items.status != 'completed' AND items.status != 'archived'`,
+    [targetId, relationType]
+  );
+  return row[0]?.count ?? 0;
+}
+
+export function getProjectItemCount(projectId: string): number {
+  return countRelated(projectId, 'project');
+}
+
+export function getAreaProjectCount(areaId: string): number {
+  return countRelated(areaId, 'area');
+}
+
+export function getProjectsForArea(areaId: string): Item[] {
+  return getRelatedItems(areaId, 'area');
 }
 
 export function updateItemMetadata(id: string, metadata: Record<string, any>): void {
@@ -237,8 +314,16 @@ function ensureItemInstance(item: Item, date: string): ItemInstance | null {
 
 // ── Medications ────────────────────────────────────────────────────────
 
+export interface MedicationContainer {
+  total: number;      // capacity when full/sealed
+  remaining: number;  // current count left in this specific container
+}
+
 export interface MedicationMeta {
   dose?: string;
+  // Legacy flat count — still the source of truth for medications that never configured
+  // packaging. Once `containers` is set, this becomes a derived/cached mirror of the sum
+  // (see getTotalStock), kept in sync for the low-stock check and any old call sites.
   stockRemaining?: number;
   initialStock?: number;
   refillThreshold?: number;
@@ -246,6 +331,136 @@ export interface MedicationMeta {
   maxPerDay?: number;
   minHoursBetweenDoses?: number;
   frequency?: string;
+
+  // Packaging: how a single restock breaks down for this medication, e.g. Dexamfetamine
+  // restocks as 2 boxes of 30 (3 sheets of 10 each); Elvanse restocks as 1 container of 30.
+  containerLabel?: string;        // e.g. 'box', 'container' — defaults to 'container'
+  containerSize?: number;         // pills per container when full
+  containersPerRestock?: number;  // how many containers one restock adds, defaults to 1
+  sheetsPerContainer?: number;    // purely descriptive breakdown, optional
+  pillsPerSheet?: number;         // purely descriptive breakdown, optional
+  packagingNote?: string;         // free text for one-off quirks, e.g. "28 + 2 topper blister"
+  containers?: MedicationContainer[]; // real inventory instances, oldest/open-first
+}
+
+// Total pills across all containers, falling back to the legacy flat count for medications
+// that haven't configured packaging.
+export function getTotalStock(meta: MedicationMeta): number {
+  if (meta.containers) return meta.containers.reduce((sum, c) => sum + c.remaining, 0);
+  return meta.stockRemaining ?? 0;
+}
+
+export interface StockBreakdownSheet {
+  total: number;
+  remaining: number;
+}
+
+export interface StockBreakdownContainer {
+  total: number;
+  remaining: number;
+  sheets?: StockBreakdownSheet[];
+}
+
+export interface StockBreakdown {
+  current: number;   // pills held right now
+  capacity: number;  // what a full restock represents (containerSize * containersPerRestock)
+  containers: StockBreakdownContainer[]; // always padded out to containersPerRestock slots
+}
+
+// Projects the medication's held stock against its *configured* full-restock shape — even
+// before a restock ever happens, an empty/never-restocked container still shows as an empty
+// slot (e.g. Elvanse's single 30-pill container shows 0/30 instead of nothing). Sheets are
+// derived, not stored: pills are assumed consumed front-to-back (the in-use sheet drains
+// first, later sheets stay full until reached).
+export function getStockBreakdown(meta: MedicationMeta): StockBreakdown | null {
+  if (!meta.containerSize && (!meta.containers || meta.containers.length === 0)) return null;
+
+  const containerSize = meta.containerSize ?? meta.containers![0].total;
+  const perRestock = meta.containersPerRestock ?? 1;
+  const real = meta.containers ?? [];
+  const slots = Math.max(perRestock, real.length);
+
+  const containers: StockBreakdownContainer[] = Array.from({ length: slots }, (_, i) => {
+    const c = real[i] ?? { total: containerSize, remaining: 0 };
+    if (!meta.sheetsPerContainer || !meta.pillsPerSheet) return c;
+
+    let consumed = c.total - c.remaining;
+    const sheets: StockBreakdownSheet[] = Array.from({ length: meta.sheetsPerContainer! }, () => {
+      const taken = Math.max(0, Math.min(meta.pillsPerSheet!, consumed));
+      consumed -= taken;
+      return { total: meta.pillsPerSheet!, remaining: meta.pillsPerSheet! - taken };
+    });
+    return { ...c, sheets };
+  });
+
+  return {
+    current: containers.reduce((sum, c) => sum + c.remaining, 0),
+    capacity: containers.reduce((sum, c) => sum + c.total, 0),
+    containers,
+  };
+}
+
+// Compact display string, e.g. "23/60 · 23/30 (3/10+10/10+10/10) + 0/30 (0/10+0/10+0/10)".
+// The top fraction alone is shown when there's only one container and no sheet breakdown.
+export function getContainerSummary(meta: MedicationMeta): string | null {
+  const breakdown = getStockBreakdown(meta);
+  if (!breakdown) return null;
+  const { current, capacity, containers } = breakdown;
+  const top = `${current}/${capacity}`;
+  const showDetail = containers.length > 1 || containers.some(c => c.sheets);
+  if (!showDetail) return top;
+
+  const containerParts = containers.map(c => {
+    if (c.sheets) {
+      const sheetParts = c.sheets.map(s => `${s.remaining}/${s.total}`).join('+');
+      return `${c.remaining}/${c.total} (${sheetParts})`;
+    }
+    return `${c.remaining}/${c.total}`;
+  });
+  return `${top} · ${containerParts.join(' + ')}`;
+}
+
+// Decrements one pill from the first non-empty container (oldest/open one first). Falls back
+// to the legacy flat decrement for medications without configured packaging.
+function decrementStock(meta: MedicationMeta): MedicationMeta {
+  if (meta.containers) {
+    const containers = meta.containers.map(c => ({ ...c }));
+    const target = containers.find(c => c.remaining > 0);
+    if (target) target.remaining -= 1;
+    return { ...meta, containers, stockRemaining: containers.reduce((sum, c) => sum + c.remaining, 0) };
+  }
+  if (meta.stockRemaining !== undefined && meta.stockRemaining > 0) {
+    return { ...meta, stockRemaining: meta.stockRemaining - 1 };
+  }
+  return meta;
+}
+
+// The additive restock fix: adds new full containers rather than overwriting the count.
+// containerCount defaults to the medication's configured containersPerRestock (or 1).
+export function restockMedication(itemId: string, containerCount?: number): void {
+  const item = getItemWithMetadata(itemId);
+  if (!item) return;
+  const meta: MedicationMeta = item.metadata ? JSON.parse(item.metadata) : {};
+
+  if (!meta.containerSize) {
+    // No packaging configured — fall back to a flat additive bump using containerSize-less
+    // legacy behavior: just add containerCount (interpreted as raw pill count) to the total.
+    const amount = containerCount ?? 0;
+    const updated = { ...meta, stockRemaining: (meta.stockRemaining ?? 0) + amount };
+    updateItemMetadata(itemId, updated);
+    logActivity(itemId, 'restocked', JSON.stringify({ amount }));
+    return;
+  }
+
+  const count = containerCount ?? meta.containersPerRestock ?? 1;
+  const newContainers: MedicationContainer[] = Array.from({ length: count }, () => ({
+    total: meta.containerSize!,
+    remaining: meta.containerSize!,
+  }));
+  const containers = [...(meta.containers ?? []), ...newContainers];
+  const updated = { ...meta, containers, stockRemaining: containers.reduce((sum, c) => sum + c.remaining, 0) };
+  updateItemMetadata(itemId, updated);
+  logActivity(itemId, 'restocked', JSON.stringify({ containers: count, containerSize: meta.containerSize }));
 }
 
 export interface MedicationTimerDetails {
@@ -314,7 +529,10 @@ export function getMedications(): Item[] {
 export function createMedication(title: string, meta: MedicationMeta): string {
   const id = uuid();
   const now = Date.now();
-  const metadata = { ...meta, stockRemaining: meta.initialStock ?? meta.stockRemaining ?? 0 };
+  const initial = meta.initialStock ?? meta.stockRemaining ?? 0;
+  const metadata: MedicationMeta = meta.containerSize
+    ? { ...meta, containers: initial > 0 ? [{ total: meta.containerSize, remaining: initial }] : [], stockRemaining: initial }
+    : { ...meta, stockRemaining: initial };
   getDb().runSync(
     `INSERT INTO items (id, type, title, status, metadata, createdAt, updatedAt)
      VALUES (?, 'medication', ?, 'active', ?, ?, ?)`,
@@ -337,15 +555,13 @@ export function updateMedication(id: string, title: string, meta: MedicationMeta
 export function logMedicationTaken(itemId: string, takenAt: number = Date.now(), startTimer = false): void {
   const item = getItemWithMetadata(itemId);
   if (!item) return;
-  const meta: MedicationMeta = item.metadata ? JSON.parse(item.metadata) : {};
+  let meta: MedicationMeta = item.metadata ? JSON.parse(item.metadata) : {};
 
   // Only update lastTakenAt if this dose is more recent than the recorded one
   if (!meta.lastTakenAt || takenAt > meta.lastTakenAt) {
     meta.lastTakenAt = takenAt;
   }
-  if (meta.stockRemaining !== undefined && meta.stockRemaining > 0) {
-    meta.stockRemaining = meta.stockRemaining - 1;
-  }
+  meta = decrementStock(meta);
   updateItemMetadata(itemId, meta);
 
   // Insert log with the actual taken timestamp
@@ -382,6 +598,23 @@ export function getMedicationLogs(itemId: string, limit = 10): ActivityLog[] {
     `SELECT * FROM activityLogs WHERE entityId = ? AND actionType = 'medication-taken' ORDER BY timestamp DESC LIMIT ?`,
     [itemId, limit]
   );
+}
+
+// Two-state (taken / not taken) history per calendar day. There's no per-day dose-schedule
+// model yet (medications don't carry an rrule), so a third "not scheduled" state can't be
+// derived honestly — this only reports what's known: whether a dose was logged that day.
+export function getMedicationDoseHistory(itemId: string, days = 7): Array<{ date: string; taken: boolean }> {
+  const logs = getMedicationLogs(itemId, days * 3);
+  const takenDates = new Set(logs.map(log => formatDate(new Date(log.timestamp))));
+
+  const history: Array<{ date: string; taken: boolean }> = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const date = formatDate(d);
+    history.push({ date, taken: takenDates.has(date) });
+  }
+  return history;
 }
 
 export function deleteMedicationLog(logId: string, itemId: string): void {
@@ -710,7 +943,7 @@ export function deleteItem(id: string): void {
 
 export type GtdDestination =
   | 'today' | 'morning' | 'evening'
-  | 'project' | 'habit' | 'medication'
+  | 'project' | 'area' | 'habit' | 'medication'
   | 'reference' | 'someday' | 'delete';
 
 export function processInboxItem(id: string, destination: GtdDestination): void {
@@ -747,8 +980,14 @@ export function processInboxItem(id: string, destination: GtdDestination): void 
       break;
     case 'project':
       db.runSync(
-        'UPDATE items SET status = ?, metadata = ?, updatedAt = ? WHERE id = ?',
-        ['active', JSON.stringify({ ...meta, gtdContext: 'project' }), now, id]
+        'UPDATE items SET type = ?, status = ?, metadata = ?, updatedAt = ? WHERE id = ?',
+        ['project', 'active', JSON.stringify({ ...meta, gtdContext: 'project' }), now, id]
+      );
+      break;
+    case 'area':
+      db.runSync(
+        'UPDATE items SET type = ?, status = ?, metadata = ?, updatedAt = ? WHERE id = ?',
+        ['area', 'active', JSON.stringify({ ...meta, gtdContext: 'area' }), now, id]
       );
       break;
     case 'habit':
@@ -772,7 +1011,7 @@ export function processInboxItem(id: string, destination: GtdDestination): void 
     case 'someday':
       db.runSync(
         'UPDATE items SET status = ?, metadata = ?, updatedAt = ? WHERE id = ?',
-        ['archived', JSON.stringify({ ...meta, gtdContext: 'someday' }), now, id]
+        ['someday', JSON.stringify({ ...meta, gtdContext: 'someday' }), now, id]
       );
       break;
   }

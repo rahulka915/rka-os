@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Modal, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { Calendar, Sun, Moon, Archive, Trash2 } from '../icons';
+import { Calendar, Sun, Moon, Archive, Trash2, Tag } from '../icons';
 import { TaskSwipeItem } from '../components/TaskSwipeItem';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
@@ -74,6 +74,18 @@ export function InboxScreenV2({ visible, onClose }: InboxScreenV2Props) {
     exitSelection();
     refresh();
   }, [selectedIds, exitSelection, refresh]);
+
+  const handleClassify = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Alert.alert('Classify as...', 'This reassigns the entity type, not just when it happens.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Project', onPress: () => handleBulkProcess('project') },
+      { text: 'Area', onPress: () => handleBulkProcess('area') },
+      { text: 'Habit', onPress: () => handleBulkProcess('habit') },
+      { text: 'Medication', onPress: () => handleBulkProcess('medication') },
+      { text: 'Reference', onPress: () => handleBulkProcess('reference') },
+    ]);
+  }, [handleBulkProcess]);
 
   if (!visible) return null;
 
@@ -168,6 +180,13 @@ export function InboxScreenV2({ visible, onClose }: InboxScreenV2Props) {
                 <Icon size={20} color="#fff" strokeWidth={1.75} />
               </TouchableOpacity>
             ))}
+            <TouchableOpacity
+              style={s.toolbarBtn}
+              onPress={handleClassify}
+              accessibilityLabel="Classify as..."
+            >
+              <Tag size={20} color="#fff" strokeWidth={1.75} />
+            </TouchableOpacity>
             <TouchableOpacity
               style={s.toolbarBtn}
               onPress={() => {

@@ -1,14 +1,16 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Modal, TouchableOpacity, FlatList, KeyboardAvoidingView, Platform, Alert, View as RNView, Text as RNText, StyleSheet, TextInput } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useState, useEffect } from 'react';
+import { Modal, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Alert, View as RNView, Text as RNText, StyleSheet, TextInput, FlatList } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useMedications } from '../hooks/useDb';
-import { createMedication, updateMedication, deleteItem, getLastTakenLog, type MedicationMeta } from '../db/database';
+import { createMedication, updateMedication, deleteItem, getLastTakenLog, getMedicationDoseHistory, getMedicationLogs, getTotalStock, getStockBreakdown, restockMedication, type MedicationMeta } from '../db/database';
 import { LogDoseSheet } from '../components/LogDoseSheet';
+import { LensSurface } from '../components/LensSurface';
+import { LensFAB } from '../components/LensFAB';
+import { MedicationStockMeter } from '../components/MedicationStockMeter';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
 import type { Item } from '../db/types';
-import { Pill, Plus, X, AlertTriangle, Clock, PlayCircle } from '../icons';
+import { Pill, X, AlertTriangle, Clock, PlayCircle, Check } from '../icons';
 
 function useTimeSince(timestamp: number | undefined): string {
   const [label, setLabel] = useState('—');
@@ -31,29 +33,63 @@ function useTimeSince(timestamp: number | undefined): string {
   return label;
 }
 
-interface MedRowProps {
+function useMedState(item: Item) {
+  const meta: MedicationMeta = item.metadata ? JSON.parse(item.metadata) : {};
+  const lastLog = getLastTakenLog(item.id);
+  const isTrackingStock = meta.containers !== undefined || meta.stockRemaining !== undefined;
+  const stock = getTotalStock(meta);
+  const threshold = meta.refillThreshold ?? 5;
+  const isLowStock = isTrackingStock && stock <= threshold;
+  const canTake = (() => {
+    if (!meta.minHoursBetweenDoses || !lastLog) return true;
+    return (Date.now() - lastLog.timestamp) / 3600000 >= meta.minHoursBetweenDoses;
+  })();
+  return { meta, lastLog, stock, isTrackingStock, isLowStock, canTake };
+}
+
+interface NeedsAttentionRowProps {
+  item: Item;
+  isDark: boolean;
+  onRestock: () => void;
+}
+
+function NeedsAttentionRow({ item, isDark, onRestock }: NeedsAttentionRowProps) {
+  const palette = getThemeColors(isDark);
+  const { meta, stock } = useMedState(item);
+  const breakdown = getStockBreakdown(meta);
+
+  return (
+    <RNView style={[s.attentionRow, { backgroundColor: 'rgba(255, 149, 0, 0.08)', borderColor: 'rgba(255, 149, 0, 0.16)' }]}>
+      <AlertTriangle size={16} color="#ff9500" strokeWidth={1.5} />
+      <RNView style={s.attentionContent}>
+        <RNText style={[s.attentionTitle, { color: palette.text }]}>{item.title}{meta.dose ? ` ${meta.dose}` : ''}</RNText>
+        <RNText style={[s.attentionSub, { color: palette.textSecondary }]}>
+          {stock === 0 ? 'No doses remaining' : `${stock} left — running low`}
+        </RNText>
+        {breakdown && <RNView style={{ marginTop: 6 }}><MedicationStockMeter breakdown={breakdown} /></RNView>}
+      </RNView>
+      <TouchableOpacity onPress={onRestock} hitSlop={8}>
+        <RNText style={s.attentionAction}>Restock →</RNText>
+      </TouchableOpacity>
+    </RNView>
+  );
+}
+
+interface TodayRowProps {
   item: Item;
   isDark: boolean;
   onTake: (startTimer?: boolean) => void;
   onLogPast: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onRestock: () => void;
 }
 
-function MedRow({ item, isDark, onTake, onLogPast, onEdit, onDelete }: MedRowProps) {
+function TodayRow({ item, isDark, onTake, onLogPast, onEdit, onDelete, onRestock }: TodayRowProps) {
   const palette = getThemeColors(isDark);
-  const meta: MedicationMeta = item.metadata ? JSON.parse(item.metadata) : {};
-  const lastLog = getLastTakenLog(item.id);
+  const { meta, lastLog, stock, isTrackingStock, canTake } = useMedState(item);
   const timeSince = useTimeSince(lastLog?.timestamp);
-
-  const stock = meta.stockRemaining ?? 0;
-  const threshold = meta.refillThreshold ?? 5;
-  const isLowStock = stock <= threshold && stock !== undefined;
-
-  const canTake = (() => {
-    if (!meta.minHoursBetweenDoses || !lastLog) return true;
-    return (Date.now() - lastLog.timestamp) / 3600000 >= meta.minHoursBetweenDoses;
-  })();
+  const breakdown = getStockBreakdown(meta);
 
   const handleTake = (startTimer = false) => {
     const confirmLabel = startTimer ? 'Take & start timer' : 'Take';
@@ -82,19 +118,17 @@ function MedRow({ item, isDark, onTake, onLogPast, onEdit, onDelete }: MedRowPro
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     Alert.alert(item.title, undefined, [
       { text: 'Cancel', style: 'cancel' },
+      { text: 'Take + Start Timer', onPress: () => handleTake(true) },
       { text: 'Log Past Dose', onPress: onLogPast },
+      ...(isTrackingStock ? [{ text: 'Restock', onPress: onRestock }] : []),
       { text: 'Edit', onPress: onEdit },
-      { text: 'Delete', style: 'destructive', onPress: onDelete },
+      { text: 'Delete', style: 'destructive' as const, onPress: onDelete },
     ]);
   };
 
   return (
-    <TouchableOpacity
-      onLongPress={handleLongPress}
-      delayLongPress={400}
-      activeOpacity={0.5}
-    >
-      <RNView style={[s.medRow, { paddingHorizontal: 16, paddingVertical: 12 }]}>
+    <TouchableOpacity onLongPress={handleLongPress} delayLongPress={400} activeOpacity={0.5}>
+      <RNView style={s.todayRow}>
         <RNView style={s.medContent}>
           <RNText style={[s.medTitle, { color: palette.text }]}>{item.title}</RNText>
           {meta.dose && <RNText style={[s.medDose, { color: palette.textSecondary }]}>{meta.dose}</RNText>}
@@ -102,35 +136,46 @@ function MedRow({ item, isDark, onTake, onLogPast, onEdit, onDelete }: MedRowPro
             <Clock size={10} color={palette.textMuted} strokeWidth={1.5} />
             <RNText style={[s.medTimeSince, { color: palette.textTertiary }]}>{timeSince}</RNText>
           </RNView>
-        </RNView>
-
-        <RNView style={s.medActions}>
-          {meta.stockRemaining !== undefined && (
-            <RNView style={[s.stockBadge, { backgroundColor: isLowStock ? 'rgba(255, 59, 48, 0.08)' : palette.fill }]}>
-              {isLowStock && <AlertTriangle size={10} color="#ff3b30" />}
-              <RNText style={[s.stockText, { color: isLowStock ? '#ff3b30' : palette.textSecondary }]}>
-                {stock} left
+          {breakdown && (
+            <RNView style={{ marginTop: 6, gap: 4 }}>
+              <RNText style={[s.medSummary, { color: palette.textTertiary }]}>
+                {breakdown.current} left of {breakdown.capacity}
               </RNText>
+              <MedicationStockMeter breakdown={breakdown} />
             </RNView>
           )}
-          <TouchableOpacity
-            onPress={() => handleTake(false)}
-            style={[s.actionBtn, { backgroundColor: canTake ? palette.text : palette.fill, opacity: stock === 0 ? 0.35 : 1 }]}
-          >
-            <RNText style={[s.actionBtnText, { color: canTake ? palette.bg : palette.textSecondary }]}>
-              {canTake ? 'Take' : 'Wait'}
-            </RNText>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => handleTake(true)}
-            style={[s.timerBtn, { opacity: stock === 0 ? 0.35 : 1 }]}
-          >
-            <PlayCircle size={10} color="#007aff" strokeWidth={1.5} />
-            <RNText style={s.timerText}>Timer</RNText>
-          </TouchableOpacity>
         </RNView>
+        <TouchableOpacity
+          onPress={() => handleTake(false)}
+          style={[s.actionBtn, { backgroundColor: canTake ? palette.text : palette.fill, opacity: stock === 0 ? 0.35 : 1 }]}
+        >
+          <RNText style={[s.actionBtnText, { color: canTake ? palette.bg : palette.textSecondary }]}>
+            {canTake ? 'Take' : 'Wait'}
+          </RNText>
+        </TouchableOpacity>
       </RNView>
     </TouchableOpacity>
+  );
+}
+
+function HistoryRow({ item, isDark }: { item: Item; isDark: boolean }) {
+  const palette = getThemeColors(isDark);
+  const history = getMedicationDoseHistory(item.id, 5);
+
+  return (
+    <RNView style={s.historyRow}>
+      <RNText style={[s.historyLabel, { color: palette.text }]} numberOfLines={1}>{item.title}</RNText>
+      <RNView style={s.historyDays}>
+        {history.map(({ date, taken }) => (
+          <RNView
+            key={date}
+            style={[s.historyDot, { backgroundColor: taken ? '#34a853' : palette.fill }]}
+          >
+            {taken && <Check size={10} color="#ffffff" strokeWidth={3} />}
+          </RNView>
+        ))}
+      </RNView>
+    </RNView>
   );
 }
 
@@ -148,39 +193,55 @@ function MedFormSheet({ visible, onClose, onSaved, isDark, editTarget }: MedForm
   const [dose, setDose] = useState('');
   const [stock, setStock] = useState('');
   const [minHours, setMinHours] = useState('');
+  const [containerLabel, setContainerLabel] = useState('');
+  const [containerSize, setContainerSize] = useState('');
+  const [containersPerRestock, setContainersPerRestock] = useState('');
+  const [sheetsPerContainer, setSheetsPerContainer] = useState('');
+  const [pillsPerSheet, setPillsPerSheet] = useState('');
+  const [packagingNote, setPackagingNote] = useState('');
   const isEditing = !!editTarget;
 
-  // Prefill from the target medication's current metadata each time the sheet opens for it —
-  // stock shown here is the CURRENT remaining count, not the original initialStock, so editing
-  // it directly adjusts stockRemaining rather than resetting the running total.
   useEffect(() => {
     if (!visible) return;
     if (editTarget) {
       const meta: MedicationMeta = editTarget.metadata ? JSON.parse(editTarget.metadata) : {};
       setTitle(editTarget.title);
       setDose(meta.dose ?? '');
-      setStock(meta.stockRemaining !== undefined ? String(meta.stockRemaining) : '');
+      setStock(String(getTotalStock(meta)));
       setMinHours(meta.minHoursBetweenDoses !== undefined ? String(meta.minHoursBetweenDoses) : '');
+      setContainerLabel(meta.containerLabel ?? '');
+      setContainerSize(meta.containerSize !== undefined ? String(meta.containerSize) : '');
+      setContainersPerRestock(meta.containersPerRestock !== undefined ? String(meta.containersPerRestock) : '');
+      setSheetsPerContainer(meta.sheetsPerContainer !== undefined ? String(meta.sheetsPerContainer) : '');
+      setPillsPerSheet(meta.pillsPerSheet !== undefined ? String(meta.pillsPerSheet) : '');
+      setPackagingNote(meta.packagingNote ?? '');
     } else {
       setTitle(''); setDose(''); setStock(''); setMinHours('');
+      setContainerLabel(''); setContainerSize(''); setContainersPerRestock('');
+      setSheetsPerContainer(''); setPillsPerSheet(''); setPackagingNote('');
     }
   }, [visible, editTarget]);
 
   const handleSave = () => {
     if (!title.trim()) return;
+    const packaging: MedicationMeta = {
+      dose: dose.trim() || undefined,
+      minHoursBetweenDoses: minHours ? parseFloat(minHours) : undefined,
+      containerLabel: containerLabel.trim() || undefined,
+      containerSize: containerSize ? parseInt(containerSize) : undefined,
+      containersPerRestock: containersPerRestock ? parseInt(containersPerRestock) : undefined,
+      sheetsPerContainer: sheetsPerContainer ? parseInt(sheetsPerContainer) : undefined,
+      pillsPerSheet: pillsPerSheet ? parseInt(pillsPerSheet) : undefined,
+      packagingNote: packagingNote.trim() || undefined,
+    };
     if (editTarget) {
-      updateMedication(editTarget.id, title.trim(), {
-        dose: dose.trim() || undefined,
-        stockRemaining: stock ? parseInt(stock) : undefined,
-        minHoursBetweenDoses: minHours ? parseFloat(minHours) : undefined,
-      });
+      updateMedication(editTarget.id, title.trim(), packaging);
     } else {
       createMedication(title.trim(), {
-        dose: dose.trim() || undefined,
+        ...packaging,
         initialStock: stock ? parseInt(stock) : undefined,
         stockRemaining: stock ? parseInt(stock) : undefined,
         refillThreshold: 5,
-        minHoursBetweenDoses: minHours ? parseFloat(minHours) : undefined,
       });
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -188,10 +249,16 @@ function MedFormSheet({ visible, onClose, onSaved, isDark, editTarget }: MedForm
   };
 
   const fields = [
-    { label: 'Medication name', value: title, set: setTitle, placeholder: 'e.g. Ibuprofen', auto: !isEditing, kb: 'default' as const },
-    { label: 'Dose', value: dose, set: setDose, placeholder: 'e.g. 400mg', auto: false, kb: 'default' as const },
-    { label: isEditing ? 'Stock remaining (units)' : 'Stock (units)', value: stock, set: setStock, placeholder: 'e.g. 30', auto: false, kb: 'numeric' as const },
-    { label: 'Min hours between doses', value: minHours, set: setMinHours, placeholder: 'e.g. 6', auto: false, kb: 'numeric' as const },
+    { label: 'Medication name', value: title, set: setTitle, placeholder: 'e.g. Ibuprofen', auto: !isEditing, kb: 'default' as const, disabled: false },
+    { label: 'Dose', value: dose, set: setDose, placeholder: 'e.g. 400mg', auto: false, kb: 'default' as const, disabled: false },
+    { label: isEditing ? 'Stock remaining (units) — read-only, use Restock' : 'Initial stock (units)', value: stock, set: setStock, placeholder: 'e.g. 30', auto: false, kb: 'numeric' as const, disabled: isEditing },
+    { label: 'Min hours between doses', value: minHours, set: setMinHours, placeholder: 'e.g. 6', auto: false, kb: 'numeric' as const, disabled: false },
+    { label: 'Container label', value: containerLabel, set: setContainerLabel, placeholder: 'e.g. box, container', auto: false, kb: 'default' as const, disabled: false },
+    { label: 'Pills per container', value: containerSize, set: setContainerSize, placeholder: 'e.g. 30', auto: false, kb: 'numeric' as const, disabled: false },
+    { label: 'Containers per restock', value: containersPerRestock, set: setContainersPerRestock, placeholder: 'e.g. 2', auto: false, kb: 'numeric' as const, disabled: false },
+    { label: 'Sheets per container (optional)', value: sheetsPerContainer, set: setSheetsPerContainer, placeholder: 'e.g. 3', auto: false, kb: 'numeric' as const, disabled: false },
+    { label: 'Pills per sheet (optional)', value: pillsPerSheet, set: setPillsPerSheet, placeholder: 'e.g. 10', auto: false, kb: 'numeric' as const, disabled: false },
+    { label: 'Packaging note (optional)', value: packagingNote, set: setPackagingNote, placeholder: 'e.g. 28 + 2 topper blister', auto: false, kb: 'default' as const, disabled: false },
   ];
 
   return (
@@ -206,12 +273,12 @@ function MedFormSheet({ visible, onClose, onSaved, isDark, editTarget }: MedForm
             </TouchableOpacity>
           </RNView>
 
-          <RNView style={s.addMedContent}>
-            {fields.map(({ label, value, set, placeholder, auto, kb }) => (
+          <ScrollView style={s.addMedContent} contentContainerStyle={{ gap: 16 }} keyboardShouldPersistTaps="handled">
+            {fields.map(({ label, value, set, placeholder, auto, kb, disabled }) => (
               <RNView key={label} style={s.field}>
                 <RNText style={[s.fieldLabel, { color: palette.textTertiary }]}>{label}</RNText>
                 <TextInput
-                  style={[s.fieldInput, { color: palette.text, borderColor: palette.separator, backgroundColor: palette.fill }]}
+                  style={[s.fieldInput, { color: palette.text, borderColor: palette.separator, backgroundColor: palette.fill, opacity: disabled ? 0.5 : 1 }]}
                   placeholder={placeholder}
                   placeholderTextColor={palette.textMuted}
                   value={value}
@@ -219,10 +286,11 @@ function MedFormSheet({ visible, onClose, onSaved, isDark, editTarget }: MedForm
                   autoFocus={auto}
                   keyboardType={kb}
                   keyboardAppearance={isDark ? 'dark' : 'light'}
+                  editable={!disabled}
                 />
               </RNView>
             ))}
-          </RNView>
+          </ScrollView>
 
           <RNView style={s.addMedActions}>
             <TouchableOpacity onPress={onClose} style={[s.cancelBtn, { backgroundColor: palette.fill }]}>
@@ -238,14 +306,43 @@ function MedFormSheet({ visible, onClose, onSaved, isDark, editTarget }: MedForm
   );
 }
 
-export function MedicationsScreen() {
-  const insets = useSafeAreaInsets();
-  const { isDark } = useThemeContext();
+function SeeAllHistorySheet({ visible, item, onClose, isDark }: { visible: boolean; item: Item | null; onClose: () => void; isDark: boolean }) {
   const palette = getThemeColors(isDark);
+  const logs = item ? getMedicationLogs(item.id, 30) : [];
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <RNView style={[s.addMedContainer, { backgroundColor: palette.bg }]}>
+        <RNView style={s.dragHandle} />
+        <RNView style={s.addMedHeader}>
+          <RNText style={[s.addMedTitle, { color: palette.text }]}>{item?.title ?? ''} history</RNText>
+          <TouchableOpacity onPress={onClose} hitSlop={12}>
+            <X size={16} color={palette.text} strokeWidth={2.5} />
+          </TouchableOpacity>
+        </RNView>
+        <FlatList
+          data={logs}
+          keyExtractor={l => l.id}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 }}
+          renderItem={({ item: log }) => (
+            <RNText style={[s.historyLogRow, { color: palette.text, borderBottomColor: palette.separator }]}>
+              {new Date(log.timestamp).toLocaleString()}
+            </RNText>
+          )}
+          ListEmptyComponent={<RNText style={{ color: palette.textSecondary, padding: 16 }}>No doses logged yet.</RNText>}
+        />
+      </RNView>
+    </Modal>
+  );
+}
+
+export function MedicationsScreen() {
+  const { isDark } = useThemeContext();
   const { medications, refresh, takeMedication } = useMedications();
   const [addOpen, setAddOpen] = useState(false);
   const [logTarget, setLogTarget] = useState<Item | null>(null);
   const [editTarget, setEditTarget] = useState<Item | null>(null);
+  const [historyTarget, setHistoryTarget] = useState<Item | null>(null);
 
   const handleDelete = (item: Item) => {
     Alert.alert(`Delete ${item.title}?`, 'This cannot be undone.', [
@@ -262,88 +359,95 @@ export function MedicationsScreen() {
     ]);
   };
 
-  const lowStock = medications.filter(m => {
+  const needsAttention = medications.filter(m => {
     const meta: MedicationMeta = m.metadata ? JSON.parse(m.metadata) : {};
-    return (meta.stockRemaining ?? 0) <= (meta.refillThreshold ?? 5);
-  }).length;
+    const tracking = meta.containers !== undefined || meta.stockRemaining !== undefined;
+    return tracking && getTotalStock(meta) <= (meta.refillThreshold ?? 5);
+  });
+
+  // Additive restock — adds new containers (or a flat pill count for meds without configured
+  // packaging) on top of whatever's currently left, rather than overwriting the total.
+  const handleRestock = (item: Item) => {
+    const meta: MedicationMeta = item.metadata ? JSON.parse(item.metadata) : {};
+    const defaultCount = meta.containerSize ? (meta.containersPerRestock ?? 1) : 30;
+    const promptLabel = meta.containerSize
+      ? `How many ${meta.containerLabel || 'containers'} (${meta.containerSize} each)?`
+      : 'How many pills?';
+    Alert.prompt(
+      `Restock ${item.title}`,
+      promptLabel,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Add',
+          onPress: (value?: string) => {
+            const count = value ? parseInt(value, 10) : defaultCount;
+            if (!count || count <= 0) return;
+            restockMedication(item.id, count);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            refresh();
+          },
+        },
+      ],
+      'plain-text',
+      String(defaultCount),
+      'numeric'
+    );
+  };
 
   return (
-    <RNView style={[s.container, { backgroundColor: palette.bg, paddingTop: insets.top + 12 }]}>
-      {/* Header */}
-      <RNView style={s.header}>
-        <RNView>
-          <RNText style={[s.headerSubtitle, { color: palette.textTertiary }]}>PROTOCOL</RNText>
-          <RNText style={[s.headerTitle, { color: palette.text }]}>Medications</RNText>
-          {lowStock > 0 && (
-            <RNView style={s.lowStockAlert}>
-              <AlertTriangle size={11} color="#ff8c42" strokeWidth={1.5} />
-              <RNText style={s.lowStockText}>{lowStock} low stock</RNText>
-            </RNView>
-          )}
-        </RNView>
-        <TouchableOpacity
-          onPress={() => setAddOpen(true)}
-          style={[s.addBtn, { backgroundColor: palette.text }]}
-          hitSlop={12}
-        >
-          <Plus size={18} color={palette.bg} strokeWidth={2.5} />
-        </TouchableOpacity>
-      </RNView>
-
-      {/* Stats row */}
-      <RNView style={s.statsRow}>
-        {[
-          { label: 'Tracked', value: medications.length, accent: false },
-          { label: 'Low Stock', value: lowStock, accent: lowStock > 0 },
-        ].map(({ label, value, accent }) => (
-          <RNView
-            key={label}
-            style={[
-              s.statCard,
-              {
-                backgroundColor: accent ? 'rgba(255, 59, 48, 0.08)' : palette.fill,
-                borderColor: accent ? 'rgba(255, 59, 48, 0.12)' : palette.separator,
-              },
-            ]}
-          >
-            <RNText style={[s.statLabel, { color: accent ? '#ff3b30' : palette.textTertiary }]}>
-              {label}
-            </RNText>
-            <RNText style={[s.statValue, { color: accent ? '#ff3b30' : palette.text }]}>
-              {value}
-            </RNText>
-          </RNView>
-        ))}
-      </RNView>
-
+    <LensSurface title="Medications" headerRight={<LensFAB onPress={() => setAddOpen(true)} />}>
       {medications.length === 0 ? (
         <RNView style={s.empty}>
-          <Pill size={28} color={palette.textMuted} strokeWidth={1} />
-          <RNText style={[s.emptyTitle, { color: palette.text }]}>No medications</RNText>
-          <RNText style={[s.emptySub, { color: palette.textSecondary }]}>Tap + to add one</RNText>
+          <Pill size={28} color="#8e8e93" strokeWidth={1} />
+          <RNText style={s.emptyTitle}>No medications</RNText>
+          <RNText style={s.emptySub}>Tap + to add one</RNText>
         </RNView>
       ) : (
-        <FlatList
-          data={medications}
-          keyExtractor={i => i.id}
-          contentContainerStyle={s.listContent}
-          scrollEnabled={medications.length > 6}
-          renderItem={({ item, index }) => (
-            <RNView key={item.id}>
-              <MedRow
-                item={item}
-                isDark={isDark}
-                onTake={(startTimer) => takeMedication(item.id, undefined, startTimer)}
-                onLogPast={() => setLogTarget(item)}
-                onEdit={() => setEditTarget(item)}
-                onDelete={() => handleDelete(item)}
-              />
-              {index < medications.length - 1 && (
-                <RNView style={[s.sep, { backgroundColor: palette.separator, marginLeft: 16 }]} />
-              )}
+        <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
+          {needsAttention.length > 0 && (
+            <RNView style={s.section}>
+              <RNText style={s.sectionLabel}>NEEDS ATTENTION</RNText>
+              <RNView style={s.sectionRows}>
+                {needsAttention.map(item => (
+                  <NeedsAttentionRow key={item.id} item={item} isDark={isDark} onRestock={() => handleRestock(item)} />
+                ))}
+              </RNView>
             </RNView>
           )}
-        />
+
+          <RNView style={s.section}>
+            <RNText style={s.sectionLabel}>TODAY</RNText>
+            <RNView style={s.sectionRows}>
+              {medications.map(item => (
+                <TodayRow
+                  key={item.id}
+                  item={item}
+                  isDark={isDark}
+                  onTake={(startTimer) => takeMedication(item.id, undefined, startTimer)}
+                  onLogPast={() => setLogTarget(item)}
+                  onEdit={() => setEditTarget(item)}
+                  onDelete={() => handleDelete(item)}
+                  onRestock={() => handleRestock(item)}
+                />
+              ))}
+            </RNView>
+          </RNView>
+
+          <RNView style={s.section}>
+            <RNView style={s.historyHeader}>
+              <RNText style={s.sectionLabel}>HISTORY</RNText>
+              <TouchableOpacity onPress={() => setHistoryTarget(medications[0] ?? null)} hitSlop={8}>
+                <RNText style={s.seeAll}>See all</RNText>
+              </TouchableOpacity>
+            </RNView>
+            <RNView style={s.sectionRows}>
+              {medications.map(item => (
+                <HistoryRow key={item.id} item={item} isDark={isDark} />
+              ))}
+            </RNView>
+          </RNView>
+        </ScrollView>
       )}
 
       <MedFormSheet visible={addOpen} onClose={() => setAddOpen(false)} onSaved={refresh} isDark={isDark} />
@@ -363,83 +467,71 @@ export function MedicationsScreen() {
           onLog={(takenAt, startTimer) => { takeMedication(logTarget.id, takenAt, startTimer); setLogTarget(null); }}
         />
       )}
-    </RNView>
+      <SeeAllHistorySheet visible={!!historyTarget} item={historyTarget} onClose={() => setHistoryTarget(null)} isDark={isDark} />
+    </LensSurface>
   );
 }
 
 const s = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
+  scrollContent: {
     paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingBottom: 40,
   },
-  headerSubtitle: {
+  section: {
+    marginBottom: 24,
+  },
+  sectionLabel: {
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.6,
     textTransform: 'uppercase',
-    marginBottom: 4,
+    color: '#8e8e93',
+    marginBottom: 8,
   },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    letterSpacing: -0.5,
+  sectionRows: {
+    gap: 8,
   },
-  lowStockAlert: {
+  historyHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginTop: 6,
+    justifyContent: 'space-between',
+    marginBottom: 8,
   },
-  lowStockText: {
-    fontSize: 12,
+  seeAll: {
+    fontSize: 13,
     fontWeight: '600',
-    color: '#ff8c42',
+    color: '#007aff',
   },
-  addBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  statsRow: {
+  attentionRow: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    gap: 12,
-    marginBottom: 16,
-  },
-  statCard: {
-    flex: 1,
-    borderRadius: 10,
-    padding: 12,
+    alignItems: 'center',
+    gap: 10,
+    borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
+    padding: 12,
   },
-  statLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-    marginBottom: 4,
+  attentionContent: {
+    flex: 1,
   },
-  statValue: {
-    fontSize: 26,
-    fontWeight: '800',
+  attentionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
   },
-  listContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 100,
+  attentionSub: {
+    fontSize: 12,
+    marginTop: 2,
   },
-  medRow: {
+  attentionAction: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#ff9500',
+  },
+  todayRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
+    paddingVertical: 4,
   },
   medContent: {
     flex: 1,
@@ -464,46 +556,47 @@ const s = StyleSheet.create({
     fontSize: 11,
     fontWeight: '400',
   },
-  medActions: {
-    alignItems: 'flex-end',
-    gap: 6,
-  },
-  stockBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  stockText: {
+  medSummary: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '400',
+    marginTop: 2,
   },
   actionBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
     alignItems: 'center',
   },
   actionBtnText: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '600',
   },
-  timerBtn: {
+  historyRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    justifyContent: 'space-between',
+    paddingVertical: 6,
   },
-  timerText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#007aff',
+  historyLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    flex: 1,
   },
-  sep: {
-    height: StyleSheet.hairlineWidth,
+  historyDays: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  historyDot: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  historyLogRow: {
+    fontSize: 14,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   empty: {
     flex: 1,
@@ -515,10 +608,12 @@ const s = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: '700',
+    color: '#1c1c1e',
   },
   emptySub: {
     fontSize: 13,
     fontWeight: '400',
+    color: 'rgba(60,60,67,0.66)',
   },
   addMedContainer: {
     flex: 1,

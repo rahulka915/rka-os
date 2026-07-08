@@ -143,6 +143,26 @@ export function useProjects() {
   return { projects, refresh };
 }
 
+export function useAreas() {
+  const [areas, setAreas] = useState<Item[]>([]);
+  const refresh = useCallback(() => {
+    setAreas(getItemsByType('area'));
+  }, []);
+  useEffect(() => { refresh(); }, [refresh]);
+  return { areas, refresh };
+}
+
+// Global Tasks list — excludes 'inbox' (still awaiting triage in the Inbox screen) and
+// 'completed' tasks, which shouldn't clutter an ongoing GTD working list.
+export function useTasks() {
+  const [tasks, setTasks] = useState<Item[]>([]);
+  const refresh = useCallback(() => {
+    setTasks(getItemsByType('task').filter(t => t.status !== 'inbox' && t.status !== 'completed'));
+  }, []);
+  useEffect(() => { refresh(); }, [refresh]);
+  return { tasks, refresh };
+}
+
 export function completeAllInTimeBlock(timeOfDay: 'anytime' | 'morning' | 'afternoon' | 'evening'): void {
   const todayItems = getTodayItems();
 

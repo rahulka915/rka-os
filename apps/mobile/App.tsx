@@ -16,7 +16,7 @@ import config from './tamagui.config';
 import { ThemeContext } from './src/hooks/useThemeContext';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { CalendarScreen } from './src/screens/CalendarScreen';
-import { MenuScreen } from './src/screens/MenuScreen';
+import { MenuStack } from './src/navigation/MenuStack';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { InboxScreenV2 } from './src/screens/InboxScreenV2';
 import { QuickAddScreen } from './src/screens/QuickAddScreen';
@@ -149,7 +149,7 @@ export default function App() {
                 </Tab.Screen>
                 <Tab.Screen name="Calendar" component={CalendarScreen} />
                 <Tab.Screen name="Menu">
-                  {() => <MenuScreen />}
+                  {() => <MenuStack />}
                 </Tab.Screen>
                 <Tab.Screen name="Profile" component={ProfileScreen} />
               </Tab.Navigator>
