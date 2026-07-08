@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   sceneFill: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   topScrim: {
     position: 'absolute',

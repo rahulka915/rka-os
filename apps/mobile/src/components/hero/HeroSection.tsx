@@ -29,7 +29,7 @@ export function HeroSection({ timeOfDay }: Props) {
 
   return (
     <View style={[s.card, { width: screenWidth - 24, height: Math.round(screenHeight * 0.27) }]}>
-      <Image source={heroAsset} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+      <Image source={heroAsset} style={StyleSheet.absoluteFill} resizeMode="cover" />
       <View style={s.scrim} />
 
       <View style={s.content}>
@@ -82,11 +82,11 @@ const s = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.08)',
   },
   scrim: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.12)',
   },
   content: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     padding: 18,
     paddingBottom: 16,
     justifyContent: 'space-between',

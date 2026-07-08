@@ -254,7 +254,7 @@ const s = StyleSheet.create({
     flex: 1,
   },
   swipeBg: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'center',
     alignItems: 'center',
     flexDirection: 'row',

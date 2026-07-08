@@ -7,9 +7,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "splash": {
-      "backgroundColor": "#f6f5f1"
-    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.rahul.rkaos",
@@ -62,7 +59,15 @@
           "color": "#007aff"
         }
       ],
-      "expo-background-task"
+      "expo-background-task",
+      "expo-sqlite",
+      "expo-status-bar",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#f6f5f1"
+        }
+      ]
     ],
     "extra": {
       "eas": {

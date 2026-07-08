@@ -37,11 +37,11 @@ export function RoninCharacter({ mood, outfit, style }: RoninCharacterProps) {
   return (
     <View style={[styles.container, style]} pointerEvents="none">
       {previous && (
-        <Animated.View style={[StyleSheet.absoluteFillObject, { opacity: prevOpacity }]}>
+        <Animated.View style={[StyleSheet.absoluteFill, { opacity: prevOpacity }]}>
           <Image source={previous.source} resizeMode="contain" style={styles.image} />
         </Animated.View>
       )}
-      <Animated.View style={[StyleSheet.absoluteFillObject, { opacity: currentOpacity }]}>
+      <Animated.View style={[StyleSheet.absoluteFill, { opacity: currentOpacity }]}>
         <Image source={current.source} resizeMode="contain" style={styles.image} />
       </Animated.View>
     </View>
