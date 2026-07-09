@@ -244,6 +244,7 @@ Registered in the launcher as:
 ✅ Location permissions + geofencing service
 ✅ EAS build config (development/preview/production profiles)
 ✅ All iOS permissions declared in app.json
+✅ Ronin 3D companion (real GLB, mood-driven, app-wide reusable — see `apps/mobile/CLAUDE.md` "Ronin 3D Companion"; currently visualized only in Profile "Me" bench while Fable 5 continues improving him)
 
 ### Next: EAS Development Build
 ⏳ Run `eas build --platform ios --profile development` (Xcode installed ✅, free Apple ID ✅)

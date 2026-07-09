@@ -1,7 +1,5 @@
-import { StyleSheet, View } from 'react-native';
 import type { RoninMood, RoninOutfit, RoninTimeOfDay } from '../../domain/ronin/types';
 import { RoninGreetingCard } from './RoninGreetingCard';
-import { RoninStage } from './RoninStage';
 
 interface RoninHeroProps {
   mood: RoninMood;
@@ -12,23 +10,13 @@ interface RoninHeroProps {
   onPress?: () => void;
 }
 
-// Composer: stacks the compact status card (RoninGreetingCard) above the
-// large-format 3D stage (RoninStage). Both are tappable through to the same
-// destination (Profile, via onPress) — this component owns no layout logic
-// beyond the stack itself; mood/status copy and character rendering are
-// fully delegated to the two children.
-export function RoninHero({ mood, outfit = 'base', timeOfDay, greeting, onPress }: RoninHeroProps) {
-  return (
-    <View style={styles.stack}>
-      <RoninGreetingCard mood={mood} greeting={greeting} onPress={onPress} />
-      <RoninStage mood={mood} outfit={outfit} timeOfDay={timeOfDay} onPress={onPress} />
-    </View>
-  );
+// Composer: status/XP card only. The 3D companion (RoninStage/RoninCharacter)
+// is intentionally NOT mounted here — see apps/mobile/CLAUDE.md ("Ronin 3D
+// Companion") for why. He's kept live in the Profile "Me" bench
+// (ProfileScreen.tsx) as the single visualization surface while the
+// character continues to be improved; RoninStage stays available to drop
+// back into this composer (or anywhere else) once that's ready.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function RoninHero({ mood, outfit, timeOfDay, greeting, onPress }: RoninHeroProps) {
+  return <RoninGreetingCard mood={mood} greeting={greeting} onPress={onPress} />;
 }
-
-const styles = StyleSheet.create({
-  stack: {
-    width: '100%',
-    gap: 12,
-  },
-});

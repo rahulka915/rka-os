@@ -159,6 +159,28 @@ Dark Mode:
 - **spacing.ts** — spacing scale, radius, shadows, font sizes
 - **index.ts** — exported constants used in StyleSheet definitions
 
+### Ronin 3D Companion
+
+A real, working 3D character (Fable 5's GLB export, `assets/ronin/model/ronin_companion_v0.glb`)
+is available app-wide via `src/components/home/RoninCharacter.tsx`. It's mood-driven
+(`RoninMood` → animation clip, see `src/domain/ronin/roninModel.ts`), renders through an Expo
+DOM component (`Ronin3DDom.tsx` — web three.js in a webview, no native modules needed), and
+falls back to a static PNG automatically if the GL scene fails. The renderer is transparent
+(`alpha: true`, no scene background) — droppable into any container, no box/border required,
+though the character is near-black and reads best against a mid-to-dark backdrop given the
+current static lighting rig.
+
+**Current mount:** only `ProfileScreen.tsx`'s `Ronin3DBench` (`__DEV__`-only, all 6 moods
+switchable) — kept as the single live visualization surface while Fable 5 continues
+improving the character (richer idle motion now; a skinned rig for real gestures/tap
+reactions later — see model manifest `notes.limitations`). **Not currently mounted on Home**
+— `RoninHero.tsx` renders only the status/XP card (`RoninGreetingCard.tsx`); the 3D stage
+component (`RoninStage.tsx`, full-width 300px stage with time-of-day gradient) still exists
+and is ready to drop back in once the character is ready to be the default Home experience.
+No other screen currently uses `RoninCharacter` — do so freely; each mount does its own GLB
+load and spins up its own WebGL context, so avoid mounting many instances at once (e.g. in a
+list).
+
 ---
 
 ## Styling Strategy
