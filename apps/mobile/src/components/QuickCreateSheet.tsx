@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
-import { Modal, View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useThemeContext } from '../hooks/useThemeContext';
-import { getThemeColors } from '../theme';
+import { getThemeColors, spacing } from '../theme';
+import { BottomSheet } from './ui/BottomSheet';
 
 interface QuickCreateSheetProps {
   visible: boolean;
@@ -12,15 +13,27 @@ interface QuickCreateSheetProps {
   onSubmit: (title: string) => void;
 }
 
-// Lightweight Things-3-style capture sheet: autofocused input + Cancel/Save toolbar.
-// Replaces the persistent "New project..." / "New workout template..." bottom bar pattern.
+// Same compact, keyboard-safe BottomSheet used by QuickAddScreen (title-only
+// header, autofocused input, plain-text Cancel/Save) instead of a bespoke
+// full-screen Modal — that reimplementation didn't size itself to content
+// and its own KeyboardAvoidingView didn't reliably clear the keyboard.
 export function QuickCreateSheet({ visible, title, placeholder, onClose, onSubmit }: QuickCreateSheetProps) {
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
   const [draft, setDraft] = useState('');
+  const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
     if (visible) setDraft('');
+  }, [visible]);
+
+  // Same focus pattern as QuickAddScreen — a tick after mount, tied to
+  // `visible`, rather than the TextInput's own `autoFocus` (which is less
+  // reliable when the sheet remounts via BottomSheet's key={openId} scheme).
+  useEffect(() => {
+    if (!visible) return;
+    const t = setTimeout(() => inputRef.current?.focus(), 0);
+    return () => clearTimeout(t);
   }, [visible]);
 
   const handleSave = () => {
@@ -31,88 +44,71 @@ export function QuickCreateSheet({ visible, title, placeholder, onClose, onSubmi
     onClose();
   };
 
+  const handleCancel = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onClose();
+  };
+
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="formSheet" onRequestClose={onClose}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={[styles.container, { backgroundColor: palette.bg }]}>
-          <View style={styles.dragHandle} />
-          <TextInput
-            style={[styles.input, { color: palette.text }]}
-            placeholder={placeholder}
-            placeholderTextColor={palette.textTertiary}
-            value={draft}
-            onChangeText={setDraft}
-            autoFocus
-            onSubmitEditing={handleSave}
-            returnKeyType="done"
-            keyboardAppearance={isDark ? 'dark' : 'light'}
-          />
-          <View style={styles.toolbar}>
-            <TouchableOpacity onPress={onClose} style={[styles.cancelBtn, { backgroundColor: palette.fill }]}>
-              <Text style={[styles.cancelText, { color: palette.textSecondary }]}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={handleSave}
-              disabled={!draft.trim()}
-              style={[styles.saveBtn, { opacity: draft.trim() ? 1 : 0.3 }]}
-            >
-              <Text style={styles.saveText}>Save</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
+    <BottomSheet
+      visible={visible}
+      onClose={handleCancel}
+      isDark={isDark}
+      title={title}
+      topAnchored
+      scrollable
+      sheetStyle={styles.sheet}
+      contentContainerStyle={styles.content}
+      headerLeft={
+        <TouchableOpacity onPress={handleCancel} hitSlop={12}>
+          <Text style={[styles.actionText, { color: palette.textMuted }]}>Cancel</Text>
+        </TouchableOpacity>
+      }
+      headerRight={
+        <TouchableOpacity onPress={handleSave} hitSlop={12} disabled={!draft.trim()}>
+          <Text style={[styles.actionText, styles.saveText, { color: palette.primary, opacity: draft.trim() ? 1 : 0.28 }]}>
+            Save
+          </Text>
+        </TouchableOpacity>
+      }
+    >
+      <TextInput
+        ref={inputRef}
+        style={[styles.input, { color: palette.text }]}
+        placeholder={placeholder}
+        placeholderTextColor={palette.textTertiary}
+        value={draft}
+        onChangeText={setDraft}
+        onSubmitEditing={handleSave}
+        returnKeyType="done"
+        keyboardAppearance={isDark ? 'dark' : 'light'}
+      />
+    </BottomSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  // Insets the card off the screen edges (QuickAddScreen's card is
+  // intentionally edge-to-edge; this one reads better with breathing room
+  // since it floats over a visible list rather than sitting flush at top).
+  sheet: {
+    marginHorizontal: 16,
   },
-  dragHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: 'rgba(0, 0, 0, 0.12)',
-    alignSelf: 'center',
-    marginTop: 8,
+  content: {
+    paddingBottom: spacing[5],
+  },
+  actionText: {
+    fontSize: 16,
+    fontWeight: '400',
+  },
+  saveText: {
+    fontWeight: '600',
   },
   input: {
     fontSize: 22,
-    fontWeight: '700',
-    paddingHorizontal: 16,
-    paddingTop: 24,
-    paddingBottom: 16,
-  },
-  toolbar: {
-    flexDirection: 'row',
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingBottom: 100,
-    marginTop: 'auto',
-  },
-  cancelBtn: {
-    flex: 1,
-    height: 48,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cancelText: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  saveBtn: {
-    flex: 1,
-    height: 48,
-    borderRadius: 10,
-    backgroundColor: '#007aff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  saveText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#ffffff',
+    fontWeight: '500',
+    letterSpacing: -0.3,
+    minHeight: 56,
+    paddingVertical: 12,
   },
 });

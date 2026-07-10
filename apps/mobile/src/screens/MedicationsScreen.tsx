@@ -1,12 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { Modal, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Alert, View as RNView, Text as RNText, StyleSheet, TextInput, FlatList } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useMedications } from '../hooks/useDb';
 import { createMedication, updateMedication, deleteItem, getLastTakenLog, getMedicationDoseHistory, getMedicationLogs, getTotalStock, getStockBreakdown, restockMedication, startTimerFromLoggedDose, type MedicationMeta } from '../db/database';
 import { LogDoseSheet } from '../components/LogDoseSheet';
 import { LensSurface } from '../components/LensSurface';
-import { LensFAB } from '../components/LensFAB';
 import { MedicationStockMeter } from '../components/MedicationStockMeter';
+import { useRegisterFabHoldAction } from '../hooks/useFabHoldAction';
+import { startMedicationLiveActivity } from '../services/medicationLiveActivity';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
 import type { Item } from '../db/types';
@@ -59,8 +60,8 @@ function NeedsAttentionRow({ item, isDark, onRestock }: NeedsAttentionRowProps) 
   const breakdown = getStockBreakdown(meta);
 
   return (
-    <RNView style={[s.attentionRow, { backgroundColor: 'rgba(255, 149, 0, 0.08)', borderColor: 'rgba(255, 149, 0, 0.16)' }]}>
-      <AlertTriangle size={16} color="#ff9500" strokeWidth={1.5} />
+    <RNView style={[s.attentionRow, { backgroundColor: palette.orangeSoft, borderColor: palette.orange + '2a' }]}>
+      <AlertTriangle size={16} color={palette.orange} strokeWidth={1.5} />
       <RNView style={s.attentionContent}>
         <RNText style={[s.attentionTitle, { color: palette.text }]}>{item.title}{meta.dose ? ` ${meta.dose}` : ''}</RNText>
         <RNText style={[s.attentionSub, { color: palette.textSecondary }]}>
@@ -69,7 +70,7 @@ function NeedsAttentionRow({ item, isDark, onRestock }: NeedsAttentionRowProps) 
         {breakdown && <RNView style={{ marginTop: 6 }}><MedicationStockMeter breakdown={breakdown} /></RNView>}
       </RNView>
       <TouchableOpacity onPress={onRestock} hitSlop={8}>
-        <RNText style={s.attentionAction}>Restock →</RNText>
+        <RNText style={[s.attentionAction, { color: palette.orange }]}>Restock →</RNText>
       </TouchableOpacity>
     </RNView>
   );
@@ -130,9 +131,21 @@ function TodayRow({ item, isDark, onTake, onLogPast, onEdit, onDelete, onRestock
     ]);
   };
 
+  // Dark mode: silvery-blue "Take" action (same accent as the rest of the
+  // app) instead of a plain white pill; light mode keeps the original.
+  const takeBg = isDark ? (canTake ? palette.blue : palette.fillStrong) : (canTake ? palette.text : palette.fill);
+  const takeTextColor = isDark ? (canTake ? '#182229' : palette.textSecondary) : (canTake ? palette.bg : palette.textSecondary);
+
   return (
     <TouchableOpacity onLongPress={handleLongPress} delayLongPress={400} activeOpacity={0.5}>
-      <RNView style={s.todayRow}>
+      <RNView
+        style={[
+          s.todayRow,
+          isDark
+            ? { backgroundColor: palette.fillStrong, borderWidth: StyleSheet.hairlineWidth, borderColor: palette.separatorStrong }
+            : null,
+        ]}
+      >
         <RNView style={s.medContent}>
           <RNText style={[s.medTitle, { color: palette.text }]}>{item.title}</RNText>
           {meta.dose && <RNText style={[s.medDose, { color: palette.textSecondary }]}>{meta.dose}</RNText>}
@@ -151,9 +164,9 @@ function TodayRow({ item, isDark, onTake, onLogPast, onEdit, onDelete, onRestock
         </RNView>
         <TouchableOpacity
           onPress={() => handleTake(false)}
-          style={[s.actionBtn, { backgroundColor: canTake ? palette.text : palette.fill, opacity: stock === 0 ? 0.35 : 1 }]}
+          style={[s.actionBtn, { backgroundColor: takeBg, opacity: stock === 0 ? 0.35 : 1 }]}
         >
-          <RNText style={[s.actionBtnText, { color: canTake ? palette.bg : palette.textSecondary }]}>
+          <RNText style={[s.actionBtnText, { color: takeTextColor }]}>
             {canTake ? 'Take' : 'Wait'}
           </RNText>
         </TouchableOpacity>
@@ -167,13 +180,20 @@ function HistoryRow({ item, isDark }: { item: Item; isDark: boolean }) {
   const history = getMedicationDoseHistory(item.id, 5);
 
   return (
-    <RNView style={s.historyRow}>
+    <RNView
+      style={[
+        s.historyRow,
+        isDark
+          ? { backgroundColor: palette.fillStrong, borderWidth: StyleSheet.hairlineWidth, borderColor: palette.separatorStrong }
+          : null,
+      ]}
+    >
       <RNText style={[s.historyLabel, { color: palette.text }]} numberOfLines={1}>{item.title}</RNText>
       <RNView style={s.historyDays}>
         {history.map(({ date, taken }) => (
           <RNView
             key={date}
-            style={[s.historyDot, { backgroundColor: taken ? '#34a853' : palette.fill }]}
+            style={[s.historyDot, { backgroundColor: taken ? palette.green : palette.fill }]}
           >
             {taken && <Check size={10} color="#ffffff" strokeWidth={3} />}
           </RNView>
@@ -269,7 +289,7 @@ function MedFormSheet({ visible, onClose, onSaved, isDark, editTarget }: MedForm
     <Modal visible={visible} animationType="slide" presentationStyle="formSheet" onRequestClose={onClose}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <RNView style={[s.addMedContainer, { backgroundColor: palette.bg }]}>
-          <RNView style={s.dragHandle} />
+          <RNView style={[s.dragHandle, { backgroundColor: palette.handle }]} />
           <RNView style={s.addMedHeader}>
             <RNText style={[s.addMedTitle, { color: palette.text }]}>{isEditing ? 'Edit Medication' : 'Add Medication'}</RNText>
             <TouchableOpacity onPress={onClose} hitSlop={12}>
@@ -300,8 +320,12 @@ function MedFormSheet({ visible, onClose, onSaved, isDark, editTarget }: MedForm
             <TouchableOpacity onPress={onClose} style={[s.cancelBtn, { backgroundColor: palette.fill }]}>
               <RNText style={[s.cancelText, { color: palette.textSecondary }]}>Cancel</RNText>
             </TouchableOpacity>
-            <TouchableOpacity onPress={handleSave} disabled={!title.trim()} style={[s.saveBtn, { opacity: title.trim() ? 1 : 0.3 }]}>
-              <RNText style={s.saveText}>Save</RNText>
+            <TouchableOpacity
+              onPress={handleSave}
+              disabled={!title.trim()}
+              style={[s.saveBtn, { backgroundColor: isDark ? palette.blue : '#007aff', opacity: title.trim() ? 1 : 0.3 }]}
+            >
+              <RNText style={[s.saveText, { color: isDark ? '#182229' : '#ffffff' }]}>Save</RNText>
             </TouchableOpacity>
           </RNView>
         </RNView>
@@ -340,13 +364,18 @@ function SeeAllHistorySheet({ visible, item, onClose, isDark }: { visible: boole
   );
 }
 
+// No header "+" — holding the dock FAB while this screen is focused opens
+// New Medication instead (see useRegisterFabHoldAction / App.tsx's runFabHold).
 export function MedicationsScreen() {
   const { isDark } = useThemeContext();
+  const palette = getThemeColors(isDark);
   const { medications, refresh, takeMedication } = useMedications();
   const [addOpen, setAddOpen] = useState(false);
   const [logTarget, setLogTarget] = useState<Item | null>(null);
   const [editTarget, setEditTarget] = useState<Item | null>(null);
   const [historyTarget, setHistoryTarget] = useState<Item | null>(null);
+
+  useRegisterFabHoldAction(useCallback(() => setAddOpen(true), []));
 
   const handleDelete = (item: Item) => {
     Alert.alert(`Delete ${item.title}?`, 'This cannot be undone.', [
@@ -403,23 +432,29 @@ export function MedicationsScreen() {
     const log = getLastTakenLog(item.id);
     if (!log) return;
     startTimerFromLoggedDose(log.id, item.id);
+    const meta: MedicationMeta = item.metadata ? JSON.parse(item.metadata) : {};
+    startMedicationLiveActivity(log.id, {
+      medicationName: item.title,
+      dose: meta.dose,
+      displayStartedAt: log.timestamp,
+    });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     refresh();
   };
 
   return (
-    <LensSurface title="Medications" headerRight={<LensFAB onPress={() => setAddOpen(true)} />}>
+    <LensSurface title="Medications">
       {medications.length === 0 ? (
         <RNView style={s.empty}>
-          <Pill size={28} color="#8e8e93" strokeWidth={1} />
-          <RNText style={s.emptyTitle}>No medications</RNText>
-          <RNText style={s.emptySub}>Tap + to add one</RNText>
+          <Pill size={28} color={palette.textMuted} strokeWidth={1} />
+          <RNText style={[s.emptyTitle, { color: palette.text }]}>No medications</RNText>
+          <RNText style={[s.emptySub, { color: palette.textSecondary }]}>Hold the + in the dock to add one</RNText>
         </RNView>
       ) : (
         <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
           {needsAttention.length > 0 && (
             <RNView style={s.section}>
-              <RNText style={s.sectionLabel}>NEEDS ATTENTION</RNText>
+              <RNText style={[s.sectionLabel, { color: palette.textTertiary }]}>NEEDS ATTENTION</RNText>
               <RNView style={s.sectionRows}>
                 {needsAttention.map(item => (
                   <NeedsAttentionRow key={item.id} item={item} isDark={isDark} onRestock={() => handleRestock(item)} />
@@ -429,7 +464,7 @@ export function MedicationsScreen() {
           )}
 
           <RNView style={s.section}>
-            <RNText style={s.sectionLabel}>TODAY</RNText>
+            <RNText style={[s.sectionLabel, { color: palette.textTertiary }]}>TODAY</RNText>
             <RNView style={s.sectionRows}>
               {medications.map(item => (
                 <TodayRow
@@ -449,9 +484,9 @@ export function MedicationsScreen() {
 
           <RNView style={s.section}>
             <RNView style={s.historyHeader}>
-              <RNText style={s.sectionLabel}>HISTORY</RNText>
+              <RNText style={[s.sectionLabel, { color: palette.textTertiary }]}>HISTORY</RNText>
               <TouchableOpacity onPress={() => setHistoryTarget(medications[0] ?? null)} hitSlop={8}>
-                <RNText style={s.seeAll}>See all</RNText>
+                <RNText style={[s.seeAll, { color: palette.blue }]}>See all</RNText>
               </TouchableOpacity>
             </RNView>
             <RNView style={s.sectionRows}>
@@ -498,7 +533,6 @@ const s = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.6,
     textTransform: 'uppercase',
-    color: '#8e8e93',
     marginBottom: 8,
   },
   sectionRows: {
@@ -513,7 +547,6 @@ const s = StyleSheet.create({
   seeAll: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#007aff',
   },
   attentionRow: {
     flexDirection: 'row',
@@ -537,14 +570,15 @@ const s = StyleSheet.create({
   attentionAction: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#ff9500',
   },
   todayRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
-    paddingVertical: 4,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 14,
   },
   medContent: {
     flex: 1,
@@ -588,7 +622,9 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
   },
   historyLabel: {
     fontSize: 13,
@@ -621,12 +657,10 @@ const s = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1c1c1e',
   },
   emptySub: {
     fontSize: 13,
     fontWeight: '400',
-    color: 'rgba(60,60,67,0.66)',
   },
   addMedContainer: {
     flex: 1,
@@ -635,7 +669,6 @@ const s = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: 'rgba(0, 0, 0, 0.12)',
     alignSelf: 'center',
     marginTop: 8,
   },
@@ -695,13 +728,11 @@ const s = StyleSheet.create({
     flex: 1,
     height: 48,
     borderRadius: 10,
-    backgroundColor: '#007aff',
     alignItems: 'center',
     justifyContent: 'center',
   },
   saveText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#ffffff',
   },
 });

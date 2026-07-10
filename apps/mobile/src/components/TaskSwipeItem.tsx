@@ -180,11 +180,16 @@ export function TaskSwipeItem({
             </Animated.View>
           </Animated.View>
 
-          {/* Task row */}
+          {/* Task row — dark mode uses the same fillStrong/separatorStrong
+              card treatment as Home/Menu/Areas so it reads as a distinct row
+              against the near-black background; light mode keeps the plain
+              flat surface (no border needed there). */}
           <Animated.View
             style={[
               s.taskRow,
-              { backgroundColor: palette.surface },
+              isDark
+                ? { backgroundColor: palette.fillStrong, borderWidth: StyleSheet.hairlineWidth, borderColor: palette.separatorStrong }
+                : { backgroundColor: palette.surface },
               animatedTaskStyle,
             ]}
           >

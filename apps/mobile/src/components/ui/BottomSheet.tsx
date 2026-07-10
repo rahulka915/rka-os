@@ -116,6 +116,18 @@ function SheetContainer({
     setTimeout(onClose, 0);
   };
 
+  // Backdrop above a top-anchored card: a single tap in the gap between the
+  // card and the keyboard is easy to hit by accident while typing, so it
+  // stays a no-op, but a deliberate double-tap still dismisses. Handled as
+  // one RNGH gesture (rather than Pressable's onPress) so the same
+  // recognizer both swallows the accidental single tap and detects the
+  // double-tap, instead of mixing RNGH with the legacy responder system.
+  const backdropDoubleTap = Gesture.Tap()
+    .numberOfTaps(2)
+    .onEnd(() => {
+      runOnJS(deferredClose)();
+    });
+
   const panGesture = Gesture.Pan()
     .onUpdate((e) => {
       dragY.value = e.translationY > 0 ? e.translationY : e.translationY * 0.15;
@@ -177,15 +189,21 @@ function SheetContainer({
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-      {/* Backdrop — for top-anchored cards, tapping it still blocks touches from reaching
-          the app behind, but doesn't dismiss. The gap between a compact card and the keyboard
-          is easy to tap by accident while typing; dismissal stays available via the drag
-          handle and Cancel/Save. */}
+      {/* Backdrop — for top-anchored cards, a single tap still blocks touches from
+          reaching the app behind without dismissing (the gap between a compact card and
+          the keyboard is easy to tap by accident while typing), but a double-tap dismisses.
+          Non-top-anchored sheets keep the plain single-tap-to-dismiss behavior. */}
       <Animated.View style={[StyleSheet.absoluteFill, animatedBackdropStyle]} pointerEvents="auto">
-        <Pressable
-          style={[StyleSheet.absoluteFill, { backgroundColor: palette.backdrop }]}
-          onPress={topAnchored ? undefined : onClose}
-        />
+        {topAnchored ? (
+          <GestureDetector gesture={backdropDoubleTap}>
+            <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: palette.backdrop }]} />
+          </GestureDetector>
+        ) : (
+          <Pressable
+            style={[StyleSheet.absoluteFill, { backgroundColor: palette.backdrop }]}
+            onPress={onClose}
+          />
+        )}
       </Animated.View>
 
       {/* Sheet */}
@@ -255,6 +273,11 @@ const styles = StyleSheet.create({
   },
   sheetWrapper: {
     // no overflow: 'hidden' here — the bleed view must extend below the rounded sheet
+    // flexShrink: 0 — RN defaults flex-shrink to 1, so without this the
+    // KeyboardAvoidingView (itself shrunk to fit above the keyboard) would
+    // squeeze this content-sized card smaller than its content actually
+    // needs, clipping/cramming it, instead of just sizing to content.
+    flexShrink: 0,
   },
   // Fills whatever room KeyboardAvoidingView leaves above the keyboard, rather than a
   // fixed screen-height fraction that could exceed the available space and clip at the top.

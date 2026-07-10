@@ -30,28 +30,31 @@ export const colors = {
 } as const;
 
 export const darkColors = {
-  bg: '#0c0c0c',
-  bgElevated: '#161616',
-  surface: '#1c1c1e',
-  surfaceRaised: 'rgba(28,28,30,0.94)',
+  bg: '#0a0a0b',
+  bgElevated: '#141416',
+  surface: '#18181b',
+  surfaceRaised: 'rgba(24,24,27,0.94)',
   surfaceHover: 'rgba(255,255,255,0.06)',
-  fill: 'rgba(255,255,255,0.08)',
-  fillStrong: 'rgba(255,255,255,0.12)',
-  separator: 'rgba(255,255,255,0.10)',
-  separatorStrong: 'rgba(255,255,255,0.18)',
-  backdrop: 'rgba(0,0,0,0.5)',
+  fill: 'rgba(255,255,255,0.05)',
+  fillStrong: 'rgba(255,255,255,0.10)',
+  separator: 'rgba(255,255,255,0.08)',
+  separatorStrong: 'rgba(255,255,255,0.16)',
+  backdrop: 'rgba(0,0,0,0.55)',
   handle: 'rgba(255,255,255,0.18)',
   iconMuted: 'rgba(255,255,255,0.38)',
 
-  text: '#f2f2f2',
-  textSecondary: 'rgba(255,255,255,0.66)',
-  textTertiary: 'rgba(255,255,255,0.42)',
-  textMuted: 'rgba(255,255,255,0.52)',
+  text: '#f2ede6',
+  textSecondary: 'rgba(242,237,230,0.64)',
+  textTertiary: 'rgba(242,237,230,0.40)',
+  textMuted: 'rgba(242,237,230,0.52)',
 
   maroon: '#c1121f',
   maroonSoft: 'rgba(193,18,31,0.18)',
-  blue: '#3d9dff',
-  blueSoft: 'rgba(61,157,255,0.18)',
+  // Silvery blue — the locked-in dark-mode accent (glow color for FABs,
+  // active/ready states, primary CTAs). Desaturated + cool vs. the old
+  // saturated iOS blue, matching the Moonly-inspired theme direction.
+  blue: '#9fb8d1',
+  blueSoft: 'rgba(159,184,209,0.16)',
   green: '#3dbb5e',
   greenSoft: 'rgba(61,187,94,0.16)',
   red: '#ff5147',
@@ -67,7 +70,9 @@ export const themeColors = {
 
 export const darkThemeColors = {
   ...darkColors,
-  primary: darkColors.maroon,
+  // Silvery blue replaces maroon as the dark-mode primary accent — light
+  // mode keeps maroon unchanged.
+  primary: darkColors.blue,
 };
 
 export function getThemeColors(isDark: boolean) {

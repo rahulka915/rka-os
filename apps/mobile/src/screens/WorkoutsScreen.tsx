@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Alert, StyleSheet } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useWorkouts } from '../hooks/useDb';
@@ -6,17 +6,21 @@ import { createItem, deleteItem } from '../db/database';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
 import { LensSurface } from '../components/LensSurface';
-import { LensFAB } from '../components/LensFAB';
 import { QuickCreateSheet } from '../components/QuickCreateSheet';
+import { useRegisterFabHoldAction } from '../hooks/useFabHoldAction';
 import type { Item } from '../db/types';
 
 const STARTERS = ['Push starter', 'Pull starter'];
 
+// No header "+" — holding the dock FAB while this screen is focused opens
+// New Template instead (see useRegisterFabHoldAction / App.tsx's runFabHold).
 export function WorkoutsScreen() {
   const { workouts, refresh } = useWorkouts();
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
   const [createOpen, setCreateOpen] = useState(false);
+
+  useRegisterFabHoldAction(useCallback(() => setCreateOpen(true), []));
 
   const handleCreate = (title: string) => {
     createItem('workout-template', title, 'active');
@@ -51,7 +55,7 @@ export function WorkoutsScreen() {
   };
 
   return (
-    <LensSurface title="Workouts" headerRight={<LensFAB onPress={() => setCreateOpen(true)} />}>
+    <LensSurface title="Workouts">
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {workouts.length === 0 ? (
           <>

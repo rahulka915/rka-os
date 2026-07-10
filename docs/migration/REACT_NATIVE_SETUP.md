@@ -246,3 +246,55 @@ eas build --platform ios --profile development
 # Check installed expo package versions
 npx expo-doctor
 ```
+
+---
+
+## 2026-07-08/09 Update — expo-widgets Live Activity shipped, EAS cloud builds unreliable
+
+**Current state:** `expo-widgets` is re-enabled in `app.json` (Medication Timer Live Activity — Dynamic Island + Lock Screen). Metro port is now **8082**, not 8081 (kill any stray instance on 8081 — running two Metro instances against the same phone causes silent stale-bundle confusion). Dev client connects via "Enter URL manually" → `http://<mac-LAN-ip>:8082`.
+
+**EAS cloud builds are currently unreliable for this project** — repeated "lost connection to worker" failures even on `resourceClass: m-medium`, across many attempts on different days. When cloud build fails, go straight to local:
+```bash
+eas build --platform ios --profile development --local
+xcrun devicectl list devices                                    # get device UDID
+xcrun devicectl device install app --device <udid> <path>.ipa   # sideload directly, no Xcode GUI needed
+```
+
+**`eas-cli@20.5.1` local-build bug:** its bundled `eas-cli-local-build-plugin` crashes with an uncaught `kill ESRCH` during cleanup right after the `expo doctor` phase (tries to kill an already-exited child process, doesn't catch the throw). **Fix:** downgrade global `eas-cli` to `20.4.0`:
+```bash
+npm install -g eas-cli@20.4.0 --prefix ~/.npm-global
+```
+Re-check if this is still needed before assuming it — a newer eas-cli may have fixed it by the time you read this.
+
+**Local builds fill up disk fast.** Each attempt leaves behind gigabytes in `/private/var/folders/.../T/eas-build-local-nodejs/` that don't auto-clean on failure. Before a local build, check `df -h /`; if under ~5GB free, clear:
+```bash
+rm -rf /private/var/folders/*/T/eas-build-local-nodejs   # find the exact path via: getconf DARWIN_USER_TEMP_DIR
+npm cache clean --force
+rm -rf ~/Library/Caches/CocoaPods
+```
+(Don't wildcard-delete `~/Library/Developer/Xcode/Archives` without asking the user first — old archives may be intentionally kept.)
+
+**macOS TCC gotcha:** if a shell session suddenly can't `ls`/`cd` into `~/Downloads` or its subfolders ("Operation not permitted" even though `cd` itself works), it's a stale Files-and-Folders/Full Disk Access grant for the app hosting the shell. Toggling the permission in System Settings does **not** apply to the already-running process — the app must be fully quit (Cmd+Q) and relaunched for a fresh shell to pick it up.
+
+**`'widget'`-tagged component gotcha (expo-widgets/Live Activity):** functions marked with the `'widget'` directive (see `src/liveActivities/MedicationTimerActivity.tsx`) get extracted into an isolated JS context for the widget extension target. **Module-scope constants declared outside the function are NOT included in that extracted context** — referencing one throws `ReferenceError: Can't find variable: X` at runtime, visible on-device as a red error overlay (not caught by any JS try/catch in the RN app, since it's a separate native/JS context). Fix: declare every constant the widget function needs *inside* the function body itself.
+
+**Verifying Live Activities work:** there's a `__DEV__`-only "Start/Stop Test Live Activity" button on `ProfileScreen.tsx` (fake "Test Medication" data, doesn't touch the DB or real timer state machine) — use this to test the Live Activity pipeline in isolation instead of starting a real medication timer.
+
+---
+
+## 2026-07-09 Update — Ronin 3D shipped via DOM components; local native builds broken on this Mac
+
+**Ronin 3D companion is live with ZERO native builds.** It renders through an Expo DOM component (`'use dom'` → web three.js inside the SDK 57 dom-webview that every dev client already ships):
+- `src/components/home/Ronin3DDom.tsx` — the 3D scene (web three.js; GLB passed in as a base64 prop; mood → clip crossfades, blink, one-shot `resolved_nod`). Bundles for the web platform: keep it free of react-native/app-domain imports.
+- `src/domain/ronin/useRoninGlbBase64.ts` — RN-side GLB→base64 reader (expo-asset + expo-file-system, cached).
+- `src/components/home/RoninCharacter.tsx` — the seam: `RONIN_3D_ENABLED` kill switch in `src/domain/ronin/roninModel.ts` (set `false` → exact static-PNG behavior); PNG fades out only after the scene reports ready; any error falls back to PNG.
+- `src/screens/ProfileScreen.tsx` — `__DEV__`-only "Ronin 3D bench" on the Me tab: DOM-runtime canary chip + big panel + mood buttons. Use it to smoke-test any new dev client.
+- **Required pure-JS deps for DOM components** (no native code, safe without rebuild): `@expo/metro-runtime`, `react-native-web`, `react-dom`. Missing ones fail as `DOM Bundling failed … Unable to resolve "<pkg>"` in Metro.
+- `src/components/home/Ronin3D.tsx` (expo-gl + R3F native variant) is **parked, unused** — a future dev client built with expo-gl can switch the seam back for native GL.
+
+**Local native iOS builds are currently NOT viable on this 8 GB MacBook Air** (repeated clang PCM corruption — "malformed or corrupted precompiled file" — across 10+ attempts: every cache tier wiped, quiet system, `-jobs 2`; one SWBBuildService segfault). Root cause: memory starvation — internal disk at ~100 % means swap can't grow. Don't burn cycles re-deriving this; free 10–20 GB internal and/or run Apple Diagnostics (D-key boot) to rule out RAM issues before trying again.
+- **Xcode DerivedData is redirected** to an APFS sparse image on the T7: `defaults read com.apple.dt.Xcode IDECustomDerivedDataLocation` → `/Volumes/DevBuilds/DerivedData`; image file is `"/Volumes/rka T7/DevBuilds.sparseimage"` — remount after unplug/reboot with `hdiutil attach "/Volumes/rka T7/DevBuilds.sparseimage"` or builds silently fall back to the full internal disk.
+- **EAS cloud still fails** with "lost connection to worker" (retried 2026-07-09, build d53dded3) — likely worker OOM at `m-medium`; `m-large` needs a paid plan.
+- The `apps/mobile/ios/Podfile` has a `post_install` hook fixing `expo-widgets`/`expo-constants` script phases that break on the space in "Coding Projects". It survives `pod install` but NOT `npx expo prebuild --clean` — re-apply after prebuild.
+
+**Parallel Claude sessions:** read `RKA-avatar-lab/COORDINATION.md` (session mailbox: ownership table + machine facts) before editing or building anything in this repo.

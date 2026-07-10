@@ -147,15 +147,17 @@ export function InboxScreenV2({ visible, onClose }: InboxScreenV2Props) {
           />
         )}
 
-        {/* Floating Add Button — hidden during selection, replaced by the bulk toolbar */}
+        {/* Floating Add Button — hidden during selection, replaced by the bulk toolbar.
+            Dark mode's primary is silvery blue, which is too light for a white icon to
+            read against — same fix already applied to the dock FAB / LensFAB. */}
         {!selectionMode ? (
           <TouchableOpacity
             onPress={() => setQuickAddOpen(true)}
-            style={[s.fab, { backgroundColor: palette.primary }]}
+            style={[s.fab, { backgroundColor: palette.primary }, isDark && s.fabGlow]}
             activeOpacity={0.8}
             hitSlop={12}
           >
-            <Plus size={22} color="#fff" strokeWidth={2.5} />
+            <Plus size={22} color={isDark ? '#182229' : '#fff'} strokeWidth={2.5} />
           </TouchableOpacity>
         ) : null}
 
@@ -195,7 +197,7 @@ export function InboxScreenV2({ visible, onClose }: InboxScreenV2Props) {
               }}
               accessibilityLabel="Delete"
             >
-              <Trash2 size={20} color="#ff6b6b" strokeWidth={1.75} />
+              <Trash2 size={20} color={palette.red} strokeWidth={1.75} />
             </TouchableOpacity>
           </View>
         ) : null}
@@ -279,6 +281,11 @@ const s = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 12,
     elevation: 5,
+  },
+  fabGlow: {
+    shadowColor: '#9fb8d1',
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
   },
   toolbar: {
     position: 'absolute',

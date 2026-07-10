@@ -1,7 +1,7 @@
 import 'react-native-get-random-values';
-import { useState, useEffect, useMemo } from 'react';
+import { useCallback, useState, useEffect, useMemo, useRef } from 'react';
 import { useColorScheme, TouchableOpacity, View, Text, StyleSheet } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -14,12 +14,13 @@ import {
 
 import config from './tamagui.config';
 import { ThemeContext } from './src/hooks/useThemeContext';
+import { FabHoldContext } from './src/hooks/useFabHoldAction';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { CalendarScreen } from './src/screens/CalendarScreen';
 import { MenuStack } from './src/navigation/MenuStack';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { InboxScreenV2 } from './src/screens/InboxScreenV2';
-import { QuickAddScreen } from './src/screens/QuickAddScreen';
+import { QuickAddScreen, type QuickAddContext } from './src/screens/QuickAddScreen';
 import { PersistentTimerBanner } from './src/components/PersistentTimerBanner';
 import { requestNotificationPermission, setBadgeCount } from './src/hooks/useNotifications';
 import { getInboxItems, getDb } from './src/db/database';
@@ -37,13 +38,15 @@ const TAB_ITEMS = [
   { name: 'Profile',  label: 'Me',       Icon: User        },
 ];
 
-function AppleTabBar({ state, navigation, isDark, onFabPress }: any) {
+function AppleTabBar({ state, navigation, isDark, onFabPress, onFabHold }: any) {
   const insets = useSafeAreaInsets();
-  const activeColor = '#007aff';
+  // Silvery blue in dark mode (the locked-in dark accent), iOS blue in light
+  // mode — see src/theme/colors.ts.
+  const activeColor = isDark ? '#9fb8d1' : '#007aff';
   const inactiveColor = isDark ? 'rgba(242,242,242,0.40)' : 'rgba(13,13,13,0.35)';
   const borderColor = isDark ? 'rgba(255,255,255,0.10)' : 'rgba(13,13,13,0.10)';
 
-  const bgColor = isDark ? 'rgba(12,12,12,0.92)' : 'rgba(250,249,246,0.92)';
+  const bgColor = isDark ? 'rgba(10,10,11,0.92)' : 'rgba(250,249,246,0.92)';
 
   return (
     <View style={[styles.tabBarOuter, { paddingBottom: insets.bottom, borderTopColor: borderColor, backgroundColor: bgColor }]}>
@@ -78,16 +81,29 @@ function AppleTabBar({ state, navigation, isDark, onFabPress }: any) {
           })}
         </View>
 
-        {/* FAB — lives above tab bar, right-aligned */}
+        {/* FAB — lives above tab bar, right-aligned. Tap is always generic
+            Create (context-aware defaults, see App.tsx openQuickAdd); a
+            long-press runs the current screen's distinct create action, if
+            it registered one (see useRegisterFabHoldAction) — this replaces
+            what used to be a separate top-right "+" per lens screen. */}
         <TouchableOpacity
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             onFabPress();
           }}
-          style={[styles.fab, { backgroundColor: isDark ? '#ffffff' : '#0d0d0d' }]}
+          onLongPress={() => {
+            if (!onFabHold()) return;
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+          }}
+          delayLongPress={400}
+          style={[
+            styles.fab,
+            { backgroundColor: isDark ? '#9fb8d1' : '#0d0d0d' },
+            isDark && styles.fabGlow,
+          ]}
           activeOpacity={0.85}
         >
-          <Plus size={22} color={isDark ? '#0d0d0d' : '#ffffff'} strokeWidth={2.5} />
+          <Plus size={22} color={isDark ? '#182229' : '#ffffff'} strokeWidth={2.5} />
         </TouchableOpacity>
       </View>
     </View>
@@ -101,6 +117,45 @@ export default function App() {
 
   const [inboxOpen, setInboxOpen] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [quickAddContext, setQuickAddContext] = useState<QuickAddContext>({});
+  const navigationRef = useNavigationContainerRef();
+  const holdActionRef = useRef<(() => void) | null>(null);
+  const setHoldAction = useCallback((action: (() => void) | null) => {
+    holdActionRef.current = action;
+  }, []);
+  const fabHoldCtx = useMemo(() => ({ setHoldAction }), [setHoldAction]);
+
+  // Returns whether a hold action actually ran, so the FAB only fires
+  // haptics when the long-press did something.
+  const runFabHold = () => {
+    const action = holdActionRef.current;
+    if (!action) return false;
+    action();
+    return true;
+  };
+
+  // The dock FAB is always "Create" — this reads the currently focused route
+  // (across nested navigators) to supply sensible defaults instead of
+  // maintaining a second, differently-styled "+" per screen. Extend this
+  // switch as more lenses gain their own contextual defaults (Areas, a
+  // Today/time-block view, etc.) — currently only Tasks and ProjectDetail
+  // have real context to offer.
+  const openQuickAdd = () => {
+    const route = navigationRef.getCurrentRoute();
+    if (route?.name === 'ProjectDetail') {
+      const params = route.params as { projectId?: string; title?: string } | undefined;
+      setQuickAddContext({
+        status: 'active',
+        projectId: params?.projectId,
+        projectTitle: params?.title,
+      });
+    } else if (route?.name === 'Tasks') {
+      setQuickAddContext({ status: 'active' });
+    } else {
+      setQuickAddContext({});
+    }
+    setQuickAddOpen(true);
+  };
 
   const themeCtx = useMemo(() => ({
     isDark,
@@ -123,17 +178,19 @@ export default function App() {
 
   return (
     <ThemeContext.Provider value={themeCtx}>
+      <FabHoldContext.Provider value={fabHoldCtx}>
       <TamaguiProvider config={config as any} defaultTheme={isDark ? 'dark' : 'light'}>
         <SafeAreaProvider>
           <GestureHandlerRootView style={{ flex: 1 }}>
             <StatusBar style={isDark ? 'light' : 'dark'} />
-            <NavigationContainer>
+            <NavigationContainer ref={navigationRef}>
               <Tab.Navigator
                 tabBar={(props) => (
                   <AppleTabBar
                     {...props}
                     isDark={isDark}
-                    onFabPress={() => setQuickAddOpen(true)}
+                    onFabPress={openQuickAdd}
+                    onFabHold={runFabHold}
                   />
                 )}
                 screenOptions={{ headerShown: false }}
@@ -157,13 +214,14 @@ export default function App() {
 
             {/* Sheets — rendered above navigation, inside GestureHandlerRootView */}
             <InboxScreenV2 visible={inboxOpen} onClose={() => setInboxOpen(false)} />
-            <QuickAddScreen visible={quickAddOpen} onClose={() => setQuickAddOpen(false)} />
+            <QuickAddScreen visible={quickAddOpen} onClose={() => setQuickAddOpen(false)} context={quickAddContext} />
           </GestureHandlerRootView>
 
           {/* Timer always on top of everything */}
           <PersistentTimerBanner />
         </SafeAreaProvider>
       </TamaguiProvider>
+      </FabHoldContext.Provider>
     </ThemeContext.Provider>
   );
 }
@@ -211,5 +269,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.20,
     shadowRadius: 12,
     elevation: 8,
+  },
+  fabGlow: {
+    shadowColor: '#9fb8d1',
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
   },
 });

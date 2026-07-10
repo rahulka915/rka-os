@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Inbox, CheckCircle2, ChevronRight } from '../../icons';
+import { getThemeColors } from '../../theme';
 
 interface InboxScrollCardProps {
   inboxCount: number;
@@ -10,37 +11,45 @@ interface InboxScrollCardProps {
 
 export function InboxScrollCard({ inboxCount, onPress, isDark }: InboxScrollCardProps) {
   const hasItems = inboxCount > 0;
+  const palette = getThemeColors(isDark);
 
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onPress();
   };
 
-  const cardBg = isDark ? '#1e1e1e' : '#ffffff';
-  const textColor = isDark ? '#f2f2f2' : '#1c1c1e';
-  const secondaryColor = isDark ? 'rgba(255,255,255,0.40)' : 'rgba(60,60,67,0.5)';
+  // Dark mode: silvery-blue accent for the "needs attention" state (matching
+  // the rest of the theme) instead of the old maroon; light mode keeps
+  // maroon. Green stays for the all-clear state in both — it's a semantic
+  // success color, not a theme accent.
+  const attentionColor = isDark ? palette.blue : '#a41e34';
+  const attentionSoft = isDark ? 'rgba(159,184,209,0.14)' : 'rgba(164,30,52,0.12)';
+  const cardBg = isDark ? palette.fillStrong : '#ffffff';
+  const cardBorder = isDark ? palette.separatorStrong : 'transparent';
+  const textColor = palette.text;
+  const secondaryColor = palette.textMuted;
 
   return (
     <View style={styles.container}>
       {/* Shadow cards — stacked paper effect */}
-      <View style={[styles.shadowCard, styles.shadowCard3, { backgroundColor: isDark ? '#161616' : '#ece6da' }]} />
-      <View style={[styles.shadowCard, styles.shadowCard2, { backgroundColor: isDark ? '#191919' : '#f5efe2' }]} />
+      <View style={[styles.shadowCard, styles.shadowCard3, { backgroundColor: isDark ? '#141416' : '#ece6da' }]} />
+      <View style={[styles.shadowCard, styles.shadowCard2, { backgroundColor: isDark ? '#18181b' : '#f5efe2' }]} />
 
       {/* Foreground card */}
       <TouchableOpacity
         onPress={hasItems ? handlePress : undefined}
         activeOpacity={hasItems ? 0.75 : 1}
-        style={[styles.foregroundCard, { backgroundColor: cardBg }]}
+        style={[styles.foregroundCard, { backgroundColor: cardBg, borderColor: cardBorder, borderWidth: isDark ? StyleSheet.hairlineWidth : 0 }]}
       >
         {/* Icon bubble */}
         <View
           style={[
             styles.iconBubble,
-            { backgroundColor: hasItems ? 'rgba(164,30,52,0.12)' : 'rgba(52,168,83,0.14)' },
+            { backgroundColor: hasItems ? attentionSoft : 'rgba(52,168,83,0.14)' },
           ]}
         >
           {hasItems ? (
-            <Inbox size={17} color="#a41e34" strokeWidth={1.5} />
+            <Inbox size={17} color={attentionColor} strokeWidth={1.5} />
           ) : (
             <CheckCircle2 size={17} color="#34a853" strokeWidth={1.5} />
           )}
@@ -59,7 +68,7 @@ export function InboxScrollCard({ inboxCount, onPress, isDark }: InboxScrollCard
         </View>
 
         {/* Chevron */}
-        {hasItems && <ChevronRight size={14} color="#a41e34" strokeWidth={2} />}
+        {hasItems && <ChevronRight size={14} color={attentionColor} strokeWidth={2} />}
       </TouchableOpacity>
     </View>
   );

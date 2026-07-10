@@ -11,9 +11,10 @@ export type RoninOutfit = 'base' | 'haori' | 'training' | 'journey';
 // (once an asset lands) doesn't require new plumbing.
 export type RoninCatState = 'calm' | 'alert' | 'asleep' | 'watching' | 'concerned' | 'celebrating';
 
-// 'static' is the only kind implemented today (plain PNG + crossfade).
-// Reserved for when individual production assets move to Rive/Lottie/sprite.
-export type RoninAssetKind = 'static';
+// 'static' is the plain PNG + crossfade path. 'model3d' is the animated GLB
+// companion (see roninModel.ts / Ronin3D.tsx); 'static' remains the
+// always-available fallback when 3D is disabled or unavailable.
+export type RoninAssetKind = 'static' | 'model3d';
 
 export interface RoninMoodConfig {
   mood: RoninMood;

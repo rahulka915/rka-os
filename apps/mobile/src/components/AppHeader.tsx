@@ -29,12 +29,13 @@ export function AppHeader({ onProfilePress }: AppHeaderProps) {
       {/* Avatar (left) */}
       <AvatarCompanion size="sm" onPress={onProfilePress} />
 
-      {/* Logo (centre) */}
+      {/* Logo (centre) — understated, not competing with the bold hero
+          greeting directly below it */}
       <Text
-        fontSize={13}
-        fontWeight="800"
-        color="$text"
-        style={{ letterSpacing: 2, textTransform: 'uppercase' }}
+        fontSize={12}
+        fontWeight="600"
+        color="$textSecondary"
+        style={{ letterSpacing: 1.2, textTransform: 'uppercase' }}
       >
         RKA OS
       </Text>

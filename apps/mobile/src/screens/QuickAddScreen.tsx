@@ -3,16 +3,27 @@ import { AppState, TextInput, StyleSheet, View, Text, TouchableOpacity, Modal, P
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useThemeContext } from '../hooks/useThemeContext';
-import { createItem, formatDate, updateItemMetadata } from '../db/database';
-import { Calendar, Tag, Flag, X, Check } from '../icons';
+import { createItem, formatDate, setRelation, updateItemMetadata } from '../db/database';
+import { Calendar, Tag, Flag, X, Check, FolderKanban } from '../icons';
 import { BottomSheet } from '../components/ui/BottomSheet';
 import { getThemeColors, spacing } from '../theme';
 import { saveDraft, loadDraft, clearDraft, type WhenOption } from '../utils/quickAddDraft';
+
+// Supplied by the dock FAB based on whatever screen is currently focused —
+// see App.tsx's openQuickAdd(). The FAB action is always "Create"; this is
+// just the sensible defaults for the current context. All fields remain
+// user-overridable in the sheet (the project pill can be cleared).
+export interface QuickAddContext {
+  status?: 'inbox' | 'active';
+  projectId?: string;
+  projectTitle?: string;
+}
 
 interface QuickAddScreenProps {
   visible: boolean;
   onClose: () => void;
   defaultStatus?: 'inbox' | 'active';
+  context?: QuickAddContext;
 }
 
 type PriorityOption = 'low' | 'medium' | 'high' | null;
@@ -79,7 +90,7 @@ function PickerModal({
   );
 }
 
-export function QuickAddScreen({ visible, onClose, defaultStatus = 'inbox' }: QuickAddScreenProps) {
+export function QuickAddScreen({ visible, onClose, defaultStatus = 'inbox', context }: QuickAddScreenProps) {
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
   const [title, setTitle] = useState('');
@@ -89,14 +100,19 @@ export function QuickAddScreen({ visible, onClose, defaultStatus = 'inbox' }: Qu
   const [tags, setTags] = useState<string[]>([]);
   const [tagDraft, setTagDraft] = useState('');
   const [openPill, setOpenPill] = useState<OpenPill>(null);
+  // Whether the contextual project assignment (if any) is still applied —
+  // the user can clear it without losing the rest of the context (e.g. the
+  // active-vs-inbox status default).
+  const [projectAssigned, setProjectAssigned] = useState(Boolean(context?.projectId));
   const titleRef = useRef<TextInput>(null);
   const tagInputRef = useRef<TextInput>(null);
 
   useEffect(() => {
     if (!visible) return;
+    setProjectAssigned(Boolean(context?.projectId));
     const t = setTimeout(() => titleRef.current?.focus(), 0); // one tick after hook mount
     return () => clearTimeout(t);
-  }, [visible]);
+  }, [visible, context?.projectId]);
 
   // Phase 4: prefill an unsaved draft on open, only if nothing already typed.
   useEffect(() => {
@@ -131,6 +147,7 @@ export function QuickAddScreen({ visible, onClose, defaultStatus = 'inbox' }: Qu
     setTags([]);
     setTagDraft('');
     setOpenPill(null);
+    setProjectAssigned(Boolean(context?.projectId));
   };
 
   const handleSave = () => {
@@ -153,7 +170,7 @@ export function QuickAddScreen({ visible, onClose, defaultStatus = 'inbox' }: Qu
   // with a second updateItemMetadata call.
   const createSavedItem = (nextTitle: string, nextNotes: string) => {
     const today = formatDate(new Date());
-    let status: 'inbox' | 'active' = defaultStatus;
+    let status: 'inbox' | 'active' = context?.status ?? defaultStatus;
     let scheduledDate: string | undefined;
 
     if (when === 'today') {
@@ -171,6 +188,10 @@ export function QuickAddScreen({ visible, onClose, defaultStatus = 'inbox' }: Qu
     }
 
     const id = createItem('task', nextTitle, status, scheduledDate, nextNotes || undefined);
+
+    if (projectAssigned && context?.projectId) {
+      setRelation(id, 'project', context.projectId);
+    }
 
     const metadata: Record<string, unknown> = {};
     if (when === 'evening') metadata.timeOfDay = 'evening';
@@ -277,6 +298,18 @@ export function QuickAddScreen({ visible, onClose, defaultStatus = 'inbox' }: Qu
       topAnchored
       contentContainerStyle={styles.sheetContent}
     >
+      {projectAssigned && context?.projectId ? (
+        <View style={[styles.contextPill, { backgroundColor: palette.blueSoft }]}>
+          <FolderKanban size={12} color={palette.blue} strokeWidth={1.75} />
+          <Text style={[styles.contextPillText, { color: palette.blue }]} numberOfLines={1}>
+            Adding to {context.projectTitle ?? 'project'}
+          </Text>
+          <TouchableOpacity onPress={() => setProjectAssigned(false)} hitSlop={10}>
+            <X size={12} color={palette.blue} strokeWidth={2} />
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
       <View style={styles.titleRow}>
         <TextInput
           ref={titleRef}
@@ -456,6 +489,20 @@ export function QuickAddScreen({ visible, onClose, defaultStatus = 'inbox' }: Qu
 const styles = StyleSheet.create({
   sheetContent: {
     paddingBottom: spacing[5],
+  },
+  contextPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginBottom: 10,
+  },
+  contextPillText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   titleRow: {
     flexDirection: 'row',

@@ -69,7 +69,23 @@
           "backgroundColor": "#f6f5f1"
         }
       ],
-      "expo-widgets",
+      [
+        "expo-widgets",
+        {
+          "widgets": [
+            {
+              "name": "MedicationTimerActivity",
+              "displayName": "Medication Timer",
+              "description": "Shows elapsed time since a medication dose was taken.",
+              "supportedFamilies": [
+                "accessoryCircular",
+                "accessoryRectangular",
+                "accessoryInline"
+              ]
+            }
+          ]
+        }
+      ],
       "./plugins/withWidgetVersionSync.js"
     ],
     "extra": {

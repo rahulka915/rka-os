@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import {
   Animated,
   Modal,
@@ -28,7 +28,29 @@ import { SurfaceCard, SurfaceIconButton } from './ui/SurfaceCard';
 import { PillContainerIcon } from './ui/PillContainerIcon';
 import { getThemeColors } from '../theme';
 import { usePersistentTimerState } from '../hooks/usePersistentTimerState';
+import { parseMedicationMeta, type PresentedMedicationTimer } from '../utils/timerPresentation';
+import {
+  updateMedicationLiveActivity,
+  endMedicationLiveActivity,
+  subscribeLiveActivityIds,
+  getActiveLiveActivityIds,
+} from '../services/medicationLiveActivity';
 import { ContextMenu } from './ContextMenu';
+
+// Builds the Live Activity's display state from a timer's current DB details —
+// displayStartedAt is always adjusted so a single linear timerInterval shows
+// the true total elapsed regardless of prior pauses (see MedicationTimerActivity).
+function liveActivityStateFor(timer: PresentedMedicationTimer) {
+  const meta = parseMedicationMeta(timer.med);
+  const accumulatedMs = timer.details.accumulatedMs ?? 0;
+  const anchor = timer.details.pausedAt ?? timer.details.startedAt ?? timer.log.timestamp;
+  return {
+    medicationName: timer.med.title,
+    dose: meta.dose,
+    displayStartedAt: anchor - accumulatedMs,
+    pausedAt: timer.details.pausedAt,
+  };
+}
 
 type WidgetSize = { width: number; height: number };
 type Point = { x: number; y: number };
@@ -77,7 +99,7 @@ export function PersistentTimerBanner() {
   const insets = useSafeAreaInsets();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const {
-    timers,
+    timers: allTimers,
     presentation,
     setPresentation,
     position,
@@ -92,6 +114,18 @@ export function PersistentTimerBanner() {
     refresh,
     isHidden,
   } = usePersistentTimerState();
+
+  // A timer with a confirmed-running Live Activity has its Dynamic
+  // Island/Lock Screen presentation already covering it, so the in-app
+  // banner suppresses itself for that timer rather than showing both.
+  const activeLiveActivityIds = useSyncExternalStore(
+    subscribeLiveActivityIds,
+    getActiveLiveActivityIds
+  );
+  const timers = useMemo(
+    () => allTimers.filter((timer) => !activeLiveActivityIds.has(timer.log.id)),
+    [allTimers, activeLiveActivityIds]
+  );
   const [layout, setLayout] = useState<WidgetSize>({ width: 0, height: 0 });
   const [localPosition, setLocalPosition] = useState<Point>(() => position ?? { x: (windowWidth - DEFAULT_COMPACT_SIZE.width) / 2, y: insets.top + 12 });
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -169,7 +203,11 @@ export function PersistentTimerBanner() {
 
     dragResponderRef.current = PanResponder.create({
       onStartShouldSetPanResponder: () => !pinned,
-      onMoveShouldSetPanResponder: (_, gestureState) => !pinned && (Math.abs(gestureState.dx) > 5 || Math.abs(gestureState.dy) > 5),
+      // Threshold was 5px — natural finger tremor during a ~400-500ms long-press
+      // hold almost always exceeds that, so this PanResponder was hijacking the
+      // touch as a "drag" before ContextMenu's long-press timer could ever fire,
+      // silently breaking hold-to-open-menu. 5x'd to tolerate holding still.
+      onMoveShouldSetPanResponder: (_, gestureState) => !pinned && (Math.abs(gestureState.dx) > 25 || Math.abs(gestureState.dy) > 25),
       onPanResponderGrant: () => {
         setIsDragging(true);
         dragStart.current = { ...positionRef.current };
@@ -243,27 +281,47 @@ export function PersistentTimerBanner() {
   const primaryActionLabel = primaryTimer?.isPaused ? 'Resume' : 'Pause';
   const primaryActionIcon = primaryTimer?.isPaused ? <Play size={14} color={palette.textSecondary} strokeWidth={2} /> : <Pause size={14} color={palette.textSecondary} strokeWidth={2} />;
 
-  const handlePrimaryAction = () => {
-    if (!primaryTimer) return;
-    if (primaryTimer.isPaused) {
+  const handleTogglePause = (timer: PresentedMedicationTimer) => {
+    const { log, med, details } = timer;
+    const accumulatedMs = details.accumulatedMs ?? 0;
+    if (timer.isPaused) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-      resumeMedicationTimer(primaryTimer.log.id, primaryTimer.med.id);
+      resumeMedicationTimer(log.id, med.id);
+      updateMedicationLiveActivity(log.id, {
+        ...liveActivityStateFor(timer),
+        displayStartedAt: Date.now() - accumulatedMs,
+        pausedAt: undefined,
+      });
     } else {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-      pauseMedicationTimer(primaryTimer.log.id, primaryTimer.med.id);
+      pauseMedicationTimer(log.id, med.id);
+      // displayStartedAt is invariant across pause (see liveActivityStateFor) —
+      // freezing just means passing a pausedAt now instead of leaving it ticking.
+      updateMedicationLiveActivity(log.id, { ...liveActivityStateFor(timer), pausedAt: Date.now() });
     }
     refresh();
   };
 
-  const handleStopTimer = (logId: string, itemId: string) => {
+  const handlePrimaryAction = () => {
+    if (!primaryTimer) return;
+    handleTogglePause(primaryTimer);
+  };
+
+  const handleStopTimer = (timer: PresentedMedicationTimer) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    stopMedicationTimer(logId, itemId);
+    stopMedicationTimer(timer.log.id, timer.med.id);
+    endMedicationLiveActivity(timer.log.id, liveActivityStateFor(timer));
     refresh();
   };
 
-  const handleResetTimer = (logId: string, itemId: string) => {
+  const handleResetTimer = (timer: PresentedMedicationTimer) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-    resetMedicationTimer(logId, itemId);
+    resetMedicationTimer(timer.log.id, timer.med.id);
+    updateMedicationLiveActivity(timer.log.id, {
+      ...liveActivityStateFor(timer),
+      displayStartedAt: Date.now(),
+      pausedAt: undefined,
+    });
     refresh();
   };
 
@@ -295,7 +353,7 @@ export function PersistentTimerBanner() {
     {
       label: 'Reset',
       icon: <TimerReset size={15} color={palette.textSecondary} />,
-      onPress: () => primaryTimer && handleResetTimer(primaryTimer.log.id, primaryTimer.med.id),
+      onPress: () => primaryTimer && handleResetTimer(primaryTimer),
     },
     {
       label: pinned ? 'Unpin Position' : 'Pin Position',
@@ -341,10 +399,16 @@ export function PersistentTimerBanner() {
           },
         ]}
       >
-        <ContextMenu items={rootContextItems}>
+        {/* ContextMenu's own TouchableOpacity is the ONLY touchable in this
+            subtree — it already handles tap (onPress) and long-press
+            (opens the menu). Nesting another TouchableOpacity inside it
+            (as this used to) breaks long-press entirely: React Native
+            always gives touch responder to the deepest touchable, so the
+            inner one would silently claim the gesture and ContextMenu's
+            long-press handler would never fire. */}
+        <ContextMenu items={rootContextItems} onPress={cyclePresentationState}>
           <FloatingSurface isDark={isDark} style={[styles.surfaceShell, isDragging && styles.surfaceDragging]}>
             {presentation === 'expanded' ? (
-              <TouchableOpacity activeOpacity={0.8} onPress={cyclePresentationState} delayLongPress={500} onLongPress={() => {}} disabled={false}>
                 <View style={styles.expandedShell}>
 
                   <View style={[styles.heroCard, { backgroundColor: primaryTimer.isReady ? palette.greenSoft : palette.blueSoft }]}>
@@ -366,11 +430,11 @@ export function PersistentTimerBanner() {
                       {primaryActionIcon}
                       <Text style={[styles.actionText, { color: palette.textSecondary }]}>{primaryActionLabel}</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => primaryTimer && handleResetTimer(primaryTimer.log.id, primaryTimer.med.id)} style={[styles.actionButton, { backgroundColor: palette.fill }]}>
+                    <TouchableOpacity onPress={() => primaryTimer && handleResetTimer(primaryTimer)} style={[styles.actionButton, { backgroundColor: palette.fill }]}>
                       <TimerReset size={14} color={palette.textSecondary} strokeWidth={2} />
                       <Text style={[styles.actionText, { color: palette.textSecondary }]}>Reset</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => primaryTimer && handleStopTimer(primaryTimer.log.id, primaryTimer.med.id)} style={[styles.actionButton, { backgroundColor: palette.redSoft }]}>
+                    <TouchableOpacity onPress={() => primaryTimer && handleStopTimer(primaryTimer)} style={[styles.actionButton, { backgroundColor: palette.redSoft }]}>
                       <StopCircle size={14} color={palette.red} strokeWidth={1.8} />
                       <Text style={[styles.actionText, { color: palette.red }]}>Stop</Text>
                     </TouchableOpacity>
@@ -392,20 +456,13 @@ export function PersistentTimerBanner() {
                           }
                           trailing={
                             <View style={styles.rowActions}>
-                              <SurfaceIconButton isDark={isDark} onPress={() => {
-                                if (timer.isPaused) {
-                                  resumeMedicationTimer(timer.log.id, timer.med.id);
-                                } else {
-                                  pauseMedicationTimer(timer.log.id, timer.med.id);
-                                }
-                                refresh();
-                              }} size={30}>
+                              <SurfaceIconButton isDark={isDark} onPress={() => handleTogglePause(timer)} size={30}>
                                 {timer.isPaused ? <Play size={14} color={palette.textSecondary} strokeWidth={2} /> : <Pause size={14} color={palette.textSecondary} strokeWidth={2} />}
                               </SurfaceIconButton>
-                              <SurfaceIconButton isDark={isDark} onPress={() => handleResetTimer(timer.log.id, timer.med.id)} size={30}>
+                              <SurfaceIconButton isDark={isDark} onPress={() => handleResetTimer(timer)} size={30}>
                                 <TimerReset size={14} color={palette.textSecondary} strokeWidth={2} />
                               </SurfaceIconButton>
-                              <SurfaceIconButton isDark={isDark} onPress={() => handleStopTimer(timer.log.id, timer.med.id)} tone="danger" size={32}>
+                              <SurfaceIconButton isDark={isDark} onPress={() => handleStopTimer(timer)} tone="danger" size={32}>
                                 <StopCircle size={16} color={palette.red} strokeWidth={1.8} />
                               </SurfaceIconButton>
                             </View>
@@ -415,9 +472,7 @@ export function PersistentTimerBanner() {
                     ))}
                   </View>
                 </View>
-              </TouchableOpacity>
             ) : presentation === 'minimized' ? (
-              <TouchableOpacity activeOpacity={0.8} onPress={cyclePresentationState} delayLongPress={500} onLongPress={() => {}}>
                 <View style={styles.minimizedShell}>
                   <View style={[styles.minimizedBadge, { backgroundColor: primaryTimer.isReady ? palette.greenSoft : palette.blueSoft }]}>
                     <PillContainerIcon size={14} color={primaryTimer.isReady ? palette.green : palette.blue} strokeWidth={1.8} />
@@ -426,9 +481,7 @@ export function PersistentTimerBanner() {
                     </Text>
                   </View>
                 </View>
-              </TouchableOpacity>
             ) : (
-              <TouchableOpacity activeOpacity={0.8} onPress={cyclePresentationState} delayLongPress={500} onLongPress={() => {}}>
                 <View style={styles.compactShell}>
                   <View style={[styles.heroBadgeIcon, { backgroundColor: primaryTimer.isReady ? palette.greenSoft : palette.blueSoft }]}>
                     <PillContainerIcon size={18} color={primaryTimer.isReady ? palette.green : palette.blue} strokeWidth={1.8} />
@@ -445,7 +498,6 @@ export function PersistentTimerBanner() {
                     {primaryActionIcon}
                   </SurfaceIconButton>
                 </View>
-              </TouchableOpacity>
             )}
           </FloatingSurface>
         </ContextMenu>

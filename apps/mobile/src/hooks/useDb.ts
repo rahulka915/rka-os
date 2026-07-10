@@ -14,13 +14,16 @@ import {
   getMedications,
   logMedicationTaken,
   getMedicationLogs,
+  getLastTakenLog,
   getItemsForDate,
   getInstancesForDate,
   getTimelineEntriesForDate,
   getDb,
+  type MedicationMeta,
 } from '../db/database';
 import type { Item, ItemInstance } from '../db/types';
 import type { TimelineEntry } from '../db/database';
+import { startMedicationLiveActivity } from '../services/medicationLiveActivity';
 
 export function useInbox() {
   const [items, setItems] = useState<Item[]>([]);
@@ -103,8 +106,20 @@ export function useMedications() {
 
   const takeMedication = useCallback((id: string, takenAt?: number, startTimer = false) => {
     logMedicationTaken(id, takenAt, startTimer);
+    if (startTimer) {
+      const item = medications.find(m => m.id === id);
+      const log = getLastTakenLog(id);
+      if (item && log) {
+        const meta: MedicationMeta = item.metadata ? JSON.parse(item.metadata) : {};
+        startMedicationLiveActivity(log.id, {
+          medicationName: item.title,
+          dose: meta.dose,
+          displayStartedAt: log.timestamp,
+        });
+      }
+    }
     refresh();
-  }, [refresh]);
+  }, [refresh, medications]);
 
   return { medications, refresh, takeMedication };
 }

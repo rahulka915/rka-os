@@ -85,6 +85,7 @@ export function HomeScreen({ onInboxPress, inboxOpen, onHeroPress }: HomeScreenP
           <NextUpCard
             result={nextUp}
             isDark={isDark}
+            timeOfDay={getTimeOfDay(hour)}
             onAction={(result) => {
               console.log('Next Up action for:', result.id, result.actionLabel);
             }}

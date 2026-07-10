@@ -225,7 +225,7 @@ function WeekStrip({ selected, onSelect, isDark }: WeekStripProps) {
               style={[
                 s.dayCircle,
                 {
-                  backgroundColor: isSelected ? palette.text : 'transparent',
+                  backgroundColor: isSelected ? palette.blue : 'transparent',
                   borderColor: isToday && !isSelected ? palette.blue : 'transparent',
                 },
               ]}
@@ -234,7 +234,7 @@ function WeekStrip({ selected, onSelect, isDark }: WeekStripProps) {
                 style={[
                   s.dayNumber,
                   {
-                    color: isSelected ? palette.bg : isToday ? palette.blue : palette.text,
+                    color: isSelected ? (isDark ? '#182229' : '#ffffff') : isToday ? palette.blue : palette.text,
                     fontWeight: isToday ? '800' : '500',
                   },
                 ]}
@@ -242,7 +242,7 @@ function WeekStrip({ selected, onSelect, isDark }: WeekStripProps) {
                 {day.getDate()}
               </RNText>
             </RNView>
-            {isToday && !isSelected ? <RNView style={s.todayDot} /> : <RNView style={s.todayDotSpacer} />}
+            {isToday && !isSelected ? <RNView style={[s.todayDot, { backgroundColor: palette.blue }]} /> : <RNView style={s.todayDotSpacer} />}
           </TouchableOpacity>
         );
       })}
@@ -707,10 +707,10 @@ export function CalendarScreen() {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   openCreate();
                 }}
-                style={[s.fabButton, { backgroundColor: palette.text }]}
+                style={[s.fabButton, { backgroundColor: palette.blue }]}
                 hitSlop={10}
               >
-                <Plus size={18} color={palette.bg} strokeWidth={2.5} />
+                <Plus size={18} color={isDark ? '#182229' : '#ffffff'} strokeWidth={2.5} />
               </TouchableOpacity>
             </RNView>
           </RNView>
@@ -1174,7 +1174,6 @@ const s = StyleSheet.create({
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#007aff',
   },
   todayDotSpacer: {
     width: 4,
@@ -1314,8 +1313,12 @@ const s = StyleSheet.create({
     position: 'relative',
   },
   currentLine: {
+    // Starts after the hour rail (paddingHorizontal + rail width + gap =
+    // 12 + 82 + 8) so the line only spans the entries area — it used to
+    // start at the row's left edge and cut across the hour rail's
+    // time-of-day chip and quarter-hour ticks.
     position: 'absolute',
-    left: 12,
+    left: 102,
     right: 12,
     zIndex: 10,
   },

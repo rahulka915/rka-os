@@ -1,21 +1,26 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Alert, StyleSheet } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { useAreas } from '../hooks/useDb';
-import { createItem, deleteItem, getAreaProjectCount, getProjectsForArea } from '../db/database';
+import { createItem, deleteItem, getAreaProjectCount } from '../db/database';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
 import { LensSurface } from '../components/LensSurface';
-import { LensFAB } from '../components/LensFAB';
 import { QuickCreateSheet } from '../components/QuickCreateSheet';
+import { useRegisterFabHoldAction } from '../hooks/useFabHoldAction';
 import type { Item } from '../db/types';
 
+// No header "+" — holding the dock FAB while this screen is focused opens
+// New Area instead (see useRegisterFabHoldAction / App.tsx's runFabHold).
 export function AreasScreen() {
+  const navigation = useNavigation();
   const { areas, refresh } = useAreas();
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
   const [createOpen, setCreateOpen] = useState(false);
-  const [expanded, setExpanded] = useState<string | null>(null);
+
+  useRegisterFabHoldAction(useCallback(() => setCreateOpen(true), []));
 
   const handleCreate = (title: string) => {
     createItem('area', title, 'active');
@@ -39,48 +44,34 @@ export function AreasScreen() {
   };
 
   return (
-    <LensSurface title="Areas" headerRight={<LensFAB onPress={() => setCreateOpen(true)} />}>
+    <LensSurface title="Areas">
       {areas.length === 0 ? (
         <View style={styles.empty}>
           <Text style={[styles.emptyTitle, { color: palette.text }]}>No areas yet</Text>
           <Text style={[styles.emptySub, { color: palette.textSecondary }]}>
-            Areas group related projects (e.g. Health, Finances). Tap + to create one.
+            Areas group related projects (e.g. Health, Finances). Hold the + in the dock to create one.
           </Text>
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
-          {areas.map(area => {
-            const count = getAreaProjectCount(area.id);
-            const isOpen = expanded === area.id;
-            const projects = isOpen ? getProjectsForArea(area.id) : [];
-            return (
-              <View key={area.id} style={{ marginBottom: 8 }}>
+          <View style={styles.rows}>
+            {areas.map(area => {
+              const count = getAreaProjectCount(area.id);
+              return (
                 <TouchableOpacity
+                  key={area.id}
                   style={[styles.row, { backgroundColor: palette.surface }]}
                   activeOpacity={0.7}
-                  onPress={() => setExpanded(isOpen ? null : area.id)}
+                  onPress={() => (navigation as any).navigate('AreaDetail', { areaId: area.id, title: area.title })}
                   onLongPress={() => handleLongPress(area)}
                   delayLongPress={400}
                 >
                   <Text style={[styles.rowTitle, { color: palette.text }]} numberOfLines={1}>{area.title}</Text>
                   <Text style={[styles.rowCount, { color: palette.textTertiary }]}>{count}</Text>
                 </TouchableOpacity>
-                {isOpen && (
-                  <View style={styles.nestedRows}>
-                    {projects.length === 0 ? (
-                      <Text style={[styles.nestedEmpty, { color: palette.textTertiary }]}>No projects in this area yet</Text>
-                    ) : (
-                      projects.map(p => (
-                        <View key={p.id} style={[styles.nestedRow, { borderColor: palette.separator }]}>
-                          <Text style={[styles.nestedTitle, { color: palette.textSecondary }]} numberOfLines={1}>{p.title}</Text>
-                        </View>
-                      ))
-                    )}
-                  </View>
-                )}
-              </View>
-            );
-          })}
+              );
+            })}
+          </View>
         </ScrollView>
       )}
 
@@ -100,6 +91,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 24,
   },
+  rows: {
+    gap: 8,
+  },
   row: {
     borderRadius: 14,
     paddingHorizontal: 16,
@@ -117,25 +111,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     marginLeft: 12,
-  },
-  nestedRows: {
-    paddingLeft: 16,
-    paddingTop: 8,
-    gap: 6,
-  },
-  nestedRow: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderLeftWidth: 2,
-  },
-  nestedTitle: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  nestedEmpty: {
-    fontSize: 13,
-    paddingLeft: 12,
-    paddingVertical: 4,
   },
   empty: {
     flex: 1,

@@ -1,7 +1,9 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { MenuScreen } from '../screens/MenuScreen';
 import { AreasScreen } from '../screens/AreasScreen';
+import { AreaDetailScreen } from '../screens/AreaDetailScreen';
 import { ProjectsScreen } from '../screens/ProjectsScreen';
+import { ProjectDetailScreen } from '../screens/ProjectDetailScreen';
 import { TasksScreen } from '../screens/TasksScreen';
 import { WorkoutsScreen } from '../screens/WorkoutsScreen';
 import { MedicationsScreen } from '../screens/MedicationsScreen';
@@ -13,7 +15,9 @@ export function MenuStack() {
     <Stack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
       <Stack.Screen name="MenuHome" component={MenuScreen} />
       <Stack.Screen name="Areas" component={AreasScreen} />
+      <Stack.Screen name="AreaDetail" component={AreaDetailScreen} />
       <Stack.Screen name="Projects" component={ProjectsScreen} />
+      <Stack.Screen name="ProjectDetail" component={ProjectDetailScreen} />
       <Stack.Screen name="Tasks" component={TasksScreen} />
       <Stack.Screen name="Workouts" component={WorkoutsScreen} />
       <Stack.Screen name="Medications" component={MedicationsScreen} />

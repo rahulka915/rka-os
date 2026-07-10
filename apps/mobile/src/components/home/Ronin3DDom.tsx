@@ -120,6 +120,17 @@ export default function Ronin3DDom({
         const fill = new PointLight(0xb9c2d8, 30);
         fill.position.set(-2.2, 1.2, -1.5);
         scene.add(fill);
+        // Every light above sits elevated, so downward-facing pockets boxed
+        // in by neighboring geometry (e.g. the hakama flap tucked under the
+        // katana between the crossed legs, measured at roughly (-0.03, 0.06,
+        // 0.15) in this Y-up scene) get no direct light and render flat/
+        // matte-black next to the rest of the figure. Positioned just below
+        // and slightly in front of that point, aimed back up into the
+        // pocket; tight falloff distance keeps it from spilling onto the
+        // rest of the character.
+        const under = new PointLight(0xfff2e0, 0.5, 1.0, 2);
+        under.position.set(-0.03, -0.05, 0.5);
+        scene.add(under);
 
         renderer = new WebGLRenderer({ alpha: true, antialias: true });
         renderer.setClearColor(0x000000, 0);
@@ -147,12 +158,18 @@ export default function Ronin3DDom({
         const actions: Record<string, AnimationAction> = {};
         for (const clip of gltf.animations) actions[clip.name] = mixer.clipAction(clip);
 
+        // Collect every mesh carrying the eyeBlink morph by traversal, not by
+        // name: multi-primitive glTF meshes (v1 eyes are sclera/iris/pupil/
+        // spark primitives) load as a Group named Eye_* whose children hold
+        // the morphs. Works for v0's single-primitive eyes too.
         const eyes: { mesh: Mesh; blinkIndex: number }[] = [];
-        for (const name of ['Eye_L', 'Eye_R']) {
-          const mesh = gltf.scene.getObjectByName(name) as Mesh | null;
-          const blinkIndex = mesh?.morphTargetDictionary?.eyeBlink;
-          if (mesh && blinkIndex !== undefined) eyes.push({ mesh, blinkIndex });
-        }
+        gltf.scene.traverse((node) => {
+          const mesh = node as Mesh;
+          const blinkIndex = mesh.morphTargetDictionary?.eyeBlink;
+          if (blinkIndex !== undefined && mesh.morphTargetInfluences) {
+            eyes.push({ mesh, blinkIndex });
+          }
+        });
 
         let current: AnimationAction | null = null;
         let currentName = '';

@@ -1,21 +1,21 @@
-import { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Alert, StyleSheet } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useTasks, useProjects } from '../hooks/useDb';
-import { createItem, deleteItem, updateItemStatus, setRelation, getRelation } from '../db/database';
+import { deleteItem, updateItemStatus, setRelation, getRelation } from '../db/database';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
 import { LensSurface } from '../components/LensSurface';
-import { LensFAB } from '../components/LensFAB';
-import { QuickCreateSheet } from '../components/QuickCreateSheet';
 import type { Item } from '../db/types';
 
+// No header "+" here — creating a plain task is identical to the dock FAB's
+// default action (see App.tsx openQuickAdd, which defaults to status:
+// 'active' when focused on this screen). A second create entry point here
+// would just be a second button for the same underlying action.
 export function TasksScreen() {
   const { tasks, refresh } = useTasks();
   const { projects } = useProjects();
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
-  const [createOpen, setCreateOpen] = useState(false);
 
   const active = tasks.filter(t => t.status !== 'someday');
   const someday = tasks.filter(t => t.status === 'someday');
@@ -23,12 +23,6 @@ export function TasksScreen() {
   const getProjectTitle = (item: Item): string | null => {
     const id = getRelation(item.id, 'project');
     return id ? projects.find(p => p.id === id)?.title ?? null : null;
-  };
-
-  const handleCreate = (title: string) => {
-    createItem('task', title, 'active');
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    refresh();
   };
 
   const promptSetProject = (item: Item) => {
@@ -96,11 +90,11 @@ export function TasksScreen() {
   };
 
   return (
-    <LensSurface title="Tasks" headerRight={<LensFAB onPress={() => setCreateOpen(true)} />}>
+    <LensSurface title="Tasks">
       {tasks.length === 0 ? (
         <View style={styles.empty}>
           <Text style={[styles.emptyTitle, { color: palette.text }]}>No tasks yet</Text>
-          <Text style={[styles.emptySub, { color: palette.textSecondary }]}>Tap + to create one</Text>
+          <Text style={[styles.emptySub, { color: palette.textSecondary }]}>Tap the + in the dock to create one</Text>
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
@@ -118,14 +112,6 @@ export function TasksScreen() {
           )}
         </ScrollView>
       )}
-
-      <QuickCreateSheet
-        visible={createOpen}
-        title="New Task"
-        placeholder="Task name..."
-        onClose={() => setCreateOpen(false)}
-        onSubmit={handleCreate}
-      />
     </LensSurface>
   );
 }

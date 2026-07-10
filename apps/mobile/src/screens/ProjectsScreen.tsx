@@ -1,21 +1,27 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Alert, StyleSheet } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { useProjects, useAreas } from '../hooks/useDb';
 import { createItem, deleteItem, updateItemStatus, setRelation, getRelation, getProjectItemCount } from '../db/database';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
 import { LensSurface } from '../components/LensSurface';
-import { LensFAB } from '../components/LensFAB';
 import { QuickCreateSheet } from '../components/QuickCreateSheet';
+import { useRegisterFabHoldAction } from '../hooks/useFabHoldAction';
 import type { Item } from '../db/types';
 
+// No header "+" — holding the dock FAB while this screen is focused opens
+// New Project instead (see useRegisterFabHoldAction / App.tsx's runFabHold).
 export function ProjectsScreen() {
+  const navigation = useNavigation();
   const { projects, refresh } = useProjects();
   const { areas } = useAreas();
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
   const [createOpen, setCreateOpen] = useState(false);
+
+  useRegisterFabHoldAction(useCallback(() => setCreateOpen(true), []));
 
   const active = projects.filter(p => p.status !== 'someday');
   const someday = projects.filter(p => p.status === 'someday');
@@ -74,6 +80,7 @@ export function ProjectsScreen() {
       key={item.id}
       style={[styles.row, { backgroundColor: palette.surface }]}
       activeOpacity={0.7}
+      onPress={() => (navigation as any).navigate('ProjectDetail', { projectId: item.id, title: item.title })}
       onLongPress={() => handleLongPress(item)}
       delayLongPress={400}
     >
@@ -83,11 +90,11 @@ export function ProjectsScreen() {
   );
 
   return (
-    <LensSurface title="Projects" headerRight={<LensFAB onPress={() => setCreateOpen(true)} />}>
+    <LensSurface title="Projects">
       {projects.length === 0 ? (
         <View style={styles.empty}>
           <Text style={[styles.emptyTitle, { color: palette.text }]}>No projects yet</Text>
-          <Text style={[styles.emptySub, { color: palette.textSecondary }]}>Tap + to create one</Text>
+          <Text style={[styles.emptySub, { color: palette.textSecondary }]}>Hold the + in the dock to create one</Text>
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
