@@ -126,8 +126,13 @@ New `apps/mobile/src/db/backup.ts`:
   device with your last backup from `<timestamp>`. Continue?"* — Cancel / Replace.
 - On confirm: `restoreBackup(payload)` in `backup.ts` wipes the 5 local tables (`items`,
   `itemInstances`, `activityLogs`, `itemRelations`, `appSettings`) inside a transaction and
-  bulk-inserts the payload's rows. Existing `useLiveQuery`-based hooks (`useDb.ts`) pick up
-  the change automatically — no manual cache invalidation needed.
+  bulk-inserts the payload's rows.
+- **Correction from earlier draft:** mobile's `useDb.ts` hooks are plain `useState`/
+  `useEffect` with manual `refresh()` calls (not `useLiveQuery` — that's a web-app/Dexie
+  pattern that doesn't exist on mobile), so already-mounted screens will **not**
+  automatically reflect a restore. Rather than build app-wide remount plumbing for a rare,
+  explicit action, the restore confirmation flow ends with an alert telling the user to
+  close and reopen the app to see the restored data.
 - Restore is always explicit and manual — never triggered automatically (e.g. never
   "restore on fresh install"), so it can't clobber data the user is actively creating.
 
