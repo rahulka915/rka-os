@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
@@ -9,6 +9,7 @@ import { useRoninGlbBase64 } from '../domain/ronin/useRoninGlbBase64';
 import DomProbe from '../components/home/DomProbe';
 import Ronin3DDom from '../components/home/Ronin3DDom';
 import { RoninPreview } from '../components/home/RoninPreview';
+import { useBackup } from '../hooks/useBackup';
 
 const BENCH_MOODS: RoninMood[] = ['normal', 'focused', 'tired', 'overwhelmed', 'resolved'];
 
@@ -91,6 +92,115 @@ function Ronin3DBench({ mood, onMoodChange }: Ronin3DBenchProps) {
   );
 }
 
+function BackupSection() {
+  const { isDark } = useThemeContext();
+  const palette = getThemeColors(isDark);
+  const backup = useBackup();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
+  const handleSignIn = async () => {
+    if (!email.trim() || !password) {
+      Alert.alert('Missing details', 'Enter your email and password to sign in.');
+      return;
+    }
+    try {
+      await backup.signIn(email.trim(), password);
+      setPassword('');
+    } catch (err) {
+      Alert.alert('Sign in failed', err instanceof Error ? err.message : 'Please try again.');
+    }
+  };
+
+  const handleRestore = () => {
+    Alert.alert(
+      'Restore latest backup',
+      'This replaces all data currently on this device with your last backup. This cannot be undone. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Replace',
+          style: 'destructive',
+          onPress: async () => {
+            const restored = await backup.restoreLatest();
+            if (restored) {
+              Alert.alert('Restore complete', 'Close and reopen the app to see the restored data.');
+            } else {
+              Alert.alert('No backup found', 'There is no backup to restore yet.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  return (
+    <View style={styles.backupSection}>
+      <Text style={[styles.backupTitle, { color: palette.text }]}>Backup</Text>
+      {backup.isSignedIn ? (
+        <>
+          <Text style={[styles.backupStatus, { color: palette.textSecondary }]}>
+            Signed in as {backup.email}
+          </Text>
+          <Text style={[styles.backupStatus, { color: palette.textSecondary }]}>
+            {backup.lastBackupAt
+              ? `Last backup: ${new Date(backup.lastBackupAt).toLocaleString()}`
+              : 'No backup yet'}
+          </Text>
+          <Pressable
+            onPress={backup.backUpNow}
+            disabled={backup.busy}
+            style={[styles.backupButton, { backgroundColor: palette.fill }]}
+          >
+            <Text style={[styles.backupButtonLabel, { color: palette.text }]}>
+              {backup.busy ? 'Working…' : 'Back up now'}
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={handleRestore}
+            disabled={backup.busy}
+            style={[styles.backupButton, { backgroundColor: palette.fill }]}
+          >
+            <Text style={[styles.backupButtonLabel, { color: palette.text }]}>Restore latest backup</Text>
+          </Pressable>
+          <Pressable onPress={backup.signOut} disabled={backup.busy}>
+            <Text style={[styles.backupStatus, { color: palette.textMuted, textAlign: 'center' }]}>Sign out</Text>
+          </Pressable>
+        </>
+      ) : (
+        <>
+          <TextInput
+            value={email}
+            onChangeText={setEmail}
+            placeholder="Email"
+            placeholderTextColor={palette.textMuted}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            style={[styles.backupInput, { color: palette.text, borderColor: palette.fill }]}
+          />
+          <TextInput
+            value={password}
+            onChangeText={setPassword}
+            placeholder="Password"
+            placeholderTextColor={palette.textMuted}
+            secureTextEntry
+            style={[styles.backupInput, { color: palette.text, borderColor: palette.fill }]}
+          />
+          <Pressable
+            onPress={handleSignIn}
+            disabled={backup.busy}
+            style={[styles.backupButton, { backgroundColor: palette.fill }]}
+          >
+            <Text style={[styles.backupButtonLabel, { color: palette.text }]}>
+              {backup.busy ? 'Signing in…' : 'Sign in to enable backups'}
+            </Text>
+          </Pressable>
+        </>
+      )}
+    </View>
+  );
+}
+
 export function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { isDark } = useThemeContext();
@@ -106,6 +216,7 @@ export function ProfileScreen() {
       ]}
     >
       <Text style={[styles.title, { color: palette.text }]}>Me</Text>
+      <BackupSection />
       {__DEV__ && (
         <>
           <Ronin3DBench mood={mood} onMoodChange={setMood} />
@@ -189,5 +300,33 @@ const styles = StyleSheet.create({
   },
   preview: {
     width: '100%',
+  },
+  backupSection: {
+    width: '100%',
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  backupTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  backupStatus: {
+    fontSize: 13,
+  },
+  backupInput: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+  },
+  backupButton: {
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  backupButtonLabel: {
+    fontSize: 15,
+    fontWeight: '600',
   },
 });
