@@ -5,7 +5,7 @@ import * as Haptics from 'expo-haptics';
 import { Calendar, Sun, Moon, Archive, Trash2, Tag } from '../icons';
 import { TaskSwipeItem } from '../components/TaskSwipeItem';
 import { useThemeContext } from '../hooks/useThemeContext';
-import { getThemeColors } from '../theme';
+import { getThemeColors, lineHeight, letterSpacing } from '../theme';
 import { useInbox } from '../hooks/useDb';
 import { updateItemStatus, processInboxItem } from '../db/database';
 import { Plus, X } from '../icons';
@@ -227,7 +227,8 @@ const s = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '800',
-    letterSpacing: -0.5,
+    lineHeight: 24 * lineHeight.tight,
+    letterSpacing: letterSpacing.tight,
   },
   cancelText: {
     fontSize: 16,
