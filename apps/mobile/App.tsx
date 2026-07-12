@@ -1,6 +1,6 @@
 import 'react-native-get-random-values';
 import { useCallback, useState, useEffect, useMemo, useRef } from 'react';
-import { useColorScheme, TouchableOpacity, View, Text, StyleSheet } from 'react-native';
+import { useColorScheme, TouchableOpacity, View, Text, StyleSheet, AppState } from 'react-native';
 import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -26,6 +26,8 @@ import { requestNotificationPermission, setBadgeCount } from './src/hooks/useNot
 import { getInboxItems, getDb } from './src/db/database';
 import { registerBackgroundSync } from './src/services/backgroundSync';
 import { requestLocationPermission } from './src/services/locationReminders';
+import { supabase, hasSupabaseConfig } from './src/lib/supabase';
+import { pushBackup } from './src/services/backupSync';
 
 getDb();
 
@@ -175,6 +177,24 @@ export default function App() {
   useEffect(() => {
     if (!inboxOpen) setBadgeCount(getInboxItems().length);
   }, [inboxOpen]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', async (nextState) => {
+      if (nextState !== 'background' && nextState !== 'inactive') return;
+      if (!hasSupabaseConfig || !supabase) return;
+
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (data.session) {
+          await pushBackup(data.session.user.id);
+        }
+      } catch (err) {
+        console.warn('[backup] background push failed', err);
+      }
+    });
+
+    return () => subscription.remove();
+  }, []);
 
   return (
     <ThemeContext.Provider value={themeCtx}>
