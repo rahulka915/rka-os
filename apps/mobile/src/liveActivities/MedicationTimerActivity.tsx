@@ -19,7 +19,7 @@ const MedicationTimerActivity = (
 ) => {
   'widget';
   const FAR_FUTURE_MS = 24 * 60 * 60 * 1000; // ceiling for the open-ended count-up range
-  const accentColor = environment.colorScheme === 'dark' ? '#f2f2f2' : '#a41e34';
+  const accentColor = environment.colorScheme === 'dark' ? '#f2f2f2' : '#2b7ff0';
   const lower = new Date(props.displayStartedAt);
   const upper = new Date(props.displayStartedAt + FAR_FUTURE_MS);
   const pauseTime = props.pausedAt ? new Date(props.pausedAt) : undefined;
