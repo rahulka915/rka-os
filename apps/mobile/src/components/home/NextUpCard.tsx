@@ -1,5 +1,6 @@
 import { ImageBackground, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { colors } from '../../theme';
 import { Sparkles, ListChecks, Pill, Dumbbell } from '../../icons';
 import type { NextUpResult } from '../../utils/nextUpItem';
 import type { RoninTimeOfDay } from '../../domain/ronin/types';
@@ -43,7 +44,6 @@ export function NextUpCard({ result, isDark, timeOfDay, onAction }: NextUpCardPr
   // landscape asset already used behind Ronin (getRoninSceneAsset), so the
   // hero card and Ronin hero read as the same world/time of day, with a
   // dark gradient overlay for text legibility and a glowing icon badge.
-  // Light mode keeps the plain flat card.
   if (isDark) {
     return (
       <ImageBackground
@@ -73,23 +73,32 @@ export function NextUpCard({ result, isDark, timeOfDay, onAction }: NextUpCardPr
     );
   }
 
+  // Light mode gets its own hero treatment — no painted scene asset exists
+  // for light mode, so a soft tinted gradient (blue → purple → pink) stands
+  // in for the dark hero's photo background, keeping the same structural
+  // richness (label, colored badge) instead of falling back to a plain card.
   return (
-    <View style={[styles.card, { backgroundColor: palette.surface, borderColor: palette.separator }]}>
-      <View style={[styles.iconBubble, { backgroundColor: palette.maroonSoft }]}>
-        <IconFor type={result.type} color={palette.maroon} />
+    <LinearGradient
+      colors={[colors.deeperBlueSoft, colors.purpleSoft, colors.pinkSoft]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.lightHeroCard}
+    >
+      <Text style={[styles.lightHeroLabel, { color: colors.deeperBlue }]}>NEXT UP</Text>
+      <View style={styles.lightHeroBody}>
+        <View style={styles.textGroup}>
+          <Text style={[styles.title, { color: palette.text }]} numberOfLines={1}>{result.title}</Text>
+          <Text style={[styles.subtitle, { color: palette.textSecondary }]}>{result.timeOfDayLabel}</Text>
+        </View>
+        <TouchableOpacity
+          onPress={() => onAction(result)}
+          style={[styles.lightHeroBadge, { backgroundColor: colors.deeperBlue }]}
+          activeOpacity={0.85}
+        >
+          <IconFor type={result.type} color="#ffffff" />
+        </TouchableOpacity>
       </View>
-      <View style={styles.textGroup}>
-        <Text style={[styles.title, { color: palette.text }]} numberOfLines={1}>{result.title}</Text>
-        <Text style={[styles.subtitle, { color: palette.textSecondary }]}>{result.timeOfDayLabel}</Text>
-      </View>
-      <TouchableOpacity
-        onPress={() => onAction(result)}
-        style={[styles.actionButton, { backgroundColor: palette.maroon }]}
-        activeOpacity={0.85}
-      >
-        <Text style={styles.actionText}>{result.actionLabel}</Text>
-      </TouchableOpacity>
-    </View>
+    </LinearGradient>
   );
 }
 
@@ -103,13 +112,6 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
   },
-  iconBubble: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   textGroup: {
     flex: 1,
   },
@@ -121,16 +123,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     marginTop: 2,
-  },
-  actionButton: {
-    borderRadius: 999,
-    paddingVertical: 8,
-    paddingHorizontal: 18,
-  },
-  actionText: {
-    color: '#ffffff',
-    fontSize: 13,
-    fontWeight: '700',
   },
   heroCard: {
     borderRadius: 16,
@@ -163,6 +155,28 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     marginTop: 8,
+  },
+  lightHeroCard: {
+    borderRadius: 16,
+    padding: 16,
+  },
+  lightHeroLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+  },
+  lightHeroBody: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 8,
+  },
+  lightHeroBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   glowBadge: {
     position: 'absolute',
