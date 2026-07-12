@@ -31,6 +31,21 @@ export const fontSize = {
   title: 24,
 } as const;
 
+// Multipliers — multiply by a fontSize value to get an actual line-height in px.
+// e.g. fontSize.title * lineHeight.tight = 24 * 1.15 = 27.6
+export const lineHeight = {
+  tight: 1.15,   // large titles (fontSize.xl and up)
+  snug: 1.3,     // headings (fontSize.lg)
+  normal: 1.5,   // body copy (fontSize.base, fontSize.sm)
+  relaxed: 1.6,  // dense paragraph text needing extra readability
+} as const;
+
+// Absolute px values (not multipliers) — apply directly to `letterSpacing`.
+export const letterSpacing = {
+  tight: -0.4,  // large titles (fontSize.xl and up)
+  normal: 0,    // everything else
+} as const;
+
 export const shadows = {
   soft: {
     shadowColor: '#000',
