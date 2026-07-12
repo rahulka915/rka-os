@@ -284,7 +284,7 @@ const s = StyleSheet.create({
     elevation: 5,
   },
   fabGlow: {
-    shadowColor: '#9fb8d1',
+    shadowColor: '#2b7ff0',
     shadowOpacity: 0.5,
     shadowRadius: 16,
   },

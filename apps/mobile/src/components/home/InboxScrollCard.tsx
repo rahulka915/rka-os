@@ -18,12 +18,11 @@ export function InboxScrollCard({ inboxCount, onPress, isDark }: InboxScrollCard
     onPress();
   };
 
-  // Dark mode: silvery-blue accent for the "needs attention" state (matching
-  // the rest of the theme) instead of the old maroon; light mode keeps
-  // maroon. Green stays for the all-clear state in both — it's a semantic
-  // success color, not a theme accent.
-  const attentionColor = isDark ? palette.blue : '#a41e34';
-  const attentionSoft = isDark ? 'rgba(159,184,209,0.14)' : 'rgba(164,30,52,0.12)';
+  // Deeper blue accent for the "needs attention" state in both modes — the
+  // theme no longer splits primary color by light/dark. Green stays for the
+  // all-clear state in both — it's a semantic success color, not a theme accent.
+  const attentionColor = palette.deeperBlue;
+  const attentionSoft = palette.deeperBlueSoft;
   const cardBg = isDark ? palette.fillStrong : '#ffffff';
   const cardBorder = isDark ? palette.separatorStrong : 'transparent';
   const textColor = palette.text;

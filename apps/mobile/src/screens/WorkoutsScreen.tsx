@@ -84,7 +84,7 @@ export function WorkoutsScreen() {
             </View>
 
             <TouchableOpacity onPress={() => setCreateOpen(true)} hitSlop={8}>
-              <Text style={styles.linkText}>Create your own template →</Text>
+              <Text style={[styles.linkText, { color: palette.deeperBlue }]}>Create your own template →</Text>
             </TouchableOpacity>
           </>
         ) : (

@@ -323,7 +323,7 @@ function MedFormSheet({ visible, onClose, onSaved, isDark, editTarget }: MedForm
             <TouchableOpacity
               onPress={handleSave}
               disabled={!title.trim()}
-              style={[s.saveBtn, { backgroundColor: isDark ? palette.blue : '#007aff', opacity: title.trim() ? 1 : 0.3 }]}
+              style={[s.saveBtn, { backgroundColor: palette.deeperBlue, opacity: title.trim() ? 1 : 0.3 }]}
             >
               <RNText style={[s.saveText, { color: isDark ? '#182229' : '#ffffff' }]}>Save</RNText>
             </TouchableOpacity>
