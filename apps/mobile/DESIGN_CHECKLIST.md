@@ -75,7 +75,7 @@ Note the torii-gate motif now has two live meanings in the app: the Home tab ico
 ## Home components — `apps/mobile/src/components/home/`
 
 - [ ] `DomProbe.tsx` — dev-only webview sanity check
-- [x] `InboxScrollCard.tsx` — deeperBlue accent, dark shadow-cards now derived from bg/surface tokens; generic inbox-tray icon swapped for a real rolled-scroll motif (see `ScrollIcon.tsx`) matching the "unopened scrolls" copy; the count number is now a standalone stat figure instead of folded into the sentence, since it's the part that actually changes
+- [x] `InboxScrollCard.tsx` — deeperBlue accent; generic inbox-tray icon swapped for a real rolled-scroll motif (`ScrollIcon.tsx`) matching the "unopened scrolls" copy; count number pulled out as a standalone stat figure, center-aligned against the full text block (was baseline-aligned, sat too low); dropped the old stacked-duplicate-card "paper stack" effect in favor of real depth — a top-lit gradient surface, an actual drop shadow, and a glow behind the icon bubble, same techniques already used for the dock FAB and NextUp's badge
 - [x] `KatanaProgressBar.tsx` — SVG katana XP progress bar
 - [x] `NextUpCard.tsx` — deeperBlue label/badge, painted Moonly-scene hero (dark), gradient hero (light)
 - [x] `PracticeList.tsx` — **dead code, not rendered anywhere** (orphaned when Home was redesigned); flagged for deletion rather than restyled, see spawned cleanup task
