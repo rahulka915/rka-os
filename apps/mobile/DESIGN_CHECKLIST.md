@@ -78,14 +78,14 @@ Note the torii-gate motif now has two live meanings in the app: the Home tab ico
 - [x] `InboxScrollCard.tsx` — deeperBlue accent, dark shadow-cards now derived from bg/surface tokens
 - [x] `KatanaProgressBar.tsx` — SVG katana XP progress bar
 - [x] `NextUpCard.tsx` — deeperBlue label/badge, painted Moonly-scene hero (dark), gradient hero (light)
-- [ ] `PracticeList.tsx` — list of practices/habits
-- [ ] `Ronin3D.tsx` — native three.js/R3F renderer
-- [ ] `Ronin3DDom.tsx` — DOM-webview three.js renderer
-- [ ] `RoninCharacter.tsx` — Ronin character wrapper
+- [x] `PracticeList.tsx` — **dead code, not rendered anywhere** (orphaned when Home was redesigned); flagged for deletion rather than restyled, see spawned cleanup task
+- [ ] `Ronin3D.tsx` — native three.js/R3F renderer — **not mounted on Home** (per CLAUDE.md, only in Profile's dev bench); nothing to restyle until it's actually used somewhere
+- [ ] `Ronin3DDom.tsx` — DOM-webview three.js renderer — same as above, not mounted anywhere live
+- [ ] `RoninCharacter.tsx` — Ronin character wrapper — same as above
 - [x] `RoninGreetingCard.tsx` — katana bar wired in, serif italic greeting title, emoji swapped for Sparkles icon
 - [x] `RoninHero.tsx` — thin composer wrapping RoninGreetingCard, nothing else to restyle
-- [ ] `RoninPreview.tsx` — smaller Ronin preview widget
-- [ ] `RoninStage.tsx` — Ronin stage, time-of-day tint
+- [ ] `RoninPreview.tsx` — smaller Ronin preview widget — check if mounted anywhere before restyling
+- [ ] `RoninStage.tsx` — Ronin stage, time-of-day tint — not mounted on Home currently (kept ready to drop back in, see CLAUDE.md), review once it's live somewhere
 
 ## App shell — `apps/mobile/App.tsx`
 
