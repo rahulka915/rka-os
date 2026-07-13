@@ -33,11 +33,11 @@ getDb();
 
 const Tab = createBottomTabNavigator();
 
-// Icon-only dock with persistent per-section colors — approved design
-// direction, see ~/.codex/visualizations/.../RKA_OS_ICON_MOCKUP_HANDOFF.md.
-// Each icon keeps its assigned color at rest (not just when focused); the
-// focused tab additionally gets a soft rounded badge in that same color so
-// there's still a clear "you are here" signal without a text label.
+// Icon-only dock, custom icon set per ~/.codex/visualizations/.../
+// RKA_OS_ICON_MOCKUP_HANDOFF.md. The handoff's doc labeled "persistent
+// section color" (every icon always colored) as approved, but on-device the
+// user preferred the doc's other option instead: "selected-color state" —
+// icons stay neutral at rest, section color only shows on the focused tab.
 const TAB_ITEMS = [
   { name: 'Home',     Icon: TorriHomeIcon,        color: '#C44545' },
   { name: 'Calendar', Icon: SunDialCalendarIcon,  color: '#D4B078' },
@@ -48,6 +48,7 @@ const TAB_ITEMS = [
 function AppleTabBar({ state, navigation, isDark, onFabPress, onFabHold }: any) {
   const insets = useSafeAreaInsets();
   const borderColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(20,20,30,0.08)';
+  const inactiveColor = isDark ? 'rgba(242,237,230,0.55)' : 'rgba(23,23,28,0.45)';
 
   // Derived from the theme bg tokens (#0f0f1a / #f6f5f1) instead of the old
   // near-black/near-white pair.
@@ -77,7 +78,7 @@ function AppleTabBar({ state, navigation, isDark, onFabPress, onFabHold }: any) 
                 accessibilityLabel={route.name}
               >
                 <View style={[styles.tabIconBadge, isFocused && { backgroundColor: color + '22' }]}>
-                  <Icon size={22} color={color} strokeWidth={isFocused ? 2 : 1.6} />
+                  <Icon size={22} color={isFocused ? color : inactiveColor} strokeWidth={isFocused ? 2 : 1.6} />
                 </View>
               </TouchableOpacity>
             );

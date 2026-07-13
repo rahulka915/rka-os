@@ -42,15 +42,15 @@ Note: streaks, journaling, weekly-reflection, and real level/XP progression don'
 
 ## Dock icon color system — `apps/mobile/src/components/icons/DockIcons.tsx`
 
-Separate from the motif table above (that's illustration cards; this is navigation icons). Approved via a Codex design handoff and shipped.
+Separate from the motif table above (that's illustration cards; this is navigation icons). Icon set approved via a Codex design handoff and shipped. Color *mode* is **selected-color state**: these hex values only show on the currently-active tab (plus a soft `color + '22'` badge behind it); inactive tabs render in a neutral muted tone instead. The FAB is the one exception — always RKA blue, not state-dependent, since it's a fixed primary action rather than a nav destination.
 
-| Section | Icon | Color | Hex |
+| Section | Icon | Color when active | Hex |
 |---|---|---|---|
 | Home | Torii gateway | Lacquer red | `#C44545` |
 | Calendar | Sun dial | Ritual gold | `#D4B078` |
 | More | Layers | Archive jade | `#4E9E86` |
 | Me | Personal seal | RKA blue | `#2b7ff0` |
-| Create (FAB) | Calligraphy brush | RKA blue | `#2b7ff0` |
+| Create (FAB) | Calligraphy brush | RKA blue, always | `#2b7ff0` |
 
 Note the torii-gate motif now has two live meanings in the app: the Home tab icon (navigation, lacquer red) and the still-unbuilt "milestones/unlocks" illustration-card concept above (also red) — same motif, consistent color, different contexts. Not a conflict, just worth knowing both exist.
 
@@ -89,7 +89,7 @@ Note the torii-gate motif now has two live meanings in the app: the Home tab ico
 
 ## App shell — `apps/mobile/App.tsx`
 
-- [x] `AppleTabBar` (bottom tab bar + FAB) — full icon overhaul per Codex's approved handoff (see `src/components/icons/DockIcons.tsx`): icon-only dock (no labels), custom SVG icon set (torii Home, sundial Calendar, layers More, personal-seal Me, calligraphy-brush Create), persistent per-section colors (lacquer red / ritual gold / archive jade / RKA blue) shown at rest, soft colored badge behind the focused tab as the selection signal, FAB is the brush in RKA blue in both modes. Supersedes the earlier deeperBlue-only color fix on this file.
+- [x] `AppleTabBar` (bottom tab bar + FAB) — full icon overhaul per Codex's design handoff (see `src/components/icons/DockIcons.tsx`): icon-only dock (no labels), custom SVG icon set (torii Home, sundial Calendar, layers More, personal-seal Me, calligraphy-brush Create). Color mode: **selected-color state** (icons neutral/muted at rest, section color + soft badge only on the focused tab) — the handoff doc's other option ("persistent," always-colored) was tried on-device first and replaced with this one per user feedback. FAB is the brush in RKA blue in both modes.
 
 ## Hero components — `apps/mobile/src/components/hero/`
 
