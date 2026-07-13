@@ -60,7 +60,7 @@ Note the torii-gate motif now has two live meanings in the app: the Home tab ico
 
 - [ ] `AreaDetailScreen.tsx` — single life-area detail view
 - [ ] `AreasScreen.tsx` — list of life areas
-- [ ] `CalendarScreen.tsx` — calendar/agenda view
+- [ ] `CalendarScreen.tsx` — calendar/agenda view (partial: fixed a real bug where the "Project" item-type accent aliased to `maroon`→`deeperBlue`, colliding with the "Task"/"Area" accent color, `blue`; now uses `purple`. Rest of the screen not yet reviewed)
 - [ ] `HomeScreen.tsx` — main home dashboard
 - [ ] `InboxScreenV2.tsx` — main inbox list + capture FAB
 - [ ] `MedicationsScreen.tsx` — medication tracking list
@@ -68,7 +68,7 @@ Note the torii-gate motif now has two live meanings in the app: the Home tab ico
 - [ ] `ProfileScreen.tsx` — user profile + dev bench
 - [ ] `ProjectDetailScreen.tsx` — single project detail view
 - [ ] `ProjectsScreen.tsx` — list of projects
-- [ ] `QuickAddScreen.tsx` — quick-add capture modal
+- [x] `QuickAddScreen.tsx` — When/Tags/Priority pills moved off dead `maroon` alias to `deeperBlue`; tag chips now cycle deeperBlue/pink/purple by tag text instead of one flat neutral fill
 - [ ] `TasksScreen.tsx` — task list view
 - [ ] `WorkoutsScreen.tsx` — workout tracking list
 
@@ -131,7 +131,7 @@ Note the torii-gate motif now has two live meanings in the app: the Home tab ico
 
 ## Theme & icons
 
-- [ ] `theme/colors.ts` — color tokens/palette
+- [ ] `theme/colors.ts` — color tokens/palette (partial: removed the dead `maroon`/`maroonSoft` alias now that every call site has been migrated to `deeperBlue`/`purple`; `blue` alias still intentionally kept, still has live call sites)
 - [ ] `theme/index.ts` — theme aggregator/exports
 - [ ] `theme/spacing.ts` — spacing scale tokens
 - [ ] `icons.tsx` — centralized icon registry

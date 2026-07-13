@@ -29,15 +29,12 @@ export const colors = {
   purple: '#d4a8ff',
   purpleSoft: 'rgba(212,168,255,0.14)',
 
-  // Aliases — `blue`/`maroon` were the old single-accent tokens, still
-  // referenced across ~15 call sites. Both now point at the unified
-  // deeper-blue accent rather than being migrated call-site by call-site,
-  // since the visual outcome (one primary accent color everywhere) is
-  // identical either way.
+  // Alias — `blue` was the old single-accent token, still referenced across
+  // several call sites. Points at the unified deeper-blue accent rather than
+  // being migrated call-site by call-site, since the visual outcome (one
+  // primary accent color everywhere) is identical either way.
   blue: '#2b7ff0',
   blueSoft: 'rgba(43,127,240,0.12)',
-  maroon: '#2b7ff0',
-  maroonSoft: 'rgba(43,127,240,0.12)',
 
   green: '#34a853',
   greenSoft: 'rgba(52,168,83,0.14)',
@@ -78,8 +75,6 @@ export const darkColors = {
   // See the light-mode `colors` comment above — same aliasing rationale.
   blue: '#2b7ff0',
   blueSoft: 'rgba(43,127,240,0.16)',
-  maroon: '#2b7ff0',
-  maroonSoft: 'rgba(43,127,240,0.16)',
 
   green: '#3dbb5e',
   greenSoft: 'rgba(61,187,94,0.16)',

@@ -60,7 +60,7 @@ const HOUR_SLOT_HEIGHT = 72;
 const DRAG_MINUTES_PER_PIXEL = 60 / HOUR_SLOT_HEIGHT;
 const TIMELINE_SNAP_STEP = 15;
 
-type AccentKey = 'blue' | 'green' | 'orange' | 'maroon' | 'red';
+type AccentKey = 'blue' | 'green' | 'orange' | 'purple' | 'red';
 type DraftMode = 'create' | 'edit';
 
 interface DraftState {
@@ -79,7 +79,7 @@ const TYPE_OPTIONS: Array<{
   icon: 'task' | 'project' | 'habit' | 'medication' | 'workout' | 'meal' | 'area';
 }> = [
   { value: 'task', label: 'Task', accent: 'blue', icon: 'task' },
-  { value: 'project', label: 'Project', accent: 'maroon', icon: 'project' },
+  { value: 'project', label: 'Project', accent: 'purple', icon: 'project' },
   { value: 'area', label: 'Area', accent: 'blue', icon: 'area' },
   { value: 'habit', label: 'Habit', accent: 'green', icon: 'habit' },
   { value: 'medication', label: 'Medication', accent: 'orange', icon: 'medication' },
@@ -106,8 +106,8 @@ function getAccentColor(palette: ReturnType<typeof getThemeColors>, accent: Acce
       return palette.green;
     case 'orange':
       return palette.orange;
-    case 'maroon':
-      return palette.maroon;
+    case 'purple':
+      return palette.purple;
     case 'red':
       return palette.red;
     case 'blue':
@@ -122,8 +122,8 @@ function getAccentSoftColor(palette: ReturnType<typeof getThemeColors>, accent: 
       return palette.greenSoft;
     case 'orange':
       return palette.orangeSoft;
-    case 'maroon':
-      return palette.maroonSoft;
+    case 'purple':
+      return palette.purpleSoft;
     case 'red':
       return palette.redSoft;
     case 'blue':

@@ -49,6 +49,17 @@ const PRIORITY_OPTIONS: { value: Exclude<PriorityOption, null>; label: string; c
   { value: 'low', label: 'Low', color: 'blue' },
 ];
 
+// Tag chips cycle through the accent palette's secondary colors instead of
+// one flat neutral fill, so a row of several tags reads with some variety.
+// Deterministic by tag text (same tag always lands on the same color) rather
+// than by insertion order, so it doesn't shuffle as tags are added/removed.
+const TAG_COLOR_KEYS = ['deeperBlue', 'pink', 'purple'] as const;
+function tagColorKey(tag: string): (typeof TAG_COLOR_KEYS)[number] {
+  let hash = 0;
+  for (let i = 0; i < tag.length; i++) hash = (hash + tag.charCodeAt(i)) % TAG_COLOR_KEYS.length;
+  return TAG_COLOR_KEYS[hash];
+}
+
 // Bottom-sheet-style picker, modeled on Things 3's Tags screen (dark card, title + Done,
 // checkmark rows) — a real Modal rather than an absolutely-positioned popover, since a popover
 // nested inside QuickAdd's own ScrollView (itself inside a BottomSheet with overflow:hidden)
@@ -340,42 +351,47 @@ export function QuickAddScreen({ visible, onClose, defaultStatus = 'inbox', cont
 
       {tags.length > 0 ? (
         <View style={styles.tagChipRow}>
-          {tags.map((tag) => (
-            <View key={tag} style={[styles.tagChip, { backgroundColor: palette.fill }]}>
-              <Text style={[styles.tagChipText, { color: palette.text }]}>#{tag}</Text>
-              <TouchableOpacity onPress={() => removeTag(tag)} hitSlop={8}>
-                <X size={11} color={palette.iconMuted} strokeWidth={2} />
-              </TouchableOpacity>
-            </View>
-          ))}
+          {tags.map((tag) => {
+            const key = tagColorKey(tag);
+            const fg = palette[key];
+            const bg = palette[`${key}Soft` as const];
+            return (
+              <View key={tag} style={[styles.tagChip, { backgroundColor: bg }]}>
+                <Text style={[styles.tagChipText, { color: fg }]}>#{tag}</Text>
+                <TouchableOpacity onPress={() => removeTag(tag)} hitSlop={8}>
+                  <X size={11} color={fg} strokeWidth={2} />
+                </TouchableOpacity>
+              </View>
+            );
+          })}
         </View>
       ) : null}
 
       <View style={[styles.metaRow, { borderTopColor: palette.separator }]}>
         <TouchableOpacity
-          style={[styles.pill, { backgroundColor: when ? palette.maroonSoft : palette.fill }]}
+          style={[styles.pill, { backgroundColor: when ? palette.deeperBlueSoft : palette.fill }]}
           hitSlop={8}
           activeOpacity={0.7}
           onPress={openWhenPicker}
         >
-          <Calendar size={12} color={when ? palette.maroon : palette.iconMuted} strokeWidth={1.5} />
-          <Text style={[styles.pillText, { color: when ? palette.maroon : palette.iconMuted }]}>
+          <Calendar size={12} color={when ? palette.deeperBlue : palette.iconMuted} strokeWidth={1.5} />
+          <Text style={[styles.pillText, { color: when ? palette.deeperBlue : palette.iconMuted }]}>
             {when ? WHEN_LABEL[when] : 'When'}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.pill, { backgroundColor: tags.length ? palette.maroonSoft : palette.fill }]}
+          style={[styles.pill, { backgroundColor: tags.length ? palette.deeperBlueSoft : palette.fill }]}
           hitSlop={8}
           activeOpacity={0.7}
           onPress={openTagsPicker}
         >
-          <Tag size={12} color={tags.length ? palette.maroon : palette.iconMuted} strokeWidth={1.5} />
-          <Text style={[styles.pillText, { color: tags.length ? palette.maroon : palette.iconMuted }]}>
+          <Tag size={12} color={tags.length ? palette.deeperBlue : palette.iconMuted} strokeWidth={1.5} />
+          <Text style={[styles.pillText, { color: tags.length ? palette.deeperBlue : palette.iconMuted }]}>
             {tags.length ? `${tags.length} Tag${tags.length > 1 ? 's' : ''}` : 'Tags'}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.pill, { backgroundColor: priority ? palette.maroonSoft : palette.fill }]}
+          style={[styles.pill, { backgroundColor: priority ? palette.deeperBlueSoft : palette.fill }]}
           hitSlop={8}
           activeOpacity={0.7}
           onPress={openPriorityPicker}
