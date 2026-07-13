@@ -1,8 +1,7 @@
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { CheckCircle2, ChevronRight } from '../../icons';
-import { ScrollIcon } from '../icons/ScrollIcon';
 import { getThemeColors } from '../../theme';
 
 interface InboxScrollCardProps {
@@ -11,6 +10,11 @@ interface InboxScrollCardProps {
   isDark: boolean;
 }
 
+// Square tile — sits side by side with NextUpCard (see HomeScreen.tsx), each
+// taking half the row width. Restructured from the old horizontal row
+// (illustration/icon + stat + text + chevron all in one line) to a column:
+// illustration on top, stat + text stacked below, chevron as a small
+// top-right corner accent instead of competing with the illustration.
 export function InboxScrollCard({ inboxCount, onPress, isDark }: InboxScrollCardProps) {
   const hasItems = inboxCount > 0;
   const palette = getThemeColors(isDark);
@@ -24,14 +28,12 @@ export function InboxScrollCard({ inboxCount, onPress, isDark }: InboxScrollCard
   // theme no longer splits primary color by light/dark. Green stays for the
   // all-clear state in both — it's a semantic success color, not a theme accent.
   const attentionColor = palette.deeperBlue;
-  const attentionSoft = palette.deeperBlueSoft;
   const textColor = palette.text;
   const secondaryColor = palette.textMuted;
 
-  // Depth comes from real elevation + a top-lit gradient surface + a glow
-  // behind the icon bubble — same shadow/glow language already used for the
-  // dock FAB and NextUp's badge — rather than the old stacked-duplicate-card
-  // "paper stack" illusion.
+  // Depth comes from real elevation + a top-lit gradient surface — same
+  // shadow language already used for the dock FAB — rather than the old
+  // stacked-duplicate-card "paper stack" illusion.
   const gradientColors: [string, string] = isDark ? ['#1f2038', '#1a1a2e'] : ['#ffffff', '#faf9f6'];
 
   return (
@@ -46,39 +48,35 @@ export function InboxScrollCard({ inboxCount, onPress, isDark }: InboxScrollCard
         end={{ x: 0.5, y: 1 }}
         style={[styles.card, isDark ? styles.cardShadowDark : styles.cardShadowLight]}
       >
-        {/* Icon bubble */}
-        <View
-          style={[
-            styles.iconBubble,
-            { backgroundColor: hasItems ? attentionSoft : 'rgba(52,168,83,0.14)' },
-            hasItems && { shadowColor: attentionColor, shadowOpacity: isDark ? 0.4 : 0.22 },
-          ]}
-        >
+        {hasItems && <ChevronRight size={15} color={attentionColor} strokeWidth={2} style={styles.chevron} />}
+
+        <View style={styles.illustrationWrap}>
           {hasItems ? (
-            <ScrollIcon size={19} color={attentionColor} strokeWidth={1.6} />
+            <Image
+              source={require('../../../assets/illustrations/scroll-stack.png')}
+              style={styles.illustration}
+              resizeMode="contain"
+            />
           ) : (
-            <CheckCircle2 size={19} color="#34a853" strokeWidth={1.5} />
+            <View style={[styles.iconBubble, { backgroundColor: 'rgba(52,168,83,0.14)' }]}>
+              <CheckCircle2 size={22} color="#34a853" strokeWidth={1.5} />
+            </View>
           )}
         </View>
 
-        {/* Stat number — pulled out as its own figure (the part that's
-            actually changing) rather than folded into the sentence, so it
-            reads at a glance like a counter. Explicit lineHeight so its own
-            font leading doesn't throw off the row's center alignment. */}
-        {hasItems && (
-          <Text style={[styles.statNumber, { color: attentionColor }]}>{inboxCount}</Text>
-        )}
+        <View>
+          {/* Stat number — pulled out as its own figure (the part that's
+              actually changing) rather than folded into the sentence, so it
+              reads at a glance like a counter. */}
+          {hasItems && <Text style={[styles.statNumber, { color: attentionColor }]}>{inboxCount}</Text>}
 
-        <View style={styles.textGroup}>
           <Text style={[styles.primaryText, { color: textColor }]}>
             {hasItems ? `unopened scroll${inboxCount > 1 ? 's' : ''}` : 'All clear'}
           </Text>
-          <Text style={[styles.secondaryText, { color: secondaryColor }]}>
+          <Text style={[styles.secondaryText, { color: secondaryColor }]} numberOfLines={1}>
             {hasItems ? 'Tap to review' : 'No unattended matters.'}
           </Text>
         </View>
-
-        {hasItems && <ChevronRight size={16} color={attentionColor} strokeWidth={2} />}
       </LinearGradient>
     </TouchableOpacity>
   );
@@ -91,11 +89,10 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   card: {
+    aspectRatio: 1,
     borderRadius: 16,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+    padding: 14,
+    justifyContent: 'space-between',
   },
   cardShadowDark: {
     shadowColor: '#000',
@@ -111,31 +108,41 @@ const styles = StyleSheet.create({
     shadowRadius: 14,
     elevation: 3,
   },
-  iconBubble: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+  chevron: {
+    position: 'absolute',
+    top: 14,
+    right: 14,
+  },
+  illustrationWrap: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowOffset: { width: 0, height: 0 },
-    shadowRadius: 10,
-    elevation: 2,
+  },
+  iconBubble: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  illustration: {
+    width: 88,
+    height: 58,
   },
   statNumber: {
     fontSize: 22,
     fontWeight: '800',
-    lineHeight: 22,
+    fontFamily: 'Inter_800ExtraBold',
+    lineHeight: 24,
     fontVariant: ['tabular-nums'],
   },
-  textGroup: {
-    flex: 1,
-  },
   primaryText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
   },
   secondaryText: {
-    fontSize: 12,
+    fontSize: 11,
     marginTop: 2,
   },
 });

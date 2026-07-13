@@ -237,6 +237,7 @@ const s = StyleSheet.create({
   cancelText: {
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
   },
   countBadge: {
     minWidth: 24,
@@ -249,6 +250,7 @@ const s = StyleSheet.create({
   countText: {
     fontSize: 13,
     fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
   },
   list: {
     flex: 1,
@@ -267,6 +269,7 @@ const s = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
   },
   emptySub: {
     fontSize: 14,

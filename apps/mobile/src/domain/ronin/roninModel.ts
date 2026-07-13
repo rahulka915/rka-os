@@ -11,11 +11,16 @@ import manifest from '../../../assets/ronin/model/avatarManifest.json';
 export const RONIN_3D_ENABLED = true;
 
 // Metro asset id — bundled via metro.config.js assetExts ('glb').
-// v2 Pass 1 (eyes.png): eyes reverted to single emissive-white shapes, no
-// iris/pupil, brows removed (lab build_ronin_v2.py). v0/v1 kept alongside
-// as rollback assets.
+// v3: full body replacement — new standing-capable Tripo source model,
+// skin tone + red headband color accents, separated wrist beads, rigid
+// hip/ankle leg pivots (legs not yet animated — pending a thigh/shin
+// split from a future re-segmentation). No katana this source model
+// (open-handed pose); resolved_nod uses a two-arm open gesture instead of
+// the old katana raise. Known cosmetic issue: a faint brow-ridge-like
+// shape from hair fringe geometry near the forehead, not yet resolved.
+// v0/v1/v2 kept alongside as rollback assets (lab build_ronin_v3.py).
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-export const RONIN_MODEL = require('../../../assets/ronin/model/ronin_companion_v2.glb');
+export const RONIN_MODEL = require('../../../assets/ronin/model/ronin_companion_v3.glb');
 
 export const RONIN_MANIFEST = manifest;
 

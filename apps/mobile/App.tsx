@@ -1,6 +1,6 @@
 import 'react-native-get-random-values';
 import { useCallback, useState, useEffect, useMemo, useRef } from 'react';
-import { useColorScheme, TouchableOpacity, View, StyleSheet, AppState } from 'react-native';
+import { useColorScheme, TouchableOpacity, View, StyleSheet, AppState, Text as RNText } from 'react-native';
 import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,6 +8,16 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { TamaguiProvider } from 'tamagui';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
+import * as SplashScreen from 'expo-splash-screen';
+import { useFonts } from 'expo-font';
+import {
+  Inter_300Light,
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+  Inter_800ExtraBold,
+} from '@expo-google-fonts/inter';
 import {
   TorriHomeIcon, SunDialCalendarIcon, LayersMoreIcon, PersonalSealMeIcon, CalligraphyBrushIcon,
 } from './src/components/icons/DockIcons';
@@ -30,6 +40,10 @@ import { supabase, hasSupabaseConfig } from './src/lib/supabase';
 import { pushBackup } from './src/services/backupSync';
 
 getDb();
+
+// Held until the Inter font weights finish loading, so the app never
+// flashes with the system fallback font on cold start.
+SplashScreen.preventAutoHideAsync();
 
 const Tab = createBottomTabNavigator();
 
@@ -114,7 +128,31 @@ function AppleTabBar({ state, navigation, isDark, onFabPress, onFabHold }: any) 
   );
 }
 
+// Global default so any <Text> without an explicit fontFamily (i.e. no
+// custom weight override) picks up Inter_400Regular instead of the system
+// font. This does NOT fix bold/semibold text elsewhere — RN doesn't
+// synthesize weight variants for custom fonts, so every fontWeight: '500'/
+// '600'/'700'/'800' in a StyleSheet still needs its own matching
+// Inter_*Weight fontFamily set explicitly (see DESIGN_CHECKLIST.md
+// "Typography" section for the full pass that did this).
+// defaultProps exists on the RN Text component at runtime even though its
+// official type doesn't declare it — cast once to avoid repeated ts-ignores.
+const RNTextAny = RNText as unknown as { defaultProps?: { style?: unknown } };
+RNTextAny.defaultProps = {
+  ...RNTextAny.defaultProps,
+  style: [{ fontFamily: 'Inter_400Regular' }, RNTextAny.defaultProps?.style],
+};
+
 export default function App() {
+  const [fontsLoaded] = useFonts({
+    Inter_300Light,
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+    Inter_800ExtraBold,
+  });
+
   const systemScheme = useColorScheme();
   const [manualDark, setManualDark] = useState<boolean | null>(true);
   const isDark = manualDark !== null ? manualDark : systemScheme === 'dark';
@@ -198,12 +236,22 @@ export default function App() {
     return () => subscription.remove();
   }, []);
 
+  const onRootLayout = useCallback(async () => {
+    if (fontsLoaded) {
+      await SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded]);
+
+  if (!fontsLoaded) {
+    return null;
+  }
+
   return (
     <ThemeContext.Provider value={themeCtx}>
       <FabHoldContext.Provider value={fabHoldCtx}>
       <TamaguiProvider config={config as any} defaultTheme={isDark ? 'dark' : 'light'}>
         <SafeAreaProvider>
-          <GestureHandlerRootView style={{ flex: 1 }}>
+          <GestureHandlerRootView style={{ flex: 1 }} onLayout={onRootLayout}>
             <StatusBar style={isDark ? 'light' : 'dark'} />
             <NavigationContainer ref={navigationRef}>
               <Tab.Navigator

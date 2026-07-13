@@ -64,6 +64,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 11,
     fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
     letterSpacing: 0.6,
     textTransform: 'uppercase',
     marginBottom: 12,
@@ -93,6 +94,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 15,
     fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
     letterSpacing: -0.2,
   },
   sub: {

@@ -19,8 +19,12 @@ export type RoninAssetKind = 'static' | 'model3d';
 export interface RoninMoodConfig {
   mood: RoninMood;
   statusLabel: string;
-  supportingCopy: string;
   accessibilityLabel: string;
+  // Single accent color for the Home hero card (RoninGreetingCard) — used
+  // for the corner glow, mood dot, hanko seal tint, and progress-bar fill.
+  // The card's base gradient is driven by time-of-day instead (see
+  // roninScenes.ts getTimeOfDay), not mood, so this stays a small accent
+  // rather than a full background color.
   accentColor: string;
   catState: RoninCatState;
 }

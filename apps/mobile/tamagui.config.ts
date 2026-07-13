@@ -64,8 +64,23 @@ const rkaTokens = createTokens({
   zIndex: { 0: 0, 1: 10, 2: 20, 3: 100, 4: 200 },
 })
 
-const sfProFont = createFont({
-  family: 'System',
+// Inter, one real static weight file per token instead of a single variable
+// family — RN doesn't synthesize bold/weight variants for custom fonts, so
+// `fontWeight` alone won't render correctly once `family` isn't 'System'.
+// The `face` map is what actually resolves e.g. fontWeight="600" to the
+// Inter_600SemiBold file registered via useFonts() in App.tsx. Weight keys
+// here must stay in sync with the `weight` map below (both by literal string,
+// since components pass literal weight strings like fontWeight="600").
+const interFont = createFont({
+  family: 'Inter_400Regular',
+  face: {
+    300: { normal: 'Inter_300Light' },
+    400: { normal: 'Inter_400Regular' },
+    500: { normal: 'Inter_500Medium' },
+    600: { normal: 'Inter_600SemiBold' },
+    700: { normal: 'Inter_700Bold' },
+    800: { normal: 'Inter_800ExtraBold' },
+  },
   size: { 1: 11, 2: 13, 3: 15, 4: 17, 5: 20, 6: 24, 7: 32, 8: 40 },
   lineHeight: { 1: 15, 2: 18, 3: 20, 4: 22, 5: 26, 6: 30, 7: 38, 8: 48 },
   weight: { 1: '400', 2: '500', 3: '600', 4: '700', 5: '800' },
@@ -77,7 +92,7 @@ const config = createTamagui({
   shorthands,
   media,
   tokens: rkaTokens,
-  fonts: { heading: sfProFont, body: sfProFont },
+  fonts: { heading: interFont, body: interFont },
   themes: {
     light: {
       background: '#f6f5f1',

@@ -240,6 +240,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
     letterSpacing: -0.2,
   },
   bench: {
@@ -251,6 +252,7 @@ const styles = StyleSheet.create({
   benchTitle: {
     fontSize: 13,
     fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
     textAlign: 'center',
   },
   benchProbe: {
@@ -293,6 +295,7 @@ const styles = StyleSheet.create({
   moodChipLabel: {
     fontSize: 13,
     fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
   },
   previewSection: {
     width: '100%',
@@ -309,6 +312,7 @@ const styles = StyleSheet.create({
   backupTitle: {
     fontSize: 15,
     fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
   },
   backupStatus: {
     fontSize: 13,
@@ -328,5 +332,6 @@ const styles = StyleSheet.create({
   backupButtonLabel: {
     fontSize: 15,
     fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
   },
 });

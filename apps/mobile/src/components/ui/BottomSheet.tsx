@@ -337,11 +337,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: fontSize.lg,
     fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
   },
   subtitle: {
     marginTop: 2,
     fontSize: fontSize.xs,
     fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
     textTransform: 'uppercase',
     letterSpacing: 0.6,
   },

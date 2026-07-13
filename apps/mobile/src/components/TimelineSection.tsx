@@ -6,7 +6,16 @@ import { ContextMenu } from './ContextMenu';
 import type { Item } from '../db/types';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
-import { Clock, Sun, Sunset, Moon } from '../icons';
+import { StoneIcon, SunriseIcon, FanIcon, MoonStarIcon } from './icons/TimeBlockIcons';
+
+// Bold palette — richer saturation than the muted/sunrise options explored
+// during design review, picked for max contrast between time blocks. Dark
+// variants are brightened per-color (not just alpha'd) to stay legible on
+// the dark bg rather than reusing the light-mode hex.
+const timeBlockColors = {
+  light: { anytime: '#6E6E6E', morning: '#E0A73D', afternoon: '#D65A2E', evening: '#2A2A72' },
+  dark: { anytime: '#a8a8a8', morning: '#F0BE5E', afternoon: '#F07850', evening: '#6D6DD6' },
+};
 
 export interface TimelineSectionProps {
   todayItems: Item[];
@@ -27,7 +36,17 @@ interface TimeBlockData {
   key: TimeBlockType;
   label: string;
   icon: React.ReactElement;
+  color: string;
   items: Item[];
+}
+
+// Alpha-blends a hex color for chip/row tints — RN has no native rgba(#hex, a).
+function hexToRgba(hex: string, alpha: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  return `rgba(${r},${g},${b},${alpha})`;
 }
 
 export function TimelineSection({
@@ -45,12 +64,12 @@ export function TimelineSection({
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
 
-  const iconColor = isDark ? 'rgba(255,255,255,0.38)' : 'rgba(0,0,0,0.35)';
+  const blockColors = isDark ? timeBlockColors.dark : timeBlockColors.light;
   const blocks: TimeBlockData[] = [
-    { key: 'anytime', label: 'Anytime', icon: <Clock size={13} color={iconColor} strokeWidth={1.5} />, items: anytime },
-    { key: 'morning', label: 'Morning', icon: <Sun size={13} color={iconColor} strokeWidth={1.5} />, items: morning },
-    { key: 'afternoon', label: 'Afternoon', icon: <Sunset size={13} color={iconColor} strokeWidth={1.5} />, items: afternoon },
-    { key: 'evening', label: 'Evening', icon: <Moon size={13} color={iconColor} strokeWidth={1.5} />, items: evening },
+    { key: 'anytime', label: 'Anytime', color: blockColors.anytime, icon: <StoneIcon size={13} color={blockColors.anytime} />, items: anytime },
+    { key: 'morning', label: 'Morning', color: blockColors.morning, icon: <SunriseIcon size={13} color={blockColors.morning} />, items: morning },
+    { key: 'afternoon', label: 'Afternoon', color: blockColors.afternoon, icon: <FanIcon size={13} color={blockColors.afternoon} />, items: afternoon },
+    { key: 'evening', label: 'Evening', color: blockColors.evening, icon: <MoonStarIcon size={13} color={blockColors.evening} />, items: evening },
   ];
 
   const [expandedSections, setExpandedSections] = useState<Record<TimeBlockType, boolean>>({
@@ -79,11 +98,13 @@ export function TimelineSection({
 
   function TimeBlockItems({
     items,
+    color,
     onItemTap,
     onItemComplete,
     onItemArchive,
   }: {
     items: Item[];
+    color: string;
     onItemTap?: (item: Item) => void;
     onItemComplete?: (id: string) => void;
     onItemArchive?: (id: string) => void;
@@ -93,7 +114,7 @@ export function TimelineSection({
     }
 
     return (
-      <View style={[styles.itemsContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.01)' : 'rgba(0,0,0,0.01)' }]}>
+      <View style={[styles.itemsContainer, { backgroundColor: hexToRgba(color, isDark ? 0.08 : 0.06) }]}>
         {items.map((item, index) => (
           <SwipeableItem
             key={item.id}
@@ -115,9 +136,7 @@ export function TimelineSection({
                   <View
                     style={[
                       styles.itemCircle,
-                      {
-                        borderColor: isDark ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.18)',
-                      },
+                      { borderColor: color },
                     ]}
                   />
                   <View style={styles.itemContent}>
@@ -155,6 +174,7 @@ export function TimelineSection({
     block,
     label,
     icon,
+    color,
     count,
     isExpanded,
     onToggle,
@@ -163,6 +183,7 @@ export function TimelineSection({
     block: TimeBlockType;
     label: string;
     icon: React.ReactElement;
+    color: string;
     count: number;
     isExpanded: boolean;
     onToggle: () => void;
@@ -181,19 +202,19 @@ export function TimelineSection({
         <TouchableOpacity
           onPress={onToggle}
           activeOpacity={0.6}
-          style={[styles.blockHeader, { borderBottomColor: palette.separator }]}
+          style={[styles.blockHeader, { backgroundColor: hexToRgba(color, isDark ? 0.08 : 0.06), borderBottomColor: palette.separator }]}
         >
           <View
             style={[
               styles.headerChip,
-              { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)' },
+              { backgroundColor: hexToRgba(color, isDark ? 0.22 : 0.15) },
             ]}
           >
             {icon}
             <Text style={[styles.headerLabel, { color: palette.text }]}>{label}</Text>
           </View>
           <View style={styles.headerRight}>
-            <Text style={[styles.headerCount, { color: palette.textSecondary }]}>{count}</Text>
+            <Text style={[styles.headerCount, { color }]}>{count}</Text>
             <Text style={[styles.headerArrow, { color: palette.textMuted }]}>
               {isExpanded ? '↑' : '→'}
             </Text>
@@ -224,6 +245,7 @@ export function TimelineSection({
               block={block.key}
               label={block.label}
               icon={block.icon}
+              color={block.color}
               count={block.items.length}
               isExpanded={expandedSections[block.key]}
               onToggle={() => toggleSection(block.key)}
@@ -233,6 +255,7 @@ export function TimelineSection({
             {expandedSections[block.key] && (
               <TimeBlockItems
                 items={block.items}
+                color={block.color}
                 onItemTap={onItemTap}
                 onItemComplete={onItemComplete}
                 onItemArchive={onItemArchive}
@@ -254,6 +277,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 11,
     fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
     letterSpacing: 0.6,
     textTransform: 'uppercase',
     marginBottom: 12,
@@ -283,6 +307,7 @@ const styles = StyleSheet.create({
   headerLabel: {
     fontSize: 14,
     fontWeight: '500',
+    fontFamily: 'Inter_500Medium',
   },
   headerRight: {
     flexDirection: 'row',
@@ -292,10 +317,12 @@ const styles = StyleSheet.create({
   headerCount: {
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
   },
   headerArrow: {
     fontSize: 12,
     fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
   },
   itemsContainer: {
     paddingVertical: 8,

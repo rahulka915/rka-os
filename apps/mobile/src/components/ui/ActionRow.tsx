@@ -58,12 +58,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: fontSize.base,
     fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
     lineHeight: 22,
   },
   subtitle: {
     marginTop: 2,
     fontSize: fontSize.sm,
     fontWeight: '500',
+    fontFamily: 'Inter_500Medium',
     lineHeight: 18,
   },
   pressed: {

@@ -23,7 +23,12 @@ export function KatanaProgressBar({ progress }: KatanaProgressBarProps) {
 
   return (
     <View>
-      <Svg width="100%" height={28} viewBox={`${TIP_X} ${VIEW_Y} ${FAR_X - TIP_X} ${VIEW_H}`}>
+      <Svg
+        width="100%"
+        height={32}
+        viewBox={`${TIP_X} ${VIEW_Y} ${FAR_X - TIP_X} ${VIEW_H}`}
+        preserveAspectRatio="none"
+      >
         <Defs>
           <ClipPath id="bladeReveal">
             <Rect x={revealX} y={VIEW_Y} width={FAR_X - revealX} height={VIEW_H} />

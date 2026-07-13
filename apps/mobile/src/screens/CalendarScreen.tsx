@@ -1133,11 +1133,13 @@ const s = StyleSheet.create({
   monthTitle: {
     fontSize: fontSize.lg,
     fontWeight: '800',
+    fontFamily: 'Inter_800ExtraBold',
     letterSpacing: -0.3,
   },
   monthSub: {
     fontSize: fontSize.xs,
     fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
     marginTop: 2,
     letterSpacing: 0.3,
     textTransform: 'uppercase',
@@ -1156,6 +1158,7 @@ const s = StyleSheet.create({
   dayLabel: {
     fontSize: 10,
     fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
     letterSpacing: 0.3,
   },
   dayCircle: {
@@ -1200,12 +1203,14 @@ const s = StyleSheet.create({
   summaryEyebrow: {
     fontSize: 10,
     fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
   },
   summaryTitle: {
     fontSize: 24,
     fontWeight: '800',
+    fontFamily: 'Inter_800ExtraBold',
     letterSpacing: -0.5,
     marginTop: 2,
   },
@@ -1213,6 +1218,7 @@ const s = StyleSheet.create({
     marginTop: 4,
     fontSize: 13,
     fontWeight: '500',
+    fontFamily: 'Inter_500Medium',
   },
   summaryActions: {
     flexDirection: 'row',
@@ -1229,6 +1235,7 @@ const s = StyleSheet.create({
   todayButtonText: {
     fontSize: 13,
     fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
     letterSpacing: 0.2,
   },
   fabButton: {
@@ -1251,6 +1258,7 @@ const s = StyleSheet.create({
     flex: 1,
     fontSize: 12,
     fontWeight: '500',
+    fontFamily: 'Inter_500Medium',
     lineHeight: 16,
   },
   statChip: {
@@ -1263,11 +1271,13 @@ const s = StyleSheet.create({
   statValue: {
     fontSize: 20,
     fontWeight: '800',
+    fontFamily: 'Inter_800ExtraBold',
     letterSpacing: -0.3,
   },
   statLabel: {
     fontSize: 11,
     fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
     marginTop: 2,
     textTransform: 'uppercase',
     letterSpacing: 0.4,
@@ -1294,12 +1304,14 @@ const s = StyleSheet.create({
   sectionTitle: {
     fontSize: 11,
     fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
   },
   sectionAction: {
     fontSize: 13,
     fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
   },
   flexList: {
     borderWidth: StyleSheet.hairlineWidth,
@@ -1333,6 +1345,7 @@ const s = StyleSheet.create({
     color: '#fff',
     fontSize: 10,
     fontWeight: '800',
+    fontFamily: 'Inter_800ExtraBold',
     letterSpacing: 0.4,
     textTransform: 'uppercase',
   },
@@ -1359,6 +1372,7 @@ const s = StyleSheet.create({
   hourLabel: {
     fontSize: 13,
     fontWeight: '800',
+    fontFamily: 'Inter_800ExtraBold',
     letterSpacing: 0.2,
     fontVariant: ['tabular-nums'],
   },
@@ -1370,6 +1384,7 @@ const s = StyleSheet.create({
   hourChipText: {
     fontSize: 10,
     fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
     textTransform: 'uppercase',
     letterSpacing: 0.4,
   },
@@ -1391,6 +1406,7 @@ const s = StyleSheet.create({
   addSlotText: {
     fontSize: 12,
     fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
   },
   hourEntryList: {
     gap: spacing[2],
@@ -1402,6 +1418,7 @@ const s = StyleSheet.create({
   emptyHourText: {
     fontSize: 12,
     fontWeight: '500',
+    fontFamily: 'Inter_500Medium',
   },
   itemDivider: {
     height: StyleSheet.hairlineWidth,
@@ -1457,6 +1474,7 @@ const s = StyleSheet.create({
   dragHint: {
     fontSize: 10,
     fontWeight: '800',
+    fontFamily: 'Inter_800ExtraBold',
     letterSpacing: 0.4,
     textTransform: 'uppercase',
   },
@@ -1479,6 +1497,7 @@ const s = StyleSheet.create({
   quarterMarkLabel: {
     fontSize: 8,
     fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
     letterSpacing: 0.2,
   },
   dragPreview: {
@@ -1496,11 +1515,13 @@ const s = StyleSheet.create({
   dragPreviewTime: {
     fontSize: 11,
     fontWeight: '800',
+    fontFamily: 'Inter_800ExtraBold',
     letterSpacing: 0.2,
   },
   dragPreviewSub: {
     fontSize: 10,
     fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
     letterSpacing: 0.2,
   },
   timePill: {
@@ -1515,6 +1536,7 @@ const s = StyleSheet.create({
   timePillText: {
     fontSize: 10,
     fontWeight: '800',
+    fontFamily: 'Inter_800ExtraBold',
     letterSpacing: 0.4,
     textTransform: 'uppercase',
   },
@@ -1527,12 +1549,14 @@ const s = StyleSheet.create({
   statusPillText: {
     fontSize: 10,
     fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
     textTransform: 'uppercase',
     letterSpacing: 0.4,
   },
   entryTitle: {
     fontSize: 15,
     fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
     letterSpacing: -0.2,
     lineHeight: 19,
   },
@@ -1556,15 +1580,18 @@ const s = StyleSheet.create({
   typePillText: {
     fontSize: 10,
     fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
     textTransform: 'uppercase',
     letterSpacing: 0.4,
   },
   sheetAction: {
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
   },
   sheetSave: {
     fontWeight: '800',
+    fontFamily: 'Inter_800ExtraBold',
   },
   sheetContent: {
     paddingBottom: spacing[5],
@@ -1582,12 +1609,14 @@ const s = StyleSheet.create({
   fieldLabel: {
     fontSize: 11,
     fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
     letterSpacing: 0.6,
     textTransform: 'uppercase',
   },
   titleInput: {
     fontSize: fontSize.xl,
     fontWeight: '800',
+    fontFamily: 'Inter_800ExtraBold',
     letterSpacing: -0.4,
     minHeight: 46,
     paddingVertical: 0,
@@ -1619,6 +1648,7 @@ const s = StyleSheet.create({
   timeMetaText: {
     fontSize: 10,
     fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
     letterSpacing: 0.4,
     textTransform: 'uppercase',
   },
@@ -1635,11 +1665,13 @@ const s = StyleSheet.create({
     textAlign: 'center',
     fontSize: fontSize.lg,
     fontWeight: '800',
+    fontFamily: 'Inter_800ExtraBold',
     letterSpacing: 0.3,
   },
   timeSeparator: {
     fontSize: 24,
     fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
     width: 12,
     textAlign: 'center',
   },
@@ -1653,6 +1685,7 @@ const s = StyleSheet.create({
   timeQuickText: {
     fontSize: 13,
     fontWeight: '800',
+    fontFamily: 'Inter_800ExtraBold',
   },
   typeSection: {
     gap: spacing[2],
@@ -1675,6 +1708,7 @@ const s = StyleSheet.create({
   typeChipText: {
     fontSize: 11,
     fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
     letterSpacing: 0.3,
     textTransform: 'uppercase',
   },
@@ -1690,5 +1724,6 @@ const s = StyleSheet.create({
   deleteButtonText: {
     fontSize: 14,
     fontWeight: '800',
+    fontFamily: 'Inter_800ExtraBold',
   },
 });

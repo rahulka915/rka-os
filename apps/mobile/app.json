@@ -86,7 +86,8 @@
           ]
         }
       ],
-      "./plugins/withWidgetVersionSync.js"
+      "./plugins/withWidgetVersionSync.js",
+      "expo-font"
     ],
     "extra": {
       "eas": {

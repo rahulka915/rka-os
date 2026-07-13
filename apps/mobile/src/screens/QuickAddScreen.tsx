@@ -519,6 +519,7 @@ const styles = StyleSheet.create({
   contextPillText: {
     fontSize: 12,
     fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
   },
   titleRow: {
     flexDirection: 'row',
@@ -528,6 +529,7 @@ const styles = StyleSheet.create({
   titleInput: {
     fontSize: 20,
     fontWeight: '500',
+    fontFamily: 'Inter_500Medium',
     letterSpacing: -0.3,
     paddingBottom: 14,
     minHeight: 52,
@@ -560,6 +562,7 @@ const styles = StyleSheet.create({
   tagChipText: {
     fontSize: 12,
     fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
   },
   metaRow: {
     flexDirection: 'row',
@@ -579,6 +582,7 @@ const styles = StyleSheet.create({
   pillText: {
     fontSize: 12,
     fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
   },
   actionText: {
     fontSize: 16,
@@ -586,6 +590,7 @@ const styles = StyleSheet.create({
   },
   saveText: {
     fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
   },
   // Picker modal (When / Priority / Tags) — Things 3-style bottom sheet
   pickerScrim: {
@@ -615,10 +620,12 @@ const styles = StyleSheet.create({
   pickerTitle: {
     fontSize: 16,
     fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
   },
   pickerDone: {
     fontSize: 15,
     fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
     textAlign: 'right',
   },
   pickerRow: {
@@ -636,6 +643,7 @@ const styles = StyleSheet.create({
   pickerRowLabel: {
     fontSize: 15,
     fontWeight: '500',
+    fontFamily: 'Inter_500Medium',
   },
   tagInputRow: {
     flexDirection: 'row',
@@ -660,5 +668,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
   },
 });

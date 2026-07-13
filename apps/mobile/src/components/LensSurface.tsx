@@ -72,6 +72,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: '800',
+    fontFamily: 'Inter_800ExtraBold',
     letterSpacing: -0.4,
   },
   content: {

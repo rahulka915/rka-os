@@ -531,6 +531,7 @@ const s = StyleSheet.create({
   sectionLabel: {
     fontSize: 11,
     fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
     letterSpacing: 0.6,
     textTransform: 'uppercase',
     marginBottom: 8,
@@ -547,6 +548,7 @@ const s = StyleSheet.create({
   seeAll: {
     fontSize: 13,
     fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
   },
   attentionRow: {
     flexDirection: 'row',
@@ -562,6 +564,7 @@ const s = StyleSheet.create({
   attentionTitle: {
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
   },
   attentionSub: {
     fontSize: 12,
@@ -570,6 +573,7 @@ const s = StyleSheet.create({
   attentionAction: {
     fontSize: 13,
     fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
   },
   todayRow: {
     flexDirection: 'row',
@@ -586,6 +590,7 @@ const s = StyleSheet.create({
   medTitle: {
     fontSize: 15,
     fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
     letterSpacing: -0.2,
   },
   medDose: {
@@ -617,6 +622,7 @@ const s = StyleSheet.create({
   actionBtnText: {
     fontSize: 13,
     fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
   },
   historyRow: {
     flexDirection: 'row',
@@ -629,6 +635,7 @@ const s = StyleSheet.create({
   historyLabel: {
     fontSize: 13,
     fontWeight: '500',
+    fontFamily: 'Inter_500Medium',
     flex: 1,
   },
   historyDays: {
@@ -657,6 +664,7 @@ const s = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
   },
   emptySub: {
     fontSize: 13,
@@ -683,6 +691,7 @@ const s = StyleSheet.create({
   addMedTitle: {
     fontSize: 18,
     fontWeight: '800',
+    fontFamily: 'Inter_800ExtraBold',
     letterSpacing: -0.3,
   },
   addMedContent: {
@@ -696,6 +705,7 @@ const s = StyleSheet.create({
   fieldLabel: {
     fontSize: 10,
     fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
     letterSpacing: 0.6,
     textTransform: 'uppercase',
   },
@@ -723,6 +733,7 @@ const s = StyleSheet.create({
   cancelText: {
     fontSize: 15,
     fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
   },
   saveBtn: {
     flex: 1,
@@ -734,5 +745,6 @@ const s = StyleSheet.create({
   saveText: {
     fontSize: 15,
     fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
   },
 });

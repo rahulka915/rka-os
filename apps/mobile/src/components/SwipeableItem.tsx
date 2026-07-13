@@ -112,5 +112,5 @@ const styles = StyleSheet.create({
     paddingVertical: spacing[3],
     gap: 4,
   },
-  actionLabel: { color: '#fff', fontSize: 11, fontWeight: '600' },
+  actionLabel: { color: '#fff', fontSize: 11, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
 });

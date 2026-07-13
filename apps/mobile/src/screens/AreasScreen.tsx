@@ -105,11 +105,13 @@ const styles = StyleSheet.create({
   rowTitle: {
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
     flex: 1,
   },
   rowCount: {
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
     marginLeft: 12,
   },
   empty: {
@@ -122,6 +124,7 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
   },
   emptySub: {
     fontSize: 14,

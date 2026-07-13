@@ -1,8 +1,7 @@
-import { ImageBackground, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, ImageBackground, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../../theme';
 import { ListChecks, Pill, Dumbbell } from '../../icons';
-import { ZenGardenIcon } from '../icons/ZenGardenIcon';
 import type { NextUpResult } from '../../utils/nextUpItem';
 import type { RoninTimeOfDay } from '../../domain/ronin/types';
 import { getRoninSceneAsset } from '../../domain/ronin/roninScenes';
@@ -21,6 +20,11 @@ function IconFor({ type, color }: { type: NextUpResult['type']; color: string })
   return <ListChecks size={18} color={color} strokeWidth={1.75} />;
 }
 
+// Square tile — sits side by side with InboxScrollCard (see HomeScreen.tsx),
+// each taking half the row width. All three states (empty, dark photo-hero,
+// light gradient-hero) share the same square footprint and the same corner
+// badge + bottom-anchored text convention for visual consistency across the
+// row, instead of each having its own bespoke shape.
 export function NextUpCard({ result, isDark, timeOfDay, onAction }: NextUpCardProps) {
   const palette = getThemeColors(isDark);
 
@@ -31,11 +35,19 @@ export function NextUpCard({ result, isDark, timeOfDay, onAction }: NextUpCardPr
     const emptyBg = isDark ? palette.fillStrong : palette.surface;
     const emptyBorder = isDark ? palette.separatorStrong : palette.separator;
     return (
-      <View style={[styles.card, { backgroundColor: emptyBg, borderColor: emptyBorder }]}>
-        <ZenGardenIcon size={40} color={palette.silver} stoneColor={isDark ? '#c5c5c5' : '#5a5a5a'} />
-        <View style={styles.textGroup}>
-          <Text style={[styles.title, { color: palette.text }]}>Nothing pressing right now</Text>
-          <Text style={[styles.subtitle, { color: palette.textSecondary }]}>Enjoy the quiet.</Text>
+      <View style={[styles.emptyCard, { backgroundColor: emptyBg, borderColor: emptyBorder }]}>
+        <View style={styles.illustrationWrap}>
+          <Image
+            source={require('../../../assets/illustrations/zen-garden-scene.png')}
+            style={styles.emptyIllustration}
+            resizeMode="contain"
+          />
+        </View>
+        <View>
+          <Text style={[styles.title, { color: palette.text }]}>Nothing pressing</Text>
+          <Text style={[styles.subtitle, { color: palette.textSecondary }]} numberOfLines={1}>
+            Enjoy the quiet.
+          </Text>
         </View>
       </View>
     );
@@ -54,14 +66,16 @@ export function NextUpCard({ result, isDark, timeOfDay, onAction }: NextUpCardPr
         imageStyle={styles.heroCardImage}
       >
         <LinearGradient
-          colors={['rgba(10,12,16,0.35)', 'rgba(8,10,13,0.78)']}
+          colors={['rgba(10,12,16,0.25)', 'rgba(8,10,13,0.82)']}
           start={{ x: 0.5, y: 0 }}
           end={{ x: 0.5, y: 1 }}
           style={styles.heroOverlay}
         >
           <Text style={styles.heroLabel}>NEXT UP</Text>
-          <Text style={styles.heroTitle} numberOfLines={2}>{result.title}</Text>
-          <Text style={styles.heroSubtitle}>{result.timeOfDayLabel}</Text>
+          <View>
+            <Text style={styles.heroTitle} numberOfLines={2}>{result.title}</Text>
+            <Text style={styles.heroSubtitle} numberOfLines={1}>{result.timeOfDayLabel}</Text>
+          </View>
           <TouchableOpacity
             onPress={() => onAction(result)}
             style={styles.glowBadge}
@@ -86,96 +100,104 @@ export function NextUpCard({ result, isDark, timeOfDay, onAction }: NextUpCardPr
       style={styles.lightHeroCard}
     >
       <Text style={[styles.lightHeroLabel, { color: colors.deeperBlue }]}>NEXT UP</Text>
-      <View style={styles.lightHeroBody}>
-        <View style={styles.textGroup}>
-          <Text style={[styles.title, { color: palette.text }]} numberOfLines={1}>{result.title}</Text>
-          <Text style={[styles.subtitle, { color: palette.textSecondary }]}>{result.timeOfDayLabel}</Text>
-        </View>
-        <TouchableOpacity
-          onPress={() => onAction(result)}
-          style={[styles.lightHeroBadge, { backgroundColor: colors.deeperBlue }]}
-          activeOpacity={0.85}
-        >
-          <IconFor type={result.type} color="#ffffff" />
-        </TouchableOpacity>
+      <View>
+        <Text style={[styles.title, { color: palette.text }]} numberOfLines={1}>{result.title}</Text>
+        <Text style={[styles.subtitle, { color: palette.textSecondary }]} numberOfLines={1}>
+          {result.timeOfDayLabel}
+        </Text>
       </View>
+      <TouchableOpacity
+        onPress={() => onAction(result)}
+        style={[styles.lightHeroBadge, { backgroundColor: colors.deeperBlue }]}
+        activeOpacity={0.85}
+      >
+        <IconFor type={result.type} color="#ffffff" />
+      </TouchableOpacity>
     </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+  emptyCard: {
+    aspectRatio: 1,
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    padding: 14,
+    justifyContent: 'space-between',
   },
-  textGroup: {
+  illustrationWrap: {
     flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyIllustration: {
+    width: 92,
+    height: 62,
   },
   title: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
   },
   subtitle: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '500',
+    fontFamily: 'Inter_500Medium',
     marginTop: 2,
   },
   heroCard: {
+    aspectRatio: 1,
     borderRadius: 16,
     overflow: 'hidden',
-    minHeight: 108,
   },
   heroCardImage: {
     borderRadius: 16,
   },
   heroOverlay: {
     flex: 1,
-    padding: 16,
+    padding: 14,
+    justifyContent: 'space-between',
   },
   heroLabel: {
     color: '#2b7ff0',
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
     letterSpacing: 0.6,
   },
   heroTitle: {
     color: '#f2ede6',
-    fontSize: 19,
+    fontSize: 16,
     fontWeight: '700',
-    marginTop: 8,
-    lineHeight: 24,
-    paddingRight: 44,
+    fontFamily: 'Inter_700Bold',
+    lineHeight: 20,
   },
   heroSubtitle: {
     color: '#c9d3da',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '500',
-    marginTop: 8,
+    fontFamily: 'Inter_500Medium',
+    marginTop: 4,
   },
   lightHeroCard: {
+    aspectRatio: 1,
     borderRadius: 16,
-    padding: 16,
+    padding: 14,
+    justifyContent: 'space-between',
   },
   lightHeroLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
     letterSpacing: 0.6,
   },
-  lightHeroBody: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginTop: 8,
-  },
   lightHeroBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -183,9 +205,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 14,
     right: 14,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: 'rgba(43,127,240,0.20)',
     alignItems: 'center',
     justifyContent: 'center',

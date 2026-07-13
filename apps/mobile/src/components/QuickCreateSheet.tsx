@@ -103,10 +103,12 @@ const styles = StyleSheet.create({
   },
   saveText: {
     fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
   },
   input: {
     fontSize: 22,
     fontWeight: '500',
+    fontFamily: 'Inter_500Medium',
     letterSpacing: -0.3,
     minHeight: 56,
     paddingVertical: 12,

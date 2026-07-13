@@ -111,6 +111,7 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontSize: 10,
     fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
     letterSpacing: 1.0,
     marginLeft: 16,
     marginBottom: 10,
@@ -143,10 +144,12 @@ const styles = StyleSheet.create({
   cardLabel: {
     fontSize: 9,
     fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
     letterSpacing: 0.8,
   },
   statusLine: {
     fontSize: 14,
     fontWeight: '500',
+    fontFamily: 'Inter_500Medium',
   },
 });

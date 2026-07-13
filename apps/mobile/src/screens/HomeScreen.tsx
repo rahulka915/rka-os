@@ -12,20 +12,15 @@ import { useThemeContext } from '../hooks/useThemeContext';
 import { usePersistentTimerState } from '../hooks/usePersistentTimerState';
 import { getThemeColors } from '../theme';
 import { updateItemStatus, deleteItem } from '../db/database';
-import { getRoninMood } from '../utils/roninMood';
+import { getRoninStatus } from '../utils/roninMood';
 import { getTimeOfDay } from '../domain/ronin/roninScenes';
+import { getRoninGreetingWord } from '../domain/ronin/roninGreeting';
 import { findNextUpItem } from '../utils/nextUpItem';
 
 interface HomeScreenProps {
   onInboxPress: () => void;
   inboxOpen: boolean;
   onHeroPress: () => void;
-}
-
-function greetingForHour(hour: number): string {
-  if (hour < 12) return 'Good morning, Rahul';
-  if (hour < 17) return 'Good afternoon, Rahul';
-  return 'Good evening, Rahul';
 }
 
 export function HomeScreen({ onInboxPress, inboxOpen, onHeroPress }: HomeScreenProps) {
@@ -53,13 +48,15 @@ export function HomeScreen({ onInboxPress, inboxOpen, onHeroPress }: HomeScreenP
 
   const overdueCount = todayItems.filter((item) => item.status === 'overdue').length;
   const hour = new Date().getHours();
-  const roninMood = getRoninMood({
+  const { mood: roninMood, statusLine } = getRoninStatus({
     isTimerRunning: timers.length > 0,
     overdueCount,
     inboxCount,
     completedJustNow,
     hour,
   });
+  const timeOfDay = getTimeOfDay(hour);
+  const completedToday = todayItems.filter((item) => item.status === 'completed').length;
 
   const activeTimerItemIds = timers.map((t) => t.med.id);
   const nextUp = findNextUpItem(todayItems, activeTimerItemIds, hour);
@@ -74,31 +71,35 @@ export function HomeScreen({ onInboxPress, inboxOpen, onHeroPress }: HomeScreenP
         <View style={{ marginHorizontal: 12, marginTop: 8, borderRadius: 16, overflow: 'hidden' }}>
           <RoninHero
             mood={roninMood}
-            timeOfDay={getTimeOfDay(hour)}
-            greeting={greetingForHour(hour)}
+            timeOfDay={timeOfDay}
+            greetingWord={getRoninGreetingWord(timeOfDay)}
+            name="Rahul"
+            statusLine={statusLine}
+            completedCount={completedToday}
+            totalCount={todayItems.length}
             onPress={onHeroPress}
           />
         </View>
 
-        {/* Next Up — single nearest pending item, or a calm empty state */}
-        <View style={{ marginHorizontal: 12, marginTop: 12 }}>
-          <NextUpCard
-            result={nextUp}
-            isDark={isDark}
-            timeOfDay={getTimeOfDay(hour)}
-            onAction={(result) => {
-              console.log('Next Up action for:', result.id, result.actionLabel);
-            }}
-          />
-        </View>
-
-        {/* Contextual unattended-matters status */}
-        <View style={{ marginHorizontal: 12, marginTop: 12 }}>
-          <InboxScrollCard
-            inboxCount={inboxCount}
-            onPress={onInboxPress}
-            isDark={isDark}
-          />
+        {/* Next Up + Inbox — side by side, both square, splitting the row */}
+        <View style={{ flexDirection: 'row', gap: 12, marginHorizontal: 12, marginTop: 12 }}>
+          <View style={{ flex: 1 }}>
+            <NextUpCard
+              result={nextUp}
+              isDark={isDark}
+              timeOfDay={timeOfDay}
+              onAction={(result) => {
+                console.log('Next Up action for:', result.id, result.actionLabel);
+              }}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <InboxScrollCard
+              inboxCount={inboxCount}
+              onPress={onInboxPress}
+              isDark={isDark}
+            />
+          </View>
         </View>
 
         {/* Today timeline */}
