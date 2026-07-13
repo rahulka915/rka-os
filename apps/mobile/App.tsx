@@ -1,6 +1,6 @@
 import 'react-native-get-random-values';
 import { useCallback, useState, useEffect, useMemo, useRef } from 'react';
-import { useColorScheme, TouchableOpacity, View, Text, StyleSheet, AppState } from 'react-native';
+import { useColorScheme, TouchableOpacity, View, StyleSheet, AppState } from 'react-native';
 import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,8 +9,8 @@ import { TamaguiProvider } from 'tamagui';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import {
-  Home, CalendarDays, LayoutGrid, User, Plus,
-} from './src/icons';
+  TorriHomeIcon, SunDialCalendarIcon, LayersMoreIcon, PersonalSealMeIcon, CalligraphyBrushIcon,
+} from './src/components/icons/DockIcons';
 
 import config from './tamagui.config';
 import { ThemeContext } from './src/hooks/useThemeContext';
@@ -33,20 +33,20 @@ getDb();
 
 const Tab = createBottomTabNavigator();
 
+// Icon-only dock with persistent per-section colors — approved design
+// direction, see ~/.codex/visualizations/.../RKA_OS_ICON_MOCKUP_HANDOFF.md.
+// Each icon keeps its assigned color at rest (not just when focused); the
+// focused tab additionally gets a soft rounded badge in that same color so
+// there's still a clear "you are here" signal without a text label.
 const TAB_ITEMS = [
-  { name: 'Home',     label: 'Home',     Icon: Home        },
-  { name: 'Calendar', label: 'Calendar', Icon: CalendarDays },
-  { name: 'Menu',     label: 'More',     Icon: LayoutGrid  },
-  { name: 'Profile',  label: 'Me',       Icon: User        },
+  { name: 'Home',     Icon: TorriHomeIcon,        color: '#C44545' },
+  { name: 'Calendar', Icon: SunDialCalendarIcon,  color: '#D4B078' },
+  { name: 'Menu',     Icon: LayersMoreIcon,       color: '#4E9E86' },
+  { name: 'Profile',  Icon: PersonalSealMeIcon,   color: '#2b7ff0' },
 ];
 
 function AppleTabBar({ state, navigation, isDark, onFabPress, onFabHold }: any) {
   const insets = useSafeAreaInsets();
-  // deeperBlue in both modes — see src/theme/colors.ts. (Used to be the old
-  // silvery-blue/#007aff split before the accent palette refresh; this file
-  // was missed in that migration.)
-  const activeColor = '#2b7ff0';
-  const inactiveColor = isDark ? 'rgba(242,237,230,0.38)' : 'rgba(23,23,28,0.35)';
   const borderColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(20,20,30,0.08)';
 
   // Derived from the theme bg tokens (#0f0f1a / #f6f5f1) instead of the old
@@ -61,8 +61,7 @@ function AppleTabBar({ state, navigation, isDark, onFabPress, onFabHold }: any) 
         <View style={styles.tabsRow}>
           {state.routes.map((route: any, index: number) => {
             const isFocused = state.index === index;
-            const { label, Icon } = TAB_ITEMS.find(t => t.name === route.name)!;
-            const color = isFocused ? activeColor : inactiveColor;
+            const { Icon, color } = TAB_ITEMS.find(t => t.name === route.name)!;
 
             return (
               <TouchableOpacity
@@ -73,14 +72,13 @@ function AppleTabBar({ state, navigation, isDark, onFabPress, onFabHold }: any) 
                 }}
                 style={styles.tabItem}
                 activeOpacity={0.7}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: isFocused }}
+                accessibilityLabel={route.name}
               >
-                <Icon
-                  size={24}
-                  color={color}
-                  strokeWidth={isFocused ? 2 : 1.5}
-                  fill={isFocused ? activeColor + '22' : 'none'}
-                />
-                <Text style={[styles.tabLabel, { color }]}>{label}</Text>
+                <View style={[styles.tabIconBadge, isFocused && { backgroundColor: color + '22' }]}>
+                  <Icon size={22} color={color} strokeWidth={isFocused ? 2 : 1.6} />
+                </View>
               </TouchableOpacity>
             );
           })}
@@ -101,20 +99,14 @@ function AppleTabBar({ state, navigation, isDark, onFabPress, onFabHold }: any) 
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
           }}
           delayLongPress={400}
-          style={[
-            styles.fab,
-            // deeperBlue in dark mode (was the old silvery-blue); light mode
-            // stays near-black ink, matching the flat-ink CTA convention
-            // used elsewhere (e.g. save buttons) rather than switching to blue.
-            { backgroundColor: isDark ? '#2b7ff0' : '#0d0d0d' },
-            isDark && styles.fabGlow,
-          ]}
+          accessibilityRole="button"
+          accessibilityLabel="Create"
+          // RKA blue in both modes — Create is the one dock element that
+          // doesn't follow persistent section color, it's the primary action.
+          style={[styles.fab, { backgroundColor: '#2b7ff0' }, isDark && styles.fabGlow]}
           activeOpacity={0.85}
         >
-          {/* White in both modes now — dark mode's FAB bg is deeperBlue
-              (#2b7ff0), not the old near-white silvery-blue that needed a
-              dark navy icon for contrast. */}
-          <Plus size={22} color="#ffffff" strokeWidth={2.5} />
+          <CalligraphyBrushIcon size={22} color="#ffffff" />
         </TouchableOpacity>
       </View>
     </View>
@@ -277,13 +269,14 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    gap: 3,
+    paddingVertical: 12,
   },
-  tabLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-    letterSpacing: 0.2,
+  tabIconBadge: {
+    width: 40,
+    height: 32,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   fab: {
     width: 48,

@@ -33,12 +33,26 @@ Not yet promoted to `colors.ts`. Once a final primary is picked, update this tab
 
 | Motif | Color | Use | Status |
 |---|---|---|---|
-| Torii gate | red `#c23b3b` | Milestones / unlocks | Concept only — feature not built |
+| Torii gate | red `#c23b3b` | Milestones / unlocks (illustration card) | Concept only — feature not built |
 | Blossom | pink `#ed93b1` | Streaks / habit wins | Concept only — feature not built |
 | Wave / mountain | deep blue `#1a4d7a` | Long-term / weekly views | Concept only — feature not built |
 | Katana silhouette | platinum `#dfe1e4` | Companion level/XP | **Shipped** — `KatanaProgressBar.tsx` |
 
 Note: streaks, journaling, weekly-reflection, and real level/XP progression don't exist in the app yet (`roninProgress.ts` returns a hardcoded placeholder). Motif cards for those are vision art, not illustrating live UI — don't imply they're real features.
+
+## Dock icon color system — `apps/mobile/src/components/icons/DockIcons.tsx`
+
+Separate from the motif table above (that's illustration cards; this is navigation icons). Approved via a Codex design handoff and shipped.
+
+| Section | Icon | Color | Hex |
+|---|---|---|---|
+| Home | Torii gateway | Lacquer red | `#C44545` |
+| Calendar | Sun dial | Ritual gold | `#D4B078` |
+| More | Layers | Archive jade | `#4E9E86` |
+| Me | Personal seal | RKA blue | `#2b7ff0` |
+| Create (FAB) | Calligraphy brush | RKA blue | `#2b7ff0` |
+
+Note the torii-gate motif now has two live meanings in the app: the Home tab icon (navigation, lacquer red) and the still-unbuilt "milestones/unlocks" illustration-card concept above (also red) — same motif, consistent color, different contexts. Not a conflict, just worth knowing both exist.
 
 ---
 
@@ -75,13 +89,17 @@ Note: streaks, journaling, weekly-reflection, and real level/XP progression don'
 
 ## App shell — `apps/mobile/App.tsx`
 
-- [x] `AppleTabBar` (bottom tab bar + FAB) — active tab color, FAB bg/glow, and FAB icon color moved off the old silvery-blue (#9fb8d1) to deeperBlue; tab bar bg now derived from the real bg tokens instead of hardcoded near-black/near-white. Light-mode FAB intentionally kept near-black ink (matches existing flat-ink CTA convention), not switched to blue.
+- [x] `AppleTabBar` (bottom tab bar + FAB) — full icon overhaul per Codex's approved handoff (see `src/components/icons/DockIcons.tsx`): icon-only dock (no labels), custom SVG icon set (torii Home, sundial Calendar, layers More, personal-seal Me, calligraphy-brush Create), persistent per-section colors (lacquer red / ritual gold / archive jade / RKA blue) shown at rest, soft colored badge behind the focused tab as the selection signal, FAB is the brush in RKA blue in both modes. Supersedes the earlier deeperBlue-only color fix on this file.
 
 ## Hero components — `apps/mobile/src/components/hero/`
 
 - [ ] `HeroLayer.tsx` — single parallax image layer
 - [ ] `HeroSection.tsx` — full hero banner, time-of-day art
 - [ ] `ParticleCanvas.tsx` — animated particle overlay
+
+## Icons — `apps/mobile/src/components/icons/`
+
+- [x] `DockIcons.tsx` — custom dock icon set (torii/sundial/layers/seal/brush), source of truth for the tab bar's icon-only restyle
 
 ## UI primitives — `apps/mobile/src/components/ui/`
 
