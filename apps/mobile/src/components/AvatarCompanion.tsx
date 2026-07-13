@@ -1,5 +1,6 @@
 import { View, Text, TouchableOpacity } from 'react-native';
 import { useThemeContext } from '../hooks/useThemeContext';
+import { getThemeColors } from '../theme';
 
 interface AvatarCompanionProps {
   size?: 'sm' | 'md' | 'lg';
@@ -15,11 +16,12 @@ const SIZES = {
 
 export function AvatarCompanion({ size = 'md', onPress, showRing = false }: AvatarCompanionProps) {
   const { isDark } = useThemeContext();
+  const theme = getThemeColors(isDark);
   const s = SIZES[size];
 
-  const bg = isDark ? '#1e1e1e' : '#f0ede8';
-  const textColor = isDark ? '#f2f2f2' : '#0d0d0d';
-  const ringColor = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(13,13,13,0.12)';
+  const bg = theme.bgElevated;
+  const textColor = theme.text;
+  const ringColor = theme.separator;
 
   return (
     <TouchableOpacity
@@ -47,7 +49,7 @@ export function AvatarCompanion({ size = 'md', onPress, showRing = false }: Avat
           justifyContent: 'center',
         }}
       >
-        <Text style={{ fontSize: s.font, fontWeight: '700', color: textColor }}>R</Text>
+        <Text style={{ fontSize: s.font, fontWeight: '700', fontFamily: 'Inter_700Bold', color: textColor }}>R</Text>
       </View>
     </TouchableOpacity>
   );

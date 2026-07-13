@@ -16,7 +16,7 @@ export function MedicationStockMeter({ breakdown }: MedicationStockMeterProps) {
   const { capacity, containers } = breakdown;
   if (capacity === 0) return null;
 
-  const fillColor = isDark ? '#3dbb5e' : '#34a853';
+  const fillColor = palette.green;
 
   return (
     <View style={{ flexDirection: 'row', gap: 3, height: 8 }}>

@@ -362,7 +362,7 @@ export function PersistentTimerBanner() {
     },
     {
       label: 'Settings',
-      icon: <Text style={{ color: palette.textSecondary, fontWeight: '700' }}>S</Text>,
+      icon: <Text style={{ color: palette.textSecondary, fontWeight: '700', fontFamily: 'Inter_700Bold' }}>S</Text>,
       onPress: () => setSettingsOpen(true),
     },
     {
@@ -504,7 +504,7 @@ export function PersistentTimerBanner() {
       </Animated.View>
 
       <Modal visible={settingsOpen} transparent animationType="fade" onRequestClose={() => setSettingsOpen(false)} statusBarTranslucent>
-        <Pressable style={styles.settingsBackdrop} onPress={() => setSettingsOpen(false)}>
+        <Pressable style={[styles.settingsBackdrop, { backgroundColor: palette.backdrop }]} onPress={() => setSettingsOpen(false)}>
           <Pressable style={[styles.settingsCard, { backgroundColor: palette.surface }]} onPress={() => {}}>
             <Text style={[styles.settingsTitle, { color: palette.text }]}>Timer Settings</Text>
             <View style={styles.settingsRow}>
@@ -580,11 +580,13 @@ const styles = StyleSheet.create({
   compactHeadline: {
     fontSize: 15,
     fontWeight: '800',
+    fontFamily: 'Inter_800ExtraBold',
   },
   compactSubheadline: {
     marginTop: 2,
     fontSize: 12,
     fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
   },
   minimizedBadge: {
     flex: 1,
@@ -601,6 +603,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
     fontSize: 12,
     fontWeight: '800',
+    fontFamily: 'Inter_800ExtraBold',
   },
   expandedShell: {
     gap: 12,
@@ -630,11 +633,13 @@ const styles = StyleSheet.create({
   heroTitle: {
     fontSize: 15,
     fontWeight: '800',
+    fontFamily: 'Inter_800ExtraBold',
   },
   heroDisplay: {
     marginTop: 2,
     fontSize: 24,
     fontWeight: '800',
+    fontFamily: 'Inter_800ExtraBold',
     letterSpacing: -0.8,
   },
   actionRow: {
@@ -660,6 +665,7 @@ const styles = StyleSheet.create({
   actionText: {
     fontSize: 12,
     fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
   },
   sectionLabelRow: {
     paddingTop: 2,
@@ -667,12 +673,14 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontSize: 12,
     fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
   rowTitle: {
     fontSize: 14,
     fontWeight: '800',
+    fontFamily: 'Inter_800ExtraBold',
   },
   rowMeta: {
     gap: 4,
@@ -680,16 +688,17 @@ const styles = StyleSheet.create({
   rowSubtitle: {
     fontSize: 12,
     fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
   },
   readyBadge: {
     fontSize: 11,
     fontWeight: '800',
+    fontFamily: 'Inter_800ExtraBold',
     textTransform: 'uppercase',
     letterSpacing: 0.6,
   },
   settingsBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'center',
     padding: 20,
   },
@@ -701,6 +710,7 @@ const styles = StyleSheet.create({
   settingsTitle: {
     fontSize: 18,
     fontWeight: '800',
+    fontFamily: 'Inter_800ExtraBold',
   },
   settingsRow: {
     flexDirection: 'row',
@@ -711,6 +721,7 @@ const styles = StyleSheet.create({
   settingsLabel: {
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
   },
   settingsClose: {
     alignSelf: 'flex-end',
@@ -730,9 +741,11 @@ const styles = StyleSheet.create({
   settingsActionText: {
     fontSize: 13,
     fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
   },
   settingsCloseText: {
     fontSize: 13,
     fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
   },
 });

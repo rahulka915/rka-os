@@ -125,6 +125,7 @@ const styles = StyleSheet.create({
   heading: {
     fontSize: 18,
     fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
     marginBottom: 4,
   },
   primaryCard: {
@@ -136,10 +137,12 @@ const styles = StyleSheet.create({
   primaryCardText: {
     fontSize: 16,
     fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
   },
   sectionLabel: {
     fontSize: 11,
     fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
     letterSpacing: 0.6,
     textTransform: 'uppercase',
     marginBottom: 4,
@@ -158,11 +161,12 @@ const styles = StyleSheet.create({
   starterText: {
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
   },
   linkText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#007aff',
+    fontFamily: 'Inter_600SemiBold',
     marginTop: 4,
   },
   sectionRows: {
@@ -176,5 +180,6 @@ const styles = StyleSheet.create({
   rowTitle: {
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
   },
 });

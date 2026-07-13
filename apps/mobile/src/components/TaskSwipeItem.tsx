@@ -40,6 +40,15 @@ const SPRING_CONFIG = {
 
 const SWIPE_THRESHOLD = 80;
 
+// Alpha-blends a hex color for the swipe-reveal background — RN has no native rgba(#hex, a).
+function hexToRgba(hex: string, alpha: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
 export function TaskSwipeItem({
   item,
   isDark,
@@ -141,7 +150,7 @@ export function TaskSwipeItem({
   }));
 
   const animatedBgStyle = useAnimatedStyle(() => ({
-    backgroundColor: `rgba(52, 171, 83, ${bgColor})`,
+    backgroundColor: hexToRgba(palette.green, bgColor),
     opacity: bgColor,
   }));
 
@@ -269,6 +278,7 @@ const s = StyleSheet.create({
   swipeLabel: {
     fontSize: 12,
     fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
     color: '#ffffff',
     marginLeft: 4,
   },
@@ -294,6 +304,7 @@ const s = StyleSheet.create({
   taskTitle: {
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
     letterSpacing: -0.2,
   },
   taskNotes: {
@@ -304,5 +315,6 @@ const s = StyleSheet.create({
   chevron: {
     fontSize: 18,
     fontWeight: '300',
+    fontFamily: 'Inter_300Light',
   },
 });
