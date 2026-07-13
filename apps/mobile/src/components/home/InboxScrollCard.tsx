@@ -30,9 +30,11 @@ export function InboxScrollCard({ inboxCount, onPress, isDark }: InboxScrollCard
 
   return (
     <View style={styles.container}>
-      {/* Shadow cards — stacked paper effect */}
-      <View style={[styles.shadowCard, styles.shadowCard3, { backgroundColor: isDark ? '#141416' : '#ece6da' }]} />
-      <View style={[styles.shadowCard, styles.shadowCard2, { backgroundColor: isDark ? '#18181b' : '#f5efe2' }]} />
+      {/* Shadow cards — stacked paper effect. Dark-mode tones step from the
+          bg token (#0f0f1a) toward the surface token (#1a1a2e) instead of
+          the flat neutral grays left over from before the palette refresh. */}
+      <View style={[styles.shadowCard, styles.shadowCard3, { backgroundColor: isDark ? '#0f0f1a' : '#ece6da' }]} />
+      <View style={[styles.shadowCard, styles.shadowCard2, { backgroundColor: isDark ? '#141428' : '#f5efe2' }]} />
 
       {/* Foreground card */}
       <TouchableOpacity

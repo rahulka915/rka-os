@@ -4,6 +4,7 @@ import { getRoninMoodConfig } from '../../domain/ronin/moodConfig';
 import { getRoninProgress } from '../../utils/roninProgress';
 import { useThemeContext } from '../../hooks/useThemeContext';
 import { getThemeColors } from '../../theme';
+import { Sparkles } from '../../icons';
 import { KatanaProgressBar } from './KatanaProgressBar';
 
 interface RoninGreetingCardProps {
@@ -30,7 +31,10 @@ export function RoninGreetingCard({ mood, greeting, onPress }: RoninGreetingCard
       accessibilityRole={onPress ? 'button' : undefined}
       accessibilityLabel={moodConfig.accessibilityLabel}
     >
-      <Text style={[styles.greetingTitle, { color: palette.text }]}>{greeting} ✨</Text>
+      <View style={styles.titleRow}>
+        <Text style={[styles.greetingTitle, { color: palette.text }]}>{greeting}</Text>
+        <Sparkles size={15} color={palette.deeperBlue} strokeWidth={1.75} />
+      </View>
       <Text style={[styles.greetingSubtitle, { color: palette.textSecondary }]}>Let's make today count.</Text>
 
       <View style={styles.statusRow}>
@@ -57,9 +61,16 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   greetingTitle: {
-    fontSize: 20,
-    fontWeight: '800',
+    fontSize: 21,
+    fontWeight: '500',
+    fontFamily: 'Georgia',
+    fontStyle: 'italic',
   },
   greetingSubtitle: {
     fontSize: 13,

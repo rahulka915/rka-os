@@ -61,15 +61,15 @@ Note: streaks, journaling, weekly-reflection, and real level/XP progression don'
 ## Home components — `apps/mobile/src/components/home/`
 
 - [ ] `DomProbe.tsx` — dev-only webview sanity check
-- [ ] `InboxScrollCard.tsx` — inbox preview card on home
+- [x] `InboxScrollCard.tsx` — deeperBlue accent, dark shadow-cards now derived from bg/surface tokens
 - [x] `KatanaProgressBar.tsx` — SVG katana XP progress bar
-- [ ] `NextUpCard.tsx` — "next up" task/event card
+- [x] `NextUpCard.tsx` — deeperBlue label/badge, painted Moonly-scene hero (dark), gradient hero (light)
 - [ ] `PracticeList.tsx` — list of practices/habits
 - [ ] `Ronin3D.tsx` — native three.js/R3F renderer
 - [ ] `Ronin3DDom.tsx` — DOM-webview three.js renderer
 - [ ] `RoninCharacter.tsx` — Ronin character wrapper
-- [ ] `RoninGreetingCard.tsx` — Ronin greeting + level card (katana bar wired in, rest of card not yet reviewed)
-- [ ] `RoninHero.tsx` — hero-style Ronin display block
+- [x] `RoninGreetingCard.tsx` — katana bar wired in, serif italic greeting title, emoji swapped for Sparkles icon
+- [x] `RoninHero.tsx` — thin composer wrapping RoninGreetingCard, nothing else to restyle
 - [ ] `RoninPreview.tsx` — smaller Ronin preview widget
 - [ ] `RoninStage.tsx` — Ronin stage, time-of-day tint
 
@@ -95,7 +95,7 @@ Note: streaks, journaling, weekly-reflection, and real level/XP progression don'
 
 ## Other components — `apps/mobile/src/components/`
 
-- [ ] `AppHeader.tsx` — shared top app header/nav bar
+- [x] `AppHeader.tsx` — theme-token driven already, no stale colors found
 - [ ] `AvatarCompanion.tsx` — avatar/companion display widget
 - [ ] `ContextMenu.tsx` — long-press contextual action menu
 - [ ] `LensSurface.tsx` — chrome-less pushed-screen container
@@ -105,7 +105,7 @@ Note: streaks, journaling, weekly-reflection, and real level/XP progression don'
 - [ ] `QuickCreateSheet.tsx` — quick-create item bottom sheet
 - [ ] `SwipeableItem.tsx` — generic swipe-to-action row
 - [ ] `TaskSwipeItem.tsx` — task-specific swipe-to-action row
-- [ ] `TimelineSection.tsx` — grouped timeline section list
+- [x] `TimelineSection.tsx` — intentionally neutral/no-accent flat list, matches Things 3 spec as-is
 
 ## Theme & icons
 
