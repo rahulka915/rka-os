@@ -654,7 +654,6 @@ export function CalendarScreen() {
     month: 'short',
     day: 'numeric',
   });
-  const summaryLabel = isToday ? 'Live timeline · 15m snap' : 'Planning view · 15m snap';
   const blocksCount = timelineEntries.length;
 
   return (
@@ -666,12 +665,14 @@ export function CalendarScreen() {
           </TouchableOpacity>
 
           <RNView style={s.monthCenter}>
-            <RNText style={[s.monthTitle, { color: palette.text }]}>
-              {MONTHS[selected.getMonth()]}
+            <RNText style={[s.monthTitle, { color: palette.text }]} numberOfLines={1}>
+              {MONTHS[selected.getMonth()]} · {selectedLabel}
             </RNText>
-            <RNText style={[s.monthSub, { color: isToday ? palette.blue : palette.textTertiary }]}>
-              {isToday ? 'Today' : String(selected.getFullYear())}
-            </RNText>
+            {isToday ? (
+              <RNView style={[s.todayPill, { backgroundColor: palette.blueSoft }]}>
+                <RNText style={[s.todayPillText, { color: palette.blue }]}>Today</RNText>
+              </RNView>
+            ) : null}
           </RNView>
 
           <TouchableOpacity onPress={() => setSelected((prev) => addDays(prev, 7))} hitSlop={12} style={s.navButton}>
@@ -681,60 +682,44 @@ export function CalendarScreen() {
 
         <WeekStrip selected={selected} onSelect={setSelected} isDark={isDark} />
 
-        <RNView style={[s.summaryCard, { backgroundColor: palette.surface, borderColor: palette.separator }]}>
-          <RNView style={s.summaryTopRow}>
-            <RNView style={s.summaryTitleWrap}>
-              <RNText style={[s.summaryEyebrow, { color: palette.textTertiary }]}>TIMEBLOCKING</RNText>
-              <RNText style={[s.summaryTitle, { color: palette.text }]}>{selectedLabel}</RNText>
-              <RNText style={[s.summarySub, { color: palette.textSecondary }]}>{summaryLabel}</RNText>
-            </RNView>
+        <RNView style={s.statsRow}>
+          <RNText style={[s.statsRowText, { color: palette.textSecondary }]}>
+            <RNText style={[s.statsRowValue, { color: palette.text }]}>{blocksCount}</RNText> blocks
+            {'  ·  '}
+            <RNText style={[s.statsRowValue, { color: palette.text }]}>{doneCount}</RNText> done
+            {'  ·  '}
+            <RNText style={[s.statsRowValue, { color: palette.text }]}>{unscheduledEntries.length}</RNText> flexible
+          </RNText>
+        </RNView>
 
-            <RNView style={s.summaryActions}>
-              {!isToday ? (
-                <TouchableOpacity
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setSelected(new Date());
-                  }}
-                  style={[s.todayButton, { backgroundColor: palette.fill }]}
-                  hitSlop={8}
-                >
-                  <RNText style={[s.todayButtonText, { color: palette.textSecondary }]}>Today</RNText>
-                </TouchableOpacity>
-              ) : null}
+        <RNView style={s.sectionBar}>
+          <RNText style={[s.sectionBarLabel, { color: palette.textSecondary }]}>Timeblocking</RNText>
+          <RNText style={[s.sectionBarHint, { color: palette.textTertiary }]} numberOfLines={1}>
+            Drag to reschedule · snaps to 15m
+          </RNText>
+          <RNView style={s.sectionBarActions}>
+            {!isToday ? (
               <TouchableOpacity
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  openCreate();
+                  setSelected(new Date());
                 }}
-                style={[s.fabButton, { backgroundColor: palette.blue }]}
-                hitSlop={10}
+                style={[s.todayButton, { backgroundColor: palette.fill }]}
+                hitSlop={8}
               >
-                <Plus size={18} color={isDark ? '#182229' : '#ffffff'} strokeWidth={2.5} />
+                <RNText style={[s.todayButtonText, { color: palette.textSecondary }]}>Today</RNText>
               </TouchableOpacity>
-            </RNView>
-          </RNView>
-
-          <RNView style={s.summaryStats}>
-            <RNView style={[s.statChip, { backgroundColor: palette.fill }]}>
-              <RNText style={[s.statValue, { color: palette.text }]}>{blocksCount}</RNText>
-              <RNText style={[s.statLabel, { color: palette.textSecondary }]}>blocks</RNText>
-            </RNView>
-            <RNView style={[s.statChip, { backgroundColor: palette.fill }]}>
-              <RNText style={[s.statValue, { color: palette.text }]}>{doneCount}</RNText>
-              <RNText style={[s.statLabel, { color: palette.textSecondary }]}>done</RNText>
-            </RNView>
-            <RNView style={[s.statChip, { backgroundColor: palette.fill }]}>
-              <RNText style={[s.statValue, { color: palette.text }]}>{unscheduledEntries.length}</RNText>
-              <RNText style={[s.statLabel, { color: palette.textSecondary }]}>flexible</RNText>
-            </RNView>
-          </RNView>
-
-          <RNView style={s.summaryHintRow}>
-            <Clock size={12} color={palette.textMuted} strokeWidth={1.8} />
-            <RNText style={[s.summaryHint, { color: palette.textSecondary }]}>
-              Drag blocks by the grip. Time snaps to quarter hours.
-            </RNText>
+            ) : null}
+            <TouchableOpacity
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                openCreate();
+              }}
+              style={[s.fabButton, { backgroundColor: palette.blue }]}
+              hitSlop={10}
+            >
+              <Plus size={18} color={isDark ? '#182229' : '#ffffff'} strokeWidth={2.5} />
+            </TouchableOpacity>
           </RNView>
         </RNView>
       </RNView>
@@ -1128,20 +1113,31 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   monthCenter: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    minWidth: 0,
   },
   monthTitle: {
-    fontSize: fontSize.lg,
+    flexShrink: 1,
+    fontSize: fontSize.base,
     fontWeight: '800',
     fontFamily: 'Inter_800ExtraBold',
-    letterSpacing: -0.3,
+    letterSpacing: -0.2,
   },
-  monthSub: {
-    fontSize: fontSize.xs,
-    fontWeight: '700',
-    fontFamily: 'Inter_700Bold',
-    marginTop: 2,
-    letterSpacing: 0.3,
+  todayPill: {
+    flexShrink: 0,
+    borderRadius: radius.pill,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  todayPillText: {
+    fontSize: 10,
+    fontWeight: '800',
+    fontFamily: 'Inter_800ExtraBold',
+    letterSpacing: 0.4,
     textTransform: 'uppercase',
   },
   weekStrip: {
@@ -1182,105 +1178,66 @@ const s = StyleSheet.create({
     width: 4,
     height: 4,
   },
-  summaryCard: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+  statsRow: {
     paddingHorizontal: spacing[4],
-    paddingVertical: spacing[4],
-    gap: spacing[2],
-    ...shadows.soft,
   },
-  summaryTopRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: spacing[3],
-  },
-  summaryTitleWrap: {
-    flex: 1,
-    minWidth: 0,
-  },
-  summaryEyebrow: {
-    fontSize: 10,
-    fontWeight: '700',
-    fontFamily: 'Inter_700Bold',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-  },
-  summaryTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    fontFamily: 'Inter_800ExtraBold',
-    letterSpacing: -0.5,
-    marginTop: 2,
-  },
-  summarySub: {
-    marginTop: 4,
-    fontSize: 13,
+  statsRowText: {
+    fontSize: 12,
     fontWeight: '500',
     fontFamily: 'Inter_500Medium',
   },
-  summaryActions: {
+  statsRowValue: {
+    fontSize: 12,
+    fontWeight: '800',
+    fontFamily: 'Inter_800ExtraBold',
+  },
+  sectionBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[2],
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    ...shadows.soft,
+  },
+  sectionBarLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
+    flexShrink: 0,
+  },
+  sectionBarHint: {
+    flex: 1,
+    fontSize: 11,
+    fontWeight: '500',
+    fontFamily: 'Inter_500Medium',
+  },
+  sectionBarActions: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flexShrink: 0,
   },
   todayButton: {
-    minHeight: 40,
-    paddingHorizontal: 14,
+    minHeight: 32,
+    paddingHorizontal: 12,
     borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
   },
   todayButtonText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     fontFamily: 'Inter_700Bold',
     letterSpacing: 0.2,
   },
   fabButton: {
-    width: 40,
-    height: 40,
+    width: 32,
+    height: 32,
     borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  summaryStats: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  summaryHintRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  summaryHint: {
-    flex: 1,
-    fontSize: 12,
-    fontWeight: '500',
-    fontFamily: 'Inter_500Medium',
-    lineHeight: 16,
-  },
-  statChip: {
-    flex: 1,
-    borderRadius: radius.card,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    minWidth: 0,
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: '800',
-    fontFamily: 'Inter_800ExtraBold',
-    letterSpacing: -0.3,
-  },
-  statLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    fontFamily: 'Inter_600SemiBold',
-    marginTop: 2,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
   },
   scrollContent: {
     paddingHorizontal: spacing[4],
