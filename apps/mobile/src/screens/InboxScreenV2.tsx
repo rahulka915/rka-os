@@ -8,7 +8,8 @@ import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors, lineHeight, letterSpacing } from '../theme';
 import { useInbox } from '../hooks/useDb';
 import { updateItemStatus, processInboxItem } from '../db/database';
-import { Plus, X } from '../icons';
+import { X } from '../icons';
+import { CalligraphyBrushIcon } from '../components/icons/DockIcons';
 import { QuickAddScreen } from './QuickAddScreen';
 
 interface InboxScreenV2Props {
@@ -102,8 +103,8 @@ export function InboxScreenV2({ visible, onClose }: InboxScreenV2Props) {
             <View style={s.titleRow}>
               <Text style={[s.title, { color: palette.text }]}>Inbox</Text>
               {inboxItems.length > 0 ? (
-                <View style={[s.countBadge, { backgroundColor: palette.fill }]}>
-                  <Text style={[s.countText, { color: palette.textSecondary }]}>{inboxItems.length}</Text>
+                <View style={[s.countBadge, { backgroundColor: palette.deeperBlueSoft }]}>
+                  <Text style={[s.countText, { color: palette.deeperBlue }]}>{inboxItems.length}</Text>
                 </View>
               ) : null}
             </View>
@@ -148,8 +149,9 @@ export function InboxScreenV2({ visible, onClose }: InboxScreenV2Props) {
         )}
 
         {/* Floating Add Button — hidden during selection, replaced by the bulk toolbar.
-            Dark mode's primary is silvery blue, which is too light for a white icon to
-            read against — same fix already applied to the dock FAB / LensFAB. */}
+            Same calligraphy-brush mark as the dock FAB, white icon in both modes
+            (palette.primary is deeperBlue everywhere now, no theme-conditional
+            contrast fix needed like the old silvery-blue required). */}
         {!selectionMode ? (
           <TouchableOpacity
             onPress={() => setQuickAddOpen(true)}
@@ -157,7 +159,7 @@ export function InboxScreenV2({ visible, onClose }: InboxScreenV2Props) {
             activeOpacity={0.8}
             hitSlop={12}
           >
-            <Plus size={22} color={isDark ? '#182229' : '#fff'} strokeWidth={2.5} />
+            <CalligraphyBrushIcon size={22} color="#ffffff" />
           </TouchableOpacity>
         ) : null}
 
@@ -225,9 +227,11 @@ const s = StyleSheet.create({
     gap: 8,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '800',
-    lineHeight: 24 * lineHeight.tight,
+    fontSize: 25,
+    fontWeight: '500',
+    fontFamily: 'Georgia',
+    fontStyle: 'italic',
+    lineHeight: 25 * lineHeight.tight,
     letterSpacing: letterSpacing.tight,
   },
   cancelText: {
@@ -295,7 +299,10 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    backgroundColor: '#1c1c1e',
+    // Always dark regardless of theme (toolbar icons are hardcoded white for
+    // contrast) — was a stray hex unrelated to any token; now matches the
+    // real dark-mode surface color (colors.ts darkColors.surface).
+    backgroundColor: '#1a1a2e',
     borderRadius: 28,
     paddingVertical: 12,
     shadowColor: '#000',

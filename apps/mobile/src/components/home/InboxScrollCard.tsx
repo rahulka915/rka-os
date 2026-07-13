@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { Inbox, CheckCircle2, ChevronRight } from '../../icons';
+import { CheckCircle2, ChevronRight } from '../../icons';
+import { ScrollIcon } from '../icons/ScrollIcon';
 import { getThemeColors } from '../../theme';
 
 interface InboxScrollCardProps {
@@ -50,23 +51,31 @@ export function InboxScrollCard({ inboxCount, onPress, isDark }: InboxScrollCard
           ]}
         >
           {hasItems ? (
-            <Inbox size={17} color={attentionColor} strokeWidth={1.5} />
+            <ScrollIcon size={17} color={attentionColor} strokeWidth={1.5} />
           ) : (
             <CheckCircle2 size={17} color="#34a853" strokeWidth={1.5} />
           )}
         </View>
 
-        {/* Text */}
-        <View style={styles.textGroup}>
-          <Text style={[styles.primaryText, { color: textColor }]}>
-            {hasItems
-              ? `${inboxCount} unopened scroll${inboxCount > 1 ? 's' : ''}`
-              : 'All clear'}
-          </Text>
-          <Text style={[styles.secondaryText, { color: secondaryColor }]}>
-            {hasItems ? 'Tap to review' : 'No unattended matters.'}
-          </Text>
-        </View>
+        {/* Text — when there's a count, it's pulled out as its own standalone
+            stat figure (the part that's actually changing) rather than
+            folded into the sentence, so it reads at a glance like a counter. */}
+        {hasItems ? (
+          <View style={styles.textGroupWithStat}>
+            <Text style={[styles.statNumber, { color: attentionColor }]}>{inboxCount}</Text>
+            <View style={styles.textGroup}>
+              <Text style={[styles.primaryText, { color: textColor }]}>
+                unopened scroll{inboxCount > 1 ? 's' : ''}
+              </Text>
+              <Text style={[styles.secondaryText, { color: secondaryColor }]}>Tap to review</Text>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.textGroup}>
+            <Text style={[styles.primaryText, { color: textColor }]}>All clear</Text>
+            <Text style={[styles.secondaryText, { color: secondaryColor }]}>No unattended matters.</Text>
+          </View>
+        )}
 
         {/* Chevron */}
         {hasItems && <ChevronRight size={14} color={attentionColor} strokeWidth={2} />}
@@ -119,6 +128,17 @@ const styles = StyleSheet.create({
   },
   textGroup: {
     flex: 1,
+  },
+  textGroupWithStat: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
+  },
+  statNumber: {
+    fontSize: 20,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
   },
   primaryText: {
     fontSize: 15,

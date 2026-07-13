@@ -62,7 +62,7 @@ Note the torii-gate motif now has two live meanings in the app: the Home tab ico
 - [ ] `AreasScreen.tsx` — list of life areas
 - [ ] `CalendarScreen.tsx` — calendar/agenda view (partial: fixed a real bug where the "Project" item-type accent aliased to `maroon`→`deeperBlue`, colliding with the "Task"/"Area" accent color, `blue`; now uses `purple`. Rest of the screen not yet reviewed)
 - [x] `HomeScreen.tsx` — root uses Tamagui `$bg`, which was itself on a completely separate, entirely stale token system (old `#faf9f6`/`#0c0c0c` bg, `#007aff` blue, `#ff8c42` orange) — see `tamagui.config.ts` fix below. File composes only already-reviewed children otherwise.
-- [ ] `InboxScreenV2.tsx` — main inbox list + capture FAB
+- [x] `InboxScreenV2.tsx` — serif italic title matching Home's greeting, count badge tinted deeperBlue, FAB swapped from generic + to the calligraphy brush (also fixed a real contrast bug: the old icon color was picked for the deprecated silvery-blue bg and barely read on the current blue), bulk-toolbar bg moved off a stray hardcoded hex onto the real dark surface value
 - [ ] `MedicationsScreen.tsx` — medication tracking list
 - [ ] `MenuScreen.tsx` — app menu / nav hub
 - [ ] `ProfileScreen.tsx` — user profile + dev bench
@@ -75,7 +75,7 @@ Note the torii-gate motif now has two live meanings in the app: the Home tab ico
 ## Home components — `apps/mobile/src/components/home/`
 
 - [ ] `DomProbe.tsx` — dev-only webview sanity check
-- [x] `InboxScrollCard.tsx` — deeperBlue accent, dark shadow-cards now derived from bg/surface tokens
+- [x] `InboxScrollCard.tsx` — deeperBlue accent, dark shadow-cards now derived from bg/surface tokens; generic inbox-tray icon swapped for a real rolled-scroll motif (see `ScrollIcon.tsx`) matching the "unopened scrolls" copy; the count number is now a standalone stat figure instead of folded into the sentence, since it's the part that actually changes
 - [x] `KatanaProgressBar.tsx` — SVG katana XP progress bar
 - [x] `NextUpCard.tsx` — deeperBlue label/badge, painted Moonly-scene hero (dark), gradient hero (light)
 - [x] `PracticeList.tsx` — **dead code, not rendered anywhere** (orphaned when Home was redesigned); flagged for deletion rather than restyled, see spawned cleanup task
@@ -100,6 +100,7 @@ Note the torii-gate motif now has two live meanings in the app: the Home tab ico
 ## Icons — `apps/mobile/src/components/icons/`
 
 - [x] `DockIcons.tsx` — custom dock icon set (torii/sundial/layers/seal/brush), source of truth for the tab bar's icon-only restyle
+- [x] `ScrollIcon.tsx` — rolled hanging-scroll silhouette, used on `InboxScrollCard.tsx` in place of a generic inbox tray
 
 ## UI primitives — `apps/mobile/src/components/ui/`
 
