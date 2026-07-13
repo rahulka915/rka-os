@@ -73,6 +73,10 @@ Note: streaks, journaling, weekly-reflection, and real level/XP progression don'
 - [ ] `RoninPreview.tsx` — smaller Ronin preview widget
 - [ ] `RoninStage.tsx` — Ronin stage, time-of-day tint
 
+## App shell — `apps/mobile/App.tsx`
+
+- [x] `AppleTabBar` (bottom tab bar + FAB) — active tab color, FAB bg/glow, and FAB icon color moved off the old silvery-blue (#9fb8d1) to deeperBlue; tab bar bg now derived from the real bg tokens instead of hardcoded near-black/near-white. Light-mode FAB intentionally kept near-black ink (matches existing flat-ink CTA convention), not switched to blue.
+
 ## Hero components — `apps/mobile/src/components/hero/`
 
 - [ ] `HeroLayer.tsx` — single parallax image layer

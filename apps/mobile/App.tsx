@@ -42,13 +42,16 @@ const TAB_ITEMS = [
 
 function AppleTabBar({ state, navigation, isDark, onFabPress, onFabHold }: any) {
   const insets = useSafeAreaInsets();
-  // Silvery blue in dark mode (the locked-in dark accent), iOS blue in light
-  // mode — see src/theme/colors.ts.
-  const activeColor = isDark ? '#9fb8d1' : '#007aff';
-  const inactiveColor = isDark ? 'rgba(242,242,242,0.40)' : 'rgba(13,13,13,0.35)';
-  const borderColor = isDark ? 'rgba(255,255,255,0.10)' : 'rgba(13,13,13,0.10)';
+  // deeperBlue in both modes — see src/theme/colors.ts. (Used to be the old
+  // silvery-blue/#007aff split before the accent palette refresh; this file
+  // was missed in that migration.)
+  const activeColor = '#2b7ff0';
+  const inactiveColor = isDark ? 'rgba(242,237,230,0.38)' : 'rgba(23,23,28,0.35)';
+  const borderColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(20,20,30,0.08)';
 
-  const bgColor = isDark ? 'rgba(10,10,11,0.92)' : 'rgba(250,249,246,0.92)';
+  // Derived from the theme bg tokens (#0f0f1a / #f6f5f1) instead of the old
+  // near-black/near-white pair.
+  const bgColor = isDark ? 'rgba(15,15,26,0.96)' : 'rgba(246,245,241,0.97)';
 
   return (
     <View style={[styles.tabBarOuter, { paddingBottom: insets.bottom, borderTopColor: borderColor, backgroundColor: bgColor }]}>
@@ -100,12 +103,18 @@ function AppleTabBar({ state, navigation, isDark, onFabPress, onFabHold }: any) 
           delayLongPress={400}
           style={[
             styles.fab,
-            { backgroundColor: isDark ? '#9fb8d1' : '#0d0d0d' },
+            // deeperBlue in dark mode (was the old silvery-blue); light mode
+            // stays near-black ink, matching the flat-ink CTA convention
+            // used elsewhere (e.g. save buttons) rather than switching to blue.
+            { backgroundColor: isDark ? '#2b7ff0' : '#0d0d0d' },
             isDark && styles.fabGlow,
           ]}
           activeOpacity={0.85}
         >
-          <Plus size={22} color={isDark ? '#182229' : '#ffffff'} strokeWidth={2.5} />
+          {/* White in both modes now — dark mode's FAB bg is deeperBlue
+              (#2b7ff0), not the old near-white silvery-blue that needed a
+              dark navy icon for contrast. */}
+          <Plus size={22} color="#ffffff" strokeWidth={2.5} />
         </TouchableOpacity>
       </View>
     </View>
@@ -291,7 +300,7 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   fabGlow: {
-    shadowColor: '#9fb8d1',
+    shadowColor: '#2b7ff0',
     shadowOpacity: 0.5,
     shadowRadius: 16,
   },
