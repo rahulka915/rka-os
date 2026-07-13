@@ -1,7 +1,8 @@
 import { ImageBackground, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../../theme';
-import { Sparkles, ListChecks, Pill, Dumbbell } from '../../icons';
+import { ListChecks, Pill, Dumbbell } from '../../icons';
+import { ZenGardenIcon } from '../icons/ZenGardenIcon';
 import type { NextUpResult } from '../../utils/nextUpItem';
 import type { RoninTimeOfDay } from '../../domain/ronin/types';
 import { getRoninSceneAsset } from '../../domain/ronin/roninScenes';
@@ -31,7 +32,7 @@ export function NextUpCard({ result, isDark, timeOfDay, onAction }: NextUpCardPr
     const emptyBorder = isDark ? palette.separatorStrong : palette.separator;
     return (
       <View style={[styles.card, { backgroundColor: emptyBg, borderColor: emptyBorder }]}>
-        <Sparkles size={18} color={palette.textTertiary} strokeWidth={1.75} />
+        <ZenGardenIcon size={40} color={palette.silver} stoneColor={isDark ? '#c5c5c5' : '#5a5a5a'} />
         <View style={styles.textGroup}>
           <Text style={[styles.title, { color: palette.text }]}>Nothing pressing right now</Text>
           <Text style={[styles.subtitle, { color: palette.textSecondary }]}>Enjoy the quiet.</Text>

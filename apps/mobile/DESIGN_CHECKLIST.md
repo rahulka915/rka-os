@@ -37,6 +37,8 @@ Not yet promoted to `colors.ts`. Once a final primary is picked, update this tab
 | Blossom | pink `#ed93b1` | Streaks / habit wins | Concept only — feature not built |
 | Wave / mountain | deep blue `#1a4d7a` | Long-term / weekly views | Concept only — feature not built |
 | Katana silhouette | platinum `#dfe1e4` | Companion level/XP | **Shipped** — `KatanaProgressBar.tsx` |
+| Rolled scroll | silver/deeperBlue | Inbox / unopened items | **Shipped** — `ScrollIcon.tsx` |
+| Zen-garden circles + stone | silver `#808080` | Empty/calm states (nothing pressing) | **Shipped** — `ZenGardenIcon.tsx` |
 
 Note: streaks, journaling, weekly-reflection, and real level/XP progression don't exist in the app yet (`roninProgress.ts` returns a hardcoded placeholder). Motif cards for those are vision art, not illustrating live UI — don't imply they're real features.
 
@@ -77,7 +79,7 @@ Note the torii-gate motif now has two live meanings in the app: the Home tab ico
 - [ ] `DomProbe.tsx` — dev-only webview sanity check
 - [x] `InboxScrollCard.tsx` — deeperBlue accent; generic inbox-tray icon swapped for a real rolled-scroll motif (`ScrollIcon.tsx`) matching the "unopened scrolls" copy; count number pulled out as a standalone stat figure, center-aligned against the full text block (was baseline-aligned, sat too low); dropped the old stacked-duplicate-card "paper stack" effect in favor of real depth — a top-lit gradient surface, an actual drop shadow, and a glow behind the icon bubble, same techniques already used for the dock FAB and NextUp's badge
 - [x] `KatanaProgressBar.tsx` — SVG katana XP progress bar
-- [x] `NextUpCard.tsx` — deeperBlue label/badge, painted Moonly-scene hero (dark), gradient hero (light)
+- [x] `NextUpCard.tsx` — deeperBlue label/badge, painted Moonly-scene hero (dark), gradient hero (light); empty state ("Nothing pressing right now") swapped the generic Sparkles icon for a new calm-state motif, `ZenGardenIcon.tsx` (raked circles + stone, silver) — none of the milestone/streak/long-term-view motifs fit an empty state
 - [x] `PracticeList.tsx` — **dead code, not rendered anywhere** (orphaned when Home was redesigned); flagged for deletion rather than restyled, see spawned cleanup task
 - [ ] `Ronin3D.tsx` — native three.js/R3F renderer — **not mounted on Home** (per CLAUDE.md, only in Profile's dev bench); nothing to restyle until it's actually used somewhere
 - [ ] `Ronin3DDom.tsx` — DOM-webview three.js renderer — same as above, not mounted anywhere live
@@ -101,6 +103,7 @@ Note the torii-gate motif now has two live meanings in the app: the Home tab ico
 
 - [x] `DockIcons.tsx` — custom dock icon set (torii/sundial/layers/seal/brush), source of truth for the tab bar's icon-only restyle
 - [x] `ScrollIcon.tsx` — rolled hanging-scroll silhouette, used on `InboxScrollCard.tsx` in place of a generic inbox tray
+- [x] `ZenGardenIcon.tsx` — raked zen-garden circles + stone (silver), used on `NextUpCard.tsx`'s empty state in place of a generic Sparkles icon
 
 ## UI primitives — `apps/mobile/src/components/ui/`
 
