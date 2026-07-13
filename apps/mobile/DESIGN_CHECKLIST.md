@@ -61,7 +61,7 @@ Note the torii-gate motif now has two live meanings in the app: the Home tab ico
 - [ ] `AreaDetailScreen.tsx` — single life-area detail view
 - [ ] `AreasScreen.tsx` — list of life areas
 - [ ] `CalendarScreen.tsx` — calendar/agenda view (partial: fixed a real bug where the "Project" item-type accent aliased to `maroon`→`deeperBlue`, colliding with the "Task"/"Area" accent color, `blue`; now uses `purple`. Rest of the screen not yet reviewed)
-- [ ] `HomeScreen.tsx` — main home dashboard
+- [x] `HomeScreen.tsx` — root uses Tamagui `$bg`, which was itself on a completely separate, entirely stale token system (old `#faf9f6`/`#0c0c0c` bg, `#007aff` blue, `#ff8c42` orange) — see `tamagui.config.ts` fix below. File composes only already-reviewed children otherwise.
 - [ ] `InboxScreenV2.tsx` — main inbox list + capture FAB
 - [ ] `MedicationsScreen.tsx` — medication tracking list
 - [ ] `MenuScreen.tsx` — app menu / nav hub
@@ -117,9 +117,9 @@ Note the torii-gate motif now has two live meanings in the app: the Home tab ico
 
 ## Other components — `apps/mobile/src/components/`
 
-- [x] `AppHeader.tsx` — theme-token driven already, no stale colors found
+- [x] `AppHeader.tsx` — uses Tamagui `$bg`/`$textSecondary`/`$textTertiary`; these were themselves stale (see `tamagui.config.ts` fix), now correct now that the underlying token system is synced
 - [ ] `AvatarCompanion.tsx` — avatar/companion display widget
-- [ ] `ContextMenu.tsx` — long-press contextual action menu
+- [x] `ContextMenu.tsx` — Tamagui `$surface`/`$separator`/`$red`/`$text`, fixed via the `tamagui.config.ts` sync
 - [ ] `LensSurface.tsx` — chrome-less pushed-screen container
 - [ ] `LogDoseSheet.tsx` — medication dose logging sheet
 - [ ] `MedicationStockMeter.tsx` — medication stock-level meter
@@ -135,3 +135,4 @@ Note the torii-gate motif now has two live meanings in the app: the Home tab ico
 - [ ] `theme/index.ts` — theme aggregator/exports
 - [ ] `theme/spacing.ts` — spacing scale tokens
 - [ ] `icons.tsx` — centralized icon registry
+- [x] `tamagui.config.ts` (project root) — **found while finishing the Home screen pass**: an entirely separate, fully stale token system that Tamagui-styled components read through instead of `colors.ts`/`getThemeColors()`. Still had the old pre-refresh values (`bg: '#faf9f6'`/`'#0c0c0c'`, `blue: '#007aff'`, `orange: '#ff8c42'`, old text/surface/fill/separator). Every value in both `rkaTokens.color` and `themes.light`/`themes.dark` synced to match `colors.ts` exactly, plus added the `purple`/`pink`/`silver` accent tokens that didn't exist here at all. Affects every Tamagui `$token`-styled component app-wide, not just Home — confirmed consumers: `HomeScreen.tsx`, `AppHeader.tsx`, `ContextMenu.tsx`, `LogDoseSheet.tsx`. `MenuScreen.tsx`/`MedicationsScreen.tsx` (Tamagui-based per CLAUDE.md) benefit from this token fix too but haven't had their own full visual review yet.
