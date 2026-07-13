@@ -2,7 +2,7 @@
 
 **Platform:** React Native + Expo SDK 54 (iOS-first)  
 **Database:** SQLite (expo-sqlite)  
-**Design System:** Things 3-inspired flat, minimal aesthetic  
+**Design System:** Things 3-inspired interaction patterns (this file, below); visual look is a separate, actively-evolving Moonly/Ronin-inspired refresh — see `DESIGN_CHECKLIST.md` for current tokens, motifs, and per-component status before touching any styling  
 **Status:** Ready for Expo development build; features requiring native code (HealthKit, true background fetch) need a dev client and Apple Developer signing
 
 ---

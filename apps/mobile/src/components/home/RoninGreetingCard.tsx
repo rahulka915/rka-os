@@ -4,6 +4,7 @@ import { getRoninMoodConfig } from '../../domain/ronin/moodConfig';
 import { getRoninProgress } from '../../utils/roninProgress';
 import { useThemeContext } from '../../hooks/useThemeContext';
 import { getThemeColors } from '../../theme';
+import { KatanaProgressBar } from './KatanaProgressBar';
 
 interface RoninGreetingCardProps {
   mood: RoninMood;
@@ -45,9 +46,7 @@ export function RoninGreetingCard({ mood, greeting, onPress }: RoninGreetingCard
           {progress.xp} / {progress.xpToNext} XP
         </Text>
       </View>
-      <View style={[styles.xpTrack, { backgroundColor: palette.fill }]}>
-        <View style={[styles.xpFill, { width: `${xpRatio * 100}%`, backgroundColor: moodConfig.accentColor }]} />
-      </View>
+      <KatanaProgressBar progress={xpRatio} />
     </TouchableOpacity>
   );
 }
@@ -97,14 +96,5 @@ const styles = StyleSheet.create({
   xpText: {
     fontSize: 11,
     fontWeight: '600',
-  },
-  xpTrack: {
-    height: 6,
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  xpFill: {
-    height: '100%',
-    borderRadius: 3,
   },
 });
