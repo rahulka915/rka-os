@@ -20,10 +20,14 @@ import {
   getTimelineEntriesForDate,
   getDb,
   type MedicationMeta,
+  getPersistentMedicationTimers,
+  getCompletedItems,
 } from '../db/database';
 import type { Item, ItemInstance } from '../db/types';
 import type { TimelineEntry } from '../db/database';
 import { startMedicationLiveActivity } from '../services/medicationLiveActivity';
+import { ensureMedicationTimerAutoStop } from '../services/medicationTimerController';
+import { presentMedicationTimer } from '../utils/timerPresentation';
 
 export function useInbox() {
   const [items, setItems] = useState<Item[]>([]);
@@ -116,6 +120,8 @@ export function useMedications() {
           dose: meta.dose,
           displayStartedAt: log.timestamp,
         });
+        const timer = getPersistentMedicationTimers().find(candidate => candidate.log.id === log.id);
+        if (timer) ensureMedicationTimerAutoStop(presentMedicationTimer(timer, Date.now())).catch(() => {});
       }
     }
     refresh();
@@ -176,6 +182,15 @@ export function useTasks() {
   }, []);
   useEffect(() => { refresh(); }, [refresh]);
   return { tasks, refresh };
+}
+
+export function useCompletedItems() {
+  const [items, setItems] = useState<Item[]>([]);
+  const refresh = useCallback(() => {
+    setItems(getCompletedItems());
+  }, []);
+  useEffect(() => { refresh(); }, [refresh]);
+  return { items, refresh };
 }
 
 export function completeAllInTimeBlock(timeOfDay: 'anytime' | 'morning' | 'afternoon' | 'evening'): void {
