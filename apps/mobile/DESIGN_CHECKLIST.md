@@ -8,6 +8,8 @@ Any agent or human can edit this file directly — check off a row once its pale
 
 A human-viewable mirror of this checklist also exists as an [interactive artifact](https://claude.ai/code/artifact/f02f7b3c-52bb-47c6-ab80-1ac01aacee41) — its checkbox state is local to whichever browser opens it (localStorage) and is **not** authoritative. This file is authoritative. If the two drift, trust this file and re-sync the artifact.
 
+**Promotion rule:** once a row here is genuinely settled (reviewed and restyled, not just discussed), graduate its content into `../../docs/design-system/reference/` (tokens.md/components.md/etc.) and trim this row to a one-line status. If it involved real deliberation or a rejected alternative, add an entry to `docs/design-system/reference/decision-log.md` too. See `docs/design-system/README.md` for the full rationale.
+
 ---
 
 ## Current tokens — `apps/mobile/src/theme/colors.ts`
