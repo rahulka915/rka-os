@@ -13,16 +13,8 @@ echo "== GitHub CLI =="
 gh auth status
 echo
 
-echo "== Vercel CLI =="
-"$ROOT_DIR/scripts/vercel-cli.sh" whoami
-echo
-
 echo "== Supabase CLI =="
 "$ROOT_DIR/scripts/supabase-cli.sh" --version
-echo
-
-echo "== Vercel Link =="
-cat "$ROOT_DIR/.vercel/project.json"
 echo
 
 echo "== Supabase Directory =="

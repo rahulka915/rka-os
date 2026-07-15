@@ -9,10 +9,11 @@
 
 ```
 rka-os/
-├── apps/mobile/          ← React Native iOS app (PRIMARY)
-├── src/                  ← PWA web app (maintenance mode only)
+├── apps/mobile/          ← React Native iOS app (only app in this repo)
 └── docs/migration/       ← This file + related guides
 ```
+
+The companion PWA that used to live at `src/` (repo root) has been fully retired — this is a mobile-only repo now.
 
 ---
 
@@ -74,7 +75,7 @@ apps/mobile/
 
 ## Data Model
 
-Mirrors the web app's Dexie schema exactly, implemented in SQLite:
+Originally ported 1:1 from the now-retired PWA's Dexie schema; this SQLite schema is the sole authoritative data model today — see `apps/mobile/SCHEMA.md` for its current state.
 
 ```typescript
 type ItemType = 'task' | 'habit' | 'medication' | 'workout-template' | 'exercise' | 'area' | 'project' | 'meal'

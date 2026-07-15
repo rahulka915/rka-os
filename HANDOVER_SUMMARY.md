@@ -1,6 +1,6 @@
 # RKA OS — Handover Summary
-**Last Updated:** 2026-07-07  
-**Status:** Dual platform — PWA (maintenance) + React Native iOS (active)
+**Last Updated:** 2026-07-15  
+**Status:** Mobile-only — React Native iOS (active). The companion Web PWA described in Session 1 below has since been fully retired; that section is kept as historical record only.
 
 ---
 
@@ -9,7 +9,6 @@
 | Platform | Location | Status | Run Command |
 |----------|----------|--------|-------------|
 | **React Native iOS** | `apps/mobile/` | Active development | `cd apps/mobile && npm start` |
-| **Web PWA** | `src/` (root) | Maintenance mode | `npm run dev` |
 
 ---
 
@@ -315,7 +314,6 @@ npm run dev    # from project root
 | `CLAUDE.md` | Project config, skills, constraints, current status |
 | `HANDOVER_SUMMARY.md` | This file — session history and quick reference |
 | `docs/migration/REACT_NATIVE_SETUP.md` | Full RN setup guide, architecture, what works where |
-| `docs/migration/MAINTENANCE_MODE.md` | PWA maintenance mode policy |
-| `docs/migration/SHARED_LOGIC.md` | How to share logic between web and mobile |
-| `FIX_LOG.md` | All PWA fixes and optimisations with code |
-| `AUDIT_LOG.md` | Issue tracking |
+| `docs/design-system/` | RKA.OS Design System — AI reference + human handbook |
+
+PWA-specific docs (`FIX_LOG.md`, `AUDIT_LOG.md`, `SCROLL_*.md`, `IOS_BOTTOM_NAV.md`, `MOBILE_IMPLEMENTATION_GUIDE.md`) were removed when the web app was retired — see git history if you need them.
