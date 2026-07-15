@@ -17,6 +17,7 @@ export interface Item {
   userId?: string;
   archivedAt?: number;
   deletedAt?: number;
+  completedAt?: number;
 }
 
 export interface ItemInstance {

@@ -3,6 +3,7 @@ import { Item, ItemInstance, ActivityLog } from './types';
 import 'react-native-get-random-values';
 import { v4 as uuidv4 } from 'uuid';
 import { getTimeOfDayFromHour, normalizeTimeInput, timeToMinutes, type TimeOfDay } from '../utils/time';
+import { resolveAutoStopAfterMs } from '../domain/medicationTimer/timerMath';
 
 let db: SQLite.SQLiteDatabase;
 
@@ -79,6 +80,12 @@ function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_instances_itemId ON itemInstances(itemId);
     CREATE INDEX IF NOT EXISTS idx_relations_target ON itemRelations(targetId, relationType);
   `);
+
+  try {
+    db.execSync(`ALTER TABLE items ADD COLUMN completedAt INTEGER`);
+  } catch {
+    // Column already exists on this device's DB — safe to ignore.
+  }
 }
 
 export function formatDate(date: Date): string {
@@ -112,6 +119,12 @@ export function getItemsByStatus(status: string): Item[] {
   return getDb().getAllSync<Item>(
     `SELECT * FROM items WHERE status = ? AND deletedAt IS NULL ORDER BY createdAt DESC`,
     [status]
+  );
+}
+
+export function getCompletedItems(): Item[] {
+  return getDb().getAllSync<Item>(
+    `SELECT * FROM items WHERE status = 'completed' AND deletedAt IS NULL ORDER BY COALESCE(completedAt, updatedAt) DESC`
   );
 }
 
@@ -321,6 +334,7 @@ export interface MedicationContainer {
 
 export interface MedicationMeta {
   dose?: string;
+  autoStopAfterHours?: number;
   // Legacy flat count — still the source of truth for medications that never configured
   // packaging. Once `containers` is set, this becomes a derived/cached mirror of the sum
   // (see getTotalStock), kept in sync for the low-stock check and any old call sites.
@@ -472,6 +486,10 @@ export interface MedicationTimerDetails {
   stoppedAt?: number;
   notified?: boolean;
   loggedAt?: number;
+  autoStopAfterMs?: number;
+  autoStopNotificationId?: string;
+  completedElapsedMs?: number;
+  timerStoppedReason?: 'manual' | 'automatic';
 }
 
 export interface TimerWidgetPreferences {
@@ -483,7 +501,7 @@ export interface TimerWidgetPreferences {
   notificationsEnabled?: boolean;
 }
 
-function parseDetails(details?: string | null): MedicationTimerDetails {
+export function parseMedicationTimerDetails(details?: string | null): MedicationTimerDetails {
   if (!details) return {};
   try {
     return JSON.parse(details) as MedicationTimerDetails;
@@ -491,6 +509,8 @@ function parseDetails(details?: string | null): MedicationTimerDetails {
     return {};
   }
 }
+
+const parseDetails = parseMedicationTimerDetails;
 
 function stringifyDetails(details?: string | Record<string, any>): string | undefined {
   if (details == null) return undefined;
@@ -575,6 +595,7 @@ export function logMedicationTaken(itemId: string, takenAt: number = Date.now(),
       timerActive: startTimer,
       startedAt: startTimer ? takenAt : undefined,
       accumulatedMs: 0,
+      autoStopAfterMs: startTimer ? resolveAutoStopAfterMs(meta.autoStopAfterHours) : undefined,
       notified: false,
     }), now]
   );
@@ -644,6 +665,36 @@ export function stopMedicationTimer(logId: string, itemId: string): void {
     [JSON.stringify(details), logId]
   );
   _syncLastTakenAt(itemId);
+}
+
+export function completeMedicationTimer(
+  logId: string,
+  itemId: string,
+  completedElapsedMs: number,
+  reason: 'manual' | 'automatic'
+): void {
+  const log = getDb().getAllSync<ActivityLog>(`SELECT * FROM activityLogs WHERE id = ? LIMIT 1`, [logId])[0];
+  if (!log) return;
+  const details = parseDetails(log.details);
+  if (details.stoppedAt && details.timerStoppedReason) return;
+  details.timerActive = false;
+  delete details.pausedAt;
+  details.accumulatedMs = completedElapsedMs;
+  details.completedElapsedMs = completedElapsedMs;
+  details.timerStoppedReason = reason;
+  details.stoppedAt = Date.now();
+  delete details.autoStopNotificationId;
+  getDb().runSync(`UPDATE activityLogs SET details = ? WHERE id = ?`, [JSON.stringify(details), logId]);
+  _syncLastTakenAt(itemId);
+}
+
+export function setMedicationTimerNotificationId(logId: string, notificationId?: string): void {
+  const log = getDb().getAllSync<ActivityLog>(`SELECT * FROM activityLogs WHERE id = ? LIMIT 1`, [logId])[0];
+  if (!log) return;
+  const details = parseDetails(log.details);
+  if (notificationId) details.autoStopNotificationId = notificationId;
+  else delete details.autoStopNotificationId;
+  getDb().runSync(`UPDATE activityLogs SET details = ? WHERE id = ?`, [JSON.stringify(details), logId]);
 }
 
 export function pauseMedicationTimer(logId: string, itemId: string): void {
@@ -718,9 +769,12 @@ export function startTimerFromLoggedDose(logId: string, itemId: string): void {
   const log = getDb().getAllSync<ActivityLog>(`SELECT * FROM activityLogs WHERE id = ? LIMIT 1`, [logId])[0];
   if (!log) return;
   const details = parseDetails(log.details);
+  const item = getItemWithMetadata(itemId);
+  const meta: MedicationMeta = item?.metadata ? JSON.parse(item.metadata) : {};
   details.timerActive = true;
   details.startedAt = log.timestamp;
   details.accumulatedMs = 0;
+  details.autoStopAfterMs = resolveAutoStopAfterMs(meta.autoStopAfterHours);
   delete details.pausedAt;
   delete details.stoppedAt;
   details.notified = false;
@@ -951,7 +1005,11 @@ export function updateTimelineItemTime(id: string, time: string, timeOfDay?: Tim
 }
 
 export function updateItemStatus(id: string, status: Item['status']): void {
-  updateItem(id, { status });
+  const now = Date.now();
+  getDb().runSync(
+    `UPDATE items SET status = ?, completedAt = ?, updatedAt = ? WHERE id = ?`,
+    [status, status === 'completed' ? now : null, now, id]
+  );
   logActivity(id, 'status-changed', JSON.stringify({ status }));
 }
 
