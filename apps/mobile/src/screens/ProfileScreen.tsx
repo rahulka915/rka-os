@@ -10,6 +10,8 @@ import DomProbe from '../components/home/DomProbe';
 import Ronin3DDom from '../components/home/Ronin3DDom';
 import { RoninPreview } from '../components/home/RoninPreview';
 import { useBackup } from '../hooks/useBackup';
+import { useLoadingBanner } from '../hooks/useLoadingBanner';
+import { HeroEnvironmentWorkbench } from '../components/hero/environment';
 
 const BENCH_MOODS: RoninMood[] = ['normal', 'focused', 'tired', 'overwhelmed', 'resolved'];
 
@@ -96,6 +98,7 @@ function BackupSection() {
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
   const backup = useBackup();
+  const { showLoadingBanner, hideLoadingBanner } = useLoadingBanner();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -104,11 +107,23 @@ function BackupSection() {
       Alert.alert('Missing details', 'Enter your email and password to sign in.');
       return;
     }
+    showLoadingBanner('Signing in…');
     try {
       await backup.signIn(email.trim(), password);
       setPassword('');
     } catch (err) {
       Alert.alert('Sign in failed', err instanceof Error ? err.message : 'Please try again.');
+    } finally {
+      hideLoadingBanner();
+    }
+  };
+
+  const handleBackUpNow = async () => {
+    showLoadingBanner('Backing up…');
+    try {
+      await backup.backUpNow();
+    } finally {
+      hideLoadingBanner();
     }
   };
 
@@ -122,11 +137,16 @@ function BackupSection() {
           text: 'Replace',
           style: 'destructive',
           onPress: async () => {
-            const restored = await backup.restoreLatest();
-            if (restored) {
-              Alert.alert('Restore complete', 'Close and reopen the app to see the restored data.');
-            } else {
-              Alert.alert('No backup found', 'There is no backup to restore yet.');
+            showLoadingBanner('Restoring…');
+            try {
+              const restored = await backup.restoreLatest();
+              if (restored) {
+                Alert.alert('Restore complete', 'Close and reopen the app to see the restored data.');
+              } else {
+                Alert.alert('No backup found', 'There is no backup to restore yet.');
+              }
+            } finally {
+              hideLoadingBanner();
             }
           },
         },
@@ -148,7 +168,7 @@ function BackupSection() {
               : 'No backup yet'}
           </Text>
           <Pressable
-            onPress={backup.backUpNow}
+            onPress={handleBackUpNow}
             disabled={backup.busy}
             style={[styles.backupButton, { backgroundColor: palette.fill }]}
           >
@@ -206,6 +226,7 @@ export function ProfileScreen() {
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
   const [mood, setMood] = useState<RoninMood>('normal');
+  const [heroWorkbenchOpen, setHeroWorkbenchOpen] = useState(false);
 
   return (
     <ScrollView
@@ -219,6 +240,20 @@ export function ProfileScreen() {
       <BackupSection />
       {__DEV__ && (
         <>
+          <View style={styles.heroWorkbenchSection}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ expanded: heroWorkbenchOpen }}
+              onPress={() => setHeroWorkbenchOpen((open) => !open)}
+              style={[styles.heroWorkbenchToggle, { backgroundColor: palette.fill }]}
+            >
+              <Text style={[styles.heroWorkbenchToggleText, { color: palette.text }]}>Hero environment registration</Text>
+              <Text style={[styles.heroWorkbenchToggleState, { color: palette.textSecondary }]}>
+                {heroWorkbenchOpen ? 'Hide' : 'Open'}
+              </Text>
+            </Pressable>
+            {heroWorkbenchOpen && <HeroEnvironmentWorkbench />}
+          </View>
           <Ronin3DBench mood={mood} onMoodChange={setMood} />
           <View style={styles.previewSection}>
             <RoninPreview mood={mood} style={styles.preview} />
@@ -242,6 +277,27 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontFamily: 'Inter_700Bold',
     letterSpacing: -0.2,
+  },
+  heroWorkbenchSection: {
+    width: '100%',
+    paddingHorizontal: 16,
+    gap: 10,
+  },
+  heroWorkbenchToggle: {
+    minHeight: 52,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  heroWorkbenchToggleText: {
+    fontSize: 14,
+    fontFamily: 'Inter_600SemiBold',
+  },
+  heroWorkbenchToggleState: {
+    fontSize: 12,
+    fontFamily: 'Inter_500Medium',
   },
   bench: {
     width: '100%',
