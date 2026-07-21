@@ -3,6 +3,7 @@ import { useCallback, useState, useEffect, useMemo, useRef } from 'react';
 import { useColorScheme, TouchableOpacity, View, StyleSheet, AppState, Text as RNText } from 'react-native';
 import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { TamaguiProvider } from 'tamagui';
@@ -19,8 +20,11 @@ import {
   Inter_800ExtraBold,
 } from '@expo-google-fonts/inter';
 import {
-  TorriHomeIcon, SunDialCalendarIcon, LayersMoreIcon, PersonalSealMeIcon, CalligraphyBrushIcon,
+  TorriHomeIcon, SunDialCalendarIcon, EnsoMoreIcon, RoninMonIcon,
 } from './src/components/icons/DockIcons';
+import { FabControl } from './src/components/fab/FabControl';
+import { TabBarTray } from './src/components/ui/TabBarTray';
+import { riverStoneMaterial, TRAY_BOTTOM_OFFSET_REDUCTION } from './src/theme';
 
 import config from './tamagui.config';
 import { ThemeContext } from './src/hooks/useThemeContext';
@@ -29,15 +33,20 @@ import { HomeScreen } from './src/screens/HomeScreen';
 import { CalendarScreen } from './src/screens/CalendarScreen';
 import { MenuStack } from './src/navigation/MenuStack';
 import { ProfileScreen } from './src/screens/ProfileScreen';
+import { SettingsScreen } from './src/screens/SettingsScreen';
 import { InboxScreenV2 } from './src/screens/InboxScreenV2';
-import { QuickAddScreen, type QuickAddContext } from './src/screens/QuickAddScreen';
+import { ItemComposerProvider, useItemComposer } from './src/components/item-composer';
+import { OverlayHostProvider } from './src/hooks/useOverlayHost';
 import { PersistentTimerBanner } from './src/components/PersistentTimerBanner';
+import { AppLoadingScreen } from './src/components/AppLoadingScreen';
 import { requestNotificationPermission, setBadgeCount } from './src/hooks/useNotifications';
 import { getInboxItems, getDb } from './src/db/database';
 import { registerBackgroundSync } from './src/services/backgroundSync';
 import { requestLocationPermission } from './src/services/locationReminders';
 import { supabase, hasSupabaseConfig } from './src/lib/supabase';
 import { pushBackup } from './src/services/backupSync';
+import { reconcileMedicationTimers } from './src/services/medicationTimerController';
+import { BackupProvider } from './src/hooks/useBackup';
 
 getDb();
 
@@ -46,32 +55,38 @@ getDb();
 SplashScreen.preventAutoHideAsync();
 
 const Tab = createBottomTabNavigator();
+const RootStack = createNativeStackNavigator();
 
-// Icon-only dock, custom icon set per ~/.codex/visualizations/.../
-// RKA_OS_ICON_MOCKUP_HANDOFF.md. The handoff's doc labeled "persistent
-// section color" (every icon always colored) as approved, but on-device the
-// user preferred the doc's other option instead: "selected-color state" —
-// icons stay neutral at rest, section color only shows on the focused tab.
+// Icon-only dock. First generation (simple stroke silhouettes) came from a
+// design session per ~/.codex/visualizations/.../RKA_OS_ICON_MOCKUP_HANDOFF.md
+// — that handoff's "persistent section color" option (every icon always
+// colored) was tried on-device and replaced with the doc's other option,
+// "selected-color state": icons stay neutral at rest, section color only
+// shows on the focused tab (unchanged by the redraw below). Second
+// generation (bolder filled-path redraw, commissioned asset packs) swapped
+// Menu's "layers" concept for an ensō (Zen circle) and Profile's "personal
+// seal" hexagon for a ronin mon/portrait silhouette.
 const TAB_ITEMS = [
   { name: 'Home',     Icon: TorriHomeIcon,        color: '#C44545' },
   { name: 'Calendar', Icon: SunDialCalendarIcon,  color: '#D4B078' },
-  { name: 'Menu',     Icon: LayersMoreIcon,       color: '#4E9E86' },
-  { name: 'Profile',  Icon: PersonalSealMeIcon,   color: '#2b7ff0' },
+  { name: 'Menu',     Icon: EnsoMoreIcon,         color: '#4E9E86' },
+  { name: 'Profile',  Icon: RoninMonIcon,         color: '#2b7ff0' },
 ];
 
 function AppleTabBar({ state, navigation, isDark, onFabPress, onFabHold }: any) {
   const insets = useSafeAreaInsets();
-  const borderColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(20,20,30,0.08)';
   const inactiveColor = isDark ? 'rgba(242,237,230,0.55)' : 'rgba(23,23,28,0.45)';
 
-  // Derived from the theme bg tokens (#0f0f1a / #f6f5f1) instead of the old
-  // near-black/near-white pair.
-  const bgColor = isDark ? 'rgba(15,15,26,0.96)' : 'rgba(246,245,241,0.97)';
+  // The tray uses the shared graphite/pale-stone base at near-opaque alpha;
+  // its shape, light model, and depth come from TabBarTray.
+  const bgColor = isDark
+    ? `${riverStoneMaterial.dark.base}fa`
+    : `${riverStoneMaterial.light.base}fa`;
 
   return (
-    <View style={[styles.tabBarOuter, { paddingBottom: insets.bottom, borderTopColor: borderColor, backgroundColor: bgColor }]}>
-
-      <View style={styles.tabBarInner}>
+    <View style={[styles.tabBarOuter, { bottom: Math.max(insets.bottom - TRAY_BOTTOM_OFFSET_REDUCTION, 0) }]}>
+      <TabBarTray isDark={isDark} backgroundColor={bgColor}>
+        <View style={styles.tabBarInner}>
         {/* Tabs */}
         <View style={styles.tabsRow}>
           {state.routes.map((route: any, index: number) => {
@@ -92,7 +107,7 @@ function AppleTabBar({ state, navigation, isDark, onFabPress, onFabHold }: any) 
                 accessibilityLabel={route.name}
               >
                 <View style={[styles.tabIconBadge, isFocused && { backgroundColor: color + '22' }]}>
-                  <Icon size={22} color={isFocused ? color : inactiveColor} strokeWidth={isFocused ? 2 : 1.6} />
+                  <Icon size={25} color={isFocused ? color : inactiveColor} strokeWidth={isFocused ? 2 : 1.6} />
                 </View>
               </TouchableOpacity>
             );
@@ -100,30 +115,24 @@ function AppleTabBar({ state, navigation, isDark, onFabPress, onFabHold }: any) 
         </View>
 
         {/* FAB — lives above tab bar, right-aligned. Tap is always generic
-            Create (context-aware defaults, see App.tsx openQuickAdd); a
+            Create with route-aware defaults; a
             long-press runs the current screen's distinct create action, if
             it registered one (see useRegisterFabHoldAction) — this replaces
             what used to be a separate top-right "+" per lens screen. */}
-        <TouchableOpacity
+        <FabControl
+          size={52}
           onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             onFabPress();
           }}
           onLongPress={() => {
-            if (!onFabHold()) return;
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+            return onFabHold();
           }}
           delayLongPress={400}
-          accessibilityRole="button"
           accessibilityLabel="Create"
-          // RKA blue in both modes — Create is the one dock element that
-          // doesn't follow persistent section color, it's the primary action.
-          style={[styles.fab, { backgroundColor: '#2b7ff0' }, isDark && styles.fabGlow]}
-          activeOpacity={0.85}
-        >
-          <CalligraphyBrushIcon size={22} color="#ffffff" />
-        </TouchableOpacity>
-      </View>
+          style={styles.fab}
+        />
+        </View>
+      </TabBarTray>
     </View>
   );
 }
@@ -143,6 +152,83 @@ RNTextAny.defaultProps = {
   style: [{ fontFamily: 'Inter_400Regular' }, RNTextAny.defaultProps?.style],
 };
 
+function NavigationLayer({
+  isDark,
+  inboxOpen,
+  setInboxOpen,
+  onFabHold,
+}: {
+  isDark: boolean;
+  inboxOpen: boolean;
+  setInboxOpen: (open: boolean) => void;
+  onFabHold: () => boolean;
+}) {
+  const navigationRef = useNavigationContainerRef();
+  const { openCapture } = useItemComposer();
+
+  const openQuickCapture = () => {
+    const route = navigationRef.getCurrentRoute();
+    if (route?.name === 'ProjectDetail') {
+      const params = route.params as { projectId?: string; title?: string } | undefined;
+      openCapture({
+        context: {
+          status: 'active',
+          projectId: params?.projectId,
+          projectTitle: params?.title,
+        },
+      });
+      return;
+    }
+    openCapture({ context: { status: route?.name === 'Tasks' ? 'active' : 'inbox' } });
+  };
+
+  return (
+    <>
+      <NavigationContainer ref={navigationRef}>
+        <RootStack.Navigator screenOptions={{ headerShown: false }}>
+          <RootStack.Screen name="Main">
+            {() => (
+              <Tab.Navigator
+                tabBar={(props) => (
+                  <AppleTabBar
+                    {...props}
+                    isDark={isDark}
+                    onFabPress={openQuickCapture}
+                    onFabHold={onFabHold}
+                  />
+                )}
+                screenOptions={{ headerShown: false }}
+              >
+                <Tab.Screen name="Home">
+                  {({ navigation }) => (
+                    <HomeScreen
+                      onInboxPress={() => setInboxOpen(true)}
+                      inboxOpen={inboxOpen}
+                      onHeroPress={() => navigation.navigate('Profile')}
+                      onSettingsPress={() => (navigation.getParent() as any)?.navigate('Settings')}
+                    />
+                  )}
+                </Tab.Screen>
+                <Tab.Screen name="Calendar" component={CalendarScreen} />
+                <Tab.Screen name="Menu">{() => <MenuStack />}</Tab.Screen>
+                <Tab.Screen name="Profile" component={ProfileScreen} />
+              </Tab.Navigator>
+            )}
+          </RootStack.Screen>
+          <RootStack.Screen
+            name="Settings"
+            component={SettingsScreen}
+            options={{ animation: 'slide_from_right' }}
+          />
+        </RootStack.Navigator>
+      </NavigationContainer>
+
+      <InboxScreenV2 visible={inboxOpen} onClose={() => setInboxOpen(false)} />
+      <PersistentTimerBanner />
+    </>
+  );
+}
+
 export default function App() {
   const [fontsLoaded] = useFonts({
     Inter_300Light,
@@ -153,14 +239,15 @@ export default function App() {
     Inter_800ExtraBold,
   });
 
+  useEffect(() => {
+    SplashScreen.hideAsync().catch(() => {});
+  }, []);
+
   const systemScheme = useColorScheme();
   const [manualDark, setManualDark] = useState<boolean | null>(true);
   const isDark = manualDark !== null ? manualDark : systemScheme === 'dark';
 
   const [inboxOpen, setInboxOpen] = useState(false);
-  const [quickAddOpen, setQuickAddOpen] = useState(false);
-  const [quickAddContext, setQuickAddContext] = useState<QuickAddContext>({});
-  const navigationRef = useNavigationContainerRef();
   const holdActionRef = useRef<(() => void) | null>(null);
   const setHoldAction = useCallback((action: (() => void) | null) => {
     holdActionRef.current = action;
@@ -176,29 +263,6 @@ export default function App() {
     return true;
   };
 
-  // The dock FAB is always "Create" — this reads the currently focused route
-  // (across nested navigators) to supply sensible defaults instead of
-  // maintaining a second, differently-styled "+" per screen. Extend this
-  // switch as more lenses gain their own contextual defaults (Areas, a
-  // Today/time-block view, etc.) — currently only Tasks and ProjectDetail
-  // have real context to offer.
-  const openQuickAdd = () => {
-    const route = navigationRef.getCurrentRoute();
-    if (route?.name === 'ProjectDetail') {
-      const params = route.params as { projectId?: string; title?: string } | undefined;
-      setQuickAddContext({
-        status: 'active',
-        projectId: params?.projectId,
-        projectTitle: params?.title,
-      });
-    } else if (route?.name === 'Tasks') {
-      setQuickAddContext({ status: 'active' });
-    } else {
-      setQuickAddContext({});
-    }
-    setQuickAddOpen(true);
-  };
-
   const themeCtx = useMemo(() => ({
     isDark,
     toggle: () => setManualDark(d => d === null ? !(systemScheme === 'dark') : !d),
@@ -206,6 +270,7 @@ export default function App() {
 
   useEffect(() => {
     async function init() {
+      await reconcileMedicationTimers().catch(() => {});
       const granted = await requestNotificationPermission();
       if (granted) setBadgeCount(getInboxItems().length);
       await registerBackgroundSync();
@@ -220,6 +285,10 @@ export default function App() {
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', async (nextState) => {
+      if (nextState === 'active') {
+        await reconcileMedicationTimers().catch(() => {});
+        return;
+      }
       if (nextState !== 'background' && nextState !== 'inactive') return;
       if (!hasSupabaseConfig || !supabase) return;
 
@@ -236,79 +305,56 @@ export default function App() {
     return () => subscription.remove();
   }, []);
 
-  const onRootLayout = useCallback(async () => {
-    if (fontsLoaded) {
-      await SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded]);
-
   if (!fontsLoaded) {
-    return null;
+    return <AppLoadingScreen />;
   }
 
   return (
     <ThemeContext.Provider value={themeCtx}>
+      <BackupProvider>
       <FabHoldContext.Provider value={fabHoldCtx}>
       <TamaguiProvider config={config as any} defaultTheme={isDark ? 'dark' : 'light'}>
         <SafeAreaProvider>
-          <GestureHandlerRootView style={{ flex: 1 }} onLayout={onRootLayout}>
+          <GestureHandlerRootView style={{ flex: 1 }}>
             <StatusBar style={isDark ? 'light' : 'dark'} />
-            <NavigationContainer ref={navigationRef}>
-              <Tab.Navigator
-                tabBar={(props) => (
-                  <AppleTabBar
-                    {...props}
-                    isDark={isDark}
-                    onFabPress={openQuickAdd}
-                    onFabHold={runFabHold}
-                  />
-                )}
-                screenOptions={{ headerShown: false }}
-              >
-                <Tab.Screen name="Home">
-                  {({ navigation }) => (
-                    <HomeScreen
-                      onInboxPress={() => setInboxOpen(true)}
-                      inboxOpen={inboxOpen}
-                      onHeroPress={() => navigation.navigate('Profile')}
-                    />
-                  )}
-                </Tab.Screen>
-                <Tab.Screen name="Calendar" component={CalendarScreen} />
-                <Tab.Screen name="Menu">
-                  {() => <MenuStack />}
-                </Tab.Screen>
-                <Tab.Screen name="Profile" component={ProfileScreen} />
-              </Tab.Navigator>
-            </NavigationContainer>
-
-            {/* Sheets — rendered above navigation, inside GestureHandlerRootView */}
-            <InboxScreenV2 visible={inboxOpen} onClose={() => setInboxOpen(false)} />
-            <QuickAddScreen visible={quickAddOpen} onClose={() => setQuickAddOpen(false)} context={quickAddContext} />
+            {/* Overlay host — BottomSheet teleports here as a sibling rendered after
+                NavigationLayer, the same position InboxScreenV2/CaptureSheet use, so it
+                always paints above the tab bar regardless of which tab it's opened from. */}
+            <OverlayHostProvider>
+              <ItemComposerProvider>
+                <NavigationLayer
+                  isDark={isDark}
+                  inboxOpen={inboxOpen}
+                  setInboxOpen={setInboxOpen}
+                  onFabHold={runFabHold}
+                />
+              </ItemComposerProvider>
+            </OverlayHostProvider>
           </GestureHandlerRootView>
-
-          {/* Timer always on top of everything */}
-          <PersistentTimerBanner />
         </SafeAreaProvider>
       </TamaguiProvider>
       </FabHoldContext.Provider>
+      </BackupProvider>
     </ThemeContext.Provider>
   );
 }
 
 const styles = StyleSheet.create({
+  // Floating tray (River Stone signature nav shape) — margins on the sides,
+  // flush to the true bottom edge; TabBarTray's broad curved recess exposes
+  // the real system home indicator instead of covering it.
   tabBarOuter: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    overflow: 'hidden',
+    left: 12,
+    right: 12,
   },
   tabBarInner: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     paddingHorizontal: 8,
+    // Slightly taller tray body per the paint-over review — gives the notch
+    // more stone around it instead of feeling paper-thin.
+    paddingBottom: 14,
   },
   tabsRow: {
     flex: 1,
@@ -318,32 +364,18 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
+    paddingVertical: 13,
   },
   tabIconBadge: {
-    width: 40,
-    height: 32,
-    borderRadius: 12,
+    width: 46,
+    height: 38,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
   },
   fab: {
-    width: 48,
-    height: 48,
-    borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 6,
-    marginLeft: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.20,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  fabGlow: {
-    shadowColor: '#2b7ff0',
-    shadowOpacity: 0.5,
-    shadowRadius: 16,
+    marginBottom: 2,
+    marginLeft: 2,
+    marginRight: 8,
   },
 });
