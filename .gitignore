@@ -35,3 +35,6 @@ references
 Ronin References/
 Ronin Theme Insp/
 .superpowers/
+
+# Generated image-gen scratch output
+tmp/imagegen/
