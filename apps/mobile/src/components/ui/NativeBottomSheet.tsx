@@ -1,6 +1,7 @@
+import { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { Host, BottomSheet as SwiftUIBottomSheet, Group, RNHostView } from '@expo/ui/swift-ui';
-import { presentationDragIndicator } from '@expo/ui/swift-ui/modifiers';
+import { presentationDetents, presentationDragIndicator } from '@expo/ui/swift-ui/modifiers';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getThemeColors, fontSize, spacing } from '../../theme';
 
@@ -15,6 +16,15 @@ export type NativeBottomSheetProps = {
   scrollable?: boolean;
   contentContainerStyle?: StyleProp<ViewStyle>;
   sheetStyle?: StyleProp<ViewStyle>;
+  /**
+   * Fraction of screen height the sheet opens to (it can still be dragged up to `large`).
+   * `fitToContents` was tried first but does its own two-pass measure-then-resize
+   * internally (starts at the `.medium` system detent, then jumps to the real content
+   * height once a GeometryReader reports it) — that pass is what read as a visible
+   * "size pop" on open. A fraction detent is known synchronously, so there's nothing to
+   * jump.
+   */
+  heightFraction?: number;
 };
 
 // SwiftUI's own `.sheet()` presentation supplies the drag indicator, dismiss gesture,
@@ -31,9 +41,21 @@ export function NativeBottomSheet({
   scrollable = false,
   contentContainerStyle,
   sheetStyle,
+  heightFraction = 0.42,
 }: NativeBottomSheetProps) {
   const insets = useSafeAreaInsets();
   const palette = getThemeColors(isDark);
+
+  // Stable reference — recreating this array every render (e.g. every keystroke in a
+  // child TextField, which re-renders this whole tree via the `children` prop changing)
+  // forces the native side to re-diff modifiers it doesn't need to.
+  const sheetModifiers = useMemo(
+    () => [
+      presentationDetents([{ fraction: heightFraction }, 'large']),
+      presentationDragIndicator('visible' as const),
+    ],
+    [heightFraction],
+  );
 
   const headerRegion = title || headerLeft || headerRight ? (
     <View style={styles.header}>
@@ -69,9 +91,8 @@ export function NativeBottomSheet({
         onIsPresentedChange={(isPresented) => {
           if (!isPresented) onClose();
         }}
-        fitToContents
       >
-        <Group modifiers={[presentationDragIndicator('visible')]}>
+        <Group modifiers={sheetModifiers}>
           <RNHostView>
             <View
               style={[

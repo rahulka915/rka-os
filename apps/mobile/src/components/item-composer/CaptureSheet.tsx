@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Host, TextField, useNativeState } from '@expo/ui/swift-ui';
 import { font } from '@expo/ui/swift-ui/modifiers';
@@ -57,6 +58,11 @@ function CaptureSheetFields({
   const titleState = useNativeState(draft.title);
   const notesState = useNativeState(draft.notes);
   const context = contextLabel(draft);
+  // Stable references — draft.title changes on every keystroke, re-rendering this
+  // component; recreating these arrays each time forces the native side to re-diff
+  // modifiers that never actually changed.
+  const titleFontModifiers = useMemo(() => [font({ size: 22, weight: 'medium' as const })], []);
+  const notesFontModifiers = useMemo(() => [font({ size: 15 })], []);
 
   return (
     <>
@@ -72,7 +78,7 @@ function CaptureSheetFields({
           placeholder="What needs doing?"
           autoFocus
           onTextChange={(title) => onChange({ title })}
-          modifiers={[font({ size: 22, weight: 'medium' })]}
+          modifiers={titleFontModifiers}
         />
       </Host>
 
@@ -83,7 +89,7 @@ function CaptureSheetFields({
           text={notesState}
           placeholder="Add a note (optional)"
           onTextChange={(notes) => onChange({ notes })}
-          modifiers={[font({ size: 15 })]}
+          modifiers={notesFontModifiers}
         />
       </Host>
 
@@ -127,6 +133,7 @@ export function CaptureSheet({
       onClose={onCancel}
       isDark={isDark}
       title="New task"
+      heightFraction={0.55}
       scrollable
       sheetStyle={[styles.sheet, { backgroundColor: material.surface, borderColor: material.rim }]}
       contentContainerStyle={styles.content}
