@@ -2,6 +2,20 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Outcome (2026-07-23):** All 5 tasks executed and shipped. Tasks 1–2 (NativeBottomSheet,
+> TimelinePreviewSheet chrome + Menu) are live and working. Tasks 3–4 (CaptureSheet's
+> native shell + TextField) were **reverted** after shipping — on a physical device, the
+> native sheet expanded to full screen the instant the autofocused title field's keyboard
+> appeared, and stayed that way for the rest of the session. Three targeted fixes were
+> tried (fixed `presentationDetents` instead of `fitToContents`, `ignoresSafeArea(.keyboard)`
+> on the sheet's own content `Group`, then on the TextField's own nested `Host`) — none
+> resolved it on-device. This looks like a genuine limitation in how `@expo/ui`'s
+> `BottomSheet` interacts with a focused, `RNHostView`-bridged native text field, not
+> something fixable by further modifier guesses from the JS API surface. CaptureSheet is
+> back on the original custom Reanimated `BottomSheet` + plain `TextInput`. If revisiting
+> this: check `@expo/ui`'s GitHub issues for this exact bug before retrying any of the
+> three approaches above.
+
 **Goal:** Replace the custom Reanimated `BottomSheet` chrome and plain `TextInput` fields
 in Calendar's Capture and Preview sheets with `@expo/ui`'s native SwiftUI equivalents, and
 give the Preview sheet native Complete/Delete quick actions.
