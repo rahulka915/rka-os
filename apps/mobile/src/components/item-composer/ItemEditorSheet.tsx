@@ -207,7 +207,6 @@ export function ItemEditorSheet({
             <ScrollView style={styles.flex} showsVerticalScrollIndicator={false}>
               <LacquerTimePicker
                 value={draft.scheduledTime}
-                minuteInterval={draft.minuteInterval}
                 onChange={(scheduledTime) => onChange({ scheduledTime })}
               />
             </ScrollView>
