@@ -463,8 +463,17 @@ export function TimelineSection({
       <Text style={[styles.title, { color: palette.textTertiary }]}>TODAY</Text>
 
       {blocks.map((block) => (
-        <SwipeableItem
+        // The list elevates the dragged row to zIndex 999, but that only wins
+        // inside this block's own stacking context — the four blocks are
+        // siblings, so later ones (Afternoon, Evening) would paint over a row
+        // being dragged in an earlier one, making it slide underneath them.
+        // Lifting the whole block while it is the one being reordered is what
+        // actually keeps the dragged row on top.
+        <View
           key={block.key}
+          style={reorderByBlock[block.key].isReordering ? styles.blockDragging : undefined}
+        >
+        <SwipeableItem
           onActivate={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             onTimeBlockAction?.(block.key, 'completeAll');
@@ -509,12 +518,18 @@ export function TimelineSection({
             )}
           </View>
         </SwipeableItem>
+        </View>
       ))}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  // Only applied to the block currently being reordered, so a dragged row
+  // paints above the sibling blocks below it instead of sliding under them.
+  blockDragging: {
+    zIndex: 10,
+  },
   container: {
     paddingHorizontal: 16,
     // Tightened from the cards above — there's no need for the old

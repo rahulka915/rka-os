@@ -326,7 +326,7 @@ export function TasksScreen() {
         ) : (
           <ScrollViewContainer contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
             {active.length > 0 && (
-              <View style={styles.section}>
+              <View style={[styles.section, activeReorder.isReordering && styles.sectionDragging]}>
                 <Text style={[styles.sectionLabel, { color: palette.textTertiary }]}>ACTIVE</Text>
                 <NestedReorderableList
                   data={active}
@@ -340,7 +340,7 @@ export function TasksScreen() {
               </View>
             )}
             {someday.length > 0 && (
-              <View style={styles.section}>
+              <View style={[styles.section, somedayReorder.isReordering && styles.sectionDragging]}>
                 <Text style={[styles.sectionLabel, { color: palette.textTertiary }]}>SOMEDAY</Text>
                 <NestedReorderableList
                   data={someday}
@@ -380,6 +380,12 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: 20,
+  },
+  // Applied only to the section being reordered: the two sections are
+  // siblings, so without this a row dragged in Active paints under the
+  // Someday section below it.
+  sectionDragging: {
+    zIndex: 10,
   },
   sectionLabel: {
     fontSize: 11,
