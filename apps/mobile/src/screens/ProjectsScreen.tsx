@@ -10,6 +10,7 @@ import { LensSurface } from '../components/LensSurface';
 import { QuickCreateSheet } from '../components/QuickCreateSheet';
 import { useRegisterFabHoldAction } from '../hooks/useFabHoldAction';
 import type { Item } from '../db/types';
+import { showActionSheet } from '../utils/actionSheet';
 
 // No header "+" — holding the dock FAB while this screen is focused opens
 // New Project instead (see useRegisterFabHoldAction / App.tsx's runFabHold).
@@ -54,23 +55,22 @@ export function ProjectsScreen() {
   const handleLongPress = (item: Item) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     const moveLabel = item.status === 'someday' ? 'Move to Active' : 'Move to Someday';
-    Alert.alert(item.title, undefined, [
-      { text: 'Cancel', style: 'cancel' },
+    showActionSheet(item.title, [
       {
-        text: moveLabel,
+        label: moveLabel,
         onPress: () => {
           updateItemStatus(item.id, item.status === 'someday' ? 'active' : 'someday');
           refresh();
         },
       },
-      { text: 'Move to Area...', onPress: () => promptSetArea(item) },
+      { label: 'Move to Area...', onPress: () => promptSetArea(item) },
       {
-        text: 'Delete',
-        style: 'destructive',
+        label: 'Delete',
         onPress: () => {
           deleteItem(item.id);
           refresh();
         },
+        destructive: true,
       },
     ]);
   };

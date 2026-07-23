@@ -19,6 +19,7 @@ import { DeadlineBadge } from '../components/DeadlineBadge';
 import { RepeatBadge } from '../components/RepeatBadge';
 import { DependencyConnector } from '../components/DependencyConnector';
 import { promptSetDependency } from '../utils/dependencyPrompt';
+import { showActionSheet } from '../utils/actionSheet';
 import { useHapticReorder } from '../hooks/useHapticReorder';
 import { readChecklist, checklistProgress } from '../utils/checklist';
 
@@ -141,31 +142,30 @@ export function ProjectDetailScreen() {
 
   const handleLongPress = (item: Item) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    Alert.alert(item.title, undefined, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Edit', onPress: () => openEditorForItem({
+    showActionSheet(item.title, [
+      { label: 'Edit', onPress: () => openEditorForItem({
         item,
         context: { projectId, projectTitle: title },
         onComplete: ({ action }) => {
           if (action !== 'cancelled') refresh();
         },
       }) },
-      { text: 'Complete', onPress: () => handleComplete(item) },
+      { label: 'Complete', onPress: () => handleComplete(item) },
       {
-        text: isPlannedForToday(item) ? 'Remove from Today' : 'Add to Today',
+        label: isPlannedForToday(item) ? 'Remove from Today' : 'Add to Today',
         onPress: () => {
           isPlannedForToday(item) ? unplanToday(item.id) : planForToday(item.id);
           refresh();
         },
       },
-      { text: 'Depends on...', onPress: () => promptSetDependency(item, tasks, refresh) },
+      { label: 'Depends on...', onPress: () => promptSetDependency(item, tasks, refresh) },
       {
-        text: 'Delete',
-        style: 'destructive',
+        label: 'Delete',
         onPress: () => {
           deleteItem(item.id);
           refresh();
         },
+        destructive: true,
       },
     ]);
   };

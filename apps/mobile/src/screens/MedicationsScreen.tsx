@@ -12,6 +12,7 @@ import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
 import type { Item } from '../db/types';
 import { Pill, X, AlertTriangle, Clock, PlayCircle, Check } from '../icons';
+import { showActionSheet } from '../utils/actionSheet';
 
 function useTimeSince(timestamp: number | undefined): string {
   const [label, setLabel] = useState('—');
@@ -118,16 +119,15 @@ function TodayRow({ item, isDark, onTake, onLogPast, onEdit, onDelete, onRestock
 
   const handleLongPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    Alert.alert(item.title, undefined, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Take + Start Timer', onPress: () => handleTake(true) },
+    showActionSheet(item.title, [
+      { label: 'Take + Start Timer', onPress: () => handleTake(true) },
       // Forgot to start the timer when you took it? Attach one now to the dose
       // you already logged, instead of logging a second (fake) dose.
-      ...(lastLog ? [{ text: 'Start Timer for Last Dose', onPress: onStartTimer }] : []),
-      { text: 'Log Past Dose', onPress: onLogPast },
-      ...(isTrackingStock ? [{ text: 'Restock', onPress: onRestock }] : []),
-      { text: 'Edit', onPress: onEdit },
-      { text: 'Delete', style: 'destructive' as const, onPress: onDelete },
+      ...(lastLog ? [{ label: 'Start Timer for Last Dose', onPress: onStartTimer }] : []),
+      { label: 'Log Past Dose', onPress: onLogPast },
+      ...(isTrackingStock ? [{ label: 'Restock', onPress: onRestock }] : []),
+      { label: 'Edit', onPress: onEdit },
+      { label: 'Delete', onPress: onDelete, destructive: true },
     ]);
   };
 

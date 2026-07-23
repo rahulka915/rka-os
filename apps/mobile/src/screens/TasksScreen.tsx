@@ -20,6 +20,7 @@ import { DeadlineBadge } from '../components/DeadlineBadge';
 import { RepeatBadge } from '../components/RepeatBadge';
 import { DependencyConnector } from '../components/DependencyConnector';
 import { promptSetDependency } from '../utils/dependencyPrompt';
+import { showActionSheet } from '../utils/actionSheet';
 import { useHapticReorder } from '../hooks/useHapticReorder';
 import { readChecklist, checklistProgress } from '../utils/checklist';
 
@@ -135,11 +136,10 @@ export function TasksScreen() {
       return;
     }
     const currentProjectId = getRelation(item.id, 'project');
-    Alert.alert('Move to mission', undefined, [
-      { text: 'Cancel', style: 'cancel' },
-      ...(currentProjectId ? [{ text: 'Remove from mission', onPress: () => { setRelation(item.id, 'project', null); refresh(); } }] : []),
+    showActionSheet('Move to mission', [
+      ...(currentProjectId ? [{ label: 'Remove from mission', onPress: () => { setRelation(item.id, 'project', null); refresh(); } }] : []),
       ...projects.map(p => ({
-        text: p.title,
+        label: p.title,
         onPress: () => {
           setRelation(item.id, 'project', p.id);
           refresh();
@@ -152,9 +152,8 @@ export function TasksScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     const moveLabel = item.status === 'someday' ? 'Move to Active' : 'Move to Someday';
     const plannedToday = isPlannedForToday(item);
-    Alert.alert(item.title, undefined, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Edit', onPress: () => openEditorForItem({
+    showActionSheet(item.title, [
+      { label: 'Edit', onPress: () => openEditorForItem({
         item,
         onComplete: ({ action }) => {
           if (action !== 'cancelled') {
@@ -163,30 +162,30 @@ export function TasksScreen() {
           }
         },
       }) },
-      { text: 'Complete', onPress: () => handleComplete(item) },
+      { label: 'Complete', onPress: () => handleComplete(item) },
       {
-        text: plannedToday ? 'Remove from Today' : 'Add to Today',
+        label: plannedToday ? 'Remove from Today' : 'Add to Today',
         onPress: () => {
           plannedToday ? unplanToday(item.id) : planForToday(item.id);
           refresh();
         },
       },
       {
-        text: moveLabel,
+        label: moveLabel,
         onPress: () => {
           updateItemStatus(item.id, item.status === 'someday' ? 'active' : 'someday');
           refresh();
         },
       },
-      { text: 'Move to Mission...', onPress: () => promptSetProject(item) },
-      { text: 'Depends on...', onPress: () => promptSetDependency(item, tasks, refresh) },
+      { label: 'Move to Mission...', onPress: () => promptSetProject(item) },
+      { label: 'Depends on...', onPress: () => promptSetDependency(item, tasks, refresh) },
       {
-        text: 'Delete',
-        style: 'destructive',
+        label: 'Delete',
         onPress: () => {
           deleteItem(item.id);
           refresh();
         },
+        destructive: true,
       },
     ]);
   };

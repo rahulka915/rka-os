@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, memo } from 'react';
-import { Alert, View, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { NestedReorderableList } from 'react-native-reorderable-list';
 import { useVerticalDragGesture } from './ui/dragFeel';
@@ -19,6 +19,7 @@ import { BlockedBadge } from './BlockedBadge';
 import { RepeatBadge } from './RepeatBadge';
 import { getBlockingTask, applyManualOrder } from '../db/database';
 import { promptSetDependency } from '../utils/dependencyPrompt';
+import { showActionSheet } from '../utils/actionSheet';
 import { useHapticReorder } from '../hooks/useHapticReorder';
 
 
@@ -248,12 +249,11 @@ function TimeBlockItems({
   // mid-drag.
   const handleLongPress = useCallback((item: Item) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    Alert.alert(item.title, undefined, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Edit', onPress: () => onItemTap?.(item) },
-      { text: 'Complete', onPress: () => onItemComplete?.(item.id) },
-      { text: 'Depends on...', onPress: () => promptSetDependency(item, items, () => onDependencyChanged?.()) },
-      { text: 'Delete', style: 'destructive', onPress: () => onItemDelete?.(item.id) },
+    showActionSheet(item.title, [
+      { label: 'Edit', onPress: () => onItemTap?.(item) },
+      { label: 'Complete', onPress: () => onItemComplete?.(item.id) },
+      { label: 'Depends on...', onPress: () => promptSetDependency(item, items, () => onDependencyChanged?.()) },
+      { label: 'Delete', onPress: () => onItemDelete?.(item.id), destructive: true },
     ]);
   }, [items, onItemTap, onItemComplete, onItemDelete, onDependencyChanged]);
 
