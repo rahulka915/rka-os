@@ -1,12 +1,26 @@
-import { useCallback, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { Alert, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useFocusEffect, useRoute } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
-import { getRelatedItems, updateItemStatus, deleteItem } from '../db/database';
+import DraggableFlatList, { ScaleDecorator, type RenderItemParams } from 'react-native-draggable-flatlist';
+import { getRelatedItems, getBlockingTask, applyManualOrder, updateItemStatus, deleteItem, planForToday, unplanToday, isPlannedForToday } from '../db/database';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
 import { LensSurface } from '../components/LensSurface';
+import {
+  LacquerDiscControl,
+  LACQUER_DISC_COMPLETION_DURATION,
+} from '../components/ui/LacquerDiscControl';
+import { DragHandleButton } from '../components/ui/DragHandleButton';
 import type { Item } from '../db/types';
+import { useItemComposer } from '../components/item-composer';
+import { BlockedBadge } from '../components/BlockedBadge';
+import { DeadlineBadge } from '../components/DeadlineBadge';
+import { DependencyConnector } from '../components/DependencyConnector';
+import { promptSetDependency } from '../utils/dependencyPrompt';
+import { useHapticReorder } from '../hooks/useHapticReorder';
+
+const CHECKBOX_CENTER_X = 32; // row paddingHorizontal(10) + half the 44pt disc touch target
 
 interface ProjectDetailRouteParams {
   projectId: string;
@@ -14,7 +28,7 @@ interface ProjectDetailRouteParams {
 }
 
 // No header "+" here — adding a task to this project is the dock FAB's job
-// (see App.tsx openQuickAdd, which detects this route by name and pre-fills
+// (see App.tsx, which detects this route by name and pre-fills
 // the project relation + active status). A second create button here would
 // just duplicate that same underlying action.
 export function ProjectDetailScreen() {
@@ -22,28 +36,139 @@ export function ProjectDetailScreen() {
   const { projectId, title } = route.params as ProjectDetailRouteParams;
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
+  const { openEditorForItem, revision: composerRevision } = useItemComposer();
   const [tasks, setTasks] = useState<Item[]>([]);
+  const [completingIds, setCompletingIds] = useState<Set<string>>(new Set());
+
+  const listKey = `project:${projectId}`;
 
   const refresh = useCallback(() => {
-    setTasks(getRelatedItems(projectId, 'project'));
-  }, [projectId]);
+    setTasks(applyManualOrder(listKey, getRelatedItems(projectId, 'project')));
+  }, [projectId, listKey]);
+
+  const { isReordering, onDragBegin, onDragEnd } = useHapticReorder(listKey, setTasks);
 
   useFocusEffect(refresh);
 
-  const handleComplete = (item: Item) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    updateItemStatus(item.id, 'completed');
+  useEffect(() => {
     refresh();
+  }, [composerRevision, refresh]);
+
+  const handleComplete = (item: Item) => {
+    if (completingIds.has(item.id)) return;
+    const blocker = getBlockingTask(item.id);
+    if (blocker) {
+      Alert.alert('Blocked', `Complete "${blocker.title}" first.`, [{ text: 'OK' }]);
+      return;
+    }
+    setCompletingIds((current) => new Set(current).add(item.id));
+    setTimeout(() => {
+      updateItemStatus(item.id, 'completed');
+      refresh();
+      setCompletingIds((current) => {
+        const next = new Set(current);
+        next.delete(item.id);
+        return next;
+      });
+    }, LACQUER_DISC_COMPLETION_DURATION);
   };
 
   const handleLongPress = (item: Item) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    deleteItem(item.id);
-    refresh();
+    Alert.alert(item.title, undefined, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Edit', onPress: () => openEditorForItem({
+        item,
+        context: { projectId, projectTitle: title },
+        onComplete: ({ action }) => {
+          if (action !== 'cancelled') refresh();
+        },
+      }) },
+      { text: 'Complete', onPress: () => handleComplete(item) },
+      {
+        text: isPlannedForToday(item) ? 'Remove from Today' : 'Add to Today',
+        onPress: () => {
+          isPlannedForToday(item) ? unplanToday(item.id) : planForToday(item.id);
+          refresh();
+        },
+      },
+      { text: 'Depends on...', onPress: () => promptSetDependency(item, tasks, refresh) },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          deleteItem(item.id);
+          refresh();
+        },
+      },
+    ]);
   };
 
   const cardBg = isDark ? palette.fillStrong : palette.surface;
   const cardBorder = isDark ? palette.separatorStrong : palette.separator;
+
+  const renderRow = ({ item, drag, isActive }: RenderItemParams<Item>) => {
+    const blocker = getBlockingTask(item.id);
+    // Adjacency only decides whether to draw the (zero-layout, overlay)
+    // connector line — it never affects row height, so it's safe to compute
+    // from the live list. Hidden entirely during a drag so the overlay
+    // doesn't float around while cells translate; height is unaffected either
+    // way. The "blocked" badge is keyed off the item's own blocker, not
+    // adjacency, so a row's height is a pure function of the item (required by
+    // react-native-draggable-flatlist — see useHapticReorder).
+    const index = tasks.findIndex((t) => t.id === item.id);
+    const prevItem = tasks[index - 1];
+    // Adjacency can run either way depending on creation order — the blocker
+    // isn't always the row directly above; it can be the row directly below
+    // instead (its own blocker points back up at us).
+    const prevBlocksThis = !!blocker && !!prevItem && blocker.id === prevItem.id;
+    const thisBlocksPrev = !!prevItem && getBlockingTask(prevItem.id)?.id === item.id;
+    const showConnector = !isReordering && (prevBlocksThis || thisBlocksPrev);
+
+    return (
+      <ScaleDecorator>
+        <View style={styles.cell}>
+          {showConnector && <DependencyConnector isDark={isDark} leftOffset={CHECKBOX_CENTER_X} />}
+          <View
+            style={[
+              styles.row,
+              { backgroundColor: cardBg, borderColor: cardBorder },
+              isActive && styles.rowActive,
+            ]}
+          >
+            <LacquerDiscControl
+              isCompleted={completingIds.has(item.id)}
+              accessibilityLabel={blocker ? `${item.title}, blocked by ${blocker.title}` : `Complete ${item.title}`}
+              onToggle={() => handleComplete(item)}
+            />
+            <TouchableOpacity
+              style={styles.rowContent}
+              activeOpacity={0.75}
+              onPress={() => openEditorForItem({
+                item,
+                context: { projectId, projectTitle: title },
+                onComplete: ({ action }) => {
+                  if (action !== 'cancelled') refresh();
+                },
+              })}
+              onLongPress={() => handleLongPress(item)}
+              delayLongPress={400}
+            >
+              <Text
+                style={[styles.rowTitle, { color: blocker ? palette.textMuted : palette.text }]}
+                numberOfLines={1}
+              >
+                {item.title}
+              </Text>
+              {blocker && <BlockedBadge isDark={isDark} title={blocker.title} />}
+              {item.dueDate && <DeadlineBadge isDark={isDark} dueDate={item.dueDate} />}
+            </TouchableOpacity>
+            <DragHandleButton onDrag={drag} color={palette.textMuted} />
+          </View>
+        </View>
+      </ScaleDecorator>
+    );
+  };
 
   return (
     <LensSurface title={title}>
@@ -53,23 +178,15 @@ export function ProjectDetailScreen() {
           <Text style={[styles.emptySub, { color: palette.textSecondary }]}>Tap the + in the dock to add one here</Text>
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
-          <View style={styles.rows}>
-            {tasks.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                style={[styles.row, { backgroundColor: cardBg, borderColor: cardBorder }]}
-                activeOpacity={0.75}
-                onPress={() => handleComplete(item)}
-                onLongPress={() => handleLongPress(item)}
-                delayLongPress={400}
-              >
-                <View style={[styles.checkboxCircle, { borderColor: palette.textMuted }]} />
-                <Text style={[styles.rowTitle, { color: palette.text }]} numberOfLines={1}>{item.title}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </ScrollView>
+        <DraggableFlatList
+          data={tasks}
+          keyExtractor={(item) => item.id}
+          renderItem={renderRow}
+          onDragBegin={onDragBegin}
+          onDragEnd={onDragEnd}
+          containerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+        />
       )}
     </LensSurface>
   );
@@ -80,29 +197,36 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 24,
   },
-  rows: {
-    gap: 8,
+  // Uniform gap on EVERY cell (was a conditional spacer) so row height never
+  // depends on list order — the connector that used to occupy this space is
+  // now a zero-layout overlay. position:relative anchors that overlay.
+  cell: {
+    position: 'relative',
+    marginBottom: 8,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
     borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  rowActive: {
+    opacity: 0.9,
+  },
+  rowContent: {
+    flex: 1,
+    minHeight: 44,
+    justifyContent: 'center',
   },
   rowTitle: {
     fontSize: 15,
+    lineHeight: 19,
     fontWeight: '600',
     fontFamily: 'Inter_600SemiBold',
     flex: 1,
-  },
-  checkboxCircle: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 1.75,
   },
   empty: {
     flex: 1,

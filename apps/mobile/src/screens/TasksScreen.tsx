@@ -1,8 +1,14 @@
-import { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert, StyleSheet } from 'react-native';
+import { useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, Alert, StyleSheet } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import {
+  NestableScrollContainer,
+  NestableDraggableFlatList,
+  ScaleDecorator,
+  type RenderItemParams,
+} from 'react-native-draggable-flatlist';
 import { useTasks, useProjects, useCompletedItems } from '../hooks/useDb';
-import { deleteItem, updateItemStatus, setRelation, getRelation } from '../db/database';
+import { deleteItem, updateItemStatus, setRelation, getRelation, getBlockingTask, applyManualOrder, planForToday, unplanToday, isPlannedForToday } from '../db/database';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
 import { LensSurface } from '../components/LensSurface';
@@ -10,13 +16,22 @@ import {
   LacquerDiscControl,
   LACQUER_DISC_COMPLETION_DURATION,
 } from '../components/ui/LacquerDiscControl';
+import { DragHandleButton } from '../components/ui/DragHandleButton';
 import { groupCompletedByDay } from '../utils/completedGrouping';
 import type { Item } from '../db/types';
+import { useItemComposer } from '../components/item-composer';
+import { BlockedBadge } from '../components/BlockedBadge';
+import { DeadlineBadge } from '../components/DeadlineBadge';
+import { DependencyConnector } from '../components/DependencyConnector';
+import { promptSetDependency } from '../utils/dependencyPrompt';
+import { useHapticReorder } from '../hooks/useHapticReorder';
+
+const CHECKBOX_CENTER_X = 32; // row paddingHorizontal(10) + half the 44pt disc touch target
 
 type TasksTab = 'tasks' | 'logbook';
 
 // No header "+" here — creating a plain task is identical to the dock FAB's
-// default action (see App.tsx openQuickAdd, which defaults to status:
+// default action (see App.tsx, which defaults to status:
 // 'active' when focused on this screen). A second create entry point here
 // would just be a second button for the same underlying action.
 export function TasksScreen() {
@@ -25,12 +40,29 @@ export function TasksScreen() {
   const { projects } = useProjects();
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
+  const { openEditorForItem, revision: composerRevision } = useItemComposer();
   const [completingIds, setCompletingIds] = useState<Set<string>>(new Set());
   const [restoringIds, setRestoringIds] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<TasksTab>('tasks');
 
-  const active = tasks.filter(t => t.status !== 'someday');
-  const someday = tasks.filter(t => t.status === 'someday');
+  useEffect(() => {
+    refresh();
+    refreshCompleted();
+  }, [composerRevision, refresh, refreshCompleted]);
+
+  // Local, manually-orderable copies of the two sections — re-derived from
+  // `tasks` (owned by useTasks) whenever it changes, then drag-reordered
+  // in place via useHapticReorder, same pattern as ProjectDetailScreen.
+  const [active, setActive] = useState<Item[]>([]);
+  const [someday, setSomeday] = useState<Item[]>([]);
+
+  useEffect(() => {
+    setActive(applyManualOrder('tasks:active', tasks.filter(t => t.status !== 'someday')));
+    setSomeday(applyManualOrder('tasks:someday', tasks.filter(t => t.status === 'someday')));
+  }, [tasks]);
+
+  const activeReorder = useHapticReorder('tasks:active', setActive);
+  const somedayReorder = useHapticReorder('tasks:someday', setSomeday);
 
   const getProjectTitle = (item: Item): string | null => {
     const id = getRelation(item.id, 'project');
@@ -39,13 +71,13 @@ export function TasksScreen() {
 
   const promptSetProject = (item: Item) => {
     if (projects.length === 0) {
-      Alert.alert('No projects yet', 'Create a project first, then assign tasks to it.');
+      Alert.alert('No missions yet', 'Create a mission first, then assign tasks to it.');
       return;
     }
     const currentProjectId = getRelation(item.id, 'project');
-    Alert.alert('Move to project', undefined, [
+    Alert.alert('Move to mission', undefined, [
       { text: 'Cancel', style: 'cancel' },
-      ...(currentProjectId ? [{ text: 'Remove from project', onPress: () => { setRelation(item.id, 'project', null); refresh(); } }] : []),
+      ...(currentProjectId ? [{ text: 'Remove from mission', onPress: () => { setRelation(item.id, 'project', null); refresh(); } }] : []),
       ...projects.map(p => ({
         text: p.title,
         onPress: () => {
@@ -59,8 +91,26 @@ export function TasksScreen() {
   const handleLongPress = (item: Item) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     const moveLabel = item.status === 'someday' ? 'Move to Active' : 'Move to Someday';
+    const plannedToday = isPlannedForToday(item);
     Alert.alert(item.title, undefined, [
       { text: 'Cancel', style: 'cancel' },
+      { text: 'Edit', onPress: () => openEditorForItem({
+        item,
+        onComplete: ({ action }) => {
+          if (action !== 'cancelled') {
+            refresh();
+            refreshCompleted();
+          }
+        },
+      }) },
+      { text: 'Complete', onPress: () => handleComplete(item) },
+      {
+        text: plannedToday ? 'Remove from Today' : 'Add to Today',
+        onPress: () => {
+          plannedToday ? unplanToday(item.id) : planForToday(item.id);
+          refresh();
+        },
+      },
       {
         text: moveLabel,
         onPress: () => {
@@ -68,7 +118,8 @@ export function TasksScreen() {
           refresh();
         },
       },
-      { text: 'Move to Project...', onPress: () => promptSetProject(item) },
+      { text: 'Move to Mission...', onPress: () => promptSetProject(item) },
+      { text: 'Depends on...', onPress: () => promptSetDependency(item, tasks, refresh) },
       {
         text: 'Delete',
         style: 'destructive',
@@ -82,6 +133,11 @@ export function TasksScreen() {
 
   const handleComplete = (item: Item) => {
     if (completingIds.has(item.id)) return;
+    const blocker = getBlockingTask(item.id);
+    if (blocker) {
+      Alert.alert('Blocked', `Complete "${blocker.title}" first.`, [{ text: 'OK' }]);
+      return;
+    }
     setCompletingIds((current) => new Set(current).add(item.id));
     setTimeout(() => {
       updateItemStatus(item.id, 'completed');
@@ -110,40 +166,68 @@ export function TasksScreen() {
     }, LACQUER_DISC_COMPLETION_DURATION);
   };
 
-  const renderRow = (item: Item) => {
+  // Factory rather than one shared render function — each section (Active,
+  // Someday) is its own manually-orderable list with its own current array
+  // (for correct prev/next adjacency lookups) and its own isReordering flag.
+  // Factory rather than one shared render function — each section (Active,
+  // Someday) is its own manually-orderable list with its own live array and
+  // isReordering flag. Row HEIGHT is a pure function of the item (uniform
+  // cell gap + badge keyed off the item's own blocker), never of position —
+  // required by react-native-draggable-flatlist, see useHapticReorder. The
+  // connector line is a zero-layout overlay, hidden during a drag.
+  const makeRenderRow = (list: Item[], isReordering: boolean) => ({ item, drag, isActive }: RenderItemParams<Item>) => {
     const projectTitle = getProjectTitle(item);
+    const blocker = getBlockingTask(item.id);
+    const index = list.findIndex((t) => t.id === item.id);
+    const prevItem = list[index - 1];
+    // Adjacency can run either way depending on creation order — the blocker
+    // isn't always the row directly above; it can be the row directly below
+    // instead (its own blocker points back up at us).
+    const prevBlocksThis = !!blocker && !!prevItem && blocker.id === prevItem.id;
+    const thisBlocksPrev = !!prevItem && getBlockingTask(prevItem.id)?.id === item.id;
+    const showConnector = !isReordering && (prevBlocksThis || thisBlocksPrev);
     return (
-      <View
-        key={item.id}
-        style={[styles.row, { backgroundColor: palette.surface }]}
-      >
-        <LacquerDiscControl
-          isCompleted={completingIds.has(item.id)}
-          accessibilityLabel={`Complete ${item.title}`}
-          onToggle={() => handleComplete(item)}
-        />
-        <TouchableOpacity
-          style={styles.rowContent}
-          activeOpacity={0.7}
-          onLongPress={() => handleLongPress(item)}
-          delayLongPress={400}
-        >
-          <Text style={[styles.rowTitle, { color: palette.text }]} numberOfLines={1}>{item.title}</Text>
-          {projectTitle && (
-            <Text style={[styles.rowSub, { color: palette.textTertiary }]} numberOfLines={1}>{projectTitle}</Text>
-          )}
-        </TouchableOpacity>
-      </View>
+      <ScaleDecorator>
+        <View style={styles.cell}>
+          {showConnector && <DependencyConnector isDark={isDark} leftOffset={CHECKBOX_CENTER_X} />}
+          <View style={[styles.row, { backgroundColor: palette.surface }, isActive && styles.rowActive]}>
+            <LacquerDiscControl
+              isCompleted={completingIds.has(item.id)}
+              accessibilityLabel={blocker ? `${item.title}, blocked by ${blocker.title}` : `Complete ${item.title}`}
+              onToggle={() => handleComplete(item)}
+            />
+            <TouchableOpacity
+              style={styles.rowContent}
+              activeOpacity={0.7}
+              onPress={() => openEditorForItem({
+                item,
+                onComplete: ({ action }) => {
+                  if (action !== 'cancelled') {
+                    refresh();
+                    refreshCompleted();
+                  }
+                },
+              })}
+              onLongPress={() => handleLongPress(item)}
+              delayLongPress={400}
+            >
+              <Text style={[styles.rowTitle, { color: blocker ? palette.textMuted : palette.text }]} numberOfLines={1}>{item.title}</Text>
+              {projectTitle && (
+                <Text style={[styles.rowSub, { color: palette.textTertiary }]} numberOfLines={1}>{projectTitle}</Text>
+              )}
+              {blocker && <BlockedBadge isDark={isDark} title={blocker.title} />}
+              {item.dueDate && <DeadlineBadge isDark={isDark} dueDate={item.dueDate} />}
+            </TouchableOpacity>
+            <DragHandleButton onDrag={drag} color={palette.textMuted} />
+          </View>
+        </View>
+      </ScaleDecorator>
     );
   };
 
-  const renderCompletedRow = (item: Item) => {
-    const projectTitle = getProjectTitle(item);
-    return (
-      <View
-        key={item.id}
-        style={[styles.row, { backgroundColor: palette.surface }]}
-      >
+  const renderCompletedRow = (item: Item) => (
+    <View key={item.id} style={styles.cell}>
+      <View style={[styles.row, { backgroundColor: palette.surface }]}>
         <LacquerDiscControl
           isCompleted={!restoringIds.has(item.id)}
           accessibilityLabel={`Restore ${item.title}`}
@@ -156,13 +240,13 @@ export function TasksScreen() {
           >
             {item.title}
           </Text>
-          {projectTitle && (
-            <Text style={[styles.rowSub, { color: palette.textTertiary }]} numberOfLines={1}>{projectTitle}</Text>
+          {getProjectTitle(item) && (
+            <Text style={[styles.rowSub, { color: palette.textTertiary }]} numberOfLines={1}>{getProjectTitle(item)}</Text>
           )}
         </View>
       </View>
-    );
-  };
+    </View>
+  );
 
   const completedGroups = groupCompletedByDay(completedItems);
 
@@ -200,34 +284,48 @@ export function TasksScreen() {
             <Text style={[styles.emptySub, { color: palette.textSecondary }]}>Tap the + in the dock to create one</Text>
           </View>
         ) : (
-          <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
+          <NestableScrollContainer contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
             {active.length > 0 && (
               <View style={styles.section}>
                 <Text style={[styles.sectionLabel, { color: palette.textTertiary }]}>ACTIVE</Text>
-                <View style={styles.sectionRows}>{active.map(renderRow)}</View>
+                <NestableDraggableFlatList
+                  data={active}
+                  keyExtractor={(item) => item.id}
+                  renderItem={makeRenderRow(active, activeReorder.isReordering)}
+                  onDragBegin={activeReorder.onDragBegin}
+                  onDragEnd={activeReorder.onDragEnd}
+                  scrollEnabled={false}
+                />
               </View>
             )}
             {someday.length > 0 && (
               <View style={styles.section}>
                 <Text style={[styles.sectionLabel, { color: palette.textTertiary }]}>SOMEDAY</Text>
-                <View style={styles.sectionRows}>{someday.map(renderRow)}</View>
+                <NestableDraggableFlatList
+                  data={someday}
+                  keyExtractor={(item) => item.id}
+                  renderItem={makeRenderRow(someday, somedayReorder.isReordering)}
+                  onDragBegin={somedayReorder.onDragBegin}
+                  onDragEnd={somedayReorder.onDragEnd}
+                  scrollEnabled={false}
+                />
               </View>
             )}
-          </ScrollView>
+          </NestableScrollContainer>
         )
       ) : completedGroups.length === 0 ? (
         <View style={styles.empty}>
           <Text style={[styles.emptyTitle, { color: palette.text }]}>Nothing completed yet</Text>
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
+        <NestableScrollContainer contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
           {completedGroups.map((group) => (
             <View key={group.label} style={styles.section}>
               <Text style={[styles.sectionLabel, { color: palette.textTertiary }]}>{group.label}</Text>
               <View style={styles.sectionRows}>{group.items.map(renderCompletedRow)}</View>
             </View>
           ))}
-        </ScrollView>
+        </NestableScrollContainer>
       )}
     </LensSurface>
   );
@@ -251,7 +349,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   sectionRows: {
-    gap: 8,
+  },
+  // Uniform gap on EVERY cell (was a conditional spacer) so row height never
+  // depends on list order — the connector that used to occupy this space is
+  // now a zero-layout overlay. position:relative anchors that overlay.
+  cell: {
+    position: 'relative',
+    marginBottom: 8,
   },
   row: {
     flexDirection: 'row',
@@ -260,6 +364,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingHorizontal: 10,
     paddingVertical: 6,
+  },
+  rowActive: {
+    opacity: 0.9,
   },
   rowContent: {
     flex: 1,
