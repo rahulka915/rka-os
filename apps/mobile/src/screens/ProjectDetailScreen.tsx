@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, memo } from 'react';
 import { Alert, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useFocusEffect, useRoute } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
-import DraggableFlatList, { ScaleDecorator, type RenderItemParams } from 'react-native-draggable-flatlist';
+import ReorderableList from 'react-native-reorderable-list';
 import { getRelatedItems, getBlockingTask, applyManualOrder, updateItemStatus, deleteItem, planForToday, unplanToday, isPlannedForToday } from '../db/database';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
@@ -37,6 +37,62 @@ interface ProjectDetailRouteParams {
   title: string;
 }
 
+const ProjectTaskRow = memo(function ProjectTaskRow({
+  item,
+  isDark,
+  palette,
+  cardBg,
+  cardBorder,
+  showConnector,
+  isCompleting,
+  onComplete,
+  onOpen,
+  onLongPress,
+}: {
+  item: Item;
+  isDark: boolean;
+  palette: ReturnType<typeof getThemeColors>;
+  cardBg: string;
+  cardBorder: string;
+  showConnector: boolean;
+  isCompleting: boolean;
+  onComplete: (item: Item) => void;
+  onOpen: (item: Item) => void;
+  onLongPress: (item: Item) => void;
+}) {
+  const blocker = getBlockingTask(item.id);
+  return (
+    <View style={styles.cell}>
+      {showConnector && <DependencyConnector isDark={isDark} leftOffset={CHECKBOX_CENTER_X} />}
+      <View style={[styles.row, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+        <LacquerDiscControl
+          isCompleted={isCompleting}
+          accessibilityLabel={blocker ? `${item.title}, blocked by ${blocker.title}` : `Complete ${item.title}`}
+          onToggle={() => onComplete(item)}
+        />
+        <TouchableOpacity
+          style={styles.rowContent}
+          activeOpacity={0.75}
+          onPress={() => onOpen(item)}
+          onLongPress={() => onLongPress(item)}
+          delayLongPress={400}
+        >
+          <Text style={[styles.rowTitle, { color: blocker ? palette.textMuted : palette.text }]} numberOfLines={1}>
+            {item.title}
+          </Text>
+          {blocker && <BlockedBadge isDark={isDark} title={blocker.title} />}
+          {item.dueDate && <DeadlineBadge isDark={isDark} dueDate={item.dueDate} />}
+          {item.rrule && <RepeatBadge isDark={isDark} rrule={item.rrule} />}
+          {checklistLabel(item) && (
+            <Text style={[styles.rowTitle, { color: palette.textTertiary, fontSize: 12 }]}>{checklistLabel(item)}</Text>
+          )}
+        </TouchableOpacity>
+        <DragHandleButton color={palette.textMuted} />
+      </View>
+    </View>
+  );
+});
+
 // No header "+" here — adding a task to this project is the dock FAB's job
 // (see App.tsx, which detects this route by name and pre-fills
 // the project relation + active status). A second create button here would
@@ -56,7 +112,7 @@ export function ProjectDetailScreen() {
     setTasks(applyManualOrder(listKey, getRelatedItems(projectId, 'project')));
   }, [projectId, listKey]);
 
-  const { isReordering, onDragBegin, onDragEnd } = useHapticReorder(listKey, setTasks);
+  const { isReordering, onDragStart, onIndexChange, onReorder } = useHapticReorder(listKey, tasks, setTasks);
 
   useFocusEffect(refresh);
 
@@ -117,70 +173,29 @@ export function ProjectDetailScreen() {
   const cardBg = isDark ? palette.fillStrong : palette.surface;
   const cardBorder = isDark ? palette.separatorStrong : palette.separator;
 
-  const renderRow = ({ item, drag, isActive }: RenderItemParams<Item>) => {
-    const blocker = getBlockingTask(item.id);
-    // Adjacency only decides whether to draw the (zero-layout, overlay)
-    // connector line — it never affects row height, so it's safe to compute
-    // from the live list. Hidden entirely during a drag so the overlay
-    // doesn't float around while cells translate; height is unaffected either
-    // way. The "blocked" badge is keyed off the item's own blocker, not
-    // adjacency, so a row's height is a pure function of the item (required by
-    // react-native-draggable-flatlist — see useHapticReorder).
+  const renderRow = ({ item }: { item: Item }) => {
     const index = tasks.findIndex((t) => t.id === item.id);
     const prevItem = tasks[index - 1];
-    // Adjacency can run either way depending on creation order — the blocker
-    // isn't always the row directly above; it can be the row directly below
-    // instead (its own blocker points back up at us).
+    const blocker = getBlockingTask(item.id);
     const prevBlocksThis = !!blocker && !!prevItem && blocker.id === prevItem.id;
     const thisBlocksPrev = !!prevItem && getBlockingTask(prevItem.id)?.id === item.id;
-    const showConnector = !isReordering && (prevBlocksThis || thisBlocksPrev);
-
     return (
-      <ScaleDecorator>
-        <View style={styles.cell}>
-          {showConnector && <DependencyConnector isDark={isDark} leftOffset={CHECKBOX_CENTER_X} />}
-          <View
-            style={[
-              styles.row,
-              { backgroundColor: cardBg, borderColor: cardBorder },
-              isActive && styles.rowActive,
-            ]}
-          >
-            <LacquerDiscControl
-              isCompleted={completingIds.has(item.id)}
-              accessibilityLabel={blocker ? `${item.title}, blocked by ${blocker.title}` : `Complete ${item.title}`}
-              onToggle={() => handleComplete(item)}
-            />
-            <TouchableOpacity
-              style={styles.rowContent}
-              activeOpacity={0.75}
-              onPress={() => openEditorForItem({
-                item,
-                context: { projectId, projectTitle: title },
-                onComplete: ({ action }) => {
-                  if (action !== 'cancelled') refresh();
-                },
-              })}
-              onLongPress={() => handleLongPress(item)}
-              delayLongPress={400}
-            >
-              <Text
-                style={[styles.rowTitle, { color: blocker ? palette.textMuted : palette.text }]}
-                numberOfLines={1}
-              >
-                {item.title}
-              </Text>
-              {blocker && <BlockedBadge isDark={isDark} title={blocker.title} />}
-              {item.dueDate && <DeadlineBadge isDark={isDark} dueDate={item.dueDate} />}
-              {item.rrule && <RepeatBadge isDark={isDark} rrule={item.rrule} />}
-              {checklistLabel(item) && (
-                <Text style={[styles.rowTitle, { color: palette.textTertiary, fontSize: 12 }]}>{checklistLabel(item)}</Text>
-              )}
-            </TouchableOpacity>
-            <DragHandleButton onDrag={drag} color={palette.textMuted} />
-          </View>
-        </View>
-      </ScaleDecorator>
+      <ProjectTaskRow
+        item={item}
+        isDark={isDark}
+        palette={palette}
+        cardBg={cardBg}
+        cardBorder={cardBorder}
+        showConnector={!isReordering && (prevBlocksThis || thisBlocksPrev)}
+        isCompleting={completingIds.has(item.id)}
+        onComplete={handleComplete}
+        onOpen={(t) => openEditorForItem({
+          item: t,
+          context: { projectId, projectTitle: title },
+          onComplete: ({ action }) => { if (action !== 'cancelled') refresh(); },
+        })}
+        onLongPress={handleLongPress}
+      />
     );
   };
 
@@ -192,13 +207,14 @@ export function ProjectDetailScreen() {
           <Text style={[styles.emptySub, { color: palette.textSecondary }]}>Tap the + in the dock to add one here</Text>
         </View>
       ) : (
-        <DraggableFlatList
+        <ReorderableList
           data={tasks}
           keyExtractor={(item) => item.id}
           renderItem={renderRow}
-          onDragBegin={onDragBegin}
-          onDragEnd={onDragEnd}
-          containerStyle={styles.listContent}
+          onDragStart={onDragStart}
+          onIndexChange={onIndexChange}
+          onReorder={onReorder}
+          contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
         />
       )}
