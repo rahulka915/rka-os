@@ -65,11 +65,15 @@ swaps from custom to native. This is the lowest-risk slice with the biggest "fee
 payoff (real sheet physics) and it structurally removes the double-open failure mode:
 there's no more `presentation`/`isRendered`/`openId` state machine to desync.
 
-New shared component: `src/components/ui/NativeBottomSheet.tsx`, matching
-`BottomSheet.tsx`'s existing props surface (`visible`, `onClose`, header
-left/right/title, children) so `CaptureSheet` and `TimelinePreviewSheet` swap their import
-with no other changes. `BottomSheet.tsx` itself is deleted once both callers move over —
-no dual implementation left behind.
+New shared component: `src/components/ui/NativeBottomSheet.tsx`, matching the subset of
+`BottomSheet.tsx`'s props surface `CaptureSheet` and `TimelinePreviewSheet` actually use
+(`visible`, `onClose`, `isDark`, `title`, `headerLeft`, `headerRight`, `topAnchored`,
+`scrollable`, `contentContainerStyle`, `sheetStyle`, `children`) so both swap their import
+with no other changes. `BottomSheet.tsx` itself is **not** deleted in this pass —
+`QuickCreateSheet.tsx`, `LogDoseSheet.tsx`, and `MedicationTimerSheet.tsx` still depend on
+it, and migrating those is out of scope here (they belong to future sub-projects, same as
+`ItemEditorSheet`). Two sheet implementations coexist temporarily by design; each future
+sub-project retires one more caller until `BottomSheet.tsx` has none left and can go.
 
 ### Phase 2 — Native `TextField` for Capture sheet's title/notes
 
