@@ -1,6 +1,17 @@
 import 'react-native-get-random-values';
 import { useCallback, useState, useEffect, useMemo, useRef } from 'react';
-import { useColorScheme, TouchableOpacity, View, StyleSheet, AppState, Text as RNText } from 'react-native';
+import { useColorScheme, TouchableOpacity, View, StyleSheet, AppState, Text as RNText, LogBox } from 'react-native';
+
+// Home and Tasks nest reorderable lists inside react-native-reorderable-list's
+// ScrollViewContainer, which is an Animated.ScrollView rather than a
+// VirtualizedList-backed container — so React Native emits this warning even
+// though it is the library's own supported nesting pattern and it coordinates
+// the scrolling itself. The previous drag library suppressed the identical log
+// internally, which is why it only started appearing after the migration.
+// Suppressed here so it stops burying real errors in the console.
+LogBox.ignoreLogs([
+  'VirtualizedLists should never be nested inside plain ScrollViews',
+]);
 import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -43,7 +54,7 @@ import { requestNotificationPermission, setBadgeCount } from './src/hooks/useNot
 import { getInboxItems, getDb } from './src/db/database';
 import { registerBackgroundSync } from './src/services/backgroundSync';
 import { requestLocationPermission } from './src/services/locationReminders';
-import { supabase, hasSupabaseConfig } from './src/lib/supabase';
+import { auth, hasFirebaseConfig } from './src/lib/firebase';
 import { pushBackup } from './src/services/backupSync';
 import { reconcileMedicationTimers } from './src/services/medicationTimerController';
 import { BackupProvider } from './src/hooks/useBackup';
@@ -98,7 +109,15 @@ function AppleTabBar({ state, navigation, isDark, onFabPress, onFabHold }: any) 
                 key={route.key}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  navigation.navigate(route.name);
+                  // Menu wraps a nested stack (MenuStack) — the custom tab bar
+                  // bypasses React Navigation's built-in "tap active tab again to
+                  // pop to root" behavior, so replicate it here by explicitly
+                  // navigating to the stack's root screen when already on Menu.
+                  if (isFocused && route.name === 'Menu') {
+                    navigation.navigate('Menu', { screen: 'MenuHome' });
+                  } else {
+                    navigation.navigate(route.name);
+                  }
                 }}
                 style={styles.tabItem}
                 activeOpacity={0.7}
@@ -290,12 +309,12 @@ export default function App() {
         return;
       }
       if (nextState !== 'background' && nextState !== 'inactive') return;
-      if (!hasSupabaseConfig || !supabase) return;
+      if (!hasFirebaseConfig || !auth) return;
 
       try {
-        const { data } = await supabase.auth.getSession();
-        if (data.session) {
-          await pushBackup(data.session.user.id);
+        const user = auth.currentUser;
+        if (user) {
+          await pushBackup(user.uid);
         }
       } catch (err) {
         console.warn('[backup] background push failed', err);

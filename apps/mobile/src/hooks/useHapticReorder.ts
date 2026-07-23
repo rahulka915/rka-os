@@ -24,12 +24,23 @@ export function useHapticReorder<T extends { id: string }>(
 ) {
   const [isReordering, setIsReordering] = useState(false);
 
-  const onDragStart = useCallback(() => {
+  const beginReorder = useCallback(() => {
     setIsReordering(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
   }, []);
 
-  // Must be a worklet — it runs on the UI thread as the drag crosses rows.
+  // onDragStart, onDragEnd and onIndexChange are all invoked on the UI runtime
+  // and MUST be worklets — passing a plain JS function throws "Tried to
+  // synchronously call a Remote Function on the UI Runtime", which aborts the
+  // drag and leaves the list's internal cell bookkeeping inconsistent (that
+  // then surfaces as a keyExtractor crash on the next reorder). Anything
+  // touching React state or Haptics has to be hopped back via runOnJS.
+  // onReorder is the exception — it is a normal JS callback.
+  const onDragStart = useCallback(() => {
+    'worklet';
+    runOnJS(beginReorder)();
+  }, [beginReorder]);
+
   const onIndexChange = useCallback(() => {
     'worklet';
     runOnJS(tickHaptic)();
