@@ -12,6 +12,43 @@ A human-viewable mirror of this checklist also exists as an [interactive artifac
 
 ---
 
+## River Stone surface language — `apps/mobile/src/components/ui/RiverStoneSurface.tsx`
+
+A reusable geometry primitive (not a color system — colors/content stay each component's own concern) that replaced generic rounded rectangles across Home + the app shell. Design brief came from an external mockup showing 6 surface weights (hero/small cards/list rows/chips/bottom nav/header); iterated through several rounds of HTML mockups in-conversation before implementation (subtler ambient-only glow → directional top-lit bevel → full "carved 3-4mm graphite/stone" surface modeling was the final approved level).
+
+**Geometry rule:** every surface uses **asymmetric-but-point-symmetric** corner radius — top-left pairs with bottom-right (one value), top-right pairs with bottom-left (a smaller value) — not four independent corners. This gives a "carved, not perfectly geometric" read while staying exactly recognizable as a card (explicit user correction mid-session: "even if each corner does have a different value then the overall look should seem symmetric").
+
+**Per-variant radius pairs (major/minor):** hero 36/22, card 26/17, list 17/13, chip 20/16, tray 32/24, header 20/14.
+
+**Surface modeling (5 layers, all "extremely restrained"):**
+1. Broad top-down sheen (gradient, brightest at top fading through/past mid-height) — the overhead "light source," not a corner-concentrated glow
+2. Thin rim highlight (top edge) + thin rim shadow (bottom edge) — ordinary 1-1.5px absolutely-positioned Views, automatically clipped to the correct rounded silhouette by the parent's `overflow:hidden` (no CSS inset-shadow equivalent needed)
+3. Corner ambient-occlusion pooling in the CSS mockup — **not implemented in RN**, see platform constraints below
+4. Extra weight/darkening toward the lower portion of the face
+5. Outer ambient shadow, one per variant, tuned to read as "soft ambient + a bit of contact weight" combined
+
+**Materials:** dark = graphite (`colors.stoneSurface` = `#1c1c22`), light = warm pale stone (`#f3efe4`) — a genuinely neutral tone distinct from the app's existing blue-tinted `surface` token. Only applies to surfaces with **no color of their own** — anything with a deliberate color already (hero's time-of-day gradient, NextUpCard's scene photo/gradient, TimelineSection's per-block accent tint) passes `backgroundColor="transparent"` (or its own tint) and keeps it; `RiverStoneSurface` only supplies shape/light, never overrides an existing intentional color. "No borders" per the original spec — no `borderWidth`/`borderColor` anywhere in the primitive.
+
+**RN platform constraints that shaped the implementation** (the CSS mockup used features RN doesn't have — noted here so a future session doesn't "fix" this by trying to match the mockup pixel-for-pixel):
+- No native inset/`box-shadow`. Rim highlight/shadow are plain clipped Views, not a shadow trick.
+- No native multi-shadow support (CSS's comma-separated `box-shadow` has no RN equivalent). One shadow per variant, tuned rather than layering a second shadow View for a separate "contact shadow."
+- Per-corner radial ambient occlusion was **dropped** — would need a dynamically-sized SVG overlay per surface (tracking real layout via `onLayout`) for a barely-visible gain at this opacity level. The top sheen + bottom weight gradient already carries most of the depth cue.
+
+**Wired in this pass:**
+- Hero → `RoninGreetingCard.tsx` (`variant="hero"`, transparent bg — the time-of-day gradient is the color)
+- Small cards → `NextUpCard.tsx` (all 3 states) + `InboxScrollCard.tsx` (`variant="card"`) — the latter's old near-duplicate gradient/shadow was fully replaced, not kept alongside
+- List rows + chips → `TimelineSection.tsx`'s time-block header rows (`variant="list"`) and the icon+label pill inside each (`variant="chip"`) — **individual task rows inside an expanded block were deliberately left flat**, per `THINGS_3_DESIGN.md`/CLAUDE.md's explicit "flat rows, no cards, no shadows" rule for Things-3-style lists; only the colored, tappable block-header containers count as "surfaces" in the River Stone sense
+- Tray → `App.tsx`'s `AppleTabBar` (`variant="tray"`) — this also converted the tab bar from a full-width edge-to-edge bar to an actual floating tray (margins on all sides, no top border) since the original implementation wasn't floating at all despite looking like it might be
+- Header → `AppHeader.tsx` (`variant="header"`) — one shallow ledge behind the whole row (avatar/title/theme toggle/sync), not wrapping each control individually; the safe-area/Dynamic-Island spacer stays outside the ledge
+- Home-indicator pill → a decorative recessed pill inside the tray (`App.tsx`), matching the reference mockup — purely stylistic (the OS renders the real system home indicator separately)
+
+**Bug found + fixed on-device (first real build after this pass):** the small square cards (`NextUpCard`/`InboxScrollCard`) initially rendered as squished short pills instead of squares — the inner clipped view had no way to stretch to match the outer `aspectRatio: 1` wrapper, so it collapsed to its content's natural height. First fix (`flex: 1` unconditionally on the inner clip view) broke `AppHeader` instead (it disappeared entirely) — a `flex: 1` child inside a parent with no explicit dimension (hero/tray/header/list/chip are all content-sized, no forced `aspectRatio`) collapses to zero height in Yoga. Fixed by making it opt-in: `RiverStoneSurface` now takes a `stretchToFill` prop, passed only by the two square-tile consumers that actually force a dimension via `style`. Content-sized variants must never pass it.
+
+**Not yet done / explicitly deferred:**
+- Every other screen (dialogs, sheets, `MenuScreen`/`ProfileScreen`/`MedicationsScreen`/`CalendarScreen`'s own cards, etc.) — per the original brief this should be adopted incrementally as those screens get touched, same as every other item in this checklist, not applied in one sweeping pass.
+
+---
+
 ## Current tokens — `apps/mobile/src/theme/colors.ts`
 
 | Token | Value |
@@ -84,15 +121,19 @@ Dark-mode values are brightened per-color (not just alpha-adjusted from light mo
 
 ## Dock icon color system — `apps/mobile/src/components/icons/DockIcons.tsx`
 
-Separate from the motif table above (that's illustration cards; this is navigation icons). Icon set approved via a Codex design handoff and shipped. Color *mode* is **selected-color state**: these hex values only show on the currently-active tab (plus a soft `color + '22'` badge behind it); inactive tabs render in a neutral muted tone instead. The FAB is the one exception — always RKA blue, not state-dependent, since it's a fixed primary action rather than a nav destination.
+Separate from the motif table above (that's illustration cards; this is navigation icons). Color *mode* is **selected-color state**: these hex values only show on the currently-active tab (plus a soft `color + '22'` badge behind it); inactive tabs render in a neutral muted tone instead. The FAB is the one exception — always RKA blue, not state-dependent, since it's a fixed primary action rather than a nav destination.
 
-| Section | Icon | Color when active | Hex |
-|---|---|---|---|
-| Home | Torii gateway | Lacquer red | `#C44545` |
-| Calendar | Sun dial | Ritual gold | `#D4B078` |
-| More | Layers | Archive jade | `#4E9E86` |
-| Me | Personal seal | RKA blue | `#2b7ff0` |
-| Create (FAB) | Calligraphy brush | RKA blue, always | `#2b7ff0` |
+First generation (simple stroke silhouettes) came from a Codex design handoff. Second generation — a commissioned filled-path redraw, delivered as SVG + multi-size PNG asset packs — swapped Home/Calendar's icons for bolder redraws of the same concepts, and reimagined Menu ("layers" → an ensō/Zen circle) and Profile ("personal seal" hexagon → a ronin mon/portrait silhouette). At true 22px deployed size, the torii and mon-portrait icons read cleanly; the sundial and ensō are a bit softer/blobbier (clock-hand and brush-stroke detail mostly lost) but still functional given each tab's fixed position + distinct color.
+
+| Section | Icon | Component | Color when active | Hex |
+|---|---|---|---|---|
+| Home | Torii gateway | `TorriHomeIcon` | Lacquer red | `#C44545` |
+| Calendar | Sun dial | `SunDialCalendarIcon` | Ritual gold | `#D4B078` |
+| More | Ensō (Zen circle) | `EnsoMoreIcon` (was `LayersMoreIcon`) | Archive jade | `#4E9E86` |
+| Me | Ronin mon/portrait | `RoninMonIcon` (was `PersonalSealMeIcon`) | RKA blue | `#2b7ff0` |
+| Create (FAB) | Registered brush + washi animation | `FabControl` | Master asset blue, always | `#274B8F` |
+
+The FAB now uses the locked commissioned asset sheet directly: 4 interaction states, 5 ink frames and 5 unfold frames share one registered 192×192 canvas. The original SVG brush remains only as a legacy fallback.
 
 Note the torii-gate motif now has two live meanings in the app: the Home tab icon (navigation, lacquer red) and the still-unbuilt "milestones/unlocks" illustration-card concept above (also red) — same motif, consistent color, different contexts. Not a conflict, just worth knowing both exist.
 
@@ -131,7 +172,7 @@ Note the torii-gate motif now has two live meanings in the app: the Home tab ico
 
 ## App shell — `apps/mobile/App.tsx`
 
-- [x] `AppleTabBar` (bottom tab bar + FAB) — full icon overhaul per Codex's design handoff (see `src/components/icons/DockIcons.tsx`): icon-only dock (no labels), custom SVG icon set (torii Home, sundial Calendar, layers More, personal-seal Me, calligraphy-brush Create). Color mode: **selected-color state** (icons neutral/muted at rest, section color + soft badge only on the focused tab) — the handoff doc's other option ("persistent," always-colored) was tried on-device first and replaced with this one per user feedback. FAB is the brush in RKA blue in both modes.
+- [x] `AppleTabBar` (bottom tab bar + FAB) — icon-only dock (no labels), custom SVG icon set (see `src/components/icons/DockIcons.tsx` — "Dock icon color system" above has the full history of both icon generations). Color mode: **selected-color state** (icons neutral/muted at rest, section color + soft badge only on the focused tab) — an early "persistent, always-colored" option was tried on-device first and replaced with this one per user feedback. FAB uses the registered brush-and-paper frame sequence from `assets/fab/`.
 
 ## Hero components — `apps/mobile/src/components/hero/`
 
@@ -141,7 +182,7 @@ Note the torii-gate motif now has two live meanings in the app: the Home tab ico
 
 ## Icons — `apps/mobile/src/components/icons/`
 
-- [x] `DockIcons.tsx` — custom dock icon set (torii/sundial/layers/seal/brush), source of truth for the tab bar's icon-only restyle
+- [x] `DockIcons.tsx` — custom dock icon set (torii/sundial/ensō/mon-portrait/brush), source of truth for the tab bar's icon-only restyle — see "Dock icon color system" above for the two-generation history
 - [x] `ScrollIcon.tsx` — rolled hanging-scroll silhouette; **no longer referenced** — `InboxScrollCard.tsx` now uses the commissioned `assets/illustrations/scroll-stack.png` illustration instead. Kept in the repo as a fallback.
 - [x] `ZenGardenIcon.tsx` — raked zen-garden circles + stone (silver); **no longer referenced** — `NextUpCard.tsx`'s empty state now uses the commissioned `assets/illustrations/zen-garden-scene.png` illustration instead. Kept in the repo as a fallback.
 - [x] `TimeBlockIcons.tsx` — `StoneIcon`/`SunriseIcon`/`FanIcon`/`MoonStarIcon`, one per Anytime/Morning/Afternoon/Evening block, used on `TimelineSection.tsx` in place of generic Lucide Clock/Sun/Sunset/Moon icons

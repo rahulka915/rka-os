@@ -38,3 +38,7 @@ Ronin Theme Insp/
 
 # Generated image-gen scratch output
 tmp/imagegen/
+
+# Python bytecode
+__pycache__/
+*.pyc
