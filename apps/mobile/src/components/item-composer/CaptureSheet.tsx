@@ -68,7 +68,14 @@ export function CaptureSheet({
       onClose={onCancel}
       isDark={isDark}
       title="New task"
-      heightFraction={0.55}
+      // Estimated to roughly match this sheet's real content (header + optional context
+      // chip + title field + notes field + details row) rather than an arbitrary
+      // screen fraction — no fitToContents equivalent is usable here (see the file-level
+      // comment on NativeBottomSheet's heightFraction prop). May need one more hand-tune
+      // pass once you can see it — NativeBottomSheet already tracks keyboard height and
+      // pads the scroll content, so a shorter fraction won't reintroduce fields getting
+      // stuck under the keyboard; they'll just scroll into view if needed.
+      heightFraction={0.38}
       scrollable
       sheetStyle={[styles.sheet, { backgroundColor: material.surface, borderColor: material.rim }]}
       contentContainerStyle={styles.content}
