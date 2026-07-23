@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { BottomSheet } from '../ui/BottomSheet';
+import { StyleSheet, Text, View } from 'react-native';
+import { Host, Menu, Button } from '@expo/ui/swift-ui';
+import { NativeBottomSheet } from '../ui/NativeBottomSheet';
 import { LacquerDiscControl } from '../ui/LacquerDiscControl';
-import { Clock, Pencil } from '../../icons';
+import { Clock } from '../../icons';
 import { getThemeColors, radius, spacing } from '../../theme';
 
 interface TimelinePreviewSheetProps {
@@ -18,6 +19,7 @@ interface TimelinePreviewSheetProps {
   onClose: () => void;
   onEdit: () => void;
   onComplete: () => void;
+  onDelete: () => void;
 }
 
 export function TimelinePreviewSheet({
@@ -33,26 +35,29 @@ export function TimelinePreviewSheet({
   onClose,
   onEdit,
   onComplete,
+  onDelete,
 }: TimelinePreviewSheetProps) {
   const palette = getThemeColors(isDark);
 
   return (
-    <BottomSheet
+    <NativeBottomSheet
       visible={visible}
       onClose={onClose}
       isDark={isDark}
       title="Timeline item"
       headerRight={(
-        <TouchableOpacity
-          onPress={onEdit}
-          hitSlop={10}
-          accessibilityRole="button"
-          accessibilityLabel={`Edit ${title}`}
-          style={styles.headerEdit}
-        >
-          <Pencil size={17} color={accentColor} strokeWidth={1.8} />
-          <Text style={[styles.headerEditLabel, { color: accentColor }]}>Edit</Text>
-        </TouchableOpacity>
+        // A plain tap keeps today's exact behavior (opens Edit); a long-press reveals
+        // Complete/Delete — same "tap does the obvious thing" pattern as iOS Mail's
+        // reply button. Canvas timeline blocks have no drag gesture to collide with,
+        // so this is the only place quick actions live (see design doc for why).
+        <Host matchContents>
+          <Menu label="Edit" systemImage="pencil" onPrimaryAction={onEdit}>
+            {!completed ? (
+              <Button label="Complete" systemImage="checkmark.circle" onPress={onComplete} />
+            ) : null}
+            <Button label="Delete" systemImage="trash" role="destructive" onPress={onDelete} />
+          </Menu>
+        </Host>
       )}
       contentContainerStyle={styles.content}
     >
@@ -90,23 +95,11 @@ export function TimelinePreviewSheet({
           />
         </View>
       </View>
-    </BottomSheet>
+    </NativeBottomSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  headerEdit: {
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: 5,
-  },
-  headerEditLabel: {
-    fontSize: 14,
-    fontFamily: 'Inter_600SemiBold',
-    fontWeight: '600',
-  },
   content: {
     paddingHorizontal: spacing[5],
     paddingTop: spacing[2],

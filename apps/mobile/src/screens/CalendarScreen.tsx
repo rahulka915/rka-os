@@ -607,7 +607,7 @@ interface DayTimelineProps {
   currentHour: number;
   currentMinute: number;
   onSectionLayout: (y: number) => void;
-  onOpenCreate: (time?: string) => void;
+  onOpenCreate: (time?: string, durationMinutes?: number) => void;
   onOpenPreview: (entry: TimelineEntry) => void;
   onOpenEdit: (entry: TimelineEntry) => void;
 }
@@ -631,6 +631,67 @@ function DayTimeline({
     ? timelineOffsetForMinutes(currentHour * 60 + currentMinute)
     : null;
   const positionedEntries = useMemo(() => positionTimelineEntries(entries), [entries]);
+  const [createRange, setCreateRange] = useState<{ startMinutes: number; endMinutes: number } | null>(null);
+  const createRangeRef = useRef<{ startMinutes: number; endMinutes: number } | null>(null);
+  const lastCreateSnapRef = useRef<number | null>(null);
+
+  const beginCreate = (startMinutes: number) => {
+    const next = { startMinutes, endMinutes: startMinutes + TIMELINE_METRICS.snapMinutes };
+    createRangeRef.current = next;
+    lastCreateSnapRef.current = startMinutes;
+    setCreateRange(next);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  };
+
+  const updateCreate = (rawEndMinutes: number) => {
+    const current = createRangeRef.current;
+    if (!current) return;
+    const clampedToDay = Math.max(0, Math.min(24 * 60, rawEndMinutes));
+    const endMinutes = clampedToDay >= current.startMinutes
+      ? Math.max(clampedToDay, current.startMinutes + TIMELINE_METRICS.snapMinutes)
+      : Math.min(clampedToDay, current.startMinutes - TIMELINE_METRICS.snapMinutes);
+    if (lastCreateSnapRef.current != null && endMinutes !== lastCreateSnapRef.current) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    lastCreateSnapRef.current = endMinutes;
+    const next = { ...current, endMinutes };
+    createRangeRef.current = next;
+    setCreateRange(next);
+  };
+
+  // Read + clear the ref before calling onOpenCreate (rather than doing this inside a
+  // setState updater) — updater functions can run more than once for a single commit
+  // (React replays them), and firing openCapture from inside one caused it to open twice
+  // in quick succession, which stomped the in-progress typing in the capture sheet.
+  const commitCreate = () => {
+    const current = createRangeRef.current;
+    createRangeRef.current = null;
+    lastCreateSnapRef.current = null;
+    setCreateRange(null);
+    if (!current) return;
+    const start = Math.min(current.startMinutes, current.endMinutes);
+    const end = Math.max(current.startMinutes, current.endMinutes);
+    onOpenCreate(formatTimeLabel(start), Math.max(TIMELINE_METRICS.snapMinutes, end - start));
+  };
+
+  const createGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .runOnJS(true)
+        .activateAfterLongPress(300)
+        .onStart((e) => {
+          const start = snapMinutesToStep(timelineMinutesForPixels(e.y), TIMELINE_METRICS.snapMinutes);
+          beginCreate(start);
+        })
+        .onUpdate((e) => {
+          const end = snapMinutesToStep(timelineMinutesForPixels(e.y), TIMELINE_METRICS.snapMinutes);
+          updateCreate(end);
+        })
+        .onEnd(() => {
+          commitCreate();
+        }),
+    [onOpenCreate],
+  );
   const dividerLabel = dayDate.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
   const dayAccentIndex = Math.abs(Math.floor(dayDate.getTime() / 86_400_000)) % 3;
   const dayAccents = isDark
@@ -729,6 +790,7 @@ function DayTimeline({
       </RNView>
 
       <RNView style={s.timelineWrap}>
+        <GestureDetector gesture={createGesture}>
         <RNView style={[s.timelineContent, { height: TIMELINE_METRICS.hourHeight * 24 }]}>
           <ExpoLinearGradient
             pointerEvents="none"
@@ -838,6 +900,34 @@ function DayTimeline({
             );
           })}
 
+          {createRange ? (
+            <RNView
+              pointerEvents="none"
+              style={[
+                s.createRangeOverlay,
+                {
+                  top: timelineOffsetForMinutes(Math.min(createRange.startMinutes, createRange.endMinutes)),
+                  height: Math.max(
+                    1,
+                    timelineOffsetForMinutes(Math.max(createRange.startMinutes, createRange.endMinutes)) -
+                      timelineOffsetForMinutes(Math.min(createRange.startMinutes, createRange.endMinutes)),
+                  ),
+                  borderColor: palette.blue,
+                  backgroundColor: `${palette.blue}22`,
+                },
+              ]}
+            >
+              <RNView style={[s.createRangeLabel, { backgroundColor: palette.blue }]}>
+                <RNText style={s.createRangeLabelText}>
+                  {formatTimelineTimeRange(
+                    Math.min(createRange.startMinutes, createRange.endMinutes),
+                    Math.abs(createRange.endMinutes - createRange.startMinutes),
+                  )}
+                </RNText>
+              </RNView>
+            </RNView>
+          ) : null}
+
           <RNView pointerEvents="box-none" style={s.markerLayer}>
             {positionedEntries.map(({ entry, laneIndex, collisionSlot }) => {
               const lane = TIMELINE_LANES[laneIndex];
@@ -865,6 +955,7 @@ function DayTimeline({
             })}
           </RNView>
         </RNView>
+        </GestureDetector>
       </RNView>
     </RNView>
   );
@@ -1018,7 +1109,7 @@ export function CalendarScreen() {
     [timelineEntries],
   );
 
-  const openCreate = (targetDateStr: string, time?: string) => {
+  const openCreate = (targetDateStr: string, time?: string, durationMinutes?: number) => {
     openCapture({
       context: {
         status: 'active',
@@ -1026,6 +1117,7 @@ export function CalendarScreen() {
         scheduledTime: time ? normalizeTimeInput(time) ?? time : getDefaultTime(targetDateStr === todayStr),
         lockScheduleDate: true,
         minuteInterval: TIMELINE_METRICS.snapMinutes,
+        durationMinutes,
       },
       onComplete: ({ action }) => {
         if (action === 'saved') refreshAll();
@@ -1332,7 +1424,7 @@ export function CalendarScreen() {
           currentHour={currentHour}
           currentMinute={currentMinute}
           onSectionLayout={(y) => setDaySectionLayouts((current) => ({ ...current, [prevDateStr]: { y } }))}
-          onOpenCreate={(time) => openCreate(prevDateStr, time)}
+          onOpenCreate={(time, durationMinutes) => openCreate(prevDateStr, time, durationMinutes)}
           onOpenPreview={(entry) => openPreview(entry, prevDateStr)}
           onOpenEdit={(entry) => openEdit(entry, prevDateStr)}
         />
@@ -1348,7 +1440,7 @@ export function CalendarScreen() {
           currentHour={currentHour}
           currentMinute={currentMinute}
           onSectionLayout={(y) => setDaySectionLayouts((current) => ({ ...current, [dateStr]: { y } }))}
-          onOpenCreate={(time) => openCreate(dateStr, time)}
+          onOpenCreate={(time, durationMinutes) => openCreate(dateStr, time, durationMinutes)}
           onOpenPreview={(entry) => openPreview(entry, dateStr)}
           onOpenEdit={(entry) => openEdit(entry, dateStr)}
         />
@@ -1364,7 +1456,7 @@ export function CalendarScreen() {
           currentHour={currentHour}
           currentMinute={currentMinute}
           onSectionLayout={(y) => setDaySectionLayouts((current) => ({ ...current, [nextDateStr]: { y } }))}
-          onOpenCreate={(time) => openCreate(nextDateStr, time)}
+          onOpenCreate={(time, durationMinutes) => openCreate(nextDateStr, time, durationMinutes)}
           onOpenPreview={(entry) => openPreview(entry, nextDateStr)}
           onOpenEdit={(entry) => openEdit(entry, nextDateStr)}
         />
@@ -1396,6 +1488,7 @@ export function CalendarScreen() {
             handleComplete(preview.entry);
             setPreview(null);
           }}
+          onDelete={() => handleDelete(preview.entry, () => setPreview(null))}
         />
       ) : null}
 
@@ -1695,6 +1788,27 @@ const s = StyleSheet.create({
     right: TIMELINE_METRICS.rowHorizontalInset,
     bottom: 0,
     left: TIMELINE_METRICS.gutterWidth + TIMELINE_METRICS.eventGap,
+  },
+  createRangeOverlay: {
+    position: 'absolute',
+    right: TIMELINE_METRICS.rowHorizontalInset,
+    left: TIMELINE_METRICS.gutterWidth + TIMELINE_METRICS.eventGap,
+    borderWidth: 1.5,
+    borderRadius: 8,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 20,
+  },
+  createRangeLabel: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  createRangeLabelText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#fff',
   },
   currentLine: {
     position: 'absolute',
