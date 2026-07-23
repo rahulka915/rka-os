@@ -1,4 +1,4 @@
-import { useEffect, useState, memo } from 'react';
+import { useCallback, useEffect, useState, memo } from 'react';
 import { Alert, View, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { NestedReorderableList } from 'react-native-reorderable-list';
@@ -242,7 +242,11 @@ function TimeBlockItems({
     return null;
   }
 
-  const handleLongPress = (item: Item) => {
+  // Memoised because it is a prop of the memoised row: recreated every render
+  // it would defeat that memo, and Home re-renders once a second (see the
+  // useCallback block in HomeScreen), so rows would re-render and re-measure
+  // mid-drag.
+  const handleLongPress = useCallback((item: Item) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     Alert.alert(item.title, undefined, [
       { text: 'Cancel', style: 'cancel' },
@@ -251,7 +255,7 @@ function TimeBlockItems({
       { text: 'Depends on...', onPress: () => promptSetDependency(item, items, () => onDependencyChanged?.()) },
       { text: 'Delete', style: 'destructive', onPress: () => onItemDelete?.(item.id) },
     ]);
-  };
+  }, [items, onItemTap, onItemComplete, onItemDelete, onDependencyChanged]);
 
   const renderRow = ({ item }: { item: Item }) => (
     <TimelineTaskRow

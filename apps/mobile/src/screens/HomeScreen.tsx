@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Alert, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 import { ScrollViewContainer } from 'react-native-reorderable-list';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,6 +20,7 @@ import { getRoninGreetingWord } from '../domain/ronin/roninGreeting';
 import { findNextUpItem } from '../utils/nextUpItem';
 import { NATURAL_ROW_HEIGHT, MIN_ROW_HEIGHT, MAX_ROW_HEIGHT, TIMELINE_ROW_COUNT } from '../components/TimelineSection';
 import { useItemComposer } from '../components/item-composer';
+import type { Item } from '../db/types';
 
 interface HomeScreenProps {
   onInboxPress: () => void;
@@ -108,6 +109,48 @@ export function HomeScreen({ onInboxPress, inboxOpen, onHeroPress, onSettingsPre
     }
   }
 
+  // Stable identities are load-bearing, not a micro-optimisation: these are
+  // passed down to the memoised timeline rows, and usePersistentTimerState
+  // re-renders this screen once a second (unconditionally, even with no active
+  // timer). Recreated inline, they broke every row's memo on every tick —
+  // which meant rows re-rendered and re-measured mid-drag, and that is what
+  // made reordering on Home feel unsteady.
+  const handleItemTap = useCallback((item: Item) => {
+    openEditorForItem({
+      item,
+      onComplete: ({ action }) => {
+        if (action !== 'cancelled') refresh();
+      },
+    });
+  }, [openEditorForItem, refresh]);
+
+  const handleItemComplete = useCallback((id: string) => {
+    const blocker = getBlockingTask(id);
+    if (blocker) {
+      Alert.alert('Blocked', `Complete "${blocker.title}" first.`, [{ text: 'OK' }]);
+      return;
+    }
+    updateItemStatus(id, 'completed');
+    refresh();
+  }, [refresh]);
+
+  const handleItemActivate = useCallback((id: string) => {
+    updateItemStatus(id, 'active');
+    refresh();
+  }, [refresh]);
+
+  const handleItemArchive = useCallback((id: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    updateItemStatus(id, 'archived');
+    refresh();
+  }, [refresh]);
+
+  const handleItemDelete = useCallback((id: string) => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    deleteItem(id);
+    refresh();
+  }, [refresh]);
+
   return (
     <YStack flex={1} backgroundColor="$bg">
       <AppHeader
@@ -175,35 +218,11 @@ export function HomeScreen({ onInboxPress, inboxOpen, onHeroPress, onSettingsPre
             afternoon={afternoonItems}
             evening={eveningItems}
             rowHeight={rowHeight}
-            onItemTap={(item) => openEditorForItem({
-              item,
-              onComplete: ({ action }) => {
-                if (action !== 'cancelled') refresh();
-              },
-            })}
-            onItemComplete={(id) => {
-              const blocker = getBlockingTask(id);
-              if (blocker) {
-                Alert.alert('Blocked', `Complete "${blocker.title}" first.`, [{ text: 'OK' }]);
-                return;
-              }
-              updateItemStatus(id, 'completed');
-              refresh();
-            }}
-            onItemActivate={(id) => {
-              updateItemStatus(id, 'active');
-              refresh();
-            }}
-            onItemArchive={(id) => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              updateItemStatus(id, 'archived');
-              refresh();
-            }}
-            onItemDelete={(id) => {
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-              deleteItem(id);
-              refresh();
-            }}
+            onItemTap={handleItemTap}
+            onItemComplete={handleItemComplete}
+            onItemActivate={handleItemActivate}
+            onItemArchive={handleItemArchive}
+            onItemDelete={handleItemDelete}
             onDependencyChanged={refresh}
             onTimeBlockAction={(block, action) => {
               if (action === 'completeAll') {
