@@ -26,6 +26,8 @@ import type { ItemDraft, ItemPriority } from './types';
 import { LacquerDatePicker, LacquerTimePicker } from './SchedulePickers';
 import { timeOfDayLabel, timeToMinutes, type TimeOfDay } from '../../utils/time';
 import { formatTimelineTimeRange } from '../../utils/timelineItem';
+import { addChecklistItem, toggleChecklistItem, removeChecklistItem } from '../../utils/checklist';
+import { uuid } from '../../db/database';
 
 type EditorView = 'form' | 'projects' | 'tags' | 'date' | 'time' | 'deadline';
 
@@ -85,12 +87,14 @@ export function ItemEditorSheet({
   const insets = useSafeAreaInsets();
   const [view, setView] = useState<EditorView>('form');
   const [tagDraft, setTagDraft] = useState('');
+  const [checklistDraft, setChecklistDraft] = useState('');
   const projects = useMemo(() => visible ? getItemsByType('project').filter((item) => !item.deletedAt) : [], [visible]);
 
   useEffect(() => {
     if (!visible) return;
     setView('form');
     setTagDraft('');
+    setChecklistDraft('');
   }, [visible, draft?.itemId]);
 
   if (!draft) return null;
@@ -302,6 +306,54 @@ export function ItemEditorSheet({
                     onChangeText={(notes) => onChange({ notes })}
                     multiline
                     textAlignVertical="top"
+                    keyboardAppearance={isDark ? 'dark' : 'light'}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.section}>
+                <Text style={[styles.sectionTitle, { color: material.platinumMuted }]}>CHECKLIST</Text>
+                <View style={[styles.card, { backgroundColor: material.surface, borderColor: material.rim }]}>
+                  {draft.checklist.map((entry) => (
+                    <View key={entry.id} style={styles.checklistRow}>
+                      <TouchableOpacity
+                        hitSlop={8}
+                        onPress={() => onChange({ checklist: toggleChecklistItem(draft.checklist, entry.id) })}
+                        accessibilityLabel={entry.done ? `Mark ${entry.text} not done` : `Mark ${entry.text} done`}
+                      >
+                        <Check size={18} color={entry.done ? material.accent : palette.textTertiary} strokeWidth={2.5} />
+                      </TouchableOpacity>
+                      <Text
+                        style={[
+                          styles.checklistText,
+                          { color: entry.done ? palette.textTertiary : palette.text },
+                          entry.done && styles.checklistTextDone,
+                        ]}
+                        numberOfLines={2}
+                      >
+                        {entry.text}
+                      </Text>
+                      <TouchableOpacity
+                        hitSlop={8}
+                        onPress={() => onChange({ checklist: removeChecklistItem(draft.checklist, entry.id) })}
+                        accessibilityLabel={`Remove ${entry.text}`}
+                      >
+                        <X size={16} color={palette.textMuted} strokeWidth={2} />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                  <TextInput
+                    style={[styles.checklistInput, { color: palette.text }]}
+                    placeholder="Add a step"
+                    placeholderTextColor={palette.textTertiary}
+                    value={checklistDraft}
+                    onChangeText={setChecklistDraft}
+                    onSubmitEditing={() => {
+                      onChange({ checklist: addChecklistItem(draft.checklist, checklistDraft, uuid()) });
+                      setChecklistDraft('');
+                    }}
+                    blurOnSubmit={false}
+                    returnKeyType="done"
                     keyboardAppearance={isDark ? 'dark' : 'light'}
                   />
                 </View>
@@ -600,6 +652,10 @@ const styles = StyleSheet.create({
   titleInput: { minHeight: 52, paddingHorizontal: 14, fontSize: 20, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
   notesInput: { minHeight: 94, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, lineHeight: 21 },
   separator: { height: StyleSheet.hairlineWidth, marginLeft: 14 },
+  checklistRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 40 },
+  checklistText: { flex: 1, fontSize: 15, fontWeight: '500' },
+  checklistTextDone: { textDecorationLine: 'line-through' },
+  checklistInput: { minHeight: 40, fontSize: 15, fontWeight: '500' },
   segmentRow: { flexDirection: 'row', gap: 8 },
   segment: { flex: 1, minHeight: 44, borderRadius: radius.control, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center' },
   segmentText: { fontSize: 14, fontWeight: '700', fontFamily: 'Inter_700Bold' },

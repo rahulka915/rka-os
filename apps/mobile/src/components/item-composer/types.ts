@@ -1,5 +1,6 @@
 import type { Item, ItemType } from '../../db/types';
 import type { TimeOfDay } from '../../utils/time';
+import type { ChecklistItem } from '../../utils/checklist';
 
 export type ItemPriority = 'low' | 'medium' | 'high';
 
@@ -27,6 +28,7 @@ export type ItemDraft = {
   projectId?: string;
   projectTitle?: string;
   tags: string[];
+  checklist: ChecklistItem[];
   priority?: ItemPriority;
   durationMinutes: number;
   preferredTimeBucket: TimeOfDay;

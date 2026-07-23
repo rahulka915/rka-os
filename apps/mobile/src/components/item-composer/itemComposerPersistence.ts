@@ -12,6 +12,7 @@ import {
 } from '../../db/database';
 import type { Item } from '../../db/types';
 import { getTimeOfDayFromHour, normalizeTimeInput } from '../../utils/time';
+import { readChecklist } from '../../utils/checklist';
 import type { ItemComposerContext, ItemDraft } from './types';
 
 function parseMetadata(metadata?: string): Record<string, unknown> {
@@ -56,6 +57,7 @@ export function createDraft(context: ItemComposerContext = {}): ItemDraft {
     projectId: context.projectId,
     projectTitle: context.projectTitle,
     tags: [],
+    checklist: [],
     durationMinutes: 45,
     preferredTimeBucket: 'anytime',
     metadata: {},
@@ -83,6 +85,7 @@ export function createEditDraft(item: Item, context: ItemComposerContext = {}): 
     projectId,
     projectTitle,
     tags: metadataTags(metadata),
+    checklist: readChecklist(metadata),
     priority: metadataPriority(metadata),
     durationMinutes: typeof metadata.durationMinutes === 'number' && metadata.durationMinutes > 0
       ? metadata.durationMinutes
@@ -98,6 +101,8 @@ function mergedMetadata(draft: ItemDraft): Record<string, unknown> {
   const metadata = { ...draft.metadata };
   if (draft.tags.length) metadata.tags = draft.tags;
   else delete metadata.tags;
+  if (draft.checklist.length) metadata.checklist = draft.checklist;
+  else delete metadata.checklist;
   if (draft.priority) metadata.priority = draft.priority;
   else delete metadata.priority;
   metadata.durationMinutes = Math.max(5, Math.min(24 * 60, Math.round(draft.durationMinutes)));
