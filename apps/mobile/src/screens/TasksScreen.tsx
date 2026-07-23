@@ -1,12 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, memo } from 'react';
 import { View, Text, TouchableOpacity, Alert, StyleSheet } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import {
-  NestableScrollContainer,
-  NestableDraggableFlatList,
-  ScaleDecorator,
-  type RenderItemParams,
-} from 'react-native-draggable-flatlist';
+import { ScrollViewContainer, NestedReorderableList } from 'react-native-reorderable-list';
 import { useTasks, useProjects, useCompletedItems } from '../hooks/useDb';
 import { deleteItem, updateItemStatus, setRelation, getRelation, getBlockingTask, applyManualOrder, planForToday, unplanToday, isPlannedForToday } from '../db/database';
 import { useThemeContext } from '../hooks/useThemeContext';
@@ -40,6 +35,61 @@ const CHECKBOX_CENTER_X = 32; // row paddingHorizontal(10) + half the 44pt disc 
 
 type TasksTab = 'tasks' | 'logbook';
 
+const TaskRow = memo(function TaskRow({
+  item,
+  isDark,
+  palette,
+  projectTitle,
+  showConnector,
+  isCompleting,
+  onComplete,
+  onOpen,
+  onLongPress,
+}: {
+  item: Item;
+  isDark: boolean;
+  palette: ReturnType<typeof getThemeColors>;
+  projectTitle: string | null;
+  showConnector: boolean;
+  isCompleting: boolean;
+  onComplete: (item: Item) => void;
+  onOpen: (item: Item) => void;
+  onLongPress: (item: Item) => void;
+}) {
+  const blocker = getBlockingTask(item.id);
+  return (
+    <View style={styles.cell}>
+      {showConnector && <DependencyConnector isDark={isDark} leftOffset={CHECKBOX_CENTER_X} />}
+      <View style={[styles.row, { backgroundColor: palette.surface }]}>
+        <LacquerDiscControl
+          isCompleted={isCompleting}
+          accessibilityLabel={blocker ? `${item.title}, blocked by ${blocker.title}` : `Complete ${item.title}`}
+          onToggle={() => onComplete(item)}
+        />
+        <TouchableOpacity
+          style={styles.rowContent}
+          activeOpacity={0.7}
+          onPress={() => onOpen(item)}
+          onLongPress={() => onLongPress(item)}
+          delayLongPress={400}
+        >
+          <Text style={[styles.rowTitle, { color: blocker ? palette.textMuted : palette.text }]} numberOfLines={1}>{item.title}</Text>
+          {projectTitle && (
+            <Text style={[styles.rowSub, { color: palette.textTertiary }]} numberOfLines={1}>{projectTitle}</Text>
+          )}
+          {blocker && <BlockedBadge isDark={isDark} title={blocker.title} />}
+          {item.dueDate && <DeadlineBadge isDark={isDark} dueDate={item.dueDate} />}
+          {item.rrule && <RepeatBadge isDark={isDark} rrule={item.rrule} />}
+          {checklistLabel(item) && (
+            <Text style={[styles.rowSub, { color: palette.textTertiary }]}>{checklistLabel(item)}</Text>
+          )}
+        </TouchableOpacity>
+        <DragHandleButton color={palette.textMuted} />
+      </View>
+    </View>
+  );
+});
+
 // No header "+" here — creating a plain task is identical to the dock FAB's
 // default action (see App.tsx, which defaults to status:
 // 'active' when focused on this screen). A second create entry point here
@@ -71,8 +121,8 @@ export function TasksScreen() {
     setSomeday(applyManualOrder('tasks:someday', tasks.filter(t => t.status === 'someday')));
   }, [tasks]);
 
-  const activeReorder = useHapticReorder('tasks:active', setActive);
-  const somedayReorder = useHapticReorder('tasks:someday', setSomeday);
+  const activeReorder = useHapticReorder('tasks:active', active, setActive);
+  const somedayReorder = useHapticReorder('tasks:someday', someday, setSomeday);
 
   const getProjectTitle = (item: Item): string | null => {
     const id = getRelation(item.id, 'project');
@@ -177,15 +227,11 @@ export function TasksScreen() {
   };
 
   // Factory rather than one shared render function — each section (Active,
-  // Someday) is its own manually-orderable list with its own current array
-  // (for correct prev/next adjacency lookups) and its own isReordering flag.
-  // Factory rather than one shared render function — each section (Active,
   // Someday) is its own manually-orderable list with its own live array and
   // isReordering flag. Row HEIGHT is a pure function of the item (uniform
-  // cell gap + badge keyed off the item's own blocker), never of position —
-  // required by react-native-draggable-flatlist, see useHapticReorder. The
-  // connector line is a zero-layout overlay, hidden during a drag.
-  const makeRenderRow = (list: Item[], isReordering: boolean) => ({ item, drag, isActive }: RenderItemParams<Item>) => {
+  // cell gap + badge keyed off the item's own blocker), never of position.
+  // The connector line is a zero-layout overlay, hidden during a drag.
+  const makeRenderRow = (list: Item[], isReordering: boolean) => ({ item }: { item: Item }) => {
     const projectTitle = getProjectTitle(item);
     const blocker = getBlockingTask(item.id);
     const index = list.findIndex((t) => t.id === item.id);
@@ -197,45 +243,25 @@ export function TasksScreen() {
     const thisBlocksPrev = !!prevItem && getBlockingTask(prevItem.id)?.id === item.id;
     const showConnector = !isReordering && (prevBlocksThis || thisBlocksPrev);
     return (
-      <ScaleDecorator>
-        <View style={styles.cell}>
-          {showConnector && <DependencyConnector isDark={isDark} leftOffset={CHECKBOX_CENTER_X} />}
-          <View style={[styles.row, { backgroundColor: palette.surface }, isActive && styles.rowActive]}>
-            <LacquerDiscControl
-              isCompleted={completingIds.has(item.id)}
-              accessibilityLabel={blocker ? `${item.title}, blocked by ${blocker.title}` : `Complete ${item.title}`}
-              onToggle={() => handleComplete(item)}
-            />
-            <TouchableOpacity
-              style={styles.rowContent}
-              activeOpacity={0.7}
-              onPress={() => openEditorForItem({
-                item,
-                onComplete: ({ action }) => {
-                  if (action !== 'cancelled') {
-                    refresh();
-                    refreshCompleted();
-                  }
-                },
-              })}
-              onLongPress={() => handleLongPress(item)}
-              delayLongPress={400}
-            >
-              <Text style={[styles.rowTitle, { color: blocker ? palette.textMuted : palette.text }]} numberOfLines={1}>{item.title}</Text>
-              {projectTitle && (
-                <Text style={[styles.rowSub, { color: palette.textTertiary }]} numberOfLines={1}>{projectTitle}</Text>
-              )}
-              {blocker && <BlockedBadge isDark={isDark} title={blocker.title} />}
-              {item.dueDate && <DeadlineBadge isDark={isDark} dueDate={item.dueDate} />}
-              {item.rrule && <RepeatBadge isDark={isDark} rrule={item.rrule} />}
-              {checklistLabel(item) && (
-                <Text style={[styles.rowSub, { color: palette.textTertiary }]}>{checklistLabel(item)}</Text>
-              )}
-            </TouchableOpacity>
-            <DragHandleButton onDrag={drag} color={palette.textMuted} />
-          </View>
-        </View>
-      </ScaleDecorator>
+      <TaskRow
+        item={item}
+        isDark={isDark}
+        palette={palette}
+        projectTitle={projectTitle}
+        showConnector={showConnector}
+        isCompleting={completingIds.has(item.id)}
+        onComplete={handleComplete}
+        onOpen={(t) => openEditorForItem({
+          item: t,
+          onComplete: ({ action }) => {
+            if (action !== 'cancelled') {
+              refresh();
+              refreshCompleted();
+            }
+          },
+        })}
+        onLongPress={handleLongPress}
+      />
     );
   };
 
@@ -298,48 +324,50 @@ export function TasksScreen() {
             <Text style={[styles.emptySub, { color: palette.textSecondary }]}>Tap the + in the dock to create one</Text>
           </View>
         ) : (
-          <NestableScrollContainer contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
+          <ScrollViewContainer contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
             {active.length > 0 && (
               <View style={styles.section}>
                 <Text style={[styles.sectionLabel, { color: palette.textTertiary }]}>ACTIVE</Text>
-                <NestableDraggableFlatList
+                <NestedReorderableList
                   data={active}
                   keyExtractor={(item) => item.id}
                   renderItem={makeRenderRow(active, activeReorder.isReordering)}
-                  onDragBegin={activeReorder.onDragBegin}
-                  onDragEnd={activeReorder.onDragEnd}
-                  scrollEnabled={false}
+                  onDragStart={activeReorder.onDragStart}
+                  onIndexChange={activeReorder.onIndexChange}
+                  onReorder={activeReorder.onReorder}
+                  scrollable={false}
                 />
               </View>
             )}
             {someday.length > 0 && (
               <View style={styles.section}>
                 <Text style={[styles.sectionLabel, { color: palette.textTertiary }]}>SOMEDAY</Text>
-                <NestableDraggableFlatList
+                <NestedReorderableList
                   data={someday}
                   keyExtractor={(item) => item.id}
                   renderItem={makeRenderRow(someday, somedayReorder.isReordering)}
-                  onDragBegin={somedayReorder.onDragBegin}
-                  onDragEnd={somedayReorder.onDragEnd}
-                  scrollEnabled={false}
+                  onDragStart={somedayReorder.onDragStart}
+                  onIndexChange={somedayReorder.onIndexChange}
+                  onReorder={somedayReorder.onReorder}
+                  scrollable={false}
                 />
               </View>
             )}
-          </NestableScrollContainer>
+          </ScrollViewContainer>
         )
       ) : completedGroups.length === 0 ? (
         <View style={styles.empty}>
           <Text style={[styles.emptyTitle, { color: palette.text }]}>Nothing completed yet</Text>
         </View>
       ) : (
-        <NestableScrollContainer contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
+        <ScrollViewContainer contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
           {completedGroups.map((group) => (
             <View key={group.label} style={styles.section}>
               <Text style={[styles.sectionLabel, { color: palette.textTertiary }]}>{group.label}</Text>
               <View style={styles.sectionRows}>{group.items.map(renderCompletedRow)}</View>
             </View>
           ))}
-        </NestableScrollContainer>
+        </ScrollViewContainer>
       )}
     </LensSurface>
   );
