@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Host, TextField, useNativeState } from '@expo/ui/swift-ui';
-import { font } from '@expo/ui/swift-ui/modifiers';
+import { font, onSubmit, submitLabel } from '@expo/ui/swift-ui/modifiers';
 import { NativeBottomSheet } from '../ui/NativeBottomSheet';
 import { useThemeContext } from '../../hooks/useThemeContext';
 import { getItemComposerMaterial, getThemeColors, spacing } from '../../theme';
@@ -40,6 +40,7 @@ type CaptureSheetFieldsProps = {
   palette: Palette;
   material: Material;
   onChange: (updates: Partial<ItemDraft>) => void;
+  onSave: () => void;
   onDetails: () => void;
 };
 
@@ -53,6 +54,7 @@ function CaptureSheetFields({
   palette,
   material,
   onChange,
+  onSave,
   onDetails,
 }: CaptureSheetFieldsProps) {
   const titleState = useNativeState(draft.title);
@@ -61,8 +63,14 @@ function CaptureSheetFields({
   // Stable references — draft.title changes on every keystroke, re-rendering this
   // component; recreating these arrays each time forces the native side to re-diff
   // modifiers that never actually changed.
-  const titleFontModifiers = useMemo(() => [font({ size: 22, weight: 'medium' as const })], []);
-  const notesFontModifiers = useMemo(() => [font({ size: 15 })], []);
+  const titleFontModifiers = useMemo(
+    () => [font({ size: 22, weight: 'medium' as const }), submitLabel('done' as const), onSubmit(onSave)],
+    [onSave],
+  );
+  const notesFontModifiers = useMemo(
+    () => [font({ size: 15 }), submitLabel('done' as const), onSubmit(onSave)],
+    [onSave],
+  );
 
   return (
     <>
@@ -72,7 +80,7 @@ function CaptureSheetFields({
         </View>
       ) : null}
 
-      <Host matchContents>
+      <Host matchContents={{ vertical: true }} style={styles.fieldHost}>
         <TextField
           text={titleState}
           placeholder="What needs doing?"
@@ -84,7 +92,7 @@ function CaptureSheetFields({
 
       <View style={[styles.separator, { backgroundColor: material.rim }]} />
 
-      <Host matchContents>
+      <Host matchContents={{ vertical: true }} style={styles.fieldHost}>
         <TextField
           text={notesState}
           placeholder="Add a note (optional)"
@@ -138,12 +146,12 @@ export function CaptureSheet({
       sheetStyle={[styles.sheet, { backgroundColor: material.surface, borderColor: material.rim }]}
       contentContainerStyle={styles.content}
       headerLeft={
-        <TouchableOpacity onPress={onCancel} hitSlop={12} disabled={busy}>
+        <TouchableOpacity onPress={onCancel} hitSlop={12} disabled={busy} activeOpacity={0.6}>
           <Text style={[styles.actionText, { color: palette.textMuted }]}>Cancel</Text>
         </TouchableOpacity>
       }
       headerRight={
-        <TouchableOpacity onPress={onSave} hitSlop={12} disabled={!canSave}>
+        <TouchableOpacity onPress={onSave} hitSlop={12} disabled={!canSave} activeOpacity={0.6}>
           <Text style={[styles.saveText, { color: material.accent, opacity: canSave ? 1 : 0.28 }]}>Save</Text>
         </TouchableOpacity>
       }
@@ -155,6 +163,7 @@ export function CaptureSheet({
         palette={palette}
         material={material}
         onChange={onChange}
+        onSave={onSave}
         onDetails={onDetails}
       />
     </NativeBottomSheet>
@@ -189,6 +198,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     fontFamily: 'Inter_600SemiBold',
+  },
+  // `matchContents={{ vertical: true }}` only pins the Host's height to its SwiftUI
+  // content — width still comes from RN layout, but an explicit 100% keeps it that
+  // way even if a future ancestor changes the default `alignItems: 'stretch'`.
+  fieldHost: {
+    width: '100%',
   },
   separator: {
     height: StyleSheet.hairlineWidth,
