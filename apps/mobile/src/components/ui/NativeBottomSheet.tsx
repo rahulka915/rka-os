@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { ScrollView, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Keyboard, ScrollView, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { Host, BottomSheet as SwiftUIBottomSheet, Group, RNHostView } from '@expo/ui/swift-ui';
 import { presentationDetents, presentationDragIndicator } from '@expo/ui/swift-ui/modifiers';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -53,6 +53,27 @@ export function NativeBottomSheet({
   const insets = useSafeAreaInsets();
   const palette = getThemeColors(isDark);
 
+  // The Host below turns off the sheet's own keyboard safe-area avoidance (see
+  // ignoreSafeArea below) to stop iOS from resizing the whole sheet when a field
+  // focuses. That means nothing pushes this ScrollView's lower content out from under
+  // the keyboard automatically anymore — RN's usual keyboard-avoidance only tracks its
+  // own TextInputs, not a native SwiftUI-bridged TextField. Track the keyboard height
+  // ourselves and pad the scroll content so lower fields/buttons stay reachable by
+  // scrolling past the keyboard, same as KeyboardAvoidingView would have given for free.
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  useEffect(() => {
+    const showSub = Keyboard.addListener('keyboardWillShow', (event) => {
+      setKeyboardHeight(event.endCoordinates.height);
+    });
+    const hideSub = Keyboard.addListener('keyboardWillHide', () => {
+      setKeyboardHeight(0);
+    });
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
   // Stable reference — recreating this array every render (e.g. every keystroke in a
   // child TextField, which re-renders this whole tree via the `children` prop changing)
   // forces the native side to re-diff modifiers it doesn't need to.
@@ -83,7 +104,7 @@ export function NativeBottomSheet({
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="interactive"
       showsVerticalScrollIndicator={false}
-      contentContainerStyle={[styles.scrollContent, contentContainerStyle]}
+      contentContainerStyle={[styles.scrollContent, contentContainerStyle, { paddingBottom: spacing[3] + keyboardHeight }]}
     >
       {children}
     </ScrollView>
@@ -92,7 +113,7 @@ export function NativeBottomSheet({
   );
 
   return (
-    <Host style={StyleSheet.absoluteFill} pointerEvents="none">
+    <Host style={StyleSheet.absoluteFill} pointerEvents="none" ignoreSafeArea="keyboard">
       <SwiftUIBottomSheet
         isPresented={visible}
         onIsPresentedChange={(isPresented) => {
