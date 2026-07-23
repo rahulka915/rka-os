@@ -8,7 +8,50 @@ Use commissioned RKA artwork for entities, destinations, time-of-day identity, a
 
 ## Illustration art style
 
-Commissioned illustrations (dock icons, home cards, motif art) follow a **chibi Ronin aesthetic** — flat-vector, single-subject, warm/parchment palette for object art (e.g. `scroll-stack.png`'s parchment/wood/red-tie scroll, `zen-garden-scene.png`'s mossy stone lantern). New commissioned pieces should match this style rather than introduce a new illustration language — see `apps/mobile/ART_HANDOFF_home_illustrations.md` for the most recent handoff spec as a style reference.
+There are **two** commissioned illustration languages, and which one a piece uses is decided by the
+role it plays — not by taste, and not by what the last asset happened to look like.
+
+| Language | Looks like | Use it for | Examples |
+|---|---|---|---|
+| **Flat-vector chibi** | Flat vector, single subject, bold silhouette, warm/parchment palette | Small, repeated, functional UI furniture — dock icons, row icons, badges. Anything that appears many times or is tapped often. | `scroll-stack.png`, `zen-garden-scene.png`, the dock icon set |
+| **Painterly atmospheric** | Painted scenery, muted/atmospheric, depth and lighting, full scene | Large, low-frequency, emotional surfaces — hero cards, empty states, celebration moments. Appears once per screen at most. | `assets/ronin/scenes/{morning,day,night}.png`, the Home hero card |
+
+### Choosing between them
+
+**Decoration scales inversely with information density and interaction frequency.** A hero card is
+seen once and carries feeling, so it can be lush. A row icon is repeated four times, sits beside a
+label and a count, and gets tapped constantly — it has to read instantly, so it must be flat-vector.
+
+This isn't only an aesthetic call, it's a legibility one. Painterly detail collapses at row scale: a
+set of painted scenes that differ mainly by colour tint all reduce to the same dark blob at ~100pt,
+because the eye keys on silhouette long before it keys on hue. Flat-vector shapes stay distinct at
+any size. If a repeated icon set is hard to tell apart, reach for a stronger silhouette before
+reaching for new art.
+
+### Why this section exists
+
+These two languages were previously stated as one, which produced a direct contradiction: this page
+called the house style "flat-vector", while
+[`apps/mobile/ART_HANDOFF_home_illustrations.md`](../../../apps/mobile/ART_HANDOFF_home_illustrations.md)
+both rejected 3D-rendered candidates *and* told new pieces to read as siblings of the painterly
+`ronin/scenes` set. Neither was wrong — they were describing different roles. The table above is the
+resolution. Do not "unify" them back into a single style; the split is deliberate.
+
+### Known exception
+
+The time-of-day row icons (`assets/icons/time/time-{anytime,morning,afternoon,evening}.png`) are
+currently **painterly** but sit in repeated rows, so by the rule above they belong in flat-vector.
+They are the reason the four Home time blocks are hard to tell apart. Slated for redraw; treat them
+as a known deviation rather than a style precedent.
+
+### Before commissioning anything
+
+Match, don't invent: supply existing in-language assets as reference images rather than describing
+the style in words. Generate one piece, view it in place next to its siblings, and only then commit
+to a set. Export a whole set on an identical canvas with consistent subject scale — mismatched aspect
+ratios make a row look ragged no matter how good the individual pieces are. Then paste the prompt
+that worked into [`prompt-library.md`](prompt-library.md), which exists specifically so the style
+stops being re-derived from scratch every round.
 
 ## Motif → meaning (concept vs. shipped)
 
