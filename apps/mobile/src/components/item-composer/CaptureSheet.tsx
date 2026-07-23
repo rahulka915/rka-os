@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { NativeBottomSheet } from '../ui/NativeBottomSheet';
+import { BottomSheet } from '../ui/BottomSheet';
 import { useThemeContext } from '../../hooks/useThemeContext';
 import { getItemComposerMaterial, getThemeColors, spacing } from '../../theme';
 import type { ItemDraft } from './types';
@@ -28,15 +28,6 @@ function contextLabel(draft: ItemDraft): string | null {
   return parts.length ? parts.join(' · ') : null;
 }
 
-// Isolation test — native BottomSheet chrome (drag-to-dismiss, real detents) combined
-// with a PLAIN RN TextInput (not @expo/ui's native TextField). The earlier attempt at
-// full native chrome + native TextField hit an unfixed keyboard-driven full-screen expand
-// (see feedback_expo_ui_bottomsheet_keyboard_bug memory / the plan doc's outcome note).
-// The theory: that expand was triggered by the TextField's own nested Host (a second,
-// separate UIHostingController) becoming first responder — not by the sheet shell itself.
-// A plain TextInput is an ordinary UIKit responder one bridging hop shallower, with no
-// nested Host, so it may not trigger the same behavior. If this still expands, the shell
-// itself is implicated too and this should revert to the fully custom BottomSheet.
 export function CaptureSheet({
   visible,
   draft,
@@ -63,19 +54,12 @@ export function CaptureSheet({
   const context = contextLabel(draft);
 
   return (
-    <NativeBottomSheet
+    <BottomSheet
       visible={visible}
       onClose={onCancel}
       isDark={isDark}
       title="New task"
-      // Estimated to roughly match this sheet's real content (header + optional context
-      // chip + title field + notes field + details row) rather than an arbitrary
-      // screen fraction — no fitToContents equivalent is usable here (see the file-level
-      // comment on NativeBottomSheet's heightFraction prop). May need one more hand-tune
-      // pass once you can see it — NativeBottomSheet already tracks keyboard height and
-      // pads the scroll content, so a shorter fraction won't reintroduce fields getting
-      // stuck under the keyboard; they'll just scroll into view if needed.
-      heightFraction={0.38}
+      topAnchored
       scrollable
       sheetStyle={[styles.sheet, { backgroundColor: material.surface, borderColor: material.rim }]}
       contentContainerStyle={styles.content}
@@ -136,7 +120,7 @@ export function CaptureSheet({
         <Text style={[styles.detailsText, { color: palette.textSecondary }]}>Details</Text>
         <Text style={[styles.detailsChevron, { color: material.accent }]}>›</Text>
       </TouchableOpacity>
-    </NativeBottomSheet>
+    </BottomSheet>
   );
 }
 
