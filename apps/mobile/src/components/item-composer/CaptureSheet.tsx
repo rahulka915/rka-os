@@ -1,8 +1,6 @@
-import { useMemo } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Host, TextField, useNativeState } from '@expo/ui/swift-ui';
-import { font, onSubmit, submitLabel } from '@expo/ui/swift-ui/modifiers';
-import { NativeBottomSheet } from '../ui/NativeBottomSheet';
+import { useEffect, useRef } from 'react';
+import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { BottomSheet } from '../ui/BottomSheet';
 import { useThemeContext } from '../../hooks/useThemeContext';
 import { getItemComposerMaterial, getThemeColors, spacing } from '../../theme';
 import type { ItemDraft } from './types';
@@ -18,9 +16,6 @@ type CaptureSheetProps = {
   onCancel: () => void;
 };
 
-type Palette = ReturnType<typeof getThemeColors>;
-type Material = ReturnType<typeof getItemComposerMaterial>;
-
 function contextLabel(draft: ItemDraft): string | null {
   const parts: string[] = [];
   if (draft.scheduledDate) {
@@ -31,96 +26,6 @@ function contextLabel(draft: ItemDraft): string | null {
   if (draft.projectTitle) parts.push(draft.projectTitle);
   if (!parts.length && draft.status === 'inbox') parts.push('Inbox');
   return parts.length ? parts.join(' · ') : null;
-}
-
-type CaptureSheetFieldsProps = {
-  draft: ItemDraft;
-  busy: boolean;
-  error?: string;
-  palette: Palette;
-  material: Material;
-  onChange: (updates: Partial<ItemDraft>) => void;
-  onSave: () => void;
-  onDetails: () => void;
-};
-
-// Rendered only while the native sheet is actually presented (NativeBottomSheet fully
-// unmounts its children between opens), so useNativeState's "captured once on first
-// render" initial value is always this specific open's draft — no separate resync needed.
-function CaptureSheetFields({
-  draft,
-  busy,
-  error,
-  palette,
-  material,
-  onChange,
-  onSave,
-  onDetails,
-}: CaptureSheetFieldsProps) {
-  const titleState = useNativeState(draft.title);
-  const notesState = useNativeState(draft.notes);
-  const context = contextLabel(draft);
-  // Stable references — draft.title changes on every keystroke, re-rendering this
-  // component; recreating these arrays each time forces the native side to re-diff
-  // modifiers that never actually changed.
-  const titleFontModifiers = useMemo(
-    () => [font({ size: 22, weight: 'medium' as const }), submitLabel('done' as const), onSubmit(onSave)],
-    [onSave],
-  );
-  const notesFontModifiers = useMemo(
-    () => [font({ size: 15 }), submitLabel('done' as const), onSubmit(onSave)],
-    [onSave],
-  );
-
-  return (
-    <>
-      {context ? (
-        <View style={[styles.contextChip, { backgroundColor: material.accentSoft, borderColor: material.rimStrong }]}>
-          <Text style={[styles.contextText, { color: material.accent }]} numberOfLines={1}>{context}</Text>
-        </View>
-      ) : null}
-
-      {/* ignoreSafeArea="keyboard" — this Host mounts its own UIHostingController, a
-          separate hosting instance from the outer sheet's. The focused TextField (and
-          the keyboard-avoidance that was resizing the whole sheet) lives here, not in
-          the outer Group — the outer sheet's ignoresSafeArea modifier can't reach into
-          a sibling hosting controller it doesn't contain. */}
-      <Host matchContents={{ vertical: true }} style={styles.fieldHost} ignoreSafeArea="keyboard">
-        <TextField
-          text={titleState}
-          placeholder="What needs doing?"
-          autoFocus
-          onTextChange={(title) => onChange({ title })}
-          modifiers={titleFontModifiers}
-        />
-      </Host>
-
-      <View style={[styles.separator, { backgroundColor: material.rim }]} />
-
-      <Host matchContents={{ vertical: true }} style={styles.fieldHost} ignoreSafeArea="keyboard">
-        <TextField
-          text={notesState}
-          placeholder="Add a note (optional)"
-          onTextChange={(notes) => onChange({ notes })}
-          modifiers={notesFontModifiers}
-        />
-      </Host>
-
-      {error ? <Text style={[styles.errorText, { color: palette.red }]}>{error}</Text> : null}
-
-      <TouchableOpacity
-        style={[styles.detailsButton, { borderTopColor: material.rim }]}
-        onPress={onDetails}
-        disabled={busy}
-        activeOpacity={0.7}
-        accessibilityRole="button"
-        accessibilityLabel="Show task details"
-      >
-        <Text style={[styles.detailsText, { color: palette.textSecondary }]}>Details</Text>
-        <Text style={[styles.detailsChevron, { color: material.accent }]}>›</Text>
-      </TouchableOpacity>
-    </>
-  );
 }
 
 export function CaptureSheet({
@@ -136,17 +41,25 @@ export function CaptureSheet({
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
   const material = getItemComposerMaterial(isDark);
+  const titleRef = useRef<TextInput>(null);
+
+  useEffect(() => {
+    if (!visible) return;
+    const timer = setTimeout(() => titleRef.current?.focus(), 0);
+    return () => clearTimeout(timer);
+  }, [visible]);
 
   if (!draft) return null;
   const canSave = Boolean(draft.title.trim()) && !busy;
+  const context = contextLabel(draft);
 
   return (
-    <NativeBottomSheet
+    <BottomSheet
       visible={visible}
       onClose={onCancel}
       isDark={isDark}
       title="New task"
-      heightFraction={0.55}
+      topAnchored
       scrollable
       sheetStyle={[styles.sheet, { backgroundColor: material.surface, borderColor: material.rim }]}
       contentContainerStyle={styles.content}
@@ -161,17 +74,53 @@ export function CaptureSheet({
         </TouchableOpacity>
       }
     >
-      <CaptureSheetFields
-        draft={draft}
-        busy={busy}
-        error={error}
-        palette={palette}
-        material={material}
-        onChange={onChange}
-        onSave={onSave}
-        onDetails={onDetails}
+      {context ? (
+        <View style={[styles.contextChip, { backgroundColor: material.accentSoft, borderColor: material.rimStrong }]}>
+          <Text style={[styles.contextText, { color: material.accent }]} numberOfLines={1}>{context}</Text>
+        </View>
+      ) : null}
+
+      <TextInput
+        ref={titleRef}
+        style={[styles.titleInput, { color: palette.text }]}
+        placeholder="What needs doing?"
+        placeholderTextColor={palette.textTertiary}
+        value={draft.title}
+        onChangeText={(title) => onChange({ title })}
+        onSubmitEditing={onSave}
+        returnKeyType="done"
+        submitBehavior="submit"
+        autoCorrect={false}
+        keyboardAppearance={isDark ? 'dark' : 'light'}
       />
-    </NativeBottomSheet>
+
+      <View style={[styles.separator, { backgroundColor: material.rim }]} />
+
+      <TextInput
+        style={[styles.noteInput, { color: palette.text }]}
+        placeholder="Add a note (optional)"
+        placeholderTextColor={palette.textTertiary}
+        value={draft.notes}
+        onChangeText={(notes) => onChange({ notes })}
+        returnKeyType="done"
+        onSubmitEditing={onSave}
+        keyboardAppearance={isDark ? 'dark' : 'light'}
+      />
+
+      {error ? <Text style={[styles.errorText, { color: palette.red }]}>{error}</Text> : null}
+
+      <TouchableOpacity
+        style={[styles.detailsButton, { borderTopColor: material.rim }]}
+        onPress={onDetails}
+        disabled={busy}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel="Show task details"
+      >
+        <Text style={[styles.detailsText, { color: palette.textSecondary }]}>Details</Text>
+        <Text style={[styles.detailsChevron, { color: material.accent }]}>›</Text>
+      </TouchableOpacity>
+    </BottomSheet>
   );
 }
 
@@ -204,14 +153,21 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontFamily: 'Inter_600SemiBold',
   },
-  // `matchContents={{ vertical: true }}` only pins the Host's height to its SwiftUI
-  // content — width still comes from RN layout, but an explicit 100% keeps it that
-  // way even if a future ancestor changes the default `alignItems: 'stretch'`.
-  fieldHost: {
-    width: '100%',
+  titleInput: {
+    minHeight: 54,
+    paddingVertical: 10,
+    fontSize: 22,
+    fontWeight: '500',
+    fontFamily: 'Inter_500Medium',
+    letterSpacing: -0.3,
   },
   separator: {
     height: StyleSheet.hairlineWidth,
+  },
+  noteInput: {
+    minHeight: 44,
+    paddingVertical: 10,
+    fontSize: 15,
   },
   errorText: {
     fontSize: 13,
