@@ -1,0 +1,321 @@
+[
+  {
+    "name": "hero_clouds",
+    "alphaMin": 0,
+    "alphaMax": 255,
+    "bbox": [
+      44,
+      71,
+      1534,
+      384
+    ]
+  },
+  {
+    "name": "hero_fuji",
+    "alphaMin": 0,
+    "alphaMax": 255,
+    "bbox": [
+      404,
+      270,
+      1403,
+      576
+    ]
+  },
+  {
+    "name": "hero_hills",
+    "alphaMin": 0,
+    "alphaMax": 255,
+    "bbox": [
+      0,
+      380,
+      1536,
+      498
+    ]
+  },
+  {
+    "name": "hero_far_shoreline",
+    "alphaMin": 0,
+    "alphaMax": 255,
+    "bbox": [
+      467,
+      339,
+      1536,
+      505
+    ]
+  },
+  {
+    "name": "hero_lake",
+    "alphaMin": 0,
+    "alphaMax": 255,
+    "bbox": [
+      0,
+      442,
+      1536,
+      665
+    ]
+  },
+  {
+    "name": "hero_near_shoreline",
+    "alphaMin": 0,
+    "alphaMax": 255,
+    "bbox": [
+      953,
+      148,
+      1536,
+      785
+    ]
+  },
+  {
+    "name": "hero_veranda",
+    "alphaMin": 0,
+    "alphaMax": 255,
+    "bbox": [
+      0,
+      0,
+      1524,
+      864
+    ]
+  },
+  {
+    "name": "hero_floor",
+    "alphaMin": 0,
+    "alphaMax": 255,
+    "bbox": [
+      0,
+      473,
+      1536,
+      864
+    ]
+  },
+  {
+    "name": "hero_roof",
+    "alphaMin": 0,
+    "alphaMax": 255,
+    "bbox": [
+      0,
+      0,
+      1034,
+      405
+    ]
+  },
+  {
+    "name": "hero_pillar",
+    "alphaMin": 0,
+    "alphaMax": 255,
+    "bbox": [
+      531,
+      25,
+      653,
+      842
+    ]
+  },
+  {
+    "name": "hero_steps",
+    "alphaMin": 0,
+    "alphaMax": 255,
+    "bbox": [
+      18,
+      489,
+      1480,
+      821
+    ]
+  },
+  {
+    "name": "hero_moss",
+    "alphaMin": 0,
+    "alphaMax": 255,
+    "bbox": [
+      151,
+      306,
+      1085,
+      664
+    ]
+  },
+  {
+    "name": "hero_rocks",
+    "alphaMin": 0,
+    "alphaMax": 255,
+    "bbox": [
+      181,
+      358,
+      1333,
+      699
+    ]
+  },
+  {
+    "name": "hero_lantern",
+    "alphaMin": 0,
+    "alphaMax": 255,
+    "bbox": [
+      304,
+      49,
+      793,
+      816
+    ]
+  },
+  {
+    "name": "hero_bonsai",
+    "alphaMin": 0,
+    "alphaMax": 255,
+    "bbox": [
+      303,
+      92,
+      819,
+      750
+    ]
+  },
+  {
+    "name": "hero_meditation_cushion",
+    "alphaMin": 0,
+    "alphaMax": 255,
+    "bbox": [
+      200,
+      318,
+      1299,
+      648
+    ]
+  },
+  {
+    "name": "hero_training_post",
+    "alphaMin": 0,
+    "alphaMax": 255,
+    "bbox": [
+      826,
+      66,
+      1121,
+      773
+    ]
+  },
+  {
+    "name": "hero_sword_stand",
+    "alphaMin": 0,
+    "alphaMax": 255,
+    "bbox": [
+      283,
+      193,
+      1336,
+      681
+    ]
+  },
+  {
+    "name": "hero_inbox_tray_empty",
+    "alphaMin": 0,
+    "alphaMax": 255,
+    "bbox": [
+      396,
+      202,
+      1184,
+      691
+    ]
+  },
+  {
+    "name": "hero_inbox_tray_partial",
+    "alphaMin": 0,
+    "alphaMax": 255,
+    "bbox": [
+      408,
+      299,
+      1246,
+      758
+    ]
+  },
+  {
+    "name": "hero_inbox_tray_full",
+    "alphaMin": 0,
+    "alphaMax": 255,
+    "bbox": [
+      510,
+      459,
+      1019,
+      735
+    ]
+  },
+  {
+    "name": "hero_scroll",
+    "alphaMin": 0,
+    "alphaMax": 255,
+    "bbox": [
+      673,
+      445,
+      1309,
+      675
+    ]
+  },
+  {
+    "name": "hero_scroll_open",
+    "alphaMin": 0,
+    "alphaMax": 255,
+    "bbox": [
+      389,
+      188,
+      1139,
+      676
+    ]
+  },
+  {
+    "name": "hero_morning_mist",
+    "alphaMin": 0,
+    "alphaMax": 9,
+    "bbox": [
+      400,
+      486,
+      1536,
+      600
+    ]
+  },
+  {
+    "name": "hero_evening_haze",
+    "alphaMin": 0,
+    "alphaMax": 171,
+    "bbox": [
+      0,
+      321,
+      1536,
+      566
+    ]
+  },
+  {
+    "name": "hero_rain",
+    "alphaMin": 0,
+    "alphaMax": 10,
+    "bbox": [
+      17,
+      21,
+      1511,
+      834
+    ]
+  },
+  {
+    "name": "hero_snow",
+    "alphaMin": 0,
+    "alphaMax": 194,
+    "bbox": [
+      0,
+      3,
+      1529,
+      864
+    ]
+  },
+  {
+    "name": "hero_fireflies",
+    "alphaMin": 0,
+    "alphaMax": 255,
+    "bbox": [
+      84,
+      292,
+      1328,
+      769
+    ]
+  },
+  {
+    "name": "hero_falling_petals",
+    "alphaMin": 0,
+    "alphaMax": 255,
+    "bbox": [
+      0,
+      14,
+      1510,
+      850
+    ]
+  }
+]

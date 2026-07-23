@@ -1,0 +1,320 @@
+{
+  "designMaster": "source/fab-design-master.png",
+  "frameCanvas": [
+    192,
+    192
+  ],
+  "registrationPoint": [
+    96,
+    96
+  ],
+  "frames": [
+    {
+      "name": "idle",
+      "file": "frames/fab-idle.png",
+      "canvas": [
+        192,
+        192
+      ],
+      "discCentre": [
+        96,
+        96
+      ],
+      "contentBounds": [
+        26,
+        28,
+        169,
+        175
+      ]
+    },
+    {
+      "name": "hover",
+      "file": "frames/fab-hover.png",
+      "canvas": [
+        192,
+        192
+      ],
+      "discCentre": [
+        96,
+        96
+      ],
+      "contentBounds": [
+        27,
+        25,
+        168,
+        175
+      ]
+    },
+    {
+      "name": "pressed",
+      "file": "frames/fab-pressed.png",
+      "canvas": [
+        192,
+        192
+      ],
+      "discCentre": [
+        96,
+        96
+      ],
+      "contentBounds": [
+        26,
+        28,
+        169,
+        175
+      ]
+    },
+    {
+      "name": "brush-raised",
+      "file": "frames/fab-brush-raised.png",
+      "canvas": [
+        192,
+        192
+      ],
+      "discCentre": [
+        96,
+        96
+      ],
+      "contentBounds": [
+        29,
+        9,
+        168,
+        175
+      ]
+    },
+    {
+      "name": "stroke-01",
+      "file": "frames/fab-stroke-01.png",
+      "canvas": [
+        192,
+        192
+      ],
+      "discCentre": [
+        96,
+        96
+      ],
+      "contentBounds": [
+        27,
+        26,
+        170,
+        175
+      ]
+    },
+    {
+      "name": "stroke-02",
+      "file": "frames/fab-stroke-02.png",
+      "canvas": [
+        192,
+        192
+      ],
+      "discCentre": [
+        96,
+        96
+      ],
+      "contentBounds": [
+        29,
+        25,
+        172,
+        175
+      ]
+    },
+    {
+      "name": "stroke-03",
+      "file": "frames/fab-stroke-03.png",
+      "canvas": [
+        192,
+        192
+      ],
+      "discCentre": [
+        96,
+        96
+      ],
+      "contentBounds": [
+        35,
+        26,
+        175,
+        175
+      ]
+    },
+    {
+      "name": "stroke-04",
+      "file": "frames/fab-stroke-04.png",
+      "canvas": [
+        192,
+        192
+      ],
+      "discCentre": [
+        96,
+        96
+      ],
+      "contentBounds": [
+        38,
+        29,
+        176,
+        175
+      ]
+    },
+    {
+      "name": "stroke-05",
+      "file": "frames/fab-stroke-05.png",
+      "canvas": [
+        192,
+        192
+      ],
+      "discCentre": [
+        96,
+        96
+      ],
+      "contentBounds": [
+        39,
+        30,
+        178,
+        175
+      ]
+    },
+    {
+      "name": "unfold-begin",
+      "file": "frames/fab-unfold-begin.png",
+      "canvas": [
+        192,
+        192
+      ],
+      "discCentre": [
+        96,
+        96
+      ],
+      "contentBounds": [
+        24,
+        24,
+        167,
+        175
+      ]
+    },
+    {
+      "name": "unfold-half",
+      "file": "frames/fab-unfold-half.png",
+      "canvas": [
+        192,
+        192
+      ],
+      "discCentre": [
+        96,
+        96
+      ],
+      "contentBounds": [
+        32,
+        24,
+        173,
+        175
+      ]
+    },
+    {
+      "name": "unfold-full",
+      "file": "frames/fab-unfold-full.png",
+      "canvas": [
+        192,
+        192
+      ],
+      "discCentre": [
+        96,
+        96
+      ],
+      "contentBounds": [
+        36,
+        25,
+        175,
+        175
+      ]
+    },
+    {
+      "name": "brush-fade",
+      "file": "frames/fab-brush-fade.png",
+      "canvas": [
+        192,
+        192
+      ],
+      "discCentre": [
+        96,
+        96
+      ],
+      "contentBounds": [
+        53,
+        24,
+        190,
+        174
+      ]
+    },
+    {
+      "name": "paper-only",
+      "file": "frames/fab-paper-only.png",
+      "canvas": [
+        192,
+        192
+      ],
+      "discCentre": [
+        96,
+        96
+      ],
+      "contentBounds": [
+        53,
+        25,
+        190,
+        174
+      ]
+    }
+  ],
+  "materials": [
+    {
+      "name": "bamboo-handle",
+      "file": "materials/fab-material-bamboo-handle.png",
+      "canvas": [
+        160,
+        160
+      ]
+    },
+    {
+      "name": "lacquer-ferrule",
+      "file": "materials/fab-material-lacquer-ferrule.png",
+      "canvas": [
+        160,
+        160
+      ]
+    },
+    {
+      "name": "brush-tip",
+      "file": "materials/fab-material-brush-tip.png",
+      "canvas": [
+        160,
+        160
+      ]
+    },
+    {
+      "name": "washi-paper",
+      "file": "materials/fab-material-washi-paper.png",
+      "canvas": [
+        160,
+        160
+      ]
+    },
+    {
+      "name": "ink-stroke",
+      "file": "materials/fab-material-ink-stroke.png",
+      "canvas": [
+        160,
+        160
+      ]
+    }
+  ],
+  "motion": {
+    "pressMs": 100,
+    "touchMs": 180,
+    "inkMs": 280,
+    "unfoldMs": 380,
+    "composeOpenMs": 520,
+    "easing": [
+      0.22,
+      1,
+      0.36,
+      1
+    ]
+  }
+}
