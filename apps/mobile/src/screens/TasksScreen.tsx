@@ -330,7 +330,7 @@ export function TasksScreen() {
                 <Text style={[styles.sectionLabel, { color: palette.textTertiary }]}>ACTIVE</Text>
                 <NestedReorderableList
                   data={active}
-                  keyExtractor={(item) => item.id}
+                  keyExtractor={(item, index) => item?.id ?? String(index)}
                   renderItem={makeRenderRow(active, activeReorder.isReordering)}
                   onDragStart={activeReorder.onDragStart}
                   onIndexChange={activeReorder.onIndexChange}
@@ -344,7 +344,7 @@ export function TasksScreen() {
                 <Text style={[styles.sectionLabel, { color: palette.textTertiary }]}>SOMEDAY</Text>
                 <NestedReorderableList
                   data={someday}
-                  keyExtractor={(item) => item.id}
+                  keyExtractor={(item, index) => item?.id ?? String(index)}
                   renderItem={makeRenderRow(someday, somedayReorder.isReordering)}
                   onDragStart={somedayReorder.onDragStart}
                   onIndexChange={somedayReorder.onIndexChange}

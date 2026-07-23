@@ -209,7 +209,7 @@ export function ProjectDetailScreen() {
       ) : (
         <ReorderableList
           data={tasks}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item, index) => item?.id ?? String(index)}
           renderItem={renderRow}
           onDragStart={onDragStart}
           onIndexChange={onIndexChange}

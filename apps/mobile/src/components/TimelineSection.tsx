@@ -274,7 +274,7 @@ function TimeBlockItems({
     <View style={[styles.itemsContainer, { backgroundColor: hexToRgba(color, isDark ? 0.08 : 0.06) }]}>
       <NestedReorderableList
         data={items}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item, index) => item?.id ?? String(index)}
         renderItem={renderRow}
         onDragStart={onDragStart}
         onIndexChange={onIndexChange}

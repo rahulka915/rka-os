@@ -4,8 +4,11 @@ import * as Haptics from 'expo-haptics';
 import { reorderItems } from 'react-native-reorderable-list';
 import { setManualOrder } from '../db/database';
 
+// Rigid rather than Light: a crisp, mechanical detent as the row crosses each
+// neighbour is what reads as physical "resistance" while dragging. Heavy would
+// be too much here — this fires on every crossing, not once.
 function tickHaptic() {
-  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid);
 }
 
 // Shared drag-to-reorder behaviour for every manually-orderable list.
@@ -52,7 +55,7 @@ export function useHapticReorder<T extends { id: string }>(
       const next = reorderItems(items, from, to);
       onReordered(next);
       setManualOrder(listKey, next.map((item) => item.id));
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     },
     [items, listKey, onReordered],
   );
