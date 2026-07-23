@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Keyboard, ScrollView, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { Host, BottomSheet as SwiftUIBottomSheet, Group, RNHostView } from '@expo/ui/swift-ui';
-import { presentationDetents, presentationDragIndicator } from '@expo/ui/swift-ui/modifiers';
+import { ignoreSafeArea, presentationDetents, presentationDragIndicator } from '@expo/ui/swift-ui/modifiers';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getThemeColors, fontSize, spacing } from '../../theme';
 
@@ -53,11 +53,16 @@ export function NativeBottomSheet({
   const insets = useSafeAreaInsets();
   const palette = getThemeColors(isDark);
 
-  // The Host below turns off the sheet's own keyboard safe-area avoidance (see
-  // ignoreSafeArea below) to stop iOS from resizing the whole sheet when a field
-  // focuses. That means nothing pushes this ScrollView's lower content out from under
-  // the keyboard automatically anymore — RN's usual keyboard-avoidance only tracks its
-  // own TextInputs, not a native SwiftUI-bridged TextField. Track the keyboard height
+  // Turns off keyboard safe-area avoidance so iOS stops resizing the whole sheet when a
+  // field focuses. This needs to be an `.ignoresSafeArea()` *view modifier* on the
+  // presented content itself (the Group below) — the Host's own `ignoreSafeArea` prop
+  // (kept below too) only affects the outer hosting controller wrapping the sheet's
+  // invisible anchor, not the UISheetPresentationController's own keyboard-driven detent
+  // recalculation, which is what was actually causing the expand-to-full-height.
+  //
+  // That means nothing pushes this ScrollView's lower content out from under the
+  // keyboard automatically anymore — RN's usual keyboard-avoidance only tracks its own
+  // TextInputs, not a native SwiftUI-bridged TextField. Track the keyboard height
   // ourselves and pad the scroll content so lower fields/buttons stay reachable by
   // scrolling past the keyboard, same as KeyboardAvoidingView would have given for free.
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -81,6 +86,7 @@ export function NativeBottomSheet({
     () => [
       presentationDetents([{ fraction: heightFraction }]),
       presentationDragIndicator('visible' as const),
+      ignoreSafeArea({ regions: 'keyboard' }),
     ],
     [heightFraction],
   );
