@@ -3,18 +3,29 @@
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 > **Outcome (2026-07-23):** All 5 tasks executed and shipped. Tasks 1–2 (NativeBottomSheet,
-> TimelinePreviewSheet chrome + Menu) are live and working. Tasks 3–4 (CaptureSheet's
-> native shell + TextField) were **reverted** after shipping — on a physical device, the
-> native sheet expanded to full screen the instant the autofocused title field's keyboard
-> appeared, and stayed that way for the rest of the session. Three targeted fixes were
-> tried (fixed `presentationDetents` instead of `fitToContents`, `ignoresSafeArea(.keyboard)`
-> on the sheet's own content `Group`, then on the TextField's own nested `Host`) — none
-> resolved it on-device. This looks like a genuine limitation in how `@expo/ui`'s
-> `BottomSheet` interacts with a focused, `RNHostView`-bridged native text field, not
-> something fixable by further modifier guesses from the JS API surface. CaptureSheet is
-> back on the original custom Reanimated `BottomSheet` + plain `TextInput`. If revisiting
-> this: check `@expo/ui`'s GitHub issues for this exact bug before retrying any of the
-> three approaches above.
+> TimelinePreviewSheet chrome + Menu) are live and working. Task 4 (native `TextField`)
+> was reverted; Task 3 (native shell) was tried, tested, and *also* reverted, but for a
+> different reason — see below.
+>
+> Tasks 3–4 together caused the native sheet to expand to full screen the instant the
+> autofocused title field's keyboard appeared, and stay that way. Three targeted fixes
+> were tried (fixed `presentationDetents` instead of `fitToContents`, `ignoresSafeArea
+> (.keyboard)` on the sheet's content `Group`, then on the TextField's own nested `Host`)
+> — none resolved it. **Isolation test:** reverted just the `TextField` (back to plain
+> `TextInput`) while *keeping* the native `BottomSheet` shell — this fixed it. Confirms
+> the bug is specifically `@expo/ui`'s `TextField` (its own nested `Host`/
+> `UIHostingController` becoming first responder), not the `BottomSheet` shell itself.
+>
+> Native shell + plain `TextInput` works, but `BottomSheet` has no `fitToContents`-safe
+> way to size to actual content (that prop's own two-pass measure-then-resize was the
+> very first bug fixed in this effort) — so it needs a hand-tuned fixed `heightFraction`
+> instead of auto-sizing, and left visible empty space below the content until tuned.
+> Rather than keep tuning that for a marginal chrome upgrade, CaptureSheet went back to
+> the original custom Reanimated `BottomSheet` + plain `TextInput` entirely — a pragmatic
+> call, not a dead end. If revisiting: native shell + plain `TextInput` is a known-working
+> combination, just needs either a `heightFraction` tuned to content or a smarter sizing
+> approach; avoid `@expo/ui`'s `TextField` inside `BottomSheet` until upstream fixes the
+> keyboard-expand bug (check `@expo/ui`'s GitHub issues first).
 
 **Goal:** Replace the custom Reanimated `BottomSheet` chrome and plain `TextInput` fields
 in Calendar's Capture and Preview sheets with `@expo/ui`'s native SwiftUI equivalents, and
