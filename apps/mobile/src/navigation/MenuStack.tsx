@@ -5,6 +5,7 @@ import { AreaDetailScreen } from '../screens/AreaDetailScreen';
 import { ProjectsScreen } from '../screens/ProjectsScreen';
 import { ProjectDetailScreen } from '../screens/ProjectDetailScreen';
 import { TasksScreen } from '../screens/TasksScreen';
+import { UpcomingScreen } from '../screens/UpcomingScreen';
 import { WorkoutsScreen } from '../screens/WorkoutsScreen';
 import { MedicationsScreen } from '../screens/MedicationsScreen';
 
@@ -19,6 +20,7 @@ export function MenuStack() {
       <Stack.Screen name="Projects" component={ProjectsScreen} />
       <Stack.Screen name="ProjectDetail" component={ProjectDetailScreen} />
       <Stack.Screen name="Tasks" component={TasksScreen} />
+      <Stack.Screen name="Upcoming" component={UpcomingScreen} />
       <Stack.Screen name="Workouts" component={WorkoutsScreen} />
       <Stack.Screen name="Medications" component={MedicationsScreen} />
     </Stack.Navigator>
