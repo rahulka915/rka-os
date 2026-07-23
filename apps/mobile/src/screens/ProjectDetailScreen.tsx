@@ -19,6 +19,15 @@ import { DeadlineBadge } from '../components/DeadlineBadge';
 import { DependencyConnector } from '../components/DependencyConnector';
 import { promptSetDependency } from '../utils/dependencyPrompt';
 import { useHapticReorder } from '../hooks/useHapticReorder';
+import { readChecklist, checklistProgress } from '../utils/checklist';
+
+// Item-local, so it never makes a row's height depend on list position.
+function checklistLabel(item: Item): string | null {
+  const entries = readChecklist(item.metadata ? JSON.parse(item.metadata) : {});
+  if (!entries.length) return null;
+  const { done, total } = checklistProgress(entries);
+  return `${done}/${total}`;
+}
 
 const CHECKBOX_CENTER_X = 32; // row paddingHorizontal(10) + half the 44pt disc touch target
 
@@ -162,6 +171,9 @@ export function ProjectDetailScreen() {
               </Text>
               {blocker && <BlockedBadge isDark={isDark} title={blocker.title} />}
               {item.dueDate && <DeadlineBadge isDark={isDark} dueDate={item.dueDate} />}
+              {checklistLabel(item) && (
+                <Text style={[styles.rowTitle, { color: palette.textTertiary, fontSize: 12 }]}>{checklistLabel(item)}</Text>
+              )}
             </TouchableOpacity>
             <DragHandleButton onDrag={drag} color={palette.textMuted} />
           </View>
