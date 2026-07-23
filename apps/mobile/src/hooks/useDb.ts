@@ -10,7 +10,6 @@ import {
   updateItemStatus,
   deleteItem,
   completeInstance,
-  formatDate,
   getMedications,
   logMedicationTaken,
   getMedicationLogs,
@@ -22,9 +21,12 @@ import {
   type MedicationMeta,
   getPersistentMedicationTimers,
   getCompletedItems,
+  getPlannedTodayItems,
+  getRepeatingItemsForToday,
 } from '../db/database';
 import type { Item, ItemInstance } from '../db/types';
 import type { TimelineEntry } from '../db/database';
+import { resolveTimeBucket, type TimeOfDay } from '../utils/time';
 import { startMedicationLiveActivity } from '../services/medicationLiveActivity';
 import { ensureMedicationTimerAutoStop } from '../services/medicationTimerController';
 import { presentMedicationTimer } from '../utils/timerPresentation';
@@ -56,33 +58,40 @@ export function useInbox() {
   return { items, count: items.length, refresh, addItem, activateItem, archiveItem };
 }
 
+function bucketOf(item: Item): TimeOfDay {
+  return resolveTimeBucket(item.metadata ? JSON.parse(item.metadata) : {});
+}
+
 export function useHomeData() {
   const [todayItems, setTodayItems] = useState<Item[]>([]);
   const [inboxCount, setInboxCount] = useState(0);
   const [upcomingCount, setUpcomingCount] = useState(0);
 
   const refresh = useCallback(() => {
-    setTodayItems(getTodayItems());
+    // Home "Today" = the union of calendar-dated-today tasks and tasks the
+    // user explicitly planned for today (planForToday). Dedupe by id since a
+    // task can satisfy both.
+    const seen = new Set<string>();
+    const merged: Item[] = [];
+    for (const item of [...getTodayItems(), ...getPlannedTodayItems(), ...getRepeatingItemsForToday()]) {
+      if (seen.has(item.id)) continue;
+      seen.add(item.id);
+      merged.push(item);
+    }
+    setTodayItems(merged);
     setInboxCount(getInboxItems().length);
     setUpcomingCount(getItemsByStatus('active').length);
   }, []);
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  const today = formatDate(new Date());
-  const anytime = todayItems.filter(i => !i.scheduledDate || i.scheduledDate !== today);
-  const morningItems = todayItems.filter(i => {
-    const meta = i.metadata ? JSON.parse(i.metadata) : {};
-    return meta.timeOfDay === 'morning';
-  });
-  const afternoonItems = todayItems.filter(i => {
-    const meta = i.metadata ? JSON.parse(i.metadata) : {};
-    return meta.timeOfDay === 'afternoon';
-  });
-  const eveningItems = todayItems.filter(i => {
-    const meta = i.metadata ? JSON.parse(i.metadata) : {};
-    return meta.timeOfDay === 'evening';
-  });
+  // Each task lands in exactly one block via its resolved bucket (chosen
+  // preferred bucket → scheduled clock time → Anytime), so the four blocks
+  // partition Today with no overlaps or gaps.
+  const anytime = todayItems.filter(i => bucketOf(i) === 'anytime');
+  const morningItems = todayItems.filter(i => bucketOf(i) === 'morning');
+  const afternoonItems = todayItems.filter(i => bucketOf(i) === 'afternoon');
+  const eveningItems = todayItems.filter(i => bucketOf(i) === 'evening');
 
   return { todayItems, inboxCount, upcomingCount, anytime, morningItems, afternoonItems, eveningItems, refresh };
 }
@@ -193,15 +202,16 @@ export function useCompletedItems() {
   return { items, refresh };
 }
 
-export function completeAllInTimeBlock(timeOfDay: 'anytime' | 'morning' | 'afternoon' | 'evening'): void {
-  const todayItems = getTodayItems();
-
-  todayItems.forEach((item) => {
-    const meta = item.metadata ? JSON.parse(item.metadata) : {};
-    const itemTimeOfDay = meta.timeOfDay || 'anytime';
-
-    if (itemTimeOfDay === timeOfDay && item.status !== 'completed') {
+export function completeAllInTimeBlock(bucket: 'anytime' | 'morning' | 'afternoon' | 'evening'): void {
+  // Same Today union + bucket resolution as useHomeData, so "complete all in
+  // this block" acts on exactly the rows the block displays.
+  const seen = new Set<string>();
+  for (const item of [...getTodayItems(), ...getPlannedTodayItems(), ...getRepeatingItemsForToday()]) {
+    if (seen.has(item.id)) continue;
+    seen.add(item.id);
+    const itemBucket = resolveTimeBucket(item.metadata ? JSON.parse(item.metadata) : {});
+    if (itemBucket === bucket && item.status !== 'completed') {
       updateItemStatus(item.id, 'completed');
     }
-  });
+  }
 }
