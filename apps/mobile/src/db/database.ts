@@ -4,7 +4,7 @@ import 'react-native-get-random-values';
 import { v4 as uuidv4 } from 'uuid';
 import { getTimeOfDayFromHour, normalizeTimeInput, timeToMinutes, type TimeOfDay } from '../utils/time';
 import { resolveAutoStopAfterMs } from '../domain/medicationTimer/timerMath';
-import { nextOccurrenceDate } from '../utils/repeat';
+import { nextOccurrenceDate, parseRepeatRule, dayMatchesRepeat } from '../utils/repeat';
 
 let db: SQLite.SQLiteDatabase;
 
@@ -318,6 +318,24 @@ export function getPlannedTodayItems(): Item[] {
        AND deletedAt IS NULL AND metadata LIKE ?`,
     [`%"plannedDate":"${today}"%`]
   );
+}
+
+// Repeating tasks whose rule fires today. These usually have no scheduledDate
+// of their own, so getTodayItems can never see them — the rule itself decides
+// membership. scheduledDate doubles as the rule's "not before" start date,
+// which is what makes a task vanish for the rest of the day once completed:
+// the roll-forward in updateItemStatus sets scheduledDate to the next
+// occurrence, so today no longer matches.
+export function getRepeatingItemsForToday(): Item[] {
+  const today = formatDate(new Date());
+  const rows = getDb().getAllSync<Item>(
+    `SELECT * FROM items WHERE rrule IS NOT NULL AND rrule != '' AND type = 'task'
+       AND status NOT IN ('completed', 'inbox') AND deletedAt IS NULL`
+  );
+  return rows.filter((item) => {
+    const rule = parseRepeatRule(item.rrule);
+    return rule ? dayMatchesRepeat(rule, today, item.scheduledDate ?? undefined) : false;
+  });
 }
 
 export function isPlannedForToday(item: Item): boolean {
