@@ -1184,6 +1184,23 @@ export function updateTimelineItemSchedule(id: string, scheduledDate?: string, t
 
 export function updateItemStatus(id: string, status: Item['status']): void {
   const now = Date.now();
+
+  // A repeating task is never "done" — completing one occurrence logs it and
+  // rolls the task forward to its next matching date, Things 3 style. Handled
+  // here so every completion path in the app inherits it.
+  if (status === 'completed') {
+    const item = getItemWithMetadata(id);
+    const next = item ? nextOccurrenceDate(item.rrule, item.scheduledDate ?? formatDate(new Date())) : null;
+    if (item && next) {
+      getDb().runSync(
+        `UPDATE items SET scheduledDate = ?, status = ?, completedAt = NULL, updatedAt = ? WHERE id = ?`,
+        [next, 'active', now, id]
+      );
+      logActivity(id, 'completed-occurrence', JSON.stringify({ occurrence: item.scheduledDate, next }));
+      return;
+    }
+  }
+
   getDb().runSync(
     `UPDATE items SET status = ?, completedAt = ?, updatedAt = ? WHERE id = ?`,
     [status, status === 'completed' ? now : null, now, id]
