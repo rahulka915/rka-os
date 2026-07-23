@@ -40,6 +40,20 @@ export function dayMatchesRepeat(rule: RepeatRule, date: string, startDate?: str
   return day === targetDay;
 }
 
+const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+// Human-readable summary of a repeat rule, for row badges. Returns null when
+// there is no usable rule so callers can skip rendering entirely.
+export function repeatLabel(rrule: string | null | undefined): string | null {
+  const rule = parseRepeatRule(rrule);
+  if (!rule) return null;
+  if (rule === 'DAILY') return 'Daily';
+  if (rule === 'WEEKDAYS') return 'Weekdays';
+  if (rule === 'WEEKEND') return 'Weekends';
+  if (rule === 'WEEKLY') return 'Weekly';
+  return `Every ${WEEKDAY_LABELS[Number(rule.split(':')[1])] ?? 'week'}`;
+}
+
 // Pure calendar arithmetic on YYYY-MM-DD strings (UTC parse keeps it zone-proof).
 export function addDays(date: string, n: number): string {
   return new Date(Date.parse(`${date}T00:00:00Z`) + n * 86_400_000).toISOString().split('T')[0];

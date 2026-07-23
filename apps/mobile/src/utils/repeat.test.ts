@@ -1,7 +1,7 @@
 // @ts-nocheck -- executed directly by Node's TypeScript test runner; the Expo app intentionally omits Node ambient types.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseRepeatRule, dayMatchesRepeat, nextOccurrenceDate, addDays } from './repeat.ts';
+import { parseRepeatRule, dayMatchesRepeat, nextOccurrenceDate, addDays, repeatLabel } from './repeat.ts';
 
 test('parses the supported rule spellings', () => {
   assert.equal(parseRepeatRule('FREQ=DAILY'), 'DAILY');
@@ -34,4 +34,14 @@ test('nextOccurrenceDate always returns a date strictly after fromDate', () => {
 test('nextOccurrenceDate returns null without a usable rule', () => {
   assert.equal(nextOccurrenceDate(null, '2026-07-23'), null);
   assert.equal(nextOccurrenceDate('nonsense', '2026-07-23'), null);
+});
+
+test('labels repeat rules for display', () => {
+  assert.equal(repeatLabel('FREQ=DAILY'), 'Daily');
+  assert.equal(repeatLabel('FREQ=WEEKDAYS'), 'Weekdays');
+  assert.equal(repeatLabel('FREQ=WEEKEND'), 'Weekends');
+  assert.equal(repeatLabel('FREQ=WEEKLY'), 'Weekly');
+  assert.equal(repeatLabel('FREQ=WEEKLY;BYDAY=MO'), 'Every Mon');
+  assert.equal(repeatLabel(null), null);
+  assert.equal(repeatLabel('nonsense'), null);
 });
