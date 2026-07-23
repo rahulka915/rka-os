@@ -17,12 +17,19 @@ export type NativeBottomSheetProps = {
   contentContainerStyle?: StyleProp<ViewStyle>;
   sheetStyle?: StyleProp<ViewStyle>;
   /**
-   * Fraction of screen height the sheet opens to (it can still be dragged up to `large`).
+   * Fraction of screen height the sheet opens to and stays at.
    * `fitToContents` was tried first but does its own two-pass measure-then-resize
    * internally (starts at the `.medium` system detent, then jumps to the real content
    * height once a GeometryReader reports it) — that pass is what read as a visible
    * "size pop" on open. A fraction detent is known synchronously, so there's nothing to
    * jump.
+   *
+   * Deliberately a single detent, no `large` fallback: a second detent lets iOS
+   * auto-upgrade to it when a focused text field needs more room than the keyboard
+   * leaves at the smaller one — which is exactly the "opens, then jumps to full page"
+   * behavior seen when `autoFocus`ing a field right as the sheet presents. Pick a
+   * fraction generous enough for the field content once the keyboard is up, instead of
+   * relying on a second detent to bail it out.
    */
   heightFraction?: number;
 };
@@ -51,7 +58,7 @@ export function NativeBottomSheet({
   // forces the native side to re-diff modifiers it doesn't need to.
   const sheetModifiers = useMemo(
     () => [
-      presentationDetents([{ fraction: heightFraction }, 'large']),
+      presentationDetents([{ fraction: heightFraction }]),
       presentationDragIndicator('visible' as const),
     ],
     [heightFraction],
