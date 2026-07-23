@@ -34,8 +34,9 @@ mirror real iOS Calendar's tap-to-open / long-press-to-drag pattern.
 
 ## Non-goals
 
-- Rebuilding the hour-grid canvas, lane layout, or the drag-to-create / drag-to-reschedule
-  Pan gestures. These stay exactly as they are.
+- Rebuilding the hour-grid canvas, lane layout, or the drag-to-create Pan gesture. These
+  stay exactly as they are. (There is no drag-to-reschedule gesture on canvas blocks today
+  to preserve — see Phase 3 below.)
 - `LacquerDiscControl` (the complete-toggle) keeps its bespoke visual identity — not part
   of this pass.
 - `ItemEditorSheet` is **not** touched by the BottomSheet swap below — it already presents
@@ -65,10 +66,19 @@ swaps from custom to native. This is the lowest-risk slice with the biggest "fee
 payoff (real sheet physics) and it structurally removes the double-open failure mode:
 there's no more `presentation`/`isRendered`/`openId` state machine to desync.
 
+`CaptureSheet.tsx` currently renders `topAnchored` (a top-anchored card, a special layout
+mode of the custom `BottomSheet.tsx`). `@expo/ui`'s native `BottomSheet` only presents from
+the bottom — there's no native "anchored to the top" equivalent. Converting `CaptureSheet`
+means accepting it becomes a standard bottom sheet like `TimelinePreviewSheet`; this
+actually brings the code in line with `apps/mobile/CLAUDE.md`'s own Capture Sheet
+description ("bottom-anchored sheet rising with keyboard"), which the current
+`topAnchored` code had drifted from.
+
 New shared component: `src/components/ui/NativeBottomSheet.tsx`, matching the subset of
 `BottomSheet.tsx`'s props surface `CaptureSheet` and `TimelinePreviewSheet` actually use
-(`visible`, `onClose`, `isDark`, `title`, `headerLeft`, `headerRight`, `topAnchored`,
-`scrollable`, `contentContainerStyle`, `sheetStyle`, `children`) so both swap their import
+once `topAnchored` is dropped (`visible`, `onClose`, `isDark`, `title`, `headerLeft`,
+`headerRight`, `scrollable`, `contentContainerStyle`, `sheetStyle`, `children`) so both
+swap their import
 with no other changes. `BottomSheet.tsx` itself is **not** deleted in this pass —
 `QuickCreateSheet.tsx`, `LogDoseSheet.tsx`, and `MedicationTimerSheet.tsx` still depend on
 it, and migrating those is out of scope here (they belong to future sub-projects, same as
@@ -84,23 +94,30 @@ React's controlled-value-vs-native-buffer race that caused the corruption. Wire 
 `@expo/ui`'s intended usage — plain `value`/`onChangeText` controlled-component wiring
 works too but reintroduces the same class of re-render race this phase exists to remove.
 
-### Phase 3 — Native `Menu` quick actions on timeline blocks
+### Phase 3 — Native `Menu` quick actions on the Preview sheet
 
-Add a small `•••` affordance to `TimelineEntryCard` (in `CalendarScreen.tsx`) that opens
-`@expo/ui`'s `Menu` (tap-triggered dropdown — not `ContextMenu`, which owns long-press
-natively and can't be cleanly sequenced with the existing Pan gesture) with actions: Edit,
-Complete, Delete. `Menu`'s `label` accepts arbitrary RN content via a slot, so the `•••`
-glyph stays whatever icon component the timeline already uses; the dropdown *items* are
-native `Button`s. No gesture conflict: `Menu` triggers on tap, entirely orthogonal to the
-existing long-press-drag-to-reschedule `Gesture.Pan`.
+Correction from the original plan discussion: the actual on-canvas timeline block
+(`TimelineMarker.tsx`, not `TimelineEntryCard` — that component only renders in the
+separate "Flexible" unscheduled-items list, where its drag-reschedule branch is
+unreachable dead code since `baseMinutes` is always null there) has tap → preview,
+long-press (420ms) → edit. There is no drag-to-reschedule on canvas blocks at all, so the
+`ContextMenu`-vs-Pan-gesture conflict this phase was originally designed around doesn't
+exist. Blocks are also compact 26px icon discs with no room for a persistent `•••`
+affordance without adding clutter on busy days.
 
-This is additive — the long-press-drag reschedule gesture is untouched. Edit was
-previously only reachable via the Preview sheet's Edit button; it stays reachable there
-too. Complete/Delete call the same `db/database.ts` functions
-`ItemComposerProvider.complete()`/`remove()` already wrap (`updateItemStatus(id,
-'completed')`, `deleteItem(id)`) directly on `entry.item.id` — no need to route through
-the composer's draft state for a one-tap action, and no new persistence logic. Duplicate
-is deliberately excluded: it would need new "copy an item" persistence logic that doesn't
+Given that, quick actions land on `TimelinePreviewSheet.tsx`'s header instead of the
+canvas: its current single Edit button (`headerRight`, a `TouchableOpacity` with a Pencil
+icon) becomes `@expo/ui`'s `Menu`, using `label="Edit"` + `systemImage="pencil"` +
+`onPrimaryAction={onEdit}` so a plain tap keeps today's exact behavior (opens Edit,
+zero regression), while a long-press reveals Complete/Delete as native `Button` children
+— the same "tap does the obvious thing, long-press reveals more" pattern iOS Mail uses
+for its reply button. No canvas changes at all in this phase.
+
+Complete already has a home: `CalendarScreen.handleComplete(entry)`. Delete gets a new
+`onDelete` prop on `TimelinePreviewSheet`, wired in `CalendarScreen.tsx` to the existing
+`handleDelete(entry, onDeleted?)` (already used by the Flexible list, already shows a
+native `Alert.alert` confirmation) — no new persistence logic anywhere. Duplicate is
+deliberately excluded: it would need new "copy an item" persistence logic that doesn't
 exist anywhere in the app today, which is a feature addition, not a native-chrome
 conversion — out of scope for this pass.
 
@@ -110,19 +127,18 @@ conversion — out of scope for this pass.
   no knowledge of what it's presenting. Same contract as today's `BottomSheet`.
 - `CaptureSheet` / `TimelinePreviewSheet` keep owning their draft/content state exactly as
   today (`ItemComposerProvider` is untouched) — they just render inside a different shell.
-- The new `•••` `Menu` on `TimelineEntryCard` reuses `onOpenEdit` for Edit, and gets two
-  new callback props threaded down the same way `onReschedule` is today — `onComplete` and
-  `onDelete` — both implemented in `CalendarScreen` as direct `db/database.ts` calls
-  (`updateItemStatus`/`deleteItem`) followed by `refreshAll()`, not routed through
-  `ItemComposerProvider`. No new global state.
+- `TimelinePreviewSheet`'s new `Menu` reuses the `onEdit`/`onComplete` props it already
+  has, plus one new `onDelete` prop. `CalendarScreen` wires `onDelete` to its existing
+  `handleDelete(entry, onDeleted)`, passing `() => setPreview(null)` as `onDeleted` (same
+  shape `onComplete` already uses today). No new global state, no new persistence path.
 
 ## Error handling
 
 No new failure modes introduced beyond what native `@expo/ui` components already handle
 (they're native UIKit/SwiftUI controls — no JS-side gesture arbitration to get wrong).
-Delete via the new Menu reuses the existing confirmation pattern already used in
-`ItemEditorSheet.requestDelete` (`Alert.alert` with a destructive action) rather than
-inventing a new one.
+Delete via the new Menu calls `CalendarScreen.handleDelete`, which already shows a native
+`Alert.alert` destructive-action confirmation before doing anything — no new confirmation
+UI to build.
 
 ## Testing / verification
 
@@ -136,9 +152,9 @@ per phase:
 2. Phase 2: type quickly into title/notes immediately after the sheet's entrance
    animation (the original repro conditions) — confirm no corruption, confirm
    autocorrect/selection behave like native Notes/Messages.
-3. Phase 3: long-press-drag still reschedules with no interference from the new `•••`
-   tap target; Menu actions (Edit/Complete/Delete) each produce the expected result;
-   Delete confirms via Alert before removing.
+3. Phase 3: tapping the Preview sheet's Edit trigger still opens Edit exactly as before;
+   long-pressing it reveals Complete/Delete; Delete confirms via `Alert.alert` before
+   removing and closes the Preview sheet afterward.
 
 `npx tsc --noEmit` must stay clean throughout — this codebase's usual level of
 verification for changes that need a device to fully confirm.
