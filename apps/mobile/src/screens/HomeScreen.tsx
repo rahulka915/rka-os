@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { ScrollView, View, Alert } from 'react-native';
+import { View, Alert, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
+import { ScrollViewContainer } from 'react-native-reorderable-list';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { YStack } from 'tamagui';
 import { AppHeader } from '../components/AppHeader';
@@ -10,22 +12,26 @@ import { NextUpCard } from '../components/home/NextUpCard';
 import { useHomeData, completeAllInTimeBlock } from '../hooks/useDb';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { usePersistentTimerState } from '../hooks/usePersistentTimerState';
-import { getThemeColors } from '../theme';
-import { updateItemStatus, deleteItem } from '../db/database';
+import { getThemeColors, getUsableContentHeight } from '../theme';
+import { updateItemStatus, deleteItem, getBlockingTask } from '../db/database';
 import { getRoninStatus } from '../utils/roninMood';
 import { getTimeOfDay } from '../domain/ronin/roninScenes';
 import { getRoninGreetingWord } from '../domain/ronin/roninGreeting';
 import { findNextUpItem } from '../utils/nextUpItem';
+import { NATURAL_ROW_HEIGHT, MIN_ROW_HEIGHT, MAX_ROW_HEIGHT, TIMELINE_ROW_COUNT } from '../components/TimelineSection';
+import { useItemComposer } from '../components/item-composer';
 
 interface HomeScreenProps {
   onInboxPress: () => void;
   inboxOpen: boolean;
   onHeroPress: () => void;
+  onSettingsPress: () => void;
 }
 
-export function HomeScreen({ onInboxPress, inboxOpen, onHeroPress }: HomeScreenProps) {
+export function HomeScreen({ onInboxPress, inboxOpen, onHeroPress, onSettingsPress }: HomeScreenProps) {
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
+  const { openEditorForItem, revision: composerRevision } = useItemComposer();
   const { inboxCount, todayItems, anytime, morningItems, afternoonItems, eveningItems, refresh } = useHomeData();
 
   // useHomeData only fetches on mount — Inbox lives in a sibling modal (App.tsx), not a child
@@ -35,6 +41,10 @@ export function HomeScreen({ onInboxPress, inboxOpen, onHeroPress }: HomeScreenP
   useEffect(() => {
     if (!inboxOpen) refresh();
   }, [inboxOpen, refresh]);
+
+  useEffect(() => {
+    refresh();
+  }, [composerRevision, refresh]);
 
   const { timers } = usePersistentTimerState();
   const [completedJustNow, setCompletedJustNow] = useState(false);
@@ -61,14 +71,58 @@ export function HomeScreen({ onInboxPress, inboxOpen, onHeroPress }: HomeScreenP
   const activeTimerItemIds = timers.map((t) => t.med.id);
   const nextUp = findNextUpItem(todayItems, activeTimerItemIds, hour);
 
+  // Fit the whole page (hero, cards, collapsed timeline) into the space
+  // between the header and the floating tab tray on any device — growing
+  // the timeline's 4 rows (and their icons) to use leftover space when the
+  // natural layout is shorter than the screen, or shrinking them when it
+  // overflows. The hero card's height isn't computable up front (its
+  // content — greeting text, mood glow — varies), so this measures the ONE
+  // natural render once and distributes the difference across the 4 rows.
+  // Only the first onLayout call is used (measuredHeight stays fixed after
+  // that) so this settles in a single adjustment rather than oscillating
+  // as the rows themselves change size.
+  const insets = useSafeAreaInsets();
+  const { height: screenHeight } = useWindowDimensions();
+  const usableHeight = getUsableContentHeight(screenHeight, insets.top, insets.bottom);
+  const [measuredContentHeight, setMeasuredContentHeight] = useState<number | null>(null);
+  const onContentLayout = (e: LayoutChangeEvent) => {
+    // Read the height synchronously — RN reuses/nullifies the synthetic
+    // event after this handler returns, so it can't be read lazily inside
+    // the setState updater callback below (that ran fine on the JS thread
+    // during development but throws "Cannot read property 'layout' of
+    // null" once the event has actually been released by the time React
+    // invokes the updater).
+    const height = e.nativeEvent.layout.height;
+    setMeasuredContentHeight((prev) => (prev === null ? height : prev));
+  };
+
+  let rowHeight: number | undefined;
+  if (measuredContentHeight !== null) {
+    // Positive = spare room to grow into, negative = overflow to shrink out of.
+    const diff = usableHeight - measuredContentHeight;
+    if (Math.abs(diff) > 1) {
+      rowHeight = Math.min(
+        MAX_ROW_HEIGHT,
+        Math.max(MIN_ROW_HEIGHT, NATURAL_ROW_HEIGHT + diff / TIMELINE_ROW_COUNT)
+      );
+    }
+  }
+
   return (
     <YStack flex={1} backgroundColor="$bg">
-      <AppHeader />
+      <AppHeader
+        onProfilePress={onHeroPress}
+        onSettingsPress={onSettingsPress}
+      />
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
+      <ScrollViewContainer showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 16 }}>
+        <View onLayout={onContentLayout}>
 
-        {/* Ronin hero — greeting + mood, tappable through to Profile for now */}
-        <View style={{ marginHorizontal: 12, marginTop: 8, borderRadius: 16, overflow: 'hidden' }}>
+        {/* Ronin hero — greeting + mood, tappable through to Profile for now.
+            No borderRadius/overflow here — RiverStoneSurface (inside
+            RoninGreetingCard) owns its own shape and needs its outer shadow
+            to render past the card bounds, not get clipped by this wrapper. */}
+        <View style={{ marginHorizontal: 12, marginTop: 8 }}>
           <RoninHero
             mood={roninMood}
             timeOfDay={timeOfDay}
@@ -77,6 +131,8 @@ export function HomeScreen({ onInboxPress, inboxOpen, onHeroPress }: HomeScreenP
             statusLine={statusLine}
             completedCount={completedToday}
             totalCount={todayItems.length}
+            inboxCount={inboxCount}
+            focusActive={timers.length > 0}
             onPress={onHeroPress}
           />
         </View>
@@ -89,7 +145,15 @@ export function HomeScreen({ onInboxPress, inboxOpen, onHeroPress }: HomeScreenP
               isDark={isDark}
               timeOfDay={timeOfDay}
               onAction={(result) => {
-                console.log('Next Up action for:', result.id, result.actionLabel);
+                const item = todayItems.find((candidate) => candidate.id === result.id);
+                if (!item) return;
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                openEditorForItem({
+                  item,
+                  onComplete: ({ action }) => {
+                    if (action !== 'cancelled') refresh();
+                  },
+                });
               }}
             />
           </View>
@@ -103,18 +167,30 @@ export function HomeScreen({ onInboxPress, inboxOpen, onHeroPress }: HomeScreenP
         </View>
 
         {/* Today timeline */}
-        <YStack marginTop="$5">
+        <YStack marginTop="$2">
           <TimelineSection
             todayItems={todayItems}
             anytime={anytime}
             morning={morningItems}
             afternoon={afternoonItems}
             evening={eveningItems}
-            onItemTap={(item) => {
-              console.log('Navigate to item:', item.id);
-            }}
+            rowHeight={rowHeight}
+            onItemTap={(item) => openEditorForItem({
+              item,
+              onComplete: ({ action }) => {
+                if (action !== 'cancelled') refresh();
+              },
+            })}
             onItemComplete={(id) => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              const blocker = getBlockingTask(id);
+              if (blocker) {
+                Alert.alert('Blocked', `Complete "${blocker.title}" first.`, [{ text: 'OK' }]);
+                return;
+              }
+              updateItemStatus(id, 'completed');
+              refresh();
+            }}
+            onItemActivate={(id) => {
               updateItemStatus(id, 'active');
               refresh();
             }}
@@ -128,6 +204,7 @@ export function HomeScreen({ onInboxPress, inboxOpen, onHeroPress }: HomeScreenP
               deleteItem(id);
               refresh();
             }}
+            onDependencyChanged={refresh}
             onTimeBlockAction={(block, action) => {
               if (action === 'completeAll') {
                 const blockName = block.charAt(0).toUpperCase() + block.slice(1);
@@ -160,8 +237,8 @@ export function HomeScreen({ onInboxPress, inboxOpen, onHeroPress }: HomeScreenP
           />
         </YStack>
 
-      </ScrollView>
+        </View>
+      </ScrollViewContainer>
     </YStack>
   );
 }
-
