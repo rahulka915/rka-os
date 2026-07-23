@@ -16,6 +16,7 @@ import type { Item } from '../db/types';
 import { useItemComposer } from '../components/item-composer';
 import { BlockedBadge } from '../components/BlockedBadge';
 import { DeadlineBadge } from '../components/DeadlineBadge';
+import { RepeatBadge } from '../components/RepeatBadge';
 import { DependencyConnector } from '../components/DependencyConnector';
 import { promptSetDependency } from '../utils/dependencyPrompt';
 import { useHapticReorder } from '../hooks/useHapticReorder';
@@ -171,6 +172,7 @@ export function ProjectDetailScreen() {
               </Text>
               {blocker && <BlockedBadge isDark={isDark} title={blocker.title} />}
               {item.dueDate && <DeadlineBadge isDark={isDark} dueDate={item.dueDate} />}
+              {item.rrule && <RepeatBadge isDark={isDark} rrule={item.rrule} />}
               {checklistLabel(item) && (
                 <Text style={[styles.rowTitle, { color: palette.textTertiary, fontSize: 12 }]}>{checklistLabel(item)}</Text>
               )}
