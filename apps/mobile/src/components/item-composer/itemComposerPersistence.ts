@@ -52,6 +52,7 @@ export function createDraft(context: ItemComposerContext = {}): ItemDraft {
     scheduledDate: context.scheduledDate,
     scheduledTime: context.scheduledTime ? normalizeTimeInput(context.scheduledTime) ?? context.scheduledTime : undefined,
     dueDate: undefined,
+    rrule: undefined,
     projectId: context.projectId,
     projectTitle: context.projectTitle,
     tags: [],
@@ -78,6 +79,7 @@ export function createEditDraft(item: Item, context: ItemComposerContext = {}): 
     scheduledDate: context.scheduledDate ?? item.scheduledDate,
     scheduledTime: context.scheduledTime ? normalizeTimeInput(context.scheduledTime) ?? context.scheduledTime : time,
     dueDate: item.dueDate ?? undefined,
+    rrule: item.rrule ?? undefined,
     projectId,
     projectTitle,
     tags: metadataTags(metadata),
@@ -137,13 +139,13 @@ export function saveItemDraft(draft: ItemDraft): string {
       ? createTimedItem(draft.itemType, title, draft.scheduledDate!, draft.scheduledTime!, notes || undefined).itemId
       : createItem(draft.itemType, title, draft.status === 'scheduled' ? 'active' : draft.status, undefined, notes || undefined);
   } else if (itemId) {
-    updateItem(itemId, { type: draft.itemType, title, notes, dueDate: draft.dueDate ?? null });
+    updateItem(itemId, { type: draft.itemType, title, notes, dueDate: draft.dueDate ?? null, rrule: draft.rrule ?? null });
     updateTimelineItemSchedule(itemId, draft.scheduledDate, draft.scheduledTime);
     if (!isScheduled) updateItem(itemId, { status: draft.status === 'scheduled' ? 'active' : draft.status });
   }
 
-  if (draft.mode === 'create' && itemId && draft.dueDate) {
-    updateItem(itemId, { dueDate: draft.dueDate });
+  if (draft.mode === 'create' && itemId && (draft.dueDate || draft.rrule)) {
+    updateItem(itemId, { dueDate: draft.dueDate, rrule: draft.rrule });
   }
 
   if (!itemId) throw new Error('Unable to save this task.');

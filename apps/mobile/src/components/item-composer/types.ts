@@ -23,6 +23,7 @@ export type ItemDraft = {
   scheduledDate?: string;
   scheduledTime?: string;
   dueDate?: string;
+  rrule?: string;
   projectId?: string;
   projectTitle?: string;
   tags: string[];

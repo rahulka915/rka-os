@@ -60,6 +60,14 @@ const PRIORITIES: Array<{ value: ItemPriority; label: string; tone: 'quiet' | 'w
 const DURATION_OPTIONS = [15, 30, 45, 60, 90] as const;
 const TIME_BUCKETS: TimeOfDay[] = ['anytime', 'morning', 'afternoon', 'evening'];
 
+const REPEAT_OPTIONS: Array<{ value: string | undefined; label: string }> = [
+  { value: undefined, label: 'Never' },
+  { value: 'FREQ=DAILY', label: 'Daily' },
+  { value: 'FREQ=WEEKDAYS', label: 'Weekdays' },
+  { value: 'FREQ=WEEKEND', label: 'Weekends' },
+  { value: 'FREQ=WEEKLY', label: 'Weekly' },
+];
+
 export function ItemEditorSheet({
   visible,
   draft,
@@ -451,6 +459,29 @@ export function ItemEditorSheet({
                       <Text style={[styles.choiceText, { color: palette.textSecondary }]}>Clear</Text>
                     </TouchableOpacity>
                   )}
+                </View>
+              </View>
+
+              <View style={styles.section}>
+                <Text style={[styles.sectionTitle, { color: material.platinumMuted }]}>REPEAT</Text>
+                <View style={styles.choiceRow}>
+                  {REPEAT_OPTIONS.map((option) => {
+                    const selected = (draft.rrule ?? undefined) === option.value;
+                    return (
+                      <TouchableOpacity
+                        key={option.label}
+                        style={[
+                          styles.bucketChip,
+                          { backgroundColor: selected ? material.accentSoft : material.fill, borderColor: selected ? material.rimStrong : material.rim },
+                        ]}
+                        onPress={() => onChange({ rrule: option.value })}
+                      >
+                        <Text style={[styles.choiceText, { color: selected ? material.accent : palette.textSecondary }]}>
+                          {option.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
               </View>
 
