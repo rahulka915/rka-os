@@ -1,10 +1,18 @@
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useState } from 'react';
+import { Image, StyleSheet, Text, TouchableOpacity, View, type LayoutChangeEvent } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 import type { RoninMood, RoninTimeOfDay } from '../../domain/ronin/types';
 import { getRoninMoodConfig } from '../../domain/ronin/moodConfig';
-import { TimeOfDayMotif } from '../icons/TimeOfDayMotif';
-import { KatanaProgressBar } from './KatanaProgressBar';
+import { KatanaProgress } from '../ui/KatanaProgress';
+import { RiverStoneSurface } from '../riverstone';
+import { useThemeContext } from '../../hooks/useThemeContext';
+import { FEATURE_FLAGS } from '../../config/featureFlags';
+import {
+  HeroEnvironment,
+  type HeroFocusState,
+  type HeroInboxState,
+} from '../hero/environment';
 
 interface RoninGreetingCardProps {
   mood: RoninMood;
@@ -14,27 +22,71 @@ interface RoninGreetingCardProps {
   timeOfDay: RoninTimeOfDay;
   completedCount: number;
   totalCount: number;
+  inboxCount: number;
+  focusActive: boolean;
   onPress?: () => void;
 }
 
-// Two independent color axes, on purpose:
-// - Base gradient is driven by time-of-day (TIME_OF_DAY_TINT), matching the
-//   scene art / greeting already keyed off the same RoninTimeOfDay value —
-//   subtle, on-brand, doesn't swing wildly like a full mood-hue swap did in
-//   an earlier pass.
-// - Mood only shows up as a small accent (corner glow, status dot, hanko
-//   tint, progress-bar fill) via moodConfig.accentColor, layered on top.
+// The hero landscape follows the existing RoninTimeOfDay value. Mood remains
+// a smaller accent axis: corner glow, status dot, hanko tint and progress fill.
 //
 // The chibi Ronin+cat illustration (getRoninAsset, 'base' outfit) was tried
 // bleeding off the bottom-right corner in an earlier pass, but the current
 // PNG cutouts have rough/dirty transparency edges — pulled until cleaner
 // cutouts exist. Those PNGs are untouched on disk since RoninCharacter.tsx's
 // static fallback and the Profile dev bench still use them.
-const TIME_OF_DAY_TINT: Record<RoninTimeOfDay, [string, string]> = {
-  morning: ['#40311f', '#1c150e'],
-  day: ['#1e56a0', '#4fa8f5'],
-  night: ['#1c1c32', '#0f0f1a'],
+const HERO_LANDSCAPES: Record<RoninTimeOfDay, number> = {
+  morning: require('../../../assets/hero-card/morning-landscape.png'),
+  day: require('../../../assets/hero-card/afternoon-landscape.png'),
+  night: require('../../../assets/hero-card/night-landscape.png'),
 };
+
+function getHeroInboxState(inboxCount: number): HeroInboxState {
+  if (inboxCount === 0) return 'empty';
+  return inboxCount < 5 ? 'partial' : 'full';
+}
+
+function RegisteredHeroBackground({
+  timeOfDay,
+  inboxState,
+  focusState,
+}: {
+  timeOfDay: RoninTimeOfDay;
+  inboxState: HeroInboxState;
+  focusState: HeroFocusState;
+}) {
+  const [viewport, setViewport] = useState({ width: 0, height: 0 });
+  const onLayout = (event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    setViewport((current) => current.width === width && current.height === height
+      ? current
+      : { width, height });
+  };
+
+  return (
+    <View pointerEvents="none" onLayout={onLayout} style={StyleSheet.absoluteFill}>
+      <Image
+        source={HERO_LANDSCAPES[timeOfDay]}
+        resizeMode="cover"
+        style={styles.landscape}
+      />
+      {viewport.width > 0 && viewport.height > 0 ? (
+        <HeroEnvironment
+          timeOfDay={timeOfDay}
+          weather="clear"
+          inboxState={inboxState}
+          focusState={focusState}
+          parallaxEnabled
+          accessible={false}
+          viewportWidth={viewport.width}
+          viewportHeight={viewport.height}
+          style={StyleSheet.absoluteFill}
+          testID="home-hero-environment"
+        />
+      ) : null}
+    </View>
+  );
+}
 
 function hexToRgba(hex: string, alpha: number): string {
   const n = parseInt(hex.slice(1), 16);
@@ -52,11 +104,16 @@ export function RoninGreetingCard({
   timeOfDay,
   completedCount,
   totalCount,
+  inboxCount,
+  focusActive,
   onPress,
 }: RoninGreetingCardProps) {
+  const { isDark } = useThemeContext();
   const moodConfig = getRoninMoodConfig(mood);
   const progressRatio = totalCount > 0 ? completedCount / totalCount : 0;
   const progressLabel = totalCount > 0 ? `${completedCount} of ${totalCount} done` : 'Nothing scheduled today';
+  const inboxState = getHeroInboxState(inboxCount);
+  const focusState: HeroFocusState = focusActive ? 'active' : 'idle';
 
   return (
     <TouchableOpacity
@@ -65,69 +122,101 @@ export function RoninGreetingCard({
       accessibilityRole={onPress ? 'button' : undefined}
       accessibilityLabel={moodConfig.accessibilityLabel}
     >
-      <LinearGradient
-        colors={TIME_OF_DAY_TINT[timeOfDay]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        locations={[0.15, 1]}
-        style={styles.card}
+      {/* The landscape renders below River Stone's lighting layers so the
+          supplied art becomes part of the material instead of a flat overlay. */}
+      <RiverStoneSurface
+        variant="hero"
+        mode={isDark ? 'dark' : 'light'}
+        background={
+          <>
+            {FEATURE_FLAGS.heroEnvironment ? (
+              <RegisteredHeroBackground
+                timeOfDay={timeOfDay}
+                inboxState={inboxState}
+                focusState={focusState}
+              />
+            ) : (
+              <Image
+                source={HERO_LANDSCAPES[timeOfDay]}
+                resizeMode="cover"
+                style={styles.landscape}
+              />
+            )}
+            <LinearGradient
+              colors={['rgba(8,9,16,0.92)', 'rgba(8,9,16,0.58)', 'rgba(8,9,16,0.10)']}
+              start={{ x: 0, y: 0.5 }}
+              end={{ x: 1, y: 0.5 }}
+              locations={[0, 0.55, 1]}
+              style={StyleSheet.absoluteFill}
+            />
+            <LinearGradient
+              colors={['rgba(8,9,16,0.04)', 'rgba(8,9,16,0.72)']}
+              start={{ x: 0.5, y: 0 }}
+              end={{ x: 0.5, y: 1 }}
+              locations={[0.35, 1]}
+              style={StyleSheet.absoluteFill}
+            />
+          </>
+        }
       >
-        <Svg width={180} height={180} style={styles.glow}>
-          <Defs>
-            <RadialGradient id="moodGlow" cx="50%" cy="50%" r="50%">
-              <Stop offset="0" stopColor={moodConfig.accentColor} stopOpacity={0.24} />
-              <Stop offset="1" stopColor={moodConfig.accentColor} stopOpacity={0} />
-            </RadialGradient>
-          </Defs>
-          <Circle cx={90} cy={90} r={90} fill="url(#moodGlow)" />
-        </Svg>
+        <View style={styles.content}>
+          <Svg width={180} height={180} style={styles.glow}>
+            <Defs>
+              <RadialGradient id="moodGlow" cx="50%" cy="50%" r="50%">
+                <Stop offset="0" stopColor={moodConfig.accentColor} stopOpacity={0.24} />
+                <Stop offset="1" stopColor={moodConfig.accentColor} stopOpacity={0} />
+              </RadialGradient>
+            </Defs>
+            <Circle cx={90} cy={90} r={90} fill="url(#moodGlow)" />
+          </Svg>
 
-        <TimeOfDayMotif timeOfDay={timeOfDay} style={styles.motif} />
-
-        <View style={[styles.hanko, { backgroundColor: hexToRgba(moodConfig.accentColor, 0.55) }]}>
-          <Text style={styles.hankoText}>武</Text>
-        </View>
-
-        <View style={styles.greetingBlock}>
-          <Text style={styles.greetingTitle}>
-            <Text style={styles.greetingJapanese}>{greetingWord}、</Text>
-            <Text style={styles.greetingName}>{name}</Text>
-          </Text>
-
-          <View style={styles.statusRow}>
-            <View style={[styles.moodDot, { backgroundColor: moodConfig.accentColor }]} />
-            <Text style={styles.statusText} numberOfLines={2}>
-              {statusLine}
-            </Text>
+          <View style={[styles.hanko, { backgroundColor: hexToRgba(moodConfig.accentColor, 0.55) }]}>
+            <Text style={styles.hankoText}>武</Text>
           </View>
-        </View>
 
-        <View style={styles.progressRow}>
-          <Text style={styles.progressLabel}>Today</Text>
-          <Text style={styles.progressCount}>{progressLabel}</Text>
+          <View style={styles.greetingBlock}>
+            <Text style={styles.greetingTitle}>
+              <Text style={styles.greetingJapanese}>{greetingWord}、</Text>
+              <Text style={styles.greetingName}>{name}</Text>
+            </Text>
+
+            <View style={styles.statusRow}>
+              <View style={[styles.moodDot, { backgroundColor: moodConfig.accentColor }]} />
+              <Text style={styles.statusText} numberOfLines={2}>
+                {statusLine}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.progressRow}>
+            <Text style={styles.progressLabel}>Today</Text>
+            <Text style={styles.progressCount}>{progressLabel}</Text>
+          </View>
+          <KatanaProgress
+            progress={progressRatio}
+            size="hero"
+            accessibilityLabel="Today's completion"
+          />
         </View>
-        <KatanaProgressBar progress={progressRatio} />
-      </LinearGradient>
+      </RiverStoneSurface>
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
+  landscape: {
+    ...StyleSheet.absoluteFill,
     width: '100%',
-    borderRadius: 16,
+    height: '100%',
+  },
+  content: {
+    width: '100%',
     padding: 16,
-    overflow: 'hidden',
   },
   glow: {
     position: 'absolute',
     right: -60,
     top: -60,
-  },
-  motif: {
-    position: 'absolute',
-    right: -14,
-    top: -8,
   },
   hanko: {
     position: 'absolute',

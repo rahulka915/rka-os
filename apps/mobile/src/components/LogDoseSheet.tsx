@@ -4,7 +4,8 @@ import * as Haptics from 'expo-haptics';
 import { YStack, XStack, Text, Input, View } from 'tamagui';
 import { getMedicationLogs, deleteMedicationLog, editMedicationLog, resumeMedicationTimer, getPersistentMedicationTimers, pauseMedicationTimer, stopMedicationTimer, resetMedicationTimer } from '../db/database';
 import type { ActivityLog } from '../db/types';
-import { X, Clock, Calendar, Trash2, Pencil, Check, PlayCircle, StopCircle, Pill, Pause, TimerReset } from '../icons';
+import { X, Clock, Calendar, Trash2, Pencil, Check, PlayCircle, StopCircle, Pause, TimerReset } from '../icons';
+import { MedicationBottleIcon } from './icons/MedicationBottleIcon';
 import { BottomSheet } from './ui/BottomSheet';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
@@ -251,7 +252,7 @@ export function LogDoseSheet({ visible, medicationName, medicationId, onClose, o
             >
               <XStack alignItems="center" gap="$3">
                 <View width={36} height={36} borderRadius="$6" backgroundColor="$blueSoft" alignItems="center" justifyContent="center">
-                  <Pill size={16} color={palette.blue} strokeWidth={1.8} />
+                  <MedicationBottleIcon size={20} />
                 </View>
                 <YStack flex={1} gap={2}>
                   <Text fontSize="$3" fontWeight="700" color="$text">

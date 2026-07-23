@@ -22,6 +22,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getThemeColors, radius, spacing, fontSize, shadows } from '../../theme';
+import { useOverlayHost } from '../../hooks/useOverlayHost';
 import { DragHandle } from './DragHandle';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -46,6 +47,8 @@ type BottomSheetProps = {
 export function BottomSheet(props: BottomSheetProps) {
   const [isRendered, setIsRendered] = useState(false);
   const openId = useRef(0);
+  const overlayId = useRef(`bottom-sheet-${Math.random().toString(36).slice(2)}`).current;
+  const { setOverlay } = useOverlayHost();
 
   useEffect(() => {
     if (props.visible) {
@@ -54,11 +57,23 @@ export function BottomSheet(props: BottomSheetProps) {
     }
   }, [props.visible]);
 
-  if (!isRendered) return null;
+  // Register with the overlay host instead of returning JSX directly — the host renders
+  // as a sibling after the whole tab navigator (see App.tsx), the same position
+  // InboxScreenV2/CaptureSheet use, so this always paints above the floating tab bar
+  // even when opened from inside a Tab.Screen.
+  useEffect(() => {
+    if (!isRendered) {
+      setOverlay(overlayId, null);
+      return;
+    }
+    // Keyed on openId so a fast dismiss->reopen always mounts a fresh KeyboardAvoidingView
+    // instead of reusing one whose native keyboard-frame tracking went stale mid-transition.
+    setOverlay(overlayId, <SheetContainer key={openId.current} {...props} onUnmount={() => setIsRendered(false)} />);
+  });
 
-  // Keyed on openId so a fast dismiss->reopen always mounts a fresh KeyboardAvoidingView
-  // instead of reusing one whose native keyboard-frame tracking went stale mid-transition.
-  return <SheetContainer key={openId.current} {...props} onUnmount={() => setIsRendered(false)} />;
+  useEffect(() => () => setOverlay(overlayId, null), [overlayId, setOverlay]);
+
+  return null;
 }
 
 function SheetContainer({

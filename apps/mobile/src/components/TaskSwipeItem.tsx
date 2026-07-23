@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -8,6 +8,7 @@ import Animated, {
   withDelay,
   runOnJS,
   interpolate,
+  interpolateColor,
   Extrapolate,
 } from 'react-native-reanimated';
 import {
@@ -15,7 +16,12 @@ import {
   Gesture,
 } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
-import { Check } from '../icons';
+import { Check, Archive } from '../icons';
+import {
+  LacquerDiscControl,
+  LACQUER_DISC_COMPLETION_DURATION,
+} from './ui/LacquerDiscControl';
+import { BlockedBadge } from './BlockedBadge';
 import { getThemeColors } from '../theme';
 import type { Item } from '../db/types';
 
@@ -24,11 +30,21 @@ interface TaskSwipeItemProps {
   isDark: boolean;
   index: number;
   onComplete: (id: string) => void;
+  onPress?: (item: Item) => void;
   onArchive?: (id: string) => void;
   onLongPress?: (id: string) => void;
   selectionMode?: boolean;
   selected?: boolean;
   onToggleSelect?: (id: string) => void;
+  // When set, this task is waiting on `blockedByTitle` — the tick/swipe
+  // animations skip straight to calling onComplete (still, immediately, no
+  // animation) so the parent's own blocked-check can show why, without a
+  // completion animation playing for something that didn't actually complete.
+  blockedByTitle?: string;
+  // Suppresses the text badge only (enforcement/dimming still applies) — set
+  // when a DependencyConnector is already rendered above this row, so the
+  // blocker is visually obvious without a redundant "Blocked by X" label.
+  hideBlockedBadge?: boolean;
 }
 
 // Spring config
@@ -54,13 +70,18 @@ export function TaskSwipeItem({
   isDark,
   index,
   onComplete,
+  onPress,
   onArchive,
   onLongPress,
   selectionMode = false,
   selected = false,
   onToggleSelect,
+  blockedByTitle,
+  hideBlockedBadge = false,
 }: TaskSwipeItemProps) {
   const palette = getThemeColors(isDark);
+  const [discCompleted, setDiscCompleted] = useState(false);
+  const blocked = !!blockedByTitle;
 
   // Animations
   const translateX = useSharedValue(0);
@@ -87,19 +108,32 @@ export function TaskSwipeItem({
     );
   }, [index]);
 
-  // Gesture handling
+  // Gesture handling — left swipe completes (existing), right swipe archives
+  // (onArchive was previously accepted but never wired to any gesture, so a
+  // single item could only be archived by long-pressing into multi-select
+  // mode first; this makes it a direct one-gesture action like Complete).
   const panGesture = Gesture.Pan()
     .enabled(!selectionMode)
     .onUpdate((event) => {
-      if (event.translationX < 0) {
+      if (event.translationX < 0 || onArchive) {
         translateX.value = event.translationX;
       }
     })
     .onEnd((event) => {
-      const shouldComplete =
+      const pastCompleteThreshold =
         event.translationX < -SWIPE_THRESHOLD || event.velocityX < -500;
+      const shouldComplete = pastCompleteThreshold && !blocked;
+      const shouldArchive =
+        !!onArchive && (event.translationX > SWIPE_THRESHOLD || event.velocityX > 500);
 
-      if (shouldComplete) {
+      if (pastCompleteThreshold && blocked) {
+        // Don't play the collapse animation for a completion that isn't
+        // actually going to happen — spring back and let the parent's own
+        // blocked-check (same as the disc tap) explain why.
+        translateX.value = withSpring(0, SPRING_CONFIG);
+        runOnJS(Haptics.notificationAsync)(Haptics.NotificationFeedbackType.Warning);
+        runOnJS(onComplete)(item.id);
+      } else if (shouldComplete) {
         translateX.value = withTiming(-300, { duration: 180 });
         if (itemHeight.value !== null) {
           itemHeight.value = withTiming(0, { duration: 200 });
@@ -108,6 +142,20 @@ export function TaskSwipeItem({
 
         runOnJS(setTimeout)(() => {
           runOnJS(onComplete)(item.id);
+        }, 180);
+
+        runOnJS(Haptics.notificationAsync)(
+          Haptics.NotificationFeedbackType.Success
+        );
+      } else if (shouldArchive) {
+        translateX.value = withTiming(300, { duration: 180 });
+        if (itemHeight.value !== null) {
+          itemHeight.value = withTiming(0, { duration: 200 });
+        }
+        itemOpacity.value = withTiming(0, { duration: 150 });
+
+        runOnJS(setTimeout)(() => {
+          runOnJS(onArchive!)(item.id);
         }, 180);
 
         runOnJS(Haptics.notificationAsync)(
@@ -131,31 +179,57 @@ export function TaskSwipeItem({
   // TouchableOpacity + RNGH conflict that wrapping this component externally would hit.
   const composedGesture = Gesture.Race(panGesture, longPressGesture);
 
-  const bgColor = interpolate(
-    translateX.value,
-    [0, -SWIPE_THRESHOLD],
-    [0, 1],
-    Extrapolate.CLAMP
-  );
-
-  const completeLabelOpacity = interpolate(
-    translateX.value,
-    [0, -SWIPE_THRESHOLD * 0.8],
-    [0, 1],
-    Extrapolate.CLAMP
-  );
+  const transparentGreen = hexToRgba(palette.green, 0);
+  const solidGreen = hexToRgba(palette.green, 1);
+  const transparentMuted = hexToRgba(palette.textTertiary, 0);
+  const solidMuted = hexToRgba(palette.textTertiary, 1);
 
   const animatedTaskStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: translateX.value }],
   }));
 
-  const animatedBgStyle = useAnimatedStyle(() => ({
-    backgroundColor: hexToRgba(palette.green, bgColor),
-    opacity: bgColor,
-  }));
+  const animatedBgStyle = useAnimatedStyle(() => {
+    const progress = interpolate(
+      translateX.value,
+      [0, -SWIPE_THRESHOLD],
+      [0, 1],
+      Extrapolate.CLAMP
+    );
+    return {
+      backgroundColor: interpolateColor(progress, [0, 1], [transparentGreen, solidGreen]),
+      opacity: progress,
+    };
+  });
 
   const animatedLabelStyle = useAnimatedStyle(() => ({
-    opacity: completeLabelOpacity,
+    opacity: interpolate(
+      translateX.value,
+      [0, -SWIPE_THRESHOLD * 0.8],
+      [0, 1],
+      Extrapolate.CLAMP
+    ),
+  }));
+
+  const animatedArchiveBgStyle = useAnimatedStyle(() => {
+    const progress = interpolate(
+      translateX.value,
+      [0, SWIPE_THRESHOLD],
+      [0, 1],
+      Extrapolate.CLAMP
+    );
+    return {
+      backgroundColor: interpolateColor(progress, [0, 1], [transparentMuted, solidMuted]),
+      opacity: progress,
+    };
+  });
+
+  const animatedArchiveLabelStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(
+      translateX.value,
+      [0, SWIPE_THRESHOLD * 0.8],
+      [0, 1],
+      Extrapolate.CLAMP
+    ),
   }));
 
   const animatedEnterStyle = useAnimatedStyle(() => ({
@@ -189,6 +263,15 @@ export function TaskSwipeItem({
             </Animated.View>
           </Animated.View>
 
+          {onArchive && (
+            <Animated.View style={[s.swipeBgArchive, animatedArchiveBgStyle]}>
+              <Animated.View style={animatedArchiveLabelStyle}>
+                <Archive size={16} color="#fff" strokeWidth={1.75} />
+                <Text style={s.swipeLabel}>Archive</Text>
+              </Animated.View>
+            </Animated.View>
+          )}
+
           {/* Task row — dark mode uses the same fillStrong/separatorStrong
               card treatment as Home/Menu/Areas so it reads as a distinct row
               against the near-black background; light mode keeps the plain
@@ -202,37 +285,54 @@ export function TaskSwipeItem({
               animatedTaskStyle,
             ]}
           >
-            <Pressable
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                if (selectionMode) {
+            {selectionMode ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Select ${item.title}`}
+                accessibilityState={{ selected }}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   onToggleSelect?.(item.id);
-                } else {
-                  onComplete(item.id);
-                }
-              }}
-              hitSlop={8}
-              style={[
-                s.checkbox,
-                selectionMode && selected
-                  ? { borderColor: palette.primary, backgroundColor: palette.primary }
-                  : { borderColor: palette.textMuted },
-              ]}
-            >
-              {selectionMode && selected ? (
-                <Check size={16} color="#fff" strokeWidth={3} />
-              ) : null}
-            </Pressable>
+                }}
+                style={s.selectionTarget}
+              >
+                <View
+                  style={[
+                    s.selectionIndicator,
+                    selected
+                      ? { borderColor: palette.primary, backgroundColor: palette.primary }
+                      : { borderColor: palette.textMuted },
+                  ]}
+                >
+                  {selected ? <Check size={16} color="#fff" strokeWidth={3} /> : null}
+                </View>
+              </Pressable>
+            ) : (
+              <LacquerDiscControl
+                isCompleted={discCompleted}
+                accessibilityLabel={blocked ? `${item.title}, blocked by ${blockedByTitle}` : `Complete ${item.title}`}
+                onToggle={() => {
+                  if (discCompleted) return;
+                  if (blocked) {
+                    onComplete(item.id);
+                    return;
+                  }
+                  setDiscCompleted(true);
+                  setTimeout(() => onComplete(item.id), LACQUER_DISC_COMPLETION_DURATION);
+                }}
+              />
+            )}
             <Pressable
               style={s.taskContent}
-              disabled={!selectionMode}
+              disabled={selectionMode ? !onToggleSelect : !onPress}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                onToggleSelect?.(item.id);
+                if (selectionMode) onToggleSelect?.(item.id);
+                else onPress?.(item);
               }}
             >
               <Text
-                style={[s.taskTitle, { color: palette.text }]}
+                style={[s.taskTitle, { color: blocked ? palette.textMuted : palette.text }]}
                 numberOfLines={1}
               >
                 {item.title}
@@ -245,6 +345,7 @@ export function TaskSwipeItem({
                   {item.notes}
                 </Text>
               )}
+              {blocked && !hideBlockedBadge && <BlockedBadge isDark={isDark} title={blockedByTitle!} />}
             </Pressable>
             {!selectionMode ? (
               <Text style={[s.chevron, { color: palette.textMuted }]}>›</Text>
@@ -275,6 +376,14 @@ const s = StyleSheet.create({
     gap: 6,
     paddingRight: 20,
   },
+  swipeBgArchive: {
+    ...StyleSheet.absoluteFill,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 6,
+    paddingLeft: 20,
+  },
   swipeLabel: {
     fontSize: 12,
     fontWeight: '600',
@@ -289,12 +398,18 @@ const s = StyleSheet.create({
     paddingVertical: 14,
     gap: 14,
   },
-  checkbox: {
+  selectionTarget: {
+    width: 44,
+    height: 44,
+    flexShrink: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  selectionIndicator: {
     width: 28,
     height: 28,
     borderRadius: 14,
     borderWidth: 2,
-    flexShrink: 0,
     alignItems: 'center',
     justifyContent: 'center',
   },

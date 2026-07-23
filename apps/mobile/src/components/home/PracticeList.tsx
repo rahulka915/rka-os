@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
-import { Pill, Dumbbell, FolderKanban, MusicNote } from '../../icons';
+import { Dumbbell, FolderKanban, MusicNote } from '../../icons';
+import { MedicationBottleIcon } from '../icons/MedicationBottleIcon';
 import type { Item } from '../../db/types';
 
 interface PracticeListProps {
@@ -32,7 +33,7 @@ export function PracticeList({ medications, workouts, isDark }: PracticeListProp
     {
       id: 'medicine',
       label: 'MEDICINE',
-      icon: <Pill size={ICON_SIZE} color="#3d9dff" strokeWidth={1.8} />,
+      icon: <MedicationBottleIcon size={ICON_SIZE} />,
       statusLine: medications.length > 0
         ? `${medications.length} tracked`
         : 'None added',

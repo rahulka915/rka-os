@@ -1,0 +1,73 @@
+{
+  "scene": {
+    "width": 1536,
+    "height": 864,
+    "horizonY": 420
+  },
+  "viewport": {
+    "referenceWidth": 390,
+    "referenceHeight": 179,
+    "sceneOffsetX": 0,
+    "sceneOffsetY": -24.375,
+    "sceneScale": 0.25390625,
+    "crop": {
+      "x": 0,
+      "y": 96,
+      "width": 1536,
+      "height": 704
+    },
+    "safeCrop": {
+      "x": 72,
+      "y": 128,
+      "width": 1392,
+      "height": 624
+    }
+  },
+  "guides": {
+    "fujiCenter": { "x": 1024, "y": 352 },
+    "verandaLeft": 0,
+    "verandaRight": 1536,
+    "verandaTop": 0,
+    "deckTop": 568,
+    "anchors": {
+      "lantern": { "x": 184, "y": 688 },
+      "bonsai": { "x": 414, "y": 644 },
+      "cushion": { "x": 720, "y": 704 },
+      "inbox": { "x": 884, "y": 720 },
+      "trainingPost": { "x": 1004, "y": 700 },
+      "scroll": { "x": 1070, "y": 720 },
+      "swordStand": { "x": 1284, "y": 704 }
+    }
+  },
+  "layers": {
+    "hero_clouds": { "group": "sky", "x": 269, "y": 20, "scale": 0.7, "opacity": 0.9, "rotation": 0, "parallax": 0.02 },
+    "hero_fuji": { "group": "distantLandscape", "x": 286, "y": -104, "scale": 0.9, "opacity": 1, "rotation": 0, "parallax": 0.01 },
+    "hero_hills": { "group": "distantLandscape", "x": 0, "y": -11, "scale": 1, "opacity": 0.92, "rotation": 0, "parallax": 0.015 },
+    "hero_far_shoreline": { "group": "distantLandscape", "x": -312, "y": -58, "scale": 1.2, "opacity": 0.96, "rotation": 0, "parallax": 0.02 },
+    "hero_lake": { "group": "waterAndShorelines", "x": 0, "y": -22, "scale": 1, "opacity": 1, "rotation": 0, "parallax": 0.025 },
+    "hero_near_shoreline": { "group": "waterAndShorelines", "x": 596, "y": 289, "scale": 0.612, "opacity": 1, "rotation": 0, "parallax": 0.05 },
+    "hero_veranda": { "group": "architecture", "x": 0, "y": 0, "scale": 1, "opacity": 1, "rotation": 0, "parallax": 0.045 },
+    "hero_floor": { "group": "architecture", "x": 0, "y": 36, "scale": 1, "opacity": 1, "rotation": 0, "parallax": 0.05 },
+    "hero_roof": { "group": "architecture", "x": 0, "y": 0, "scale": 0.775, "opacity": 1, "rotation": 0, "parallax": 0.04 },
+    "hero_pillar": { "group": "architecture", "x": -45, "y": 33, "scale": 0.667, "opacity": 1, "rotation": 0, "parallax": 0.045 },
+    "hero_steps": { "group": "architecture", "x": 0, "y": 0, "scale": 1, "opacity": 0.96, "rotation": 0, "parallax": 0.055 },
+    "hero_moss": { "group": "garden", "x": 34, "y": 458, "scale": 0.3, "opacity": 1, "rotation": 0, "parallax": 0.07 },
+    "hero_rocks": { "group": "garden", "x": 25, "y": 451, "scale": 0.304, "opacity": 1, "rotation": 0, "parallax": 0.07 },
+    "hero_lantern": { "group": "garden", "x": -51, "y": 379, "scale": 0.43, "opacity": 1, "rotation": 0, "parallax": 0.075 },
+    "hero_bonsai": { "group": "garden", "x": 132, "y": 315, "scale": 0.486, "opacity": 1, "rotation": 0, "parallax": 0.07 },
+    "hero_meditation_cushion": { "group": "characterSpace", "x": 501, "y": 497, "scale": 0.291, "opacity": 1, "rotation": 0, "parallax": 0.085 },
+    "hero_training_post": { "group": "functionalObjects", "x": 507, "y": 356, "scale": 0.512, "opacity": 1, "rotation": 0, "parallax": 0.08 },
+    "hero_sword_stand": { "group": "functionalObjects", "x": 1015, "y": 505, "scale": 0.333, "opacity": 1, "rotation": 0, "parallax": 0.09 },
+    "hero_inbox_tray_empty": { "group": "functionalObjects", "x": 664, "y": 543, "scale": 0.28, "opacity": 1, "rotation": 0, "parallax": 0.09 },
+    "hero_inbox_tray_partial": { "group": "functionalObjects", "x": 667, "y": 521, "scale": 0.263, "opacity": 1, "rotation": 0, "parallax": 0.09 },
+    "hero_inbox_tray_full": { "group": "functionalObjects", "x": 554, "y": 401, "scale": 0.433, "opacity": 1, "rotation": 0, "parallax": 0.09 },
+    "hero_scroll": { "group": "functionalObjects", "x": 747, "y": 502, "scale": 0.331, "opacity": 1, "rotation": 0, "parallax": 0.09 },
+    "hero_scroll_open": { "group": "functionalObjects", "x": 860, "y": 547, "scale": 0.281, "opacity": 1, "rotation": 0, "parallax": 0.09 },
+    "hero_morning_mist": { "group": "atmosphere", "x": 0, "y": 0, "scale": 1, "opacity": 0.78, "rotation": 0, "parallax": 0.025 },
+    "hero_evening_haze": { "group": "atmosphere", "x": 0, "y": 0, "scale": 1, "opacity": 0.72, "rotation": 0, "parallax": 0.02 },
+    "hero_rain": { "group": "weatherAndParticles", "x": 0, "y": 0, "scale": 1, "opacity": 0.72, "rotation": 0, "parallax": 0.03 },
+    "hero_snow": { "group": "weatherAndParticles", "x": 0, "y": 0, "scale": 1, "opacity": 0.86, "rotation": 0, "parallax": 0.04 },
+    "hero_fireflies": { "group": "weatherAndParticles", "x": 0, "y": 0, "scale": 1, "opacity": 0.88, "rotation": 0, "parallax": 0.05 },
+    "hero_falling_petals": { "group": "weatherAndParticles", "x": 0, "y": 0, "scale": 1, "opacity": 0.82, "rotation": 0, "parallax": 0.05 }
+  }
+}

@@ -1,8 +1,8 @@
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-import { CheckCircle2, ChevronRight } from '../../icons';
+import { ChevronRight } from '../../icons';
 import { getThemeColors } from '../../theme';
+import { RiverStoneSurface } from '../riverstone';
 
 interface InboxScrollCardProps {
   inboxCount: number;
@@ -14,9 +14,14 @@ interface InboxScrollCardProps {
 // taking half the row width. Restructured from the old horizontal row
 // (illustration/icon + stat + text + chevron all in one line) to a column:
 // illustration on top, stat + text stacked below, chevron as a small
-// top-right corner accent instead of competing with the illustration.
+// top-right corner accent instead of competing with the illustration. Color
+// and depth now come entirely from RiverStoneSurface (this card has no
+// deliberate color of its own — its old gradient/shadow was already
+// approximating a neutral graphite tone, now genuinely shared/consistent
+// with every other neutral surface instead of a near-duplicate one-off).
 export function InboxScrollCard({ inboxCount, onPress, isDark }: InboxScrollCardProps) {
   const hasItems = inboxCount > 0;
+  const isFull = inboxCount > 10;
   const palette = getThemeColors(isDark);
 
   const handlePress = () => {
@@ -31,53 +36,46 @@ export function InboxScrollCard({ inboxCount, onPress, isDark }: InboxScrollCard
   const textColor = palette.text;
   const secondaryColor = palette.textMuted;
 
-  // Depth comes from real elevation + a top-lit gradient surface — same
-  // shadow language already used for the dock FAB — rather than the old
-  // stacked-duplicate-card "paper stack" illusion.
-  const gradientColors: [string, string] = isDark ? ['#1f2038', '#1a1a2e'] : ['#ffffff', '#faf9f6'];
-
   return (
     <TouchableOpacity
       onPress={hasItems ? handlePress : undefined}
       activeOpacity={hasItems ? 0.75 : 1}
       style={styles.touchWrap}
     >
-      <LinearGradient
-        colors={gradientColors}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-        style={[styles.card, isDark ? styles.cardShadowDark : styles.cardShadowLight]}
-      >
-        {hasItems && <ChevronRight size={15} color={attentionColor} strokeWidth={2} style={styles.chevron} />}
+      <RiverStoneSurface variant="card" mode={isDark ? 'dark' : 'light'} style={styles.squareCard} contentStyle={styles.fill}>
+        <View style={styles.content}>
+          {hasItems && <ChevronRight size={15} color={attentionColor} strokeWidth={2} style={styles.chevron} />}
 
-        <View style={styles.illustrationWrap}>
-          {hasItems ? (
+          <View style={styles.illustrationWrap}>
             <Image
-              source={require('../../../assets/illustrations/scroll-stack.png')}
+              source={
+                !hasItems
+                  ? require('../../../assets/illustrations/inbox/inbox-empty.png')
+                  : isFull
+                    ? require('../../../assets/illustrations/inbox/inbox-full.png')
+                    : require('../../../assets/illustrations/inbox/inbox-active.png')
+              }
               style={styles.illustration}
               resizeMode="contain"
+              accessibilityIgnoresInvertColors
             />
-          ) : (
-            <View style={[styles.iconBubble, { backgroundColor: 'rgba(52,168,83,0.14)' }]}>
-              <CheckCircle2 size={22} color="#34a853" strokeWidth={1.5} />
-            </View>
-          )}
-        </View>
+          </View>
 
-        <View>
-          {/* Stat number — pulled out as its own figure (the part that's
-              actually changing) rather than folded into the sentence, so it
-              reads at a glance like a counter. */}
-          {hasItems && <Text style={[styles.statNumber, { color: attentionColor }]}>{inboxCount}</Text>}
+          <View>
+            {/* Stat number — pulled out as its own figure (the part that's
+                actually changing) rather than folded into the sentence, so it
+                reads at a glance like a counter. */}
+            {hasItems && <Text style={[styles.statNumber, { color: attentionColor }]}>{inboxCount}</Text>}
 
-          <Text style={[styles.primaryText, { color: textColor }]}>
-            {hasItems ? `unopened scroll${inboxCount > 1 ? 's' : ''}` : 'All clear'}
-          </Text>
-          <Text style={[styles.secondaryText, { color: secondaryColor }]} numberOfLines={1}>
-            {hasItems ? 'Tap to review' : 'No unattended matters.'}
-          </Text>
+            <Text style={[styles.primaryText, { color: textColor }]}>
+              {isFull ? 'inbox is full' : hasItems ? `unopened scroll${inboxCount > 1 ? 's' : ''}` : 'All clear'}
+            </Text>
+            <Text style={[styles.secondaryText, { color: secondaryColor }]} numberOfLines={1}>
+              {isFull ? 'Review your scrolls' : hasItems ? 'Tap to review' : 'No unattended matters.'}
+            </Text>
+          </View>
         </View>
-      </LinearGradient>
+      </RiverStoneSurface>
     </TouchableOpacity>
   );
 }
@@ -88,25 +86,17 @@ const styles = StyleSheet.create({
     // tight-fitting parent.
     paddingVertical: 4,
   },
-  card: {
-    aspectRatio: 1,
-    borderRadius: 16,
-    padding: 14,
+  fill: {
+    flex: 1,
+  },
+  squareCard: {
+    // Final compact proportion, shortened again after the device comparison.
+    aspectRatio: 1.16,
+  },
+  content: {
+    flex: 1,
+    padding: 12,
     justifyContent: 'space-between',
-  },
-  cardShadowDark: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.4,
-    shadowRadius: 18,
-    elevation: 6,
-  },
-  cardShadowLight: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 14,
-    elevation: 3,
   },
   chevron: {
     position: 'absolute',
@@ -117,17 +107,11 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  iconBubble: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
+    transform: [{ translateY: 4 }],
   },
   illustration: {
-    width: 88,
-    height: 58,
+    width: 118,
+    height: 96,
   },
   statNumber: {
     fontSize: 22,

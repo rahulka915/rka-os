@@ -9,11 +9,13 @@ export function ensoCircumference(radius: number): number {
 }
 
 export function ensoDashOffset(phase: number, circumference: number): number {
+  'worklet';
   const triangle = phase < 0.5 ? phase * 2 : (1 - phase) * 2; // 0 -> 1 -> 0
   const minOffset = circumference * ENSO_MIN_DASH_RATIO;
   return circumference - (circumference - minOffset) * triangle;
 }
 
 export function ensoRotationDegrees(phase: number): number {
+  'worklet';
   return phase * 360;
 }

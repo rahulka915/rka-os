@@ -11,6 +11,8 @@ interface RoninHeroProps {
   statusLine: string;
   completedCount: number;
   totalCount: number;
+  inboxCount: number;
+  focusActive: boolean;
   onPress?: () => void;
 }
 
@@ -21,7 +23,7 @@ interface RoninHeroProps {
 // character continues to be improved; RoninStage stays available to drop
 // back into this composer (or anywhere else) once that's ready.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function RoninHero({ mood, outfit, timeOfDay, greetingWord, name, statusLine, completedCount, totalCount, onPress }: RoninHeroProps) {
+export function RoninHero({ mood, outfit, timeOfDay, greetingWord, name, statusLine, completedCount, totalCount, inboxCount, focusActive, onPress }: RoninHeroProps) {
   return (
     <RoninGreetingCard
       mood={mood}
@@ -31,6 +33,8 @@ export function RoninHero({ mood, outfit, timeOfDay, greetingWord, name, statusL
       timeOfDay={timeOfDay}
       completedCount={completedCount}
       totalCount={totalCount}
+      inboxCount={inboxCount}
+      focusActive={focusActive}
       onPress={onPress}
     />
   );

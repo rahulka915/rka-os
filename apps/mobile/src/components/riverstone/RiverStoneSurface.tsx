@@ -1,0 +1,248 @@
+import React, { memo, useMemo } from "react";
+import { StyleSheet, View, type ViewStyle } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+
+import { createRiverStoneLayers } from "./materials";
+import { getRiverStoneToken } from "./riverStoneTokens";
+import type { RiverStoneSurfaceProps } from "./types";
+
+const TRANSPARENT = "rgba(0,0,0,0)";
+
+// Strips backgroundColor AND opacity out of a layer style so it can be
+// handed to LinearGradient's `style` prop: backgroundColor would paint a
+// solid box underneath the gradient (the original hard-edged "sticker"
+// bug), and opacity would silently double up with the alpha we already
+// bake into the gradient's own color stops below.
+function stripToPositionOnly(style: ViewStyle): ViewStyle {
+  const { backgroundColor: _backgroundColor, opacity: _opacity, ...rest } = style;
+  return rest;
+}
+
+// Gradient light needs a small compensation for its transparent falloff,
+// but it must stay below the bright metallic range. The material reference
+// is matte charcoal stone with localized light, not a silver highlight.
+function withAlpha(rgba: string, alpha: number): string {
+  const match = rgba.match(/rgba?\(([^)]+)\)/);
+  if (!match) return rgba;
+  const parts = match[1].split(",").map((part) => part.trim());
+  const [r, g, b] = parts;
+  const clamped = Math.min(1, Math.max(0, alpha));
+  return `rgba(${r},${g},${b},${clamped})`;
+}
+
+const MATERIAL_LIGHT_BOOST = 3;
+
+function glowColors(base: string, opacityMultiplier: number, alphaBoost = MATERIAL_LIGHT_BOOST, midFraction = 0.65): [string, string, string] {
+  const baseAlphaMatch = base.match(/rgba?\([^)]*,\s*([0-9.]+)\s*\)/);
+  const baseAlpha = baseAlphaMatch ? parseFloat(baseAlphaMatch[1]) : 1;
+  const peak = baseAlpha * opacityMultiplier * alphaBoost;
+
+  return [withAlpha(base, peak), withAlpha(base, peak * midFraction), TRANSPARENT];
+}
+
+function RiverStoneSurfaceComponent({
+  children,
+  background,
+  variant = "card",
+  mode = "dark",
+  shape = "organic",
+  style,
+  contentStyle,
+  testID,
+  disabled = false,
+}: RiverStoneSurfaceProps) {
+  const layers = useMemo(
+    () => createRiverStoneLayers(variant, mode, shape),
+    [variant, mode, shape],
+  );
+  const token = useMemo(
+    () => getRiverStoneToken(variant, mode),
+    [variant, mode],
+  );
+  const isChip = variant === "chip";
+  const isFlush = shape === "flush";
+  const insetShadowColor = mode === "dark" ? "0,0,0" : "60,50,30";
+  // The hero card carries its own opaque time-of-day tint as `background`
+  // (a much darker/higher-contrast surface than the other variants' plain
+  // graphite base) — the material needs extra peak alpha here just to cut
+  // through it and stay visible, or it reads as flat next to the small
+  // cards next to it.
+  const heroBoost = variant === "hero" ? 1.35 : 1;
+
+  return (
+    <View
+      testID={testID}
+      pointerEvents={disabled ? "none" : "auto"}
+      style={[layers.container, style]}
+    >
+      {/* Large, soft ambient shadow */}
+      {!isFlush ? (
+        <View
+          pointerEvents="none"
+          style={layers.ambientShadow}
+        />
+      ) : null}
+
+      {/* Tight shadow directly beneath the surface */}
+      {!isFlush ? (
+        <View
+          pointerEvents="none"
+          style={layers.contactShadow}
+        />
+      ) : null}
+
+      {/* Physical face of the River Stone surface */}
+      <View style={layers.face}>
+        {/* A surface's own deliberate color (tint gradient, scene photo)
+            renders here, UNDER the material lighting below, so the stone's
+            highlight/occlusion stay visible instead of being fully covered
+            by an opaque background. */}
+        {background}
+
+        {/* Chips are inset (pressed into their row), not raised — skip the
+            upper light/edge catch and use an inner top shadow + hairline
+            boundary instead. Every other variant gets the raised
+            upper-light treatment. */}
+        {isChip ? (
+          <>
+            <LinearGradient
+              pointerEvents="none"
+              colors={[`rgba(${insetShadowColor},${mode === "dark" ? 0.48 : 0.26})`, TRANSPARENT]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={styles.chipInsetTop}
+            />
+            <View
+              pointerEvents="none"
+              style={[
+                StyleSheet.absoluteFill,
+                styles.chipBoundary,
+                {
+                  borderRadius: layers.face.borderRadius,
+                  borderTopLeftRadius: layers.face.borderTopLeftRadius,
+                  borderTopRightRadius: layers.face.borderTopRightRadius,
+                  borderBottomLeftRadius: layers.face.borderBottomLeftRadius,
+                  borderBottomRightRadius: layers.face.borderBottomRightRadius,
+                  borderColor: `rgba(${insetShadowColor},${mode === "dark" ? 0.5 : 0.28})`,
+                },
+              ]}
+            />
+          </>
+        ) : (
+          <>
+            {/* Broad curved upper illumination — fades to transparent
+                instead of ending in a hard rounded-rect edge. */}
+            <LinearGradient
+              pointerEvents="none"
+              colors={glowColors(token.upperAmbient, token.upperLightOpacity, MATERIAL_LIGHT_BOOST * heroBoost, 0.5)}
+              locations={[0, 0.5, 1]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={stripToPositionOnly(layers.upperAmbientPrimary)}
+            />
+
+            <LinearGradient
+              pointerEvents="none"
+              colors={glowColors(token.upperAmbient, token.upperLightOpacity * 0.34, MATERIAL_LIGHT_BOOST * heroBoost, 0.5)}
+              locations={[0, 0.5, 1]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={stripToPositionOnly(layers.upperAmbientSecondary)}
+            />
+
+            {/* Restrained, discontinuous polished edge catches — fade out
+                along their length instead of stopping abruptly. */}
+            <LinearGradient
+              pointerEvents="none"
+              colors={glowColors(token.edgeCatch, token.edgeCatchOpacity, MATERIAL_LIGHT_BOOST * heroBoost)}
+              locations={[0, 0.4, 1]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={stripToPositionOnly(layers.edgeCatchPrimary)}
+            />
+
+            <LinearGradient
+              pointerEvents="none"
+              colors={glowColors(token.edgeCatch, token.edgeCatchOpacity * 0.55, MATERIAL_LIGHT_BOOST * heroBoost)}
+              locations={[0, 0.4, 1]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={stripToPositionOnly(layers.edgeCatchSecondary)}
+            />
+          </>
+        )}
+
+        {/* Lower thickness and corner weight — same fade treatment. */}
+        <LinearGradient
+          pointerEvents="none"
+          colors={[...glowColors(token.lowerOcclusion, token.lowerOcclusionOpacity)].reverse() as [string, string, string]}
+          locations={[0, 0.45, 1]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={stripToPositionOnly(layers.lowerOcclusion)}
+        />
+
+        <LinearGradient
+          pointerEvents="none"
+          colors={glowColors(token.lowerOcclusion, token.lowerOcclusionOpacity * 0.45)}
+          locations={[0, 0.5, 1]}
+          start={{ x: 0, y: 1 }}
+          end={{ x: 1, y: 0 }}
+          style={stripToPositionOnly(layers.lowerCornerOcclusionLeft)}
+        />
+
+        <LinearGradient
+          pointerEvents="none"
+          colors={glowColors(token.lowerOcclusion, token.lowerOcclusionOpacity * 0.45)}
+          locations={[0, 0.5, 1]}
+          start={{ x: 1, y: 1 }}
+          end={{ x: 0, y: 0 }}
+          style={stripToPositionOnly(layers.lowerCornerOcclusionRight)}
+        />
+
+        {!isChip && !isFlush ? (
+          <View
+            pointerEvents="none"
+            style={[
+              StyleSheet.absoluteFill,
+              styles.surfaceBoundary,
+              {
+                borderRadius: layers.face.borderRadius,
+                borderTopLeftRadius: layers.face.borderTopLeftRadius,
+                borderTopRightRadius: layers.face.borderTopRightRadius,
+                borderBottomLeftRadius: layers.face.borderBottomLeftRadius,
+                borderBottomRightRadius: layers.face.borderBottomRightRadius,
+                borderColor: mode === "dark" ? "rgba(255,255,255,0.035)" : "rgba(60,50,35,0.10)",
+              },
+            ]}
+          />
+        ) : null}
+
+        {/* Application content */}
+        <View style={[layers.content, contentStyle]}>
+          {children}
+        </View>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  chipInsetTop: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 10,
+  },
+  chipBoundary: {
+    borderWidth: 1,
+  },
+  surfaceBoundary: {
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+});
+
+export const RiverStoneSurface = memo(
+  RiverStoneSurfaceComponent,
+);

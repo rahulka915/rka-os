@@ -41,10 +41,7 @@ export function EnsoLoader({ size = 56, color = '#4E9E86' }: EnsoLoaderProps) {
 
   const animatedProps = useAnimatedProps(() => ({
     strokeDashoffset: ensoDashOffset(phase.value, CIRCUMFERENCE),
-    // react-native-svg accepts a raw SVG transform string on any shape
-    // (extractTransform.ts has a dedicated string branch) — `rotate(angle cx cy)`
-    // rotates around the circle's own center rather than the canvas origin.
-    transform: `rotate(${ensoRotationDegrees(phase.value)} ${CENTER} ${CENTER})`,
+    rotation: ensoRotationDegrees(phase.value),
   }));
 
   return (
@@ -58,6 +55,7 @@ export function EnsoLoader({ size = 56, color = '#4E9E86' }: EnsoLoaderProps) {
         strokeLinecap="round"
         fill="none"
         strokeDasharray={CIRCUMFERENCE}
+        origin={`${CENTER}, ${CENTER}`}
         animatedProps={animatedProps}
       />
     </Svg>
