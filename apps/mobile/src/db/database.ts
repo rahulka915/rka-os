@@ -74,11 +74,23 @@ function initSchema() {
       UNIQUE(sourceId, relationType)
     );
 
+    -- Manual drag-to-reorder position, scoped per list (not global) — the same task can sit
+    -- at a different position in its Project's task list vs. the Tasks screen vs. a Home time
+    -- block, since those are independent orderings a user drags separately. listKey identifies
+    -- which list, e.g. project:projectId, tasks:active, tasks:someday, home:morning.
+    CREATE TABLE IF NOT EXISTS itemOrder (
+      listKey TEXT NOT NULL,
+      itemId TEXT NOT NULL,
+      position INTEGER NOT NULL,
+      PRIMARY KEY (listKey, itemId)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_items_status ON items(status);
     CREATE INDEX IF NOT EXISTS idx_items_scheduledDate ON items(scheduledDate);
     CREATE INDEX IF NOT EXISTS idx_instances_scheduledDate ON itemInstances(scheduledDate);
     CREATE INDEX IF NOT EXISTS idx_instances_itemId ON itemInstances(itemId);
     CREATE INDEX IF NOT EXISTS idx_relations_target ON itemRelations(targetId, relationType);
+    CREATE INDEX IF NOT EXISTS idx_itemOrder_list ON itemOrder(listKey);
   `);
 
   try {
@@ -162,6 +174,57 @@ export function getRelation(sourceId: string, relationType: string): string | nu
   return row[0]?.targetId ?? null;
 }
 
+// Task dependencies reuse the generic itemRelations primitive with relationType 'dependsOn'
+// (sourceId = the dependent task, targetId = the task it's blocked by) — single-select like
+// every other relation here, so a task can depend on at most one other task at a time.
+// Returns the blocking task only while it's still incomplete; once done, the dependency
+// relation stays recorded but no longer blocks anything (matches "the task IS done, not
+// just unassigned" — no need to prompt clearing the link).
+export function getBlockingTask(itemId: string): Item | null {
+  const dependsOnId = getRelation(itemId, 'dependsOn');
+  if (!dependsOnId) return null;
+  const blocker = getItemWithMetadata(dependsOnId);
+  if (!blocker || blocker.status === 'completed' || blocker.deletedAt) return null;
+  return blocker;
+}
+
+// Persists a full drag-to-reorder result for one list — always rewrites the whole ordering
+// rather than shuffling individual rows, since a drag operation already produces the final
+// order client-side and this keeps positions dense (0..n-1) with no gap-management logic.
+export function setManualOrder(listKey: string, orderedIds: string[]): void {
+  const database = getDb();
+  database.withTransactionSync(() => {
+    database.runSync(`DELETE FROM itemOrder WHERE listKey = ?`, [listKey]);
+    orderedIds.forEach((itemId, position) => {
+      database.runSync(
+        `INSERT INTO itemOrder (listKey, itemId, position) VALUES (?, ?, ?)`,
+        [listKey, itemId, position]
+      );
+    });
+  });
+}
+
+// Sorts `items` by their saved manual position for `listKey`, if any. Items with no saved
+// position (never dragged, or added since the last reorder) keep their relative order from
+// `items` and are appended after every manually-positioned item — so a freshly created task
+// shows up at the end rather than jumping to an arbitrary spot.
+export function applyManualOrder<T extends { id: string }>(listKey: string, items: T[]): T[] {
+  const rows = getDb().getAllSync<{ itemId: string; position: number }>(
+    `SELECT itemId, position FROM itemOrder WHERE listKey = ?`,
+    [listKey]
+  );
+  if (rows.length === 0) return items;
+  const positions = new Map(rows.map(r => [r.itemId, r.position]));
+  return [...items].sort((a, b) => {
+    const posA = positions.get(a.id);
+    const posB = positions.get(b.id);
+    if (posA === undefined && posB === undefined) return 0;
+    if (posA === undefined) return 1;
+    if (posB === undefined) return -1;
+    return posA - posB;
+  });
+}
+
 // Rollup: items relating to `targetId` via `relationType` (e.g. all projects in an area).
 export function getRelatedItems(targetId: string, relationType: string): Item[] {
   return getDb().getAllSync<Item>(
@@ -205,9 +268,71 @@ export function updateItemMetadata(id: string, metadata: Record<string, any>): v
   );
 }
 
+// "Plan for Today" — the lightweight way to put an un-dated task onto the Home
+// Today blocks without giving it a calendar date/time. Marks it with today's
+// date in metadata.plannedDate; Home shows the union of scheduledDate=today and
+// plannedDate=today items. The stamp is date-specific, so it naturally falls
+// off the next day (no cleanup needed). An optional bucket lets a caller drop
+// the task straight into a specific block.
+export function planForToday(itemId: string, bucket?: 'anytime' | 'morning' | 'afternoon' | 'evening'): void {
+  const item = getItemWithMetadata(itemId);
+  if (!item) return;
+  const meta = item.metadata ? JSON.parse(item.metadata) : {};
+  meta.plannedDate = formatDate(new Date());
+  if (bucket) meta.preferredTimeBucket = bucket;
+  updateItemMetadata(itemId, meta);
+}
+
+export function unplanToday(itemId: string): void {
+  const item = getItemWithMetadata(itemId);
+  if (!item) return;
+  const meta = item.metadata ? JSON.parse(item.metadata) : {};
+  delete meta.plannedDate;
+  // Also drop a real block preference back to Anytime — otherwise the editor's
+  // save path (which re-plans an un-dated task whose bucket is a real block)
+  // would immediately re-add it to Today, fighting this removal.
+  if (meta.preferredTimeBucket && meta.preferredTimeBucket !== 'anytime') {
+    meta.preferredTimeBucket = 'anytime';
+  }
+  updateItemMetadata(itemId, meta);
+}
+
+// Un-dated tasks the user explicitly planned for today (see planForToday).
+// LIKE on the JSON metadata is fine for a single-user local DB; the pattern
+// matches JSON.stringify's contiguous `"plannedDate":"<today>"`.
+export function getPlannedTodayItems(): Item[] {
+  const today = formatDate(new Date());
+  return getDb().getAllSync<Item>(
+    `SELECT * FROM items WHERE type = 'task' AND status NOT IN ('completed', 'inbox')
+       AND deletedAt IS NULL AND metadata LIKE ?`,
+    [`%"plannedDate":"${today}"%`]
+  );
+}
+
+export function isPlannedForToday(item: Item): boolean {
+  if (!item.metadata) return false;
+  try {
+    return (JSON.parse(item.metadata) as { plannedDate?: string }).plannedDate === formatDate(new Date());
+  } catch {
+    return false;
+  }
+}
+
 export function updateItem(
   id: string,
-  updates: Partial<Pick<Item, 'type' | 'title' | 'status' | 'notes' | 'scheduledDate' | 'dueDate' | 'rrule'>>,
+  // Nullable columns accept an explicit `null` to CLEAR them. Each field below
+  // is gated on `!== undefined`, so `undefined` means "leave this column
+  // alone" while `null` writes a real SQL NULL — that distinction is what lets
+  // callers clear a deadline or repeat rule rather than silently no-op.
+  updates: Partial<{
+    type: Item['type'];
+    title: string;
+    status: Item['status'];
+    notes: string | null;
+    scheduledDate: string | null;
+    dueDate: string | null;
+    rrule: string | null;
+  }>,
 ): void {
   const fields: string[] = [];
   const values: any[] = [];
@@ -346,6 +471,14 @@ export interface MedicationMeta {
   minHoursBetweenDoses?: number;
   frequency?: string;
 
+  // Split-dose support (e.g. Modafinil: take half now, the other half later with
+  // no required gap). Opt-in per medication since most meds are taken whole.
+  splitDoseEnabled?: boolean;
+  // Set when the first half has been taken and the second is still owed; cleared
+  // once the second half is logged. While set, minHoursBetweenDoses is bypassed
+  // for completing this specific dose.
+  pendingHalfDoseAt?: number;
+
   // Packaging: how a single restock breaks down for this medication, e.g. Dexamfetamine
   // restocks as 2 boxes of 30 (3 sheets of 10 each); Elvanse restocks as 1 container of 30.
   containerLabel?: string;        // e.g. 'box', 'container' — defaults to 'container'
@@ -434,17 +567,18 @@ export function getContainerSummary(meta: MedicationMeta): string | null {
   return `${top} · ${containerParts.join(' + ')}`;
 }
 
-// Decrements one pill from the first non-empty container (oldest/open one first). Falls back
-// to the legacy flat decrement for medications without configured packaging.
-function decrementStock(meta: MedicationMeta): MedicationMeta {
+// Decrements `amount` pills (1 for a whole dose, 0.5 for a split half) from the first
+// non-empty container (oldest/open one first). Falls back to the legacy flat decrement
+// for medications without configured packaging.
+function decrementStock(meta: MedicationMeta, amount = 1): MedicationMeta {
   if (meta.containers) {
     const containers = meta.containers.map(c => ({ ...c }));
     const target = containers.find(c => c.remaining > 0);
-    if (target) target.remaining -= 1;
+    if (target) target.remaining = Math.max(0, target.remaining - amount);
     return { ...meta, containers, stockRemaining: containers.reduce((sum, c) => sum + c.remaining, 0) };
   }
   if (meta.stockRemaining !== undefined && meta.stockRemaining > 0) {
-    return { ...meta, stockRemaining: meta.stockRemaining - 1 };
+    return { ...meta, stockRemaining: Math.max(0, meta.stockRemaining - amount) };
   }
   return meta;
 }
@@ -572,7 +706,7 @@ export function updateMedication(id: string, title: string, meta: MedicationMeta
   logActivity(id, 'edited');
 }
 
-export function logMedicationTaken(itemId: string, takenAt: number = Date.now(), startTimer = false): void {
+export function logMedicationTaken(itemId: string, takenAt: number = Date.now(), startTimer = false, amount = 1): void {
   const item = getItemWithMetadata(itemId);
   if (!item) return;
   let meta: MedicationMeta = item.metadata ? JSON.parse(item.metadata) : {};
@@ -581,7 +715,7 @@ export function logMedicationTaken(itemId: string, takenAt: number = Date.now(),
   if (!meta.lastTakenAt || takenAt > meta.lastTakenAt) {
     meta.lastTakenAt = takenAt;
   }
-  meta = decrementStock(meta);
+  meta = decrementStock(meta, amount);
   updateItemMetadata(itemId, meta);
 
   // Insert log with the actual taken timestamp
@@ -591,6 +725,7 @@ export function logMedicationTaken(itemId: string, takenAt: number = Date.now(),
      VALUES (?, ?, 'medication-taken', ?, ?, ?)`,
     [uuid(), itemId, takenAt, JSON.stringify({
       dose: meta.dose,
+      amount,
       loggedAt: now,
       timerActive: startTimer,
       startedAt: startTimer ? takenAt : undefined,
@@ -612,6 +747,26 @@ export function logMedicationTaken(itemId: string, takenAt: number = Date.now(),
       completeInstance(instance[0].id);
     }
   }
+}
+
+// Logs half a dose for medications with splitDoseEnabled. The first call starts a pending
+// split (half taken, half owed); the second call — at any time afterward, no minimum gap —
+// completes it. Returns whether this call completed a pending split (vs. starting a new one),
+// so the caller can show the right confirmation/haptic.
+export function logHalfDoseTaken(itemId: string, takenAt: number = Date.now(), startTimer = false): boolean {
+  const item = getItemWithMetadata(itemId);
+  if (!item) return false;
+  const meta: MedicationMeta = item.metadata ? JSON.parse(item.metadata) : {};
+  const completingSplit = !!meta.pendingHalfDoseAt;
+
+  logMedicationTaken(itemId, takenAt, startTimer, 0.5);
+
+  const updated = getItemWithMetadata(itemId);
+  const updatedMeta: MedicationMeta = updated?.metadata ? JSON.parse(updated.metadata) : {};
+  updatedMeta.pendingHalfDoseAt = completingSplit ? undefined : takenAt;
+  updateItemMetadata(itemId, updatedMeta);
+
+  return completingSplit;
 }
 
 export function getMedicationLogs(itemId: string, limit = 10): ActivityLog[] {
@@ -872,6 +1027,8 @@ export interface TimelineEntry {
   time: string | null;
   minutes: number | null;
   timeOfDay: TimeOfDay;
+  preferredTimeBucket: TimeOfDay;
+  durationMinutes: number;
 }
 
 function parseJson<T extends Record<string, any>>(value?: string | null): T {
@@ -890,8 +1047,13 @@ function getEntryTiming(item: Item, instance?: ItemInstance) {
   const minutes = timeToMinutes(time);
   const derivedHour = minutes != null ? Math.floor(minutes / 60) : null;
   const timeOfDay = (instanceMeta.timeOfDay ?? itemMeta.timeOfDay ?? (derivedHour != null ? getTimeOfDayFromHour(derivedHour) : 'anytime')) as TimeOfDay;
+  const preferredTimeBucket = (instanceMeta.preferredTimeBucket ?? itemMeta.preferredTimeBucket ?? timeOfDay) as TimeOfDay;
+  const rawDuration = instanceMeta.durationMinutes ?? itemMeta.durationMinutes;
+  const durationMinutes = typeof rawDuration === 'number' && Number.isFinite(rawDuration) && rawDuration > 0
+    ? Math.max(5, Math.min(24 * 60, Math.round(rawDuration)))
+    : 45;
 
-  return { time, minutes, timeOfDay };
+  return { time, minutes, timeOfDay, preferredTimeBucket, durationMinutes };
 }
 
 export function getTimelineEntriesForDate(date: string): TimelineEntry[] {
@@ -960,7 +1122,7 @@ export function createTimedItem(
   const normalizedTime = normalizeTimeInput(time) ?? '09:00';
   const itemId = createItem(type, title, 'scheduled', scheduledDate, notes);
   const timeOfDay = getTimeOfDayFromHour(Math.floor(timeToMinutes(normalizedTime)! / 60));
-  const nextMeta = { time: normalizedTime, timeOfDay };
+  const nextMeta = { time: normalizedTime, timeOfDay, preferredTimeBucket: 'anytime', durationMinutes: 45 };
   updateItemMetadata(itemId, nextMeta);
 
   const now = Date.now();
@@ -983,10 +1145,12 @@ export function updateTimelineItemTime(id: string, time: string, timeOfDay?: Tim
 
   const meta = item.metadata ? JSON.parse(item.metadata) : {};
   const nextTimeOfDay = timeOfDay ?? getTimeOfDayFromHour(Math.floor(timeToMinutes(normalizedTime)! / 60));
+  const preferredTimeBucket = meta.preferredTimeBucket ?? meta.timeOfDay ?? 'anytime';
   updateItemMetadata(id, {
     ...meta,
     time: normalizedTime,
     timeOfDay: nextTimeOfDay,
+    preferredTimeBucket,
   });
 
   const instance = getDb().getAllSync<ItemInstance>(
@@ -996,11 +1160,66 @@ export function updateTimelineItemTime(id: string, time: string, timeOfDay?: Tim
 
   if (instance) {
     const parsed = instance.instanceMetadata ? JSON.parse(instance.instanceMetadata) : {};
+    const instancePreferredTimeBucket = parsed.preferredTimeBucket ?? preferredTimeBucket;
     updateInstanceMetadata(instance.id, {
       ...parsed,
       time: normalizedTime,
       timeOfDay: nextTimeOfDay,
+      preferredTimeBucket: instancePreferredTimeBucket,
     });
+  }
+}
+
+export function updateTimelineItemSchedule(id: string, scheduledDate?: string, time?: string): void {
+  const item = getItemWithMetadata(id);
+  if (!item) return;
+
+  const metadata: Record<string, unknown> = item.metadata ? JSON.parse(item.metadata) : {};
+  const now = Date.now();
+
+  if (!scheduledDate || !time) {
+    delete metadata.time;
+    delete metadata.timeOfDay;
+    getDb().runSync(
+      `UPDATE items SET scheduledDate = NULL, status = ?, metadata = ?, updatedAt = ? WHERE id = ?`,
+      [item.status === 'scheduled' ? 'active' : item.status, JSON.stringify(metadata), now, id],
+    );
+    getDb().runSync(
+      `DELETE FROM itemInstances WHERE itemId = ? AND status = 'pending'`,
+      [id],
+    );
+    return;
+  }
+
+  const normalizedTime = normalizeTimeInput(time);
+  if (!normalizedTime) return;
+  const timeOfDay = getTimeOfDayFromHour(Math.floor(timeToMinutes(normalizedTime)! / 60));
+  const preferredTimeBucket = metadata.preferredTimeBucket ?? metadata.timeOfDay ?? 'anytime';
+  const nextMetadata = { ...metadata, time: normalizedTime, timeOfDay, preferredTimeBucket };
+
+  getDb().runSync(
+    `UPDATE items SET scheduledDate = ?, status = 'scheduled', metadata = ?, updatedAt = ? WHERE id = ?`,
+    [scheduledDate, JSON.stringify(nextMetadata), now, id],
+  );
+
+  const instance = getDb().getAllSync<ItemInstance>(
+    `SELECT * FROM itemInstances WHERE itemId = ? AND status = 'pending' ORDER BY createdAt DESC LIMIT 1`,
+    [id],
+  )[0];
+
+  if (instance) {
+    const instanceMetadata = instance.instanceMetadata ? JSON.parse(instance.instanceMetadata) : {};
+    const instancePreferredTimeBucket = instanceMetadata.preferredTimeBucket ?? preferredTimeBucket;
+    getDb().runSync(
+      `UPDATE itemInstances SET scheduledDate = ?, instanceMetadata = ?, updatedAt = ? WHERE id = ?`,
+      [scheduledDate, JSON.stringify({ ...instanceMetadata, time: normalizedTime, timeOfDay, preferredTimeBucket: instancePreferredTimeBucket }), now, instance.id],
+    );
+  } else {
+    getDb().runSync(
+      `INSERT INTO itemInstances (id, itemId, scheduledDate, status, instanceMetadata, createdAt, updatedAt)
+       VALUES (?, ?, ?, 'pending', ?, ?, ?)`,
+      [uuid(), id, scheduledDate, JSON.stringify({ time: normalizedTime, timeOfDay }), now, now],
+    );
   }
 }
 
