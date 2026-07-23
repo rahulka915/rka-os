@@ -128,6 +128,16 @@ export function getTodayItems(): Item[] {
   );
 }
 
+// Everything scheduled after today, for the Upcoming list. Completed and
+// deleted rows are excluded; ordering is by date so grouping stays cheap.
+export function getUpcomingItems(fromDate: string): Item[] {
+  return getDb().getAllSync<Item>(
+    `SELECT * FROM items WHERE scheduledDate > ? AND status != 'completed' AND deletedAt IS NULL
+     ORDER BY scheduledDate ASC, createdAt ASC`,
+    [fromDate]
+  );
+}
+
 export function getItemsByStatus(status: string): Item[] {
   return getDb().getAllSync<Item>(
     `SELECT * FROM items WHERE status = ? AND deletedAt IS NULL ORDER BY createdAt DESC`,
