@@ -55,3 +55,16 @@ export function timeOfDayLabel(timeOfDay: TimeOfDay | undefined): string {
   if (timeOfDay === 'afternoon') return 'Afternoon';
   return 'Evening';
 }
+
+// Which Home "Today" block a task belongs to. The user's explicitly-chosen
+// bucket (metadata.preferredTimeBucket) wins; otherwise fall back to the
+// block derived from its scheduled clock time (metadata.timeOfDay, only set
+// for timed tasks); otherwise Anytime. Shared by the Home data hook and
+// completeAllInTimeBlock so display and bulk-actions always agree.
+export function resolveTimeBucket(meta: Record<string, unknown>): TimeOfDay {
+  const pref = meta.preferredTimeBucket;
+  if (pref === 'morning' || pref === 'afternoon' || pref === 'evening') return pref;
+  const tod = meta.timeOfDay;
+  if (tod === 'morning' || tod === 'afternoon' || tod === 'evening') return tod;
+  return 'anytime';
+}

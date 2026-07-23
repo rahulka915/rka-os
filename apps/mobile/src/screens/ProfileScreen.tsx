@@ -1,106 +1,28 @@
-import { useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
+import { RiverStoneSurface } from '../components/riverstone';
+import { RoninMonIcon } from '../components/icons/DockIcons';
 import { useThemeContext } from '../hooks/useThemeContext';
-import { getThemeColors } from '../theme';
-import type { RoninMood } from '../domain/ronin/types';
-import { getMoodClip, isOneShotClip } from '../domain/ronin/roninModel';
-import { useRoninGlbBase64 } from '../domain/ronin/useRoninGlbBase64';
-import DomProbe from '../components/home/DomProbe';
-import Ronin3DDom from '../components/home/Ronin3DDom';
-import { RoninPreview } from '../components/home/RoninPreview';
+import { getThemeColors, spacing } from '../theme';
 import { useBackup } from '../hooks/useBackup';
 import { useLoadingBanner } from '../hooks/useLoadingBanner';
-import { HeroEnvironmentWorkbench } from '../components/hero/environment';
+import { Archive, CheckCircle2, ChevronRight, Lock, LogOut, Mail, Upload } from '../icons';
 
-const BENCH_MOODS: RoninMood[] = ['normal', 'focused', 'tired', 'overwhelmed', 'resolved'];
-
-interface Ronin3DBenchProps {
-  mood: RoninMood;
-  onMoodChange: (mood: RoninMood) => void;
-}
-
-// __DEV__-only workbench for the DOM-component 3D companion (plan §H.2):
-// renders the GLB big and unmissable before it's wired into the Home hero.
-// mood is lifted to ProfileScreen so RoninPreview (the production display,
-// mounted alongside this) can mirror it for direct side-by-side comparison.
-function Ronin3DBench({ mood, onMoodChange }: Ronin3DBenchProps) {
-  const { isDark } = useThemeContext();
-  const palette = getThemeColors(isDark);
-  const [status, setStatus] = useState('loading scene…');
-  const { glbBase64, error: glbError } = useRoninGlbBase64();
-
-  const clip = useMemo(() => getMoodClip(mood), [mood]);
-
-  return (
-    <View style={styles.bench}>
-      <Text style={[styles.benchTitle, { color: palette.textSecondary }]}>Ronin 3D bench (dev only)</Text>
-      <View style={styles.benchProbe}>
-        <DomProbe dom={{ matchContents: true }} />
-      </View>
-      {/* fixed slate backdrop (not palette.fill): the character is black-clad,
-          so the bench needs a mid-tone behind him to judge shading/rim light */}
-      <View style={[styles.benchPanel, { borderColor: palette.fill, backgroundColor: '#4a5261' }]}>
-        {glbBase64 ? (
-          // absoluteFill (not centered/percentage sizing): the dom-webview
-          // collapses to ~0 without an explicit box — same mount pattern as
-          // the Home hero seam in RoninCharacter.
-          <View style={StyleSheet.absoluteFill}>
-            <Ronin3DDom
-              glbBase64={glbBase64}
-              animation={clip.animation}
-              fallbackAnimation={clip.fallbackAnimation}
-              oneShot={isOneShotClip(clip.animation)}
-              blinkEnabled={mood !== 'resolved'}
-              onSceneReady={async () => {
-                console.log('[RONIN_BENCH] scene ready');
-                setStatus('ready');
-              }}
-              onSceneError={async (message: string) => {
-                console.log('[RONIN_BENCH] scene error —', message);
-                setStatus(`error: ${message}`);
-              }}
-              dom={{ style: styles.benchDom, scrollEnabled: false }}
-            />
-          </View>
-        ) : (
-          <View style={styles.benchFallback}>
-            <Text style={[styles.benchStatus, { color: palette.textMuted }]}>
-              {glbError ? `GLB load error: ${glbError}` : 'reading GLB…'}
-            </Text>
-          </View>
-        )}
-      </View>
-      <Text style={[styles.benchStatus, { color: palette.textSecondary }]}>
-        {glbError ? `GLB: ${glbError}` : `scene: ${status} · mood: ${mood} · clip: ${clip.animation}`}
-      </Text>
-      <View style={styles.benchMoods}>
-        {BENCH_MOODS.map((m) => (
-          <Pressable
-            key={m}
-            onPress={() => onMoodChange(m)}
-            style={[
-              styles.moodChip,
-              { backgroundColor: m === mood ? palette.text : palette.fill },
-            ]}
-          >
-            <Text style={[styles.moodChipLabel, { color: m === mood ? palette.bg : palette.textSecondary }]}>
-              {m}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-    </View>
-  );
-}
+const PROFILE_BLUE = '#2b7ff0';
 
 function BackupSection() {
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
   const backup = useBackup();
   const { showLoadingBanner, hideLoadingBanner } = useLoadingBanner();
+  const [mode, setMode] = useState<'signIn' | 'signUp'>('signIn');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+
+  const tap = () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
 
   const handleSignIn = async () => {
     if (!email.trim() || !password) {
@@ -118,16 +40,42 @@ function BackupSection() {
     }
   };
 
+  const handleSignUp = async () => {
+    if (!email.trim() || !password) {
+      Alert.alert('Missing details', 'Enter an email and password to create an account.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      Alert.alert('Passwords don’t match', 'Make sure both password fields match.');
+      return;
+    }
+    showLoadingBanner('Creating account…');
+    try {
+      await backup.signUp(email.trim(), password);
+      setPassword('');
+      setConfirmPassword('');
+    } catch (err) {
+      Alert.alert('Sign up failed', err instanceof Error ? err.message : 'Please try again.');
+    } finally {
+      hideLoadingBanner();
+    }
+  };
+
   const handleBackUpNow = async () => {
+    tap();
     showLoadingBanner('Backing up…');
     try {
       await backup.backUpNow();
+      Alert.alert('Backup complete', 'Your RKA OS data is safely backed up.');
+    } catch (err) {
+      Alert.alert('Backup failed', err instanceof Error ? err.message : 'Please try again.');
     } finally {
       hideLoadingBanner();
     }
   };
 
   const handleRestore = () => {
+    tap();
     Alert.alert(
       'Restore latest backup',
       'This replaces all data currently on this device with your last backup. This cannot be undone. Continue?',
@@ -154,41 +102,119 @@ function BackupSection() {
     );
   };
 
-  return (
-    <View style={styles.backupSection}>
-      <Text style={[styles.backupTitle, { color: palette.text }]}>Backup</Text>
-      {backup.isSignedIn ? (
-        <>
-          <Text style={[styles.backupStatus, { color: palette.textSecondary }]}>
-            Signed in as {backup.email}
-          </Text>
-          <Text style={[styles.backupStatus, { color: palette.textSecondary }]}>
-            {backup.lastBackupAt
-              ? `Last backup: ${new Date(backup.lastBackupAt).toLocaleString()}`
-              : 'No backup yet'}
-          </Text>
-          <Pressable
-            onPress={handleBackUpNow}
-            disabled={backup.busy}
-            style={[styles.backupButton, { backgroundColor: palette.fill }]}
-          >
-            <Text style={[styles.backupButtonLabel, { color: palette.text }]}>
-              {backup.busy ? 'Working…' : 'Back up now'}
+  if (backup.isSignedIn) {
+    return (
+      <View style={styles.list}>
+        <RiverStoneSurface
+          variant="list"
+          mode={isDark ? 'dark' : 'light'}
+          shape="regular"
+          contentStyle={styles.rowContent}
+        >
+          <View style={[styles.iconFrame, { backgroundColor: palette.blueSoft }]}>
+            <Mail size={19} color={palette.blue} strokeWidth={1.8} />
+          </View>
+          <View style={styles.copy}>
+            <Text style={[styles.rowLabel, { color: palette.text }]} numberOfLines={1}>
+              {backup.email}
             </Text>
-          </Pressable>
-          <Pressable
-            onPress={handleRestore}
+            <Text style={[styles.rowSub, { color: palette.textSecondary }]}>
+              {backup.lastBackupAt
+                ? `Last backup: ${new Date(backup.lastBackupAt).toLocaleString()}`
+                : 'No backup yet'}
+            </Text>
+          </View>
+        </RiverStoneSurface>
+
+        <TouchableOpacity
+          activeOpacity={0.82}
+          onPress={handleBackUpNow}
+          disabled={backup.busy}
+          accessibilityRole="button"
+          accessibilityLabel="Back up now"
+        >
+          <RiverStoneSurface
+            variant="list"
+            mode={isDark ? 'dark' : 'light'}
+            shape="regular"
+            contentStyle={styles.rowContent}
             disabled={backup.busy}
-            style={[styles.backupButton, { backgroundColor: palette.fill }]}
           >
-            <Text style={[styles.backupButtonLabel, { color: palette.text }]}>Restore latest backup</Text>
-          </Pressable>
-          <Pressable onPress={backup.signOut} disabled={backup.busy}>
-            <Text style={[styles.backupStatus, { color: palette.textMuted, textAlign: 'center' }]}>Sign out</Text>
-          </Pressable>
-        </>
-      ) : (
-        <>
+            <View style={[styles.iconFrame, { backgroundColor: palette.greenSoft }]}>
+              {backup.busy ? <ActivityIndicator size="small" color={palette.green} /> : <Upload size={19} color={palette.green} strokeWidth={1.8} />}
+            </View>
+            <View style={styles.copy}>
+              <Text style={[styles.rowLabel, { color: palette.text }]}>Back up now</Text>
+              <Text style={[styles.rowSub, { color: palette.textSecondary }]}>Create an encrypted cloud backup</Text>
+            </View>
+            <ChevronRight size={16} color={palette.textMuted} strokeWidth={1.7} />
+          </RiverStoneSurface>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          activeOpacity={0.82}
+          onPress={handleRestore}
+          disabled={backup.busy}
+          accessibilityRole="button"
+          accessibilityLabel="Restore latest backup"
+        >
+          <RiverStoneSurface
+            variant="list"
+            mode={isDark ? 'dark' : 'light'}
+            shape="regular"
+            contentStyle={styles.rowContent}
+            disabled={backup.busy}
+          >
+            <View style={[styles.iconFrame, { backgroundColor: palette.purpleSoft }]}>
+              <Archive size={19} color={palette.purple} strokeWidth={1.8} />
+            </View>
+            <View style={styles.copy}>
+              <Text style={[styles.rowLabel, { color: palette.text }]}>Restore latest backup</Text>
+              <Text style={[styles.rowSub, { color: palette.textSecondary }]}>Replaces the data on this device</Text>
+            </View>
+            <ChevronRight size={16} color={palette.textMuted} strokeWidth={1.7} />
+          </RiverStoneSurface>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          activeOpacity={0.82}
+          onPress={() => {
+            tap();
+            backup.signOut();
+          }}
+          disabled={backup.busy}
+          accessibilityRole="button"
+          accessibilityLabel="Sign out"
+        >
+          <RiverStoneSurface
+            variant="list"
+            mode={isDark ? 'dark' : 'light'}
+            shape="regular"
+            contentStyle={styles.rowContent}
+            disabled={backup.busy}
+          >
+            <View style={[styles.iconFrame, { backgroundColor: palette.redSoft }]}>
+              <LogOut size={19} color={palette.red} strokeWidth={1.8} />
+            </View>
+            <View style={styles.copy}>
+              <Text style={[styles.rowLabel, { color: palette.red }]}>Sign out</Text>
+            </View>
+          </RiverStoneSurface>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.list}>
+      <RiverStoneSurface
+        variant="card"
+        mode={isDark ? 'dark' : 'light'}
+        shape="regular"
+        contentStyle={styles.formContent}
+      >
+        <View style={[styles.inputRow, { borderColor: palette.separator }]}>
+          <Mail size={18} color={palette.textMuted} strokeWidth={1.8} />
           <TextInput
             value={email}
             onChangeText={setEmail}
@@ -196,27 +222,65 @@ function BackupSection() {
             placeholderTextColor={palette.textMuted}
             autoCapitalize="none"
             keyboardType="email-address"
-            style={[styles.backupInput, { color: palette.text, borderColor: palette.fill }]}
+            style={[styles.input, { color: palette.text }]}
           />
+        </View>
+        <View style={[styles.inputRow, { borderColor: palette.separator }]}>
+          <Lock size={18} color={palette.textMuted} strokeWidth={1.8} />
           <TextInput
             value={password}
             onChangeText={setPassword}
             placeholder="Password"
             placeholderTextColor={palette.textMuted}
             secureTextEntry
-            style={[styles.backupInput, { color: palette.text, borderColor: palette.fill }]}
+            style={[styles.input, { color: palette.text }]}
           />
-          <Pressable
-            onPress={handleSignIn}
-            disabled={backup.busy}
-            style={[styles.backupButton, { backgroundColor: palette.fill }]}
-          >
-            <Text style={[styles.backupButtonLabel, { color: palette.text }]}>
-              {backup.busy ? 'Signing in…' : 'Sign in to enable backups'}
-            </Text>
-          </Pressable>
-        </>
-      )}
+        </View>
+        {mode === 'signUp' && (
+          <View style={styles.inputRow}>
+            <Lock size={18} color={palette.textMuted} strokeWidth={1.8} />
+            <TextInput
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              placeholder="Confirm password"
+              placeholderTextColor={palette.textMuted}
+              secureTextEntry
+              style={[styles.input, { color: palette.text }]}
+            />
+          </View>
+        )}
+      </RiverStoneSurface>
+
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={() => {
+          tap();
+          mode === 'signIn' ? handleSignIn() : handleSignUp();
+        }}
+        disabled={backup.busy}
+        style={[styles.primaryButton, { backgroundColor: palette.blueSoft }]}
+        accessibilityRole="button"
+      >
+        <Text style={[styles.primaryButtonLabel, { color: palette.blue }]}>
+          {backup.busy
+            ? mode === 'signIn' ? 'Signing in…' : 'Creating account…'
+            : mode === 'signIn' ? 'Sign in to enable backups' : 'Create account'}
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={() => {
+          tap();
+          setMode((m) => (m === 'signIn' ? 'signUp' : 'signIn'));
+          setConfirmPassword('');
+        }}
+        disabled={backup.busy}
+        accessibilityRole="button"
+      >
+        <Text style={[styles.switchModeText, { color: palette.textMuted }]}>
+          {mode === 'signIn' ? "Don't have an account? Create one" : 'Already have an account? Sign in'}
+        </Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -225,42 +289,45 @@ export function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
-  const [mood, setMood] = useState<RoninMood>('normal');
-  const [heroWorkbenchOpen, setHeroWorkbenchOpen] = useState(false);
+  const backup = useBackup();
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: palette.bg }]}
-      contentContainerStyle={[
-        styles.content,
-        { paddingTop: insets.top + 16, paddingBottom: Math.max(insets.bottom, 24) + 96 },
-      ]}
-    >
-      <Text style={[styles.title, { color: palette.text }]}>Me</Text>
-      <BackupSection />
-      {__DEV__ && (
-        <>
-          <View style={styles.heroWorkbenchSection}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ expanded: heroWorkbenchOpen }}
-              onPress={() => setHeroWorkbenchOpen((open) => !open)}
-              style={[styles.heroWorkbenchToggle, { backgroundColor: palette.fill }]}
-            >
-              <Text style={[styles.heroWorkbenchToggleText, { color: palette.text }]}>Hero environment registration</Text>
-              <Text style={[styles.heroWorkbenchToggleState, { color: palette.textSecondary }]}>
-                {heroWorkbenchOpen ? 'Hide' : 'Open'}
-              </Text>
-            </Pressable>
-            {heroWorkbenchOpen && <HeroEnvironmentWorkbench />}
+    <View style={[styles.container, { backgroundColor: palette.bg, paddingTop: Math.max(insets.top - 14, 0) }]}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom, 16) + 120 }]}
+      >
+        <RiverStoneSurface
+          variant="header"
+          mode={isDark ? 'dark' : 'light'}
+          shape="regular"
+          style={styles.headerStone}
+          contentStyle={styles.headerContent}
+          background={
+            <View style={styles.headerMotif} pointerEvents="none">
+              <RoninMonIcon size={128} color={`${PROFILE_BLUE}1f`} />
+            </View>
+          }
+        >
+          <View style={styles.headerCopy}>
+            <Text style={[styles.eyebrow, { color: PROFILE_BLUE }]}>YOUR ACCOUNT</Text>
+            <Text style={[styles.headerTitle, { color: palette.text }]}>Me</Text>
+            <Text style={[styles.headerSubtitle, { color: palette.textSecondary }]}>
+              {backup.isSignedIn ? 'Backups and sync' : 'Sign in to enable backups and sync'}
+            </Text>
           </View>
-          <Ronin3DBench mood={mood} onMoodChange={setMood} />
-          <View style={styles.previewSection}>
-            <RoninPreview mood={mood} style={styles.preview} />
+        </RiverStoneSurface>
+
+        <View style={styles.sectionHeading}>
+          <View style={styles.sectionHeadingLeft}>
+            <View style={[styles.sectionRule, { backgroundColor: PROFILE_BLUE }]} />
+            <Text style={[styles.sectionTitle, { color: palette.textSecondary }]}>ACCOUNT</Text>
           </View>
-        </>
-      )}
-    </ScrollView>
+        </View>
+
+        <BackupSection />
+      </ScrollView>
+    </View>
   );
 }
 
@@ -268,126 +335,128 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  content: {
-    alignItems: 'center',
-    gap: 12,
+  scrollContent: {
+    paddingHorizontal: spacing[2],
+    gap: spacing[3],
   },
-  title: {
-    fontSize: 20,
-    fontWeight: '700',
-    fontFamily: 'Inter_700Bold',
-    letterSpacing: -0.2,
+  headerStone: {
+    minHeight: 94,
   },
-  heroWorkbenchSection: {
-    width: '100%',
-    paddingHorizontal: 16,
-    gap: 10,
+  headerContent: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3],
   },
-  heroWorkbenchToggle: {
-    minHeight: 52,
-    borderRadius: 14,
-    paddingHorizontal: 16,
+  headerMotif: {
+    position: 'absolute',
+    right: 8,
+    top: -8,
+  },
+  headerCopy: {
+    gap: 2,
+  },
+  eyebrow: {
+    fontSize: 10,
+    fontFamily: 'Inter_800ExtraBold',
+    fontWeight: '800',
+    letterSpacing: 1.2,
+  },
+  headerTitle: {
+    fontSize: 23,
+    fontFamily: 'Georgia',
+    fontStyle: 'italic',
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    fontFamily: 'Inter_500Medium',
+  },
+  sectionHeading: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: spacing[2],
   },
-  heroWorkbenchToggleText: {
-    fontSize: 14,
-    fontFamily: 'Inter_600SemiBold',
-  },
-  heroWorkbenchToggleState: {
-    fontSize: 12,
-    fontFamily: 'Inter_500Medium',
-  },
-  bench: {
-    width: '100%',
-    paddingHorizontal: 16,
-    marginTop: 8,
-    gap: 10,
-  },
-  benchTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    fontFamily: 'Inter_600SemiBold',
-    textAlign: 'center',
-  },
-  benchProbe: {
-    alignSelf: 'center',
-    width: 120,
-    height: 32,
-  },
-  benchPanel: {
-    width: '100%',
-    height: 480,
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    overflow: 'hidden',
-  },
-  benchFallback: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  benchDom: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: 'transparent',
-  },
-  benchStatus: {
-    fontSize: 12,
-    textAlign: 'center',
-  },
-  benchMoods: {
+  sectionHeadingLeft: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  moodChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 16,
-  },
-  moodChipLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    fontFamily: 'Inter_600SemiBold',
-  },
-  previewSection: {
-    width: '100%',
-    paddingHorizontal: 16,
-  },
-  preview: {
-    width: '100%',
-  },
-  backupSection: {
-    width: '100%',
-    paddingHorizontal: 16,
-    gap: 8,
-  },
-  backupTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    fontFamily: 'Inter_600SemiBold',
-  },
-  backupStatus: {
-    fontSize: 13,
-  },
-  backupInput: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 15,
-  },
-  backupButton: {
-    borderRadius: 10,
-    paddingVertical: 12,
     alignItems: 'center',
+    gap: 8,
   },
-  backupButtonLabel: {
+  sectionRule: {
+    width: 3,
+    height: 12,
+    borderRadius: 2,
+  },
+  sectionTitle: {
+    fontSize: 11,
+    fontFamily: 'Inter_800ExtraBold',
+    fontWeight: '800',
+    letterSpacing: 1.2,
+  },
+  list: {
+    gap: spacing[2],
+  },
+  rowContent: {
+    minHeight: 68,
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3],
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[3],
+  },
+  iconFrame: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  copy: {
+    flex: 1,
+    gap: 3,
+  },
+  rowLabel: {
     fontSize: 15,
-    fontWeight: '600',
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: 'Inter_700Bold',
+    fontWeight: '700',
+  },
+  rowSub: {
+    fontSize: 12,
+    lineHeight: 17,
+    fontFamily: 'Inter_500Medium',
+    fontWeight: '500',
+  },
+  formContent: {
+    padding: spacing[4],
+    gap: spacing[3],
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingBottom: spacing[3],
+  },
+  input: {
+    flex: 1,
+    fontSize: 15,
+    fontFamily: 'Inter_500Medium',
+    paddingVertical: 2,
+  },
+  primaryButton: {
+    minHeight: 52,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryButtonLabel: {
+    fontSize: 15,
+    fontFamily: 'Inter_700Bold',
+    fontWeight: '700',
+  },
+  switchModeText: {
+    fontSize: 13,
+    fontFamily: 'Inter_500Medium',
+    textAlign: 'center',
   },
 });

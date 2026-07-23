@@ -10,6 +10,7 @@ import { LensSurface } from '../components/LensSurface';
 import { QuickCreateSheet } from '../components/QuickCreateSheet';
 import { useRegisterFabHoldAction } from '../hooks/useFabHoldAction';
 import type { Item } from '../db/types';
+import { ProjectPortfolioIcon } from '../components/icons/ProjectPortfolioIcon';
 import { showActionSheet } from '../utils/actionSheet';
 
 // No header "+" — holding the dock FAB while this screen is focused opens
@@ -35,13 +36,13 @@ export function ProjectsScreen() {
 
   const promptSetArea = (item: Item) => {
     if (areas.length === 0) {
-      Alert.alert('No areas yet', 'Create an area first, then assign projects to it.');
+      Alert.alert('No domains yet', 'Create a domain first, then assign missions to it.');
       return;
     }
     const currentAreaId = getRelation(item.id, 'area');
-    Alert.alert('Move to area', undefined, [
+    Alert.alert('Move to domain', undefined, [
       { text: 'Cancel', style: 'cancel' },
-      ...(currentAreaId ? [{ text: 'Remove from area', onPress: () => { setRelation(item.id, 'area', null); refresh(); } }] : []),
+      ...(currentAreaId ? [{ text: 'Remove from domain', onPress: () => { setRelation(item.id, 'area', null); refresh(); } }] : []),
       ...areas.map(area => ({
         text: area.title,
         onPress: () => {
@@ -63,7 +64,7 @@ export function ProjectsScreen() {
           refresh();
         },
       },
-      { label: 'Move to Area...', onPress: () => promptSetArea(item) },
+      { label: 'Move to Domain...', onPress: () => promptSetArea(item) },
       {
         label: 'Delete',
         onPress: () => {
@@ -84,16 +85,17 @@ export function ProjectsScreen() {
       onLongPress={() => handleLongPress(item)}
       delayLongPress={400}
     >
+      <ProjectPortfolioIcon size={34} />
       <Text style={[styles.rowTitle, { color: palette.text }]} numberOfLines={1}>{item.title}</Text>
       <Text style={[styles.rowCount, { color: palette.textTertiary }]}>{getProjectItemCount(item.id)}</Text>
     </TouchableOpacity>
   );
 
   return (
-    <LensSurface title="Projects">
+    <LensSurface title="Missions">
       {projects.length === 0 ? (
         <View style={styles.empty}>
-          <Text style={[styles.emptyTitle, { color: palette.text }]}>No projects yet</Text>
+          <Text style={[styles.emptyTitle, { color: palette.text }]}>No missions yet</Text>
           <Text style={[styles.emptySub, { color: palette.textSecondary }]}>Hold the + in the dock to create one</Text>
         </View>
       ) : (
@@ -115,8 +117,9 @@ export function ProjectsScreen() {
 
       <QuickCreateSheet
         visible={createOpen}
-        title="New Project"
-        placeholder="Project name..."
+        title="New Mission"
+        placeholder="Mission name..."
+        icon={<ProjectPortfolioIcon size={38} />}
         onClose={() => setCreateOpen(false)}
         onSubmit={handleCreate}
       />
@@ -151,6 +154,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 10,
   },
   rowTitle: {
     fontSize: 16,

@@ -1,8 +1,8 @@
 import { useCallback, useState, useEffect } from 'react';
-import { Modal, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Alert, View as RNView, Text as RNText, StyleSheet, TextInput, FlatList } from 'react-native';
+import { Modal, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Alert, View as RNView, Text as RNText, StyleSheet, TextInput, FlatList, Switch } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useMedications } from '../hooks/useDb';
-import { createMedication, updateMedication, deleteItem, getLastTakenLog, getMedicationDoseHistory, getMedicationLogs, getTotalStock, getStockBreakdown, restockMedication, startTimerFromLoggedDose, type MedicationMeta } from '../db/database';
+import { createMedication, updateMedication, deleteItem, getLastTakenLog, getMedicationDoseHistory, getMedicationLogs, getTotalStock, getStockBreakdown, restockMedication, startTimerFromLoggedDose, getPersistentMedicationTimers, type MedicationMeta } from '../db/database';
 import { LogDoseSheet } from '../components/LogDoseSheet';
 import { LensSurface } from '../components/LensSurface';
 import { MedicationStockMeter } from '../components/MedicationStockMeter';
@@ -11,8 +11,13 @@ import { startMedicationLiveActivity } from '../services/medicationLiveActivity'
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
 import type { Item } from '../db/types';
-import { Pill, X, AlertTriangle, Clock, PlayCircle, Check } from '../icons';
+import { X, AlertTriangle, Clock, PlayCircle, Check } from '../icons';
+import { MedicationBottleIcon } from '../components/icons/MedicationBottleIcon';
+import { ensureMedicationTimerAutoStop } from '../services/medicationTimerController';
+import { presentMedicationTimer } from '../utils/timerPresentation';
 import { showActionSheet } from '../utils/actionSheet';
+
+const AUTO_STOP_PRESETS = [4, 5, 8, 12, 18, 24] as const;
 
 function useTimeSince(timestamp: number | undefined): string {
   const [label, setLabel] = useState('—');
@@ -42,11 +47,15 @@ function useMedState(item: Item) {
   const stock = getTotalStock(meta);
   const threshold = meta.refillThreshold ?? 5;
   const isLowStock = isTrackingStock && stock <= threshold;
+  const hasPendingHalf = !!meta.pendingHalfDoseAt;
   const canTake = (() => {
+    // Completing an already-started split dose is always allowed — that's the
+    // whole point of splitting (no required gap between the two halves).
+    if (hasPendingHalf) return true;
     if (!meta.minHoursBetweenDoses || !lastLog) return true;
     return (Date.now() - lastLog.timestamp) / 3600000 >= meta.minHoursBetweenDoses;
   })();
-  return { meta, lastLog, stock, isTrackingStock, isLowStock, canTake };
+  return { meta, lastLog, stock, isTrackingStock, isLowStock, canTake, hasPendingHalf };
 }
 
 interface NeedsAttentionRowProps {
@@ -81,6 +90,7 @@ interface TodayRowProps {
   item: Item;
   isDark: boolean;
   onTake: (startTimer?: boolean) => void;
+  onTakeHalf: (startTimer?: boolean) => void;
   onLogPast: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -88,14 +98,16 @@ interface TodayRowProps {
   onStartTimer: () => void;
 }
 
-function TodayRow({ item, isDark, onTake, onLogPast, onEdit, onDelete, onRestock, onStartTimer }: TodayRowProps) {
+function TodayRow({ item, isDark, onTake, onTakeHalf, onLogPast, onEdit, onDelete, onRestock, onStartTimer }: TodayRowProps) {
   const palette = getThemeColors(isDark);
-  const { meta, lastLog, stock, isTrackingStock, canTake } = useMedState(item);
+  const { meta, lastLog, stock, isTrackingStock, canTake, hasPendingHalf } = useMedState(item);
   const timeSince = useTimeSince(lastLog?.timestamp);
   const breakdown = getStockBreakdown(meta);
 
-  const handleTake = (startTimer = false) => {
-    const confirmLabel = startTimer ? 'Take & start timer' : 'Take';
+  // The confirm itself offers both "Take" and "Take + Timer" — most doses do want
+  // a timer, so that choice belongs on the primary one-tap path, not buried behind
+  // a separate long-press gesture.
+  const handleTake = () => {
     if (!canTake) {
       const minsLeft = Math.ceil(meta.minHoursBetweenDoses! * 60 - (Date.now() - lastLog!.timestamp) / 60000);
       Alert.alert('Too soon', `Next dose in ${minsLeft < 60 ? `${minsLeft}m` : `${Math.ceil(minsLeft / 60)}h`}`, [{ text: 'OK' }]);
@@ -105,25 +117,33 @@ function TodayRow({ item, isDark, onTake, onLogPast, onEdit, onDelete, onRestock
       Alert.alert('Out of stock', 'No doses remaining.', [{ text: 'OK' }]);
       return;
     }
-    Alert.alert(`${confirmLabel} ${item.title}`, meta.dose ?? 'Record dose?', [
+    Alert.alert(`Take ${item.title}`, meta.dose ?? 'Record dose?', [
       { text: 'Cancel', style: 'cancel' },
-      {
-        text: startTimer ? 'Take + Timer' : 'Take',
-        onPress: () => {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          onTake(startTimer);
-        },
-      },
+      { text: 'Take', onPress: () => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); onTake(false); } },
+      { text: 'Take + Timer', onPress: () => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); onTake(true); } },
+    ]);
+  };
+
+  const handleTakeHalf = () => {
+    if (stock === 0) {
+      Alert.alert('Out of stock', 'No doses remaining.', [{ text: 'OK' }]);
+      return;
+    }
+    const which = hasPendingHalf ? 'other half' : 'half';
+    Alert.alert(`Take ${which} of ${item.title}`, meta.dose ?? 'Record half dose?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Take', onPress: () => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); onTakeHalf(false); } },
+      { text: 'Take + Timer', onPress: () => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); onTakeHalf(true); } },
     ]);
   };
 
   const handleLongPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     showActionSheet(item.title, [
-      { label: 'Take + Start Timer', onPress: () => handleTake(true) },
       // Forgot to start the timer when you took it? Attach one now to the dose
       // you already logged, instead of logging a second (fake) dose.
       ...(lastLog ? [{ label: 'Start Timer for Last Dose', onPress: onStartTimer }] : []),
+      ...(meta.splitDoseEnabled && !hasPendingHalf ? [{ label: 'Take Half', onPress: handleTakeHalf }] : []),
       { label: 'Log Past Dose', onPress: onLogPast },
       ...(isTrackingStock ? [{ label: 'Restock', onPress: onRestock }] : []),
       { label: 'Edit', onPress: onEdit },
@@ -131,10 +151,15 @@ function TodayRow({ item, isDark, onTake, onLogPast, onEdit, onDelete, onRestock
     ]);
   };
 
-  // Dark mode: silvery-blue "Take" action (same accent as the rest of the
-  // app) instead of a plain white pill; light mode keeps the original.
-  const takeBg = isDark ? (canTake ? palette.blue : palette.fillStrong) : (canTake ? palette.text : palette.fill);
-  const takeTextColor = isDark ? (canTake ? '#182229' : palette.textSecondary) : (canTake ? palette.bg : palette.textSecondary);
+  // Pending half dose gets its own accent (orange, matching the app's "needs
+  // attention" color) so it reads as a distinct state from the normal blue
+  // Take / gray Wait — this button always works regardless of canTake/cooldown.
+  const takeBg = hasPendingHalf
+    ? palette.orangeSoft
+    : isDark ? (canTake ? palette.blue : palette.fillStrong) : (canTake ? palette.text : palette.fill);
+  const takeTextColor = hasPendingHalf
+    ? palette.orange
+    : isDark ? (canTake ? '#182229' : palette.textSecondary) : (canTake ? palette.bg : palette.textSecondary);
 
   return (
     <TouchableOpacity onLongPress={handleLongPress} delayLongPress={400} activeOpacity={0.5}>
@@ -163,11 +188,11 @@ function TodayRow({ item, isDark, onTake, onLogPast, onEdit, onDelete, onRestock
           )}
         </RNView>
         <TouchableOpacity
-          onPress={() => handleTake(false)}
+          onPress={() => (hasPendingHalf ? handleTakeHalf() : handleTake())}
           style={[s.actionBtn, { backgroundColor: takeBg, opacity: stock === 0 ? 0.35 : 1 }]}
         >
           <RNText style={[s.actionBtnText, { color: takeTextColor }]}>
-            {canTake ? 'Take' : 'Wait'}
+            {hasPendingHalf ? 'Take other half' : canTake ? 'Take' : 'Wait'}
           </RNText>
         </TouchableOpacity>
       </RNView>
@@ -175,12 +200,14 @@ function TodayRow({ item, isDark, onTake, onLogPast, onEdit, onDelete, onRestock
   );
 }
 
-function HistoryRow({ item, isDark }: { item: Item; isDark: boolean }) {
+function HistoryRow({ item, isDark, onPress }: { item: Item; isDark: boolean; onPress: () => void }) {
   const palette = getThemeColors(isDark);
   const history = getMedicationDoseHistory(item.id, 5);
 
   return (
-    <RNView
+    <TouchableOpacity
+      activeOpacity={0.7}
+      onPress={onPress}
       style={[
         s.historyRow,
         isDark
@@ -199,7 +226,7 @@ function HistoryRow({ item, isDark }: { item: Item; isDark: boolean }) {
           </RNView>
         ))}
       </RNView>
-    </RNView>
+    </TouchableOpacity>
   );
 }
 
@@ -217,6 +244,8 @@ function MedFormSheet({ visible, onClose, onSaved, isDark, editTarget }: MedForm
   const [dose, setDose] = useState('');
   const [stock, setStock] = useState('');
   const [minHours, setMinHours] = useState('');
+  const [splitDoseEnabled, setSplitDoseEnabled] = useState(false);
+  const [autoStopHours, setAutoStopHours] = useState('24');
   const [containerLabel, setContainerLabel] = useState('');
   const [containerSize, setContainerSize] = useState('');
   const [containersPerRestock, setContainersPerRestock] = useState('');
@@ -233,6 +262,8 @@ function MedFormSheet({ visible, onClose, onSaved, isDark, editTarget }: MedForm
       setDose(meta.dose ?? '');
       setStock(String(getTotalStock(meta)));
       setMinHours(meta.minHoursBetweenDoses !== undefined ? String(meta.minHoursBetweenDoses) : '');
+      setSplitDoseEnabled(!!meta.splitDoseEnabled);
+      setAutoStopHours(String(meta.autoStopAfterHours ?? 24));
       setContainerLabel(meta.containerLabel ?? '');
       setContainerSize(meta.containerSize !== undefined ? String(meta.containerSize) : '');
       setContainersPerRestock(meta.containersPerRestock !== undefined ? String(meta.containersPerRestock) : '');
@@ -240,7 +271,7 @@ function MedFormSheet({ visible, onClose, onSaved, isDark, editTarget }: MedForm
       setPillsPerSheet(meta.pillsPerSheet !== undefined ? String(meta.pillsPerSheet) : '');
       setPackagingNote(meta.packagingNote ?? '');
     } else {
-      setTitle(''); setDose(''); setStock(''); setMinHours('');
+      setTitle(''); setDose(''); setStock(''); setMinHours(''); setSplitDoseEnabled(false); setAutoStopHours('24');
       setContainerLabel(''); setContainerSize(''); setContainersPerRestock('');
       setSheetsPerContainer(''); setPillsPerSheet(''); setPackagingNote('');
     }
@@ -251,6 +282,8 @@ function MedFormSheet({ visible, onClose, onSaved, isDark, editTarget }: MedForm
     const packaging: MedicationMeta = {
       dose: dose.trim() || undefined,
       minHoursBetweenDoses: minHours ? parseFloat(minHours) : undefined,
+      splitDoseEnabled,
+      autoStopAfterHours: autoStopHours && parseFloat(autoStopHours) > 0 ? parseFloat(autoStopHours) : 24,
       containerLabel: containerLabel.trim() || undefined,
       containerSize: containerSize ? parseInt(containerSize) : undefined,
       containersPerRestock: containersPerRestock ? parseInt(containersPerRestock) : undefined,
@@ -277,6 +310,7 @@ function MedFormSheet({ visible, onClose, onSaved, isDark, editTarget }: MedForm
     { label: 'Dose', value: dose, set: setDose, placeholder: 'e.g. 400mg', auto: false, kb: 'default' as const, disabled: false },
     { label: isEditing ? 'Stock remaining (units) — read-only, use Restock' : 'Initial stock (units)', value: stock, set: setStock, placeholder: 'e.g. 30', auto: false, kb: 'numeric' as const, disabled: isEditing },
     { label: 'Min hours between doses', value: minHours, set: setMinHours, placeholder: 'e.g. 6', auto: false, kb: 'numeric' as const, disabled: false },
+    { label: 'Stopwatch auto-stop (hours)', value: autoStopHours, set: setAutoStopHours, placeholder: '4, 5, 8, 12, 18, or 24', auto: false, kb: 'decimal-pad' as const, disabled: false },
     { label: 'Container label', value: containerLabel, set: setContainerLabel, placeholder: 'e.g. box, container', auto: false, kb: 'default' as const, disabled: false },
     { label: 'Pills per container', value: containerSize, set: setContainerSize, placeholder: 'e.g. 30', auto: false, kb: 'numeric' as const, disabled: false },
     { label: 'Containers per restock', value: containersPerRestock, set: setContainersPerRestock, placeholder: 'e.g. 2', auto: false, kb: 'numeric' as const, disabled: false },
@@ -312,8 +346,55 @@ function MedFormSheet({ visible, onClose, onSaved, isDark, editTarget }: MedForm
                   keyboardAppearance={isDark ? 'dark' : 'light'}
                   editable={!disabled}
                 />
+                {label === 'Stopwatch auto-stop (hours)' ? (
+                  <RNView style={s.presetRow}>
+                    {AUTO_STOP_PRESETS.map((hours) => {
+                      const selected = Number(autoStopHours) === hours;
+                      return (
+                        <TouchableOpacity
+                          key={hours}
+                          onPress={() => {
+                            setAutoStopHours(String(hours));
+                            Haptics.selectionAsync().catch(() => {});
+                          }}
+                          style={[
+                            s.presetChip,
+                            {
+                              backgroundColor: selected ? palette.blueSoft : palette.fill,
+                              borderColor: selected ? palette.blue : palette.separator,
+                            },
+                          ]}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected }}
+                          accessibilityLabel={`${hours} hour stopwatch auto-stop`}
+                        >
+                          <RNText style={[s.presetChipText, { color: selected ? palette.blue : palette.textSecondary }]}>{hours}h</RNText>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </RNView>
+                ) : null}
+                {label === 'Min hours between doses' ? (
+                  <RNView style={s.splitDoseRow}>
+                    <RNView style={{ flex: 1 }}>
+                      <RNText style={[s.splitDoseLabel, { color: palette.text }]}>Can be split</RNText>
+                      <RNText style={[s.splitDoseSub, { color: palette.textSecondary }]}>
+                        e.g. Modafinil — take half now, the other half later with no wait
+                      </RNText>
+                    </RNView>
+                    <Switch
+                      value={splitDoseEnabled}
+                      onValueChange={(value) => {
+                        setSplitDoseEnabled(value);
+                        Haptics.selectionAsync().catch(() => {});
+                      }}
+                      trackColor={{ false: palette.fill, true: palette.blue }}
+                    />
+                  </RNView>
+                ) : null}
               </RNView>
             ))}
+            <RNText style={[s.fieldHelp, { color: palette.textMuted }]}>Auto-stop only limits how long the app tracks the stopwatch. It is not medical clearance guidance.</RNText>
           </ScrollView>
 
           <RNView style={s.addMedActions}>
@@ -369,7 +450,7 @@ function SeeAllHistorySheet({ visible, item, onClose, isDark }: { visible: boole
 export function MedicationsScreen() {
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
-  const { medications, refresh, takeMedication } = useMedications();
+  const { medications, refresh, takeMedication, takeHalfDose } = useMedications();
   const [addOpen, setAddOpen] = useState(false);
   const [logTarget, setLogTarget] = useState<Item | null>(null);
   const [editTarget, setEditTarget] = useState<Item | null>(null);
@@ -438,6 +519,8 @@ export function MedicationsScreen() {
       dose: meta.dose,
       displayStartedAt: log.timestamp,
     });
+    const timer = getPersistentMedicationTimers().find(candidate => candidate.log.id === log.id);
+    if (timer) ensureMedicationTimerAutoStop(presentMedicationTimer(timer, Date.now())).catch(() => {});
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     refresh();
   };
@@ -446,7 +529,7 @@ export function MedicationsScreen() {
     <LensSurface title="Medications">
       {medications.length === 0 ? (
         <RNView style={s.empty}>
-          <Pill size={28} color={palette.textMuted} strokeWidth={1} />
+          <MedicationBottleIcon size={36} />
           <RNText style={[s.emptyTitle, { color: palette.text }]}>No medications</RNText>
           <RNText style={[s.emptySub, { color: palette.textSecondary }]}>Hold the + in the dock to add one</RNText>
         </RNView>
@@ -472,6 +555,7 @@ export function MedicationsScreen() {
                   item={item}
                   isDark={isDark}
                   onTake={(startTimer) => takeMedication(item.id, undefined, startTimer)}
+                  onTakeHalf={(startTimer) => takeHalfDose(item.id, undefined, startTimer)}
                   onLogPast={() => setLogTarget(item)}
                   onEdit={() => setEditTarget(item)}
                   onDelete={() => handleDelete(item)}
@@ -485,13 +569,11 @@ export function MedicationsScreen() {
           <RNView style={s.section}>
             <RNView style={s.historyHeader}>
               <RNText style={[s.sectionLabel, { color: palette.textTertiary }]}>HISTORY</RNText>
-              <TouchableOpacity onPress={() => setHistoryTarget(medications[0] ?? null)} hitSlop={8}>
-                <RNText style={[s.seeAll, { color: palette.blue }]}>See all</RNText>
-              </TouchableOpacity>
+              <RNText style={[s.seeAll, { color: palette.textTertiary }]}>Tap a medication for full history</RNText>
             </RNView>
             <RNView style={s.sectionRows}>
               {medications.map(item => (
-                <HistoryRow key={item.id} item={item} isDark={isDark} />
+                <HistoryRow key={item.id} item={item} isDark={isDark} onPress={() => setHistoryTarget(item)} />
               ))}
             </RNView>
           </RNView>
@@ -716,6 +798,46 @@ const s = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 8,
     borderWidth: StyleSheet.hairlineWidth,
+  },
+  fieldHelp: {
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: -8,
+  },
+  presetRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 7,
+    marginTop: 2,
+  },
+  splitDoseRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 10,
+  },
+  splitDoseLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
+  },
+  splitDoseSub: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  presetChip: {
+    minWidth: 44,
+    minHeight: 36,
+    paddingHorizontal: 11,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  presetChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
   },
   addMedActions: {
     flexDirection: 'row',

@@ -4,13 +4,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Calendar, Sun, Moon, Archive, Trash2, Tag } from '../icons';
 import { TaskSwipeItem } from '../components/TaskSwipeItem';
+import { DependencyConnector } from '../components/DependencyConnector';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors, lineHeight, letterSpacing } from '../theme';
 import { useInbox } from '../hooks/useDb';
-import { updateItemStatus, processInboxItem } from '../db/database';
+import { updateItemStatus, processInboxItem, getBlockingTask } from '../db/database';
 import { X } from '../icons';
-import { CalligraphyBrushIcon } from '../components/icons/DockIcons';
-import { QuickAddScreen } from './QuickAddScreen';
+import { FabControl } from '../components/fab/FabControl';
+import { useItemComposer } from '../components/item-composer';
+
+const CHECKBOX_CENTER_X = 38; // TaskSwipeItem's taskRow paddingHorizontal(16) + half the 44pt disc touch target
 
 interface InboxScreenV2Props {
   visible: boolean;
@@ -22,10 +25,10 @@ export function InboxScreenV2({ visible, onClose }: InboxScreenV2Props) {
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
   const { items: inboxItems, refresh } = useInbox();
-  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const { openCapture, openEditorForItem, revision: composerRevision } = useItemComposer();
 
   // Hold-to-select: long-press any row enters selection mode and selects it; tapping other
-  // rows (or their checkboxes) while active toggles them into/out of the set. A bottom
+  // rows (or their selection indicators) while active toggles them into/out of the set. A bottom
   // toolbar then acts on the whole selection at once, matching Reminders/Things 3.
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -36,16 +39,26 @@ export function InboxScreenV2({ visible, onClose }: InboxScreenV2Props) {
     if (visible) refresh();
   }, [visible, refresh]);
 
-  // QuickAddScreen creates items directly against the DB, bypassing this hook's own
-  // addItem/refresh — refetch whenever it closes so a freshly-added item shows up.
   useEffect(() => {
-    if (!quickAddOpen) refresh();
-  }, [quickAddOpen, refresh]);
+    if (visible) refresh();
+  }, [composerRevision, refresh, visible]);
 
-  // Tap or swipe the checkbox marks it genuinely done, not just triaged out of Inbox —
+  // Tap the completion seal or swipe the row to mark it genuinely done, not just triaged out of Inbox —
   // for trivial items that don't need scheduling. Real triage goes through handleBulkProcess.
   const handleComplete = useCallback((id: string) => {
+    const blocker = getBlockingTask(id);
+    if (blocker) {
+      Alert.alert('Blocked', `Complete "${blocker.title}" first.`, [{ text: 'OK' }]);
+      return;
+    }
     updateItemStatus(id, 'completed');
+    refresh();
+  }, [refresh]);
+
+  // Swipe right = Someday, matching the bulk toolbar's Archive icon meaning below.
+  const handleArchive = useCallback((id: string) => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    processInboxItem(id, 'someday');
     refresh();
   }, [refresh]);
 
@@ -80,8 +93,8 @@ export function InboxScreenV2({ visible, onClose }: InboxScreenV2Props) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     Alert.alert('Classify as...', 'This reassigns the entity type, not just when it happens.', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Project', onPress: () => handleBulkProcess('project') },
-      { text: 'Area', onPress: () => handleBulkProcess('area') },
+      { text: 'Mission', onPress: () => handleBulkProcess('project') },
+      { text: 'Domain', onPress: () => handleBulkProcess('area') },
       { text: 'Habit', onPress: () => handleBulkProcess('habit') },
       { text: 'Medication', onPress: () => handleBulkProcess('medication') },
       { text: 'Reference', onPress: () => handleBulkProcess('reference') },
@@ -130,18 +143,44 @@ export function InboxScreenV2({ visible, onClose }: InboxScreenV2Props) {
           <FlatList
             data={inboxItems}
             keyExtractor={(item) => item.id}
-            renderItem={({ item, index }) => (
-              <TaskSwipeItem
+            renderItem={({ item, index }) => {
+              const blocker = getBlockingTask(item.id);
+              const prevItem = inboxItems[index - 1];
+              // Adjacency can run either way depending on creation order — the
+              // blocker isn't always the row directly above; it can be the row
+              // directly below instead (its own blocker points back up at us).
+              const prevBlocksThis = !!blocker && !!prevItem && blocker.id === prevItem.id;
+              const thisBlocksPrev = !!prevItem && getBlockingTask(prevItem.id)?.id === item.id;
+              const chainedToPrev = prevBlocksThis || thisBlocksPrev;
+              return (
+              <>
+                {chainedToPrev && (
+                  <View style={s.connectorWrap}>
+                    <DependencyConnector isDark={isDark} leftOffset={CHECKBOX_CENTER_X} />
+                  </View>
+                )}
+                <TaskSwipeItem
                 item={item}
                 isDark={isDark}
                 index={index}
                 onComplete={handleComplete}
+                onArchive={handleArchive}
+                blockedByTitle={blocker?.title}
+                hideBlockedBadge={chainedToPrev}
+                onPress={(selectedItem) => openEditorForItem({
+                  item: selectedItem,
+                  onComplete: ({ action }) => {
+                    if (action !== 'cancelled') refresh();
+                  },
+                })}
                 onLongPress={() => enterSelection(item.id)}
                 selectionMode={selectionMode}
                 selected={selectedIds.has(item.id)}
                 onToggleSelect={toggleSelect}
-              />
-            )}
+                />
+              </>
+              );
+            }}
             style={s.list}
             contentContainerStyle={s.listContent}
             showsVerticalScrollIndicator={false}
@@ -149,18 +188,19 @@ export function InboxScreenV2({ visible, onClose }: InboxScreenV2Props) {
         )}
 
         {/* Floating Add Button — hidden during selection, replaced by the bulk toolbar.
-            Same calligraphy-brush mark as the dock FAB, white icon in both modes
-            (palette.primary is deeperBlue everywhere now, no theme-conditional
-            contrast fix needed like the old silvery-blue required). */}
+            Uses the same registered brush-and-paper sequence as the dock FAB. */}
         {!selectionMode ? (
-          <TouchableOpacity
-            onPress={() => setQuickAddOpen(true)}
-            style={[s.fab, { backgroundColor: palette.primary }, isDark && s.fabGlow]}
-            activeOpacity={0.8}
+          <FabControl
+            size={56}
+            onPress={() => openCapture({
+              context: { status: 'inbox' },
+              onComplete: ({ action }) => {
+                if (action === 'saved') refresh();
+              },
+            })}
+            style={s.fab}
             hitSlop={12}
-          >
-            <CalligraphyBrushIcon size={22} color="#ffffff" />
-          </TouchableOpacity>
+          />
         ) : null}
 
         {/* Bulk triage toolbar */}
@@ -205,7 +245,6 @@ export function InboxScreenV2({ visible, onClose }: InboxScreenV2Props) {
         ) : null}
       </View>
 
-      <QuickAddScreen visible={quickAddOpen} onClose={() => setQuickAddOpen(false)} defaultStatus="inbox" />
     </Modal>
   );
 }
@@ -255,6 +294,9 @@ const s = StyleSheet.create({
   list: {
     flex: 1,
   },
+  connectorWrap: {
+    marginHorizontal: 16,
+  },
   listContent: {
     paddingHorizontal: 0,
     paddingTop: 4,
@@ -279,21 +321,6 @@ const s = StyleSheet.create({
     position: 'absolute',
     bottom: 24,
     right: 16,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  fabGlow: {
-    shadowColor: '#2b7ff0',
-    shadowOpacity: 0.5,
-    shadowRadius: 16,
   },
   toolbar: {
     position: 'absolute',

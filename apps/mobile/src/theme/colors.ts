@@ -42,6 +42,12 @@ export const colors = {
   redSoft: 'rgba(255,59,48,0.12)',
   orange: '#ff9500',
   orangeSoft: 'rgba(255,149,0,0.14)',
+
+  // River Stone surface base — deliberately neutral/warm-gray, distinct from
+  // `surface` (which is blue-tinted to match the night palette). Used by
+  // RiverStoneSurface for components that don't already carry their own
+  // deliberate color (hero gradients, scene photos, etc. keep their own).
+  stoneSurface: '#f3efe4',
 } as const;
 
 export const darkColors = {
@@ -82,6 +88,9 @@ export const darkColors = {
   redSoft: 'rgba(255,81,71,0.18)',
   orange: '#ff9f5a',
   orangeSoft: 'rgba(255,159,90,0.18)',
+
+  // See the light-mode `colors` comment above — same rationale.
+  stoneSurface: '#1c1c22',
 } as const;
 
 export const themeColors = {
@@ -97,3 +106,5 @@ export const darkThemeColors = {
 export function getThemeColors(isDark: boolean) {
   return isDark ? darkThemeColors : themeColors;
 }
+
+export type ThemeColors = ReturnType<typeof getThemeColors>;

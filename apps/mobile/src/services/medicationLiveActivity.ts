@@ -38,6 +38,16 @@ interface MedicationTimerState {
   pausedAt?: number;
 }
 
+function endOtherActivities(logId: string, state: MedicationTimerState) {
+  for (const [activeLogId, instance] of activeActivities) {
+    if (activeLogId === logId) continue;
+    try { instance.end('immediate', state); } catch { /* ignore */ }
+    activeActivities.delete(activeLogId);
+  }
+  activeLiveActivityIds = new Set(activeActivities.keys());
+  notifyListeners();
+}
+
 function isSupported(): boolean {
   return Platform.OS === 'ios';
 }
@@ -45,7 +55,8 @@ function isSupported(): boolean {
 export function startMedicationLiveActivity(logId: string, state: MedicationTimerState): void {
   if (!isSupported() || activeActivities.has(logId)) return;
   try {
-    const instance = MedicationTimerActivity.start(state, 'rkaos://medications');
+    endOtherActivities(logId, state);
+    const instance = MedicationTimerActivity.start(state, `rkaos://medications?timer=${encodeURIComponent(logId)}`);
     if (instance) {
       activeActivities.set(logId, instance);
       activeLiveActivityIds = new Set(activeLiveActivityIds).add(logId);

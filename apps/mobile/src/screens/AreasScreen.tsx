@@ -3,13 +3,14 @@ import { View, Text, TouchableOpacity, ScrollView, Alert, StyleSheet } from 'rea
 import { useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { useAreas } from '../hooks/useDb';
-import { createItem, deleteItem, getAreaProjectCount } from '../db/database';
+import { createItem, updateItem, deleteItem, getAreaProjectCount } from '../db/database';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
 import { LensSurface } from '../components/LensSurface';
 import { QuickCreateSheet } from '../components/QuickCreateSheet';
 import { useRegisterFabHoldAction } from '../hooks/useFabHoldAction';
 import type { Item } from '../db/types';
+import { AreaBonsaiIcon } from '../components/icons/AreaBonsaiIcon';
 
 // No header "+" — holding the dock FAB while this screen is focused opens
 // New Area instead (see useRegisterFabHoldAction / App.tsx's runFabHold).
@@ -19,10 +20,17 @@ export function AreasScreen() {
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
   const [createOpen, setCreateOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<Item | null>(null);
 
   useRegisterFabHoldAction(useCallback(() => setCreateOpen(true), []));
 
   const handleCreate = (title: string) => {
+    if (editTarget) {
+      updateItem(editTarget.id, { title });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      refresh();
+      return;
+    }
     createItem('area', title, 'active');
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     refresh();
@@ -32,24 +40,34 @@ export function AreasScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     Alert.alert(item.title, undefined, [
       { text: 'Cancel', style: 'cancel' },
+      { text: 'Edit', onPress: () => { setEditTarget(item); setCreateOpen(true); } },
       {
         text: 'Delete',
         style: 'destructive',
         onPress: () => {
-          deleteItem(item.id);
-          refresh();
+          Alert.alert(`Delete ${item.title}?`, 'This cannot be undone.', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Delete',
+              style: 'destructive',
+              onPress: () => {
+                deleteItem(item.id);
+                refresh();
+              },
+            },
+          ]);
         },
       },
     ]);
   };
 
   return (
-    <LensSurface title="Areas">
+    <LensSurface title="Domains">
       {areas.length === 0 ? (
         <View style={styles.empty}>
-          <Text style={[styles.emptyTitle, { color: palette.text }]}>No areas yet</Text>
+          <Text style={[styles.emptyTitle, { color: palette.text }]}>No domains yet</Text>
           <Text style={[styles.emptySub, { color: palette.textSecondary }]}>
-            Areas group related projects (e.g. Health, Finances). Hold the + in the dock to create one.
+            Domains group related missions (e.g. Health, Finances). Hold the + in the dock to create one.
           </Text>
         </View>
       ) : (
@@ -66,6 +84,7 @@ export function AreasScreen() {
                   onLongPress={() => handleLongPress(area)}
                   delayLongPress={400}
                 >
+                  <AreaBonsaiIcon size={34} />
                   <Text style={[styles.rowTitle, { color: palette.text }]} numberOfLines={1}>{area.title}</Text>
                   <Text style={[styles.rowCount, { color: palette.textTertiary }]}>{count}</Text>
                 </TouchableOpacity>
@@ -77,9 +96,11 @@ export function AreasScreen() {
 
       <QuickCreateSheet
         visible={createOpen}
-        title="New Area"
-        placeholder="Area name..."
-        onClose={() => setCreateOpen(false)}
+        title={editTarget ? 'Edit Domain' : 'New Domain'}
+        placeholder="Domain name..."
+        icon={<AreaBonsaiIcon size={38} />}
+        initialValue={editTarget?.title}
+        onClose={() => { setCreateOpen(false); setEditTarget(null); }}
         onSubmit={handleCreate}
       />
     </LensSurface>
@@ -101,6 +122,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 10,
   },
   rowTitle: {
     fontSize: 16,

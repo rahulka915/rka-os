@@ -1,7 +1,21 @@
-import { supabase, hasSupabaseConfig } from '../lib/supabase';
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDocs,
+  limit,
+  orderBy,
+  query,
+  serverTimestamp,
+  Timestamp,
+  where,
+} from 'firebase/firestore';
+import { firestore, hasFirebaseConfig } from '../lib/firebase';
 import { serializeBackup, getOrCreateDeviceId, type BackupPayload } from '../db/backup';
 
 const MAX_SNAPSHOTS_PER_USER = 5;
+const BACKUPS_COLLECTION = 'backups';
 
 export interface BackupMeta {
   id: string;
@@ -9,61 +23,68 @@ export interface BackupMeta {
 }
 
 export async function pushBackup(userId: string): Promise<void> {
-  if (!hasSupabaseConfig || !supabase) return;
+  if (!hasFirebaseConfig || !firestore) return;
 
   const payload = serializeBackup();
   const deviceId = getOrCreateDeviceId();
 
-  const { error } = await supabase.from('mobile_backups').insert({
-    user_id: userId,
-    device_id: deviceId,
+  await addDoc(collection(firestore, BACKUPS_COLLECTION), {
+    userId,
+    deviceId,
     payload,
+    createdAt: serverTimestamp(),
   });
-  if (error) throw error;
 
   await pruneOldBackups(userId);
 }
 
 async function pruneOldBackups(userId: string): Promise<void> {
-  if (!supabase) return;
+  if (!firestore) return;
 
-  const { data, error } = await supabase
-    .from('mobile_backups')
-    .select('id, created_at')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false });
-  if (error || !data) return;
+  const snapshot = await getDocs(
+    query(
+      collection(firestore, BACKUPS_COLLECTION),
+      where('userId', '==', userId),
+      orderBy('createdAt', 'desc')
+    )
+  );
 
-  const idsToDelete = data.slice(MAX_SNAPSHOTS_PER_USER).map((row) => row.id);
-  if (idsToDelete.length === 0) return;
+  const toDelete = snapshot.docs.slice(MAX_SNAPSHOTS_PER_USER);
+  if (toDelete.length === 0) return;
 
-  await supabase.from('mobile_backups').delete().in('id', idsToDelete);
+  await Promise.all(toDelete.map((d) => deleteDoc(doc(firestore!, BACKUPS_COLLECTION, d.id))));
 }
 
 export async function getLatestBackupMeta(userId: string): Promise<BackupMeta | null> {
-  if (!hasSupabaseConfig || !supabase) return null;
+  if (!hasFirebaseConfig || !firestore) return null;
 
-  const { data, error } = await supabase
-    .from('mobile_backups')
-    .select('id, created_at')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-    .limit(1);
-  if (error || !data || data.length === 0) return null;
+  const snapshot = await getDocs(
+    query(
+      collection(firestore, BACKUPS_COLLECTION),
+      where('userId', '==', userId),
+      orderBy('createdAt', 'desc'),
+      limit(1)
+    )
+  );
+  if (snapshot.empty) return null;
 
-  return { id: data[0].id, createdAt: data[0].created_at };
+  const first = snapshot.docs[0];
+  const createdAt = first.get('createdAt') as Timestamp | null;
+  return { id: first.id, createdAt: createdAt ? createdAt.toDate().toISOString() : new Date().toISOString() };
 }
 
 export async function fetchLatestBackupPayload(userId: string): Promise<BackupPayload | null> {
-  if (!hasSupabaseConfig || !supabase) return null;
+  if (!hasFirebaseConfig || !firestore) return null;
 
-  const { data, error } = await supabase
-    .from('mobile_backups')
-    .select('payload')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-    .limit(1);
-  if (error || !data || data.length === 0) return null;
+  const snapshot = await getDocs(
+    query(
+      collection(firestore, BACKUPS_COLLECTION),
+      where('userId', '==', userId),
+      orderBy('createdAt', 'desc'),
+      limit(1)
+    )
+  );
+  if (snapshot.empty) return null;
 
-  return data[0].payload as BackupPayload;
+  return snapshot.docs[0].get('payload') as BackupPayload;
 }

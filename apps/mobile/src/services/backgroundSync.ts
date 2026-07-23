@@ -8,7 +8,7 @@ TaskManager.defineTask(BACKGROUND_SYNC_TASK, async () => {
   try {
     const inboxCount = getInboxItems().length;
     await setBadgeCount(inboxCount);
-    // TODO: sync with Supabase when online
+    // TODO: sync with Firebase when online
     return 'newData';
   } catch {
     return 'failed';

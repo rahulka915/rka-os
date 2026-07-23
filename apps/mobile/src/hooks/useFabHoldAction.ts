@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 
 // Lets the currently-focused screen register a "hold" action for the global
-// dock FAB — tap is always generic Create (see App.tsx openQuickAdd); a
+// dock FAB — tap is always generic Create; a
 // long-press instead runs whatever genuinely-different creation action the
 // current screen offers (new Area, new Project, new Medication, ...),
 // replacing what used to be a separate top-right "+" per screen.

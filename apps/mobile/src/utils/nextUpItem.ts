@@ -19,8 +19,17 @@ const BUCKET_LABELS: Record<TimeBucket, string> = {
   anytime: 'Anytime',
 };
 
+function metadataOf(item: Item): Record<string, unknown> {
+  if (!item.metadata) return {};
+  try {
+    return JSON.parse(item.metadata) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
+}
+
 function bucketOf(item: Item): TimeBucket {
-  const meta = item.metadata ? JSON.parse(item.metadata) : {};
+  const meta = metadataOf(item);
   if (meta.timeOfDay === 'morning' || meta.timeOfDay === 'afternoon' || meta.timeOfDay === 'evening') {
     return meta.timeOfDay;
   }
@@ -44,6 +53,14 @@ function actionLabelFor(item: Item, activeTimerItemIds: string[]): NextUpActionL
     return 'Start';
   }
   return 'View';
+}
+
+function displayTimeFor(item: Item, bucket: TimeBucket): string {
+  const metadata = metadataOf(item);
+  if (typeof metadata.time === 'string' && /^\d{1,2}:\d{2}$/.test(metadata.time)) {
+    return metadata.time;
+  }
+  return BUCKET_LABELS[bucket];
 }
 
 const PENDING_STATUSES: Item['status'][] = ['active', 'scheduled', 'due-today', 'overdue', 'inbox'];
@@ -72,7 +89,7 @@ export function findNextUpItem(
         id: item.id,
         title: item.title,
         type: item.type,
-        timeOfDayLabel: BUCKET_LABELS[bucket],
+        timeOfDayLabel: displayTimeFor(item, bucket),
         actionLabel: actionLabelFor(item, activeTimerItemIds),
       };
     }

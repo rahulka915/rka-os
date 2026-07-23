@@ -1,5 +1,6 @@
 import type { ActivityLog, Item } from '../db/types';
 import type { MedicationMeta, MedicationTimerDetails } from '../db/database';
+import { getActiveElapsedMs } from '../domain/medicationTimer/timerMath';
 
 export interface PresentedMedicationTimer {
   log: ActivityLog;
@@ -46,14 +47,7 @@ export function formatElapsedLabel(startedAt: number, now: number) {
 }
 
 function getElapsedMs(timer: { details: MedicationTimerDetails; log: ActivityLog }, now: number) {
-  const accumulated = timer.details.accumulatedMs ?? 0;
-  if (timer.details.timerActive && timer.details.startedAt) {
-    return accumulated + Math.max(0, now - timer.details.startedAt);
-  }
-  if (timer.details.pausedAt) {
-    return accumulated;
-  }
-  return accumulated;
+  return timer.details.completedElapsedMs ?? getActiveElapsedMs(timer.details, now);
 }
 
 export function presentMedicationTimer(

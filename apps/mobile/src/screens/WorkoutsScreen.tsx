@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Alert, StyleSheet } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useWorkouts } from '../hooks/useDb';
-import { createItem, deleteItem } from '../db/database';
+import { createItem, updateItem, deleteItem } from '../db/database';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
 import { LensSurface } from '../components/LensSurface';
@@ -19,13 +19,25 @@ export function WorkoutsScreen() {
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
   const [createOpen, setCreateOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<Item | null>(null);
 
   useRegisterFabHoldAction(useCallback(() => setCreateOpen(true), []));
 
   const handleCreate = (title: string) => {
+    if (editTarget) {
+      updateItem(editTarget.id, { title });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      refresh();
+      return;
+    }
     createItem('workout-template', title, 'active');
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     refresh();
+  };
+
+  const openEdit = (item: Item) => {
+    setEditTarget(item);
+    setCreateOpen(true);
   };
 
   const handleStarter = (title: string) => {
@@ -43,12 +55,22 @@ export function WorkoutsScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     Alert.alert(item.title, undefined, [
       { text: 'Cancel', style: 'cancel' },
+      { text: 'Edit', onPress: () => openEdit(item) },
       {
         text: 'Delete',
         style: 'destructive',
         onPress: () => {
-          deleteItem(item.id);
-          refresh();
+          Alert.alert(`Delete ${item.title}?`, 'This cannot be undone.', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Delete',
+              style: 'destructive',
+              onPress: () => {
+                deleteItem(item.id);
+                refresh();
+              },
+            },
+          ]);
         },
       },
     ]);
@@ -95,6 +117,7 @@ export function WorkoutsScreen() {
                 key={item.id}
                 style={[styles.row, { backgroundColor: palette.surface }]}
                 activeOpacity={0.7}
+                onPress={() => openEdit(item)}
                 onLongPress={() => handleLongPress(item)}
                 delayLongPress={400}
               >
@@ -107,9 +130,10 @@ export function WorkoutsScreen() {
 
       <QuickCreateSheet
         visible={createOpen}
-        title="New Template"
+        title={editTarget ? 'Edit Template' : 'New Template'}
         placeholder="Template name..."
-        onClose={() => setCreateOpen(false)}
+        initialValue={editTarget?.title}
+        onClose={() => { setCreateOpen(false); setEditTarget(null); }}
         onSubmit={handleCreate}
       />
     </LensSurface>

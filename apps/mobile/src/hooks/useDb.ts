@@ -12,6 +12,7 @@ import {
   completeInstance,
   getMedications,
   logMedicationTaken,
+  logHalfDoseTaken,
   getMedicationLogs,
   getLastTakenLog,
   getItemsForDate,
@@ -117,26 +118,37 @@ export function useMedications() {
 
   useEffect(() => { refresh(); }, [refresh]);
 
+  // Shared by full and half doses — a live-activity timer just tracks elapsed time since
+  // whatever log entry started it, so it works identically regardless of dose size.
+  const startTimerForLatestLog = useCallback((id: string) => {
+    const item = medications.find(m => m.id === id);
+    const log = getLastTakenLog(id);
+    if (item && log) {
+      const meta: MedicationMeta = item.metadata ? JSON.parse(item.metadata) : {};
+      startMedicationLiveActivity(log.id, {
+        medicationName: item.title,
+        dose: meta.dose,
+        displayStartedAt: log.timestamp,
+      });
+      const timer = getPersistentMedicationTimers().find(candidate => candidate.log.id === log.id);
+      if (timer) ensureMedicationTimerAutoStop(presentMedicationTimer(timer, Date.now())).catch(() => {});
+    }
+  }, [medications]);
+
   const takeMedication = useCallback((id: string, takenAt?: number, startTimer = false) => {
     logMedicationTaken(id, takenAt, startTimer);
-    if (startTimer) {
-      const item = medications.find(m => m.id === id);
-      const log = getLastTakenLog(id);
-      if (item && log) {
-        const meta: MedicationMeta = item.metadata ? JSON.parse(item.metadata) : {};
-        startMedicationLiveActivity(log.id, {
-          medicationName: item.title,
-          dose: meta.dose,
-          displayStartedAt: log.timestamp,
-        });
-        const timer = getPersistentMedicationTimers().find(candidate => candidate.log.id === log.id);
-        if (timer) ensureMedicationTimerAutoStop(presentMedicationTimer(timer, Date.now())).catch(() => {});
-      }
-    }
+    if (startTimer) startTimerForLatestLog(id);
     refresh();
-  }, [refresh, medications]);
+  }, [refresh, startTimerForLatestLog]);
 
-  return { medications, refresh, takeMedication };
+  const takeHalfDose = useCallback((id: string, takenAt?: number, startTimer = false) => {
+    const completedSplit = logHalfDoseTaken(id, takenAt, startTimer);
+    if (startTimer) startTimerForLatestLog(id);
+    refresh();
+    return completedSplit;
+  }, [refresh, startTimerForLatestLog]);
+
+  return { medications, refresh, takeMedication, takeHalfDose };
 }
 
 export function useCalendar(date: string) {

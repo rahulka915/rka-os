@@ -1,13 +1,20 @@
-import { useCallback, useEffect, useState } from 'react';
-import type { Session } from '@supabase/supabase-js';
-import { supabase, hasSupabaseConfig } from '../lib/supabase';
+import { createContext, createElement, type ReactNode, useCallback, useContext, useEffect, useState } from 'react';
+import {
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut as firebaseSignOut,
+  type User,
+} from 'firebase/auth';
+import { auth, hasFirebaseConfig } from '../lib/firebase';
 import { pushBackup, getLatestBackupMeta, fetchLatestBackupPayload } from '../services/backupSync';
 import { restoreBackup } from '../db/backup';
 
-export function useBackup() {
-  const [session, setSession] = useState<Session | null>(null);
+function useBackupState() {
+  const [user, setUser] = useState<User | null>(null);
   const [lastBackupAt, setLastBackupAt] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const refreshLastBackup = useCallback(async (userId: string) => {
     const meta = await getLatestBackupMeta(userId);
@@ -15,81 +22,107 @@ export function useBackup() {
   }, []);
 
   useEffect(() => {
-    if (!hasSupabaseConfig || !supabase) return;
+    if (!hasFirebaseConfig || !auth) return;
 
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      if (data.session) refreshLastBackup(data.session.user.id);
-    });
-
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      setSession(nextSession);
-      if (nextSession) {
-        refreshLastBackup(nextSession.user.id);
+    const unsubscribe = onAuthStateChanged(auth, (nextUser) => {
+      setUser(nextUser);
+      if (nextUser) {
+        refreshLastBackup(nextUser.uid);
       } else {
         setLastBackupAt(null);
       }
     });
 
-    return () => sub.subscription.unsubscribe();
+    return unsubscribe;
   }, [refreshLastBackup]);
 
   const backUpNow = useCallback(async () => {
-    if (!session) return;
+    if (!user || busy) return;
     setBusy(true);
+    setError(null);
     try {
-      await pushBackup(session.user.id);
-      await refreshLastBackup(session.user.id);
+      await pushBackup(user.uid);
+      await refreshLastBackup(user.uid);
     } catch (err) {
       console.warn('[backup] push failed', err);
+      setError(err instanceof Error ? err.message : 'Backup failed');
+      throw err;
     } finally {
       setBusy(false);
     }
-  }, [session, refreshLastBackup]);
+  }, [user, busy, refreshLastBackup]);
 
   const signIn = useCallback(async (email: string, password: string) => {
-    if (!supabase) throw new Error('Supabase is not configured');
+    if (!auth) throw new Error('Firebase is not configured');
     setBusy(true);
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-      if (data.session) {
-        await pushBackup(data.session.user.id).catch((err) =>
-          console.warn('[backup] initial push after sign-in failed', err)
-        );
-        await refreshLastBackup(data.session.user.id);
-      }
+      const credential = await signInWithEmailAndPassword(auth, email, password);
+      await pushBackup(credential.user.uid).catch((err) =>
+        console.warn('[backup] initial push after sign-in failed', err)
+      );
+      await refreshLastBackup(credential.user.uid);
+    } finally {
+      setBusy(false);
+    }
+  }, [refreshLastBackup]);
+
+  const signUp = useCallback(async (email: string, password: string) => {
+    if (!auth) throw new Error('Firebase is not configured');
+    setBusy(true);
+    try {
+      const credential = await createUserWithEmailAndPassword(auth, email, password);
+      await pushBackup(credential.user.uid).catch((err) =>
+        console.warn('[backup] initial push after sign-up failed', err)
+      );
+      await refreshLastBackup(credential.user.uid);
     } finally {
       setBusy(false);
     }
   }, [refreshLastBackup]);
 
   const signOut = useCallback(async () => {
-    if (!supabase) return;
-    await supabase.auth.signOut();
+    if (!auth) return;
+    await firebaseSignOut(auth);
   }, []);
 
   const restoreLatest = useCallback(async (): Promise<boolean> => {
-    if (!session) return false;
+    if (!user) return false;
     setBusy(true);
     try {
-      const payload = await fetchLatestBackupPayload(session.user.id);
+      const payload = await fetchLatestBackupPayload(user.uid);
       if (!payload) return false;
       restoreBackup(payload);
       return true;
     } finally {
       setBusy(false);
     }
-  }, [session]);
+  }, [user]);
 
   return {
-    isSignedIn: !!session,
-    email: session?.user.email ?? null,
+    isSignedIn: !!user,
+    email: user?.email ?? null,
     lastBackupAt,
     busy,
+    error,
     signIn,
+    signUp,
     signOut,
     backUpNow,
     restoreLatest,
   };
+}
+
+type BackupState = ReturnType<typeof useBackupState>;
+
+const BackupContext = createContext<BackupState | null>(null);
+
+export function BackupProvider({ children }: { children: ReactNode }) {
+  const value = useBackupState();
+  return createElement(BackupContext.Provider, { value }, children);
+}
+
+export function useBackup() {
+  const value = useContext(BackupContext);
+  if (!value) throw new Error('useBackup must be used within BackupProvider');
+  return value;
 }
