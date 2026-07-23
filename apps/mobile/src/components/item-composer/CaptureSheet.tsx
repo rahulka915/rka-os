@@ -80,7 +80,12 @@ function CaptureSheetFields({
         </View>
       ) : null}
 
-      <Host matchContents={{ vertical: true }} style={styles.fieldHost}>
+      {/* ignoreSafeArea="keyboard" — this Host mounts its own UIHostingController, a
+          separate hosting instance from the outer sheet's. The focused TextField (and
+          the keyboard-avoidance that was resizing the whole sheet) lives here, not in
+          the outer Group — the outer sheet's ignoresSafeArea modifier can't reach into
+          a sibling hosting controller it doesn't contain. */}
+      <Host matchContents={{ vertical: true }} style={styles.fieldHost} ignoreSafeArea="keyboard">
         <TextField
           text={titleState}
           placeholder="What needs doing?"
@@ -92,7 +97,7 @@ function CaptureSheetFields({
 
       <View style={[styles.separator, { backgroundColor: material.rim }]} />
 
-      <Host matchContents={{ vertical: true }} style={styles.fieldHost}>
+      <Host matchContents={{ vertical: true }} style={styles.fieldHost} ignoreSafeArea="keyboard">
         <TextField
           text={notesState}
           placeholder="Add a note (optional)"
