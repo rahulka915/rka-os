@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { BottomSheet } from '../ui/BottomSheet';
+import { NativeBottomSheet } from '../ui/NativeBottomSheet';
 import { useThemeContext } from '../../hooks/useThemeContext';
 import { getItemComposerMaterial, getThemeColors, spacing } from '../../theme';
 import type { ItemDraft } from './types';
@@ -54,12 +54,11 @@ export function CaptureSheet({
   const context = contextLabel(draft);
 
   return (
-    <BottomSheet
+    <NativeBottomSheet
       visible={visible}
       onClose={onCancel}
       isDark={isDark}
       title="New task"
-      topAnchored
       scrollable
       sheetStyle={[styles.sheet, { backgroundColor: material.surface, borderColor: material.rim }]}
       contentContainerStyle={styles.content}
@@ -120,7 +119,7 @@ export function CaptureSheet({
         <Text style={[styles.detailsText, { color: palette.textSecondary }]}>Details</Text>
         <Text style={[styles.detailsChevron, { color: material.accent }]}>›</Text>
       </TouchableOpacity>
-    </BottomSheet>
+    </NativeBottomSheet>
   );
 }
 
