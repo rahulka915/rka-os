@@ -1,16 +1,26 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeContext } from '../hooks/useThemeContext';
-import { getThemeColors } from '../theme';
 
+// Deliberately not using the app's theme tokens (getThemeColors), custom fonts, or
+// component library (RiverStoneSurface etc.) — this screen is a true visual reset, built
+// up from workflow rather than inheriting the existing app's design language. Only
+// dark/light background awareness is kept (via the same manual-override-aware isDark
+// the rest of the app uses), everything else is plain system defaults.
 export function HomeScreenExperimental() {
   const insets = useSafeAreaInsets();
   const { isDark } = useThemeContext();
-  const palette = getThemeColors(isDark);
 
   return (
-    <View style={[styles.container, { backgroundColor: palette.bg, paddingTop: insets.top }]}>
-      <Text style={[styles.label, { color: palette.textMuted }]}>Experimental Home</Text>
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: isDark ? '#000000' : '#ffffff', paddingTop: insets.top },
+      ]}
+    >
+      <Text style={[styles.label, { color: isDark ? '#ffffff' : '#000000' }]}>
+        Experimental Home
+      </Text>
     </View>
   );
 }
@@ -23,6 +33,5 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 15,
-    fontFamily: 'Inter_500Medium',
   },
 });
