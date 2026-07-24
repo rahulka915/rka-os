@@ -32,7 +32,7 @@ interface HomeScreenProps {
 export function HomeScreen({ onInboxPress, inboxOpen, onHeroPress, onSettingsPress }: HomeScreenProps) {
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
-  const { openEditorForItem, revision: composerRevision } = useItemComposer();
+  const { openCapture, openEditorForItem, revision: composerRevision } = useItemComposer();
   const { inboxCount, todayItems, anytime, morningItems, afternoonItems, eveningItems, refresh } = useHomeData();
 
   // useHomeData only fetches on mount — Inbox lives in a sibling modal (App.tsx), not a child
@@ -243,10 +243,13 @@ export function HomeScreen({ onInboxPress, inboxOpen, onHeroPress, onSettingsPre
                     },
                   ]
                 );
-              } else if (action === 'quickAdd') {
-                console.log('Quick add for:', block);
-              } else if (action === 'addItem') {
-                console.log('Add item to:', block);
+              } else if (action === 'quickAdd' || action === 'addItem') {
+                openCapture({
+                  context: { status: 'active', preferredTimeBucket: block },
+                  onComplete: ({ action: completionAction }) => {
+                    if (completionAction === 'saved') refresh();
+                  },
+                });
               } else if (action === 'moveItems') {
                 console.log('Move items to:', block);
               } else if (action === 'sort') {
