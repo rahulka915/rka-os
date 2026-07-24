@@ -48,3 +48,4 @@ export { default as Mail } from 'react-native-heroicons/outline/EnvelopeIcon';
 export { default as Lock } from 'react-native-heroicons/outline/LockClosedIcon';
 export { default as LogOut } from 'react-native-heroicons/outline/ArrowLeftOnRectangleIcon';
 export { default as DragHandle } from 'react-native-heroicons/outline/Bars3Icon';
+export { default as Camera } from 'react-native-heroicons/outline/CameraIcon';

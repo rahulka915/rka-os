@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, ScrollView, View } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, ScrollView, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { getItemsByType } from '../db/database';
 import { useThemeContext } from '../hooks/useThemeContext';
@@ -67,6 +67,7 @@ export function ToGetScreen() {
                   const meta = parseMetadata(item);
                   const objectStatus: ObjectStatus = (meta.objectStatus as ObjectStatus) ?? 'want';
                   const price = typeof meta.price === 'number' ? meta.price : null;
+                  const photoUri = typeof meta.photo === 'string' ? meta.photo : undefined;
                   return (
                     <TouchableOpacity
                       key={item.id}
@@ -74,7 +75,11 @@ export function ToGetScreen() {
                       activeOpacity={0.7}
                       onPress={() => (navigation as any).navigate('ObjectDetail', { objectId: item.id })}
                     >
-                      <ShoppingBag size={24} color={palette.textMuted} strokeWidth={1.6} />
+                      {photoUri ? (
+                        <Image source={{ uri: photoUri }} style={styles.rowThumb} />
+                      ) : (
+                        <ShoppingBag size={24} color={palette.textMuted} strokeWidth={1.6} />
+                      )}
                       <View style={styles.rowBody}>
                         <Text style={[styles.rowTitle, { color: palette.text }]} numberOfLines={1}>{item.title}</Text>
                         <Text style={[styles.rowSub, { color: palette.textSecondary }]}>
@@ -119,6 +124,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+  },
+  rowThumb: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
   },
   rowBody: {
     flex: 1,

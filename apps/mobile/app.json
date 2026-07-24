@@ -68,6 +68,12 @@
           "calendarPermission": "RKA OS reads your calendar so your day view can show real events alongside your tasks."
         }
       ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "RKA OS accesses your photos so you can attach one to an object you're tracking."
+        }
+      ],
       "expo-sqlite",
       "expo-status-bar",
       [

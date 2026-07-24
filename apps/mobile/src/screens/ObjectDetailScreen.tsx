@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import {
@@ -14,7 +14,8 @@ import { useProjects, useTasks } from '../hooks/useDb';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
 import { LensSurface } from '../components/LensSurface';
-import { ChevronLeft, Tag as TagIcon, Trash2, X } from '../icons';
+import { Camera, ChevronLeft, Tag as TagIcon, Trash2, X } from '../icons';
+import { deleteStoredObjectPhoto, pickAndStoreObjectPhoto } from '../services/objectPhotos';
 import type { Item, ObjectStatus } from '../db/types';
 
 interface ObjectDetailRouteParams {
@@ -82,6 +83,7 @@ export function ObjectDetailScreen() {
   const linkedTaskId = getRelation(objectId, 'relatedTask');
   const linkedProject = projects.find((p) => p.id === linkedProjectId);
   const linkedTask = tasks.find((t) => t.id === linkedTaskId);
+  const photoUri = typeof meta.photo === 'string' ? meta.photo : undefined;
 
   const saveMeta = (updates: Record<string, unknown>) => {
     updateItemMetadata(objectId, { ...meta, ...updates });
@@ -128,6 +130,21 @@ export function ObjectDetailScreen() {
   };
 
   const removeLink = (link: string) => saveMeta({ links: links.filter((l) => l !== link) });
+
+  const pickPhoto = async () => {
+    const previous = typeof meta.photo === 'string' ? meta.photo : undefined;
+    const uri = await pickAndStoreObjectPhoto();
+    if (!uri) return;
+    if (previous) deleteStoredObjectPhoto(previous);
+    saveMeta({ photo: uri });
+  };
+
+  const removePhoto = () => {
+    const previous = typeof meta.photo === 'string' ? meta.photo : undefined;
+    if (!previous) return;
+    deleteStoredObjectPhoto(previous);
+    saveMeta({ photo: undefined });
+  };
 
   const promptLinkProject = () => {
     Alert.alert('Link to mission', undefined, [
@@ -182,6 +199,26 @@ export function ObjectDetailScreen() {
           placeholder="Object title"
           placeholderTextColor={palette.textTertiary}
         />
+
+        <Text style={[styles.sectionLabel, { color: palette.textTertiary }]}>PHOTO</Text>
+        {photoUri ? (
+          <View style={styles.photoRow}>
+            <Image source={{ uri: photoUri }} style={styles.photoThumb} />
+            <View style={styles.photoActions}>
+              <TouchableOpacity style={[styles.photoActionButton, { borderColor: palette.separator }]} onPress={pickPhoto}>
+                <Text style={[styles.photoActionText, { color: palette.textSecondary }]}>Change</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.photoActionButton, { borderColor: palette.separator }]} onPress={removePhoto}>
+                <Text style={[styles.photoActionText, { color: palette.red }]}>Remove</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          <TouchableOpacity style={[styles.addPhotoButton, { borderColor: palette.separator }]} onPress={pickPhoto}>
+            <Camera size={18} color={palette.textSecondary} strokeWidth={1.8} />
+            <Text style={[styles.addPhotoText, { color: palette.textSecondary }]}>Add a photo</Text>
+          </TouchableOpacity>
+        )}
 
         <Text style={[styles.sectionLabel, { color: palette.textTertiary }]}>STATUS</Text>
         <View style={styles.chipRow}>
@@ -311,6 +348,46 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     marginTop: 12,
     marginBottom: 6,
+  },
+  photoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  photoThumb: {
+    width: 64,
+    height: 64,
+    borderRadius: 10,
+  },
+  photoActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  photoActionButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  photoActionText: {
+    fontSize: 13,
+    fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
+  },
+  addPhotoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    minHeight: 44,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderStyle: 'dashed',
+  },
+  addPhotoText: {
+    fontSize: 14,
+    fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
   },
   chipRow: {
     flexDirection: 'row',
