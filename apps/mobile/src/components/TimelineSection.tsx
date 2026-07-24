@@ -10,6 +10,7 @@ import { useThemeContext } from '../hooks/useThemeContext';
 import { colors, getThemeColors, type ThemeColors } from '../theme';
 import { TimeIcon } from './icons/TimeIcon';
 import { TimerReset, ArrowRight, Archive, Check, Plus } from '../icons';
+import { getTimelineDurationMinutes } from '../utils/timelineItem';
 import { RiverStoneSurface } from './riverstone';
 import {
   LacquerDiscControl,
@@ -103,6 +104,13 @@ function TimeBlockCompletionControl({
   );
 }
 
+function formatDurationBadge(minutes: number): string {
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return mins === 0 ? `${hours}h` : `${hours}h ${mins}m`;
+}
+
 // Alpha-blends a hex color for chip/row tints — RN has no native rgba(#hex, a).
 function hexToRgba(hex: string, alpha: number): string {
   const n = parseInt(hex.slice(1), 16);
@@ -191,9 +199,17 @@ const TimelineTaskRow = memo(function TimelineTaskRow({
               activeOpacity={0.5}
             >
               <View style={styles.itemContent}>
-                <Text style={[styles.itemTitle, { color: blocker ? palette.textMuted : palette.text }]} numberOfLines={2}>
-                  {item.title}
-                </Text>
+                <View style={styles.itemTitleRow}>
+                  <Text
+                    style={[styles.itemTitle, styles.itemTitleFlex, { color: blocker ? palette.textMuted : palette.text }]}
+                    numberOfLines={2}
+                  >
+                    {item.title}
+                  </Text>
+                  <Text style={[styles.durationBadge, { color: palette.textMuted }]} numberOfLines={1}>
+                    {formatDurationBadge(getTimelineDurationMinutes(item))}
+                  </Text>
+                </View>
                 {item.notes && (
                   <Text style={[styles.itemNotes, { color: palette.textMuted }]} numberOfLines={1}>
                     {item.notes}
@@ -667,6 +683,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '400',
     lineHeight: 22,
+  },
+  itemTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+  },
+  itemTitleFlex: {
+    flex: 1,
+  },
+  durationBadge: {
+    fontSize: 11,
+    fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
+    fontVariant: ['tabular-nums'],
+    paddingTop: 2,
   },
   itemNotes: {
     fontSize: 13,
