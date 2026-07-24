@@ -1,5 +1,10 @@
-export type ItemType = 'area' | 'project' | 'task' | 'habit' | 'medication' | 'workout-template' | 'workout-block' | 'exercise' | 'meal';
+export type ItemType = 'area' | 'project' | 'task' | 'habit' | 'medication' | 'workout-template' | 'workout-block' | 'exercise' | 'meal' | 'object';
 export type ItemStatus = 'inbox' | 'active' | 'someday' | 'scheduled' | 'due-today' | 'overdue' | 'completed' | 'skipped' | 'archived' | 'cancelled';
+
+// Object's own possession-tracking lifecycle — independent of the generic ItemStatus
+// column (which has no vocabulary for "I want this"). Not a strict pipeline: a user can
+// jump straight to 'owned' or move backward, no enforced transitions.
+export type ObjectStatus = 'want' | 'need' | 'saving' | 'ready' | 'ordered' | 'owned';
 
 export interface Item {
   id: string;

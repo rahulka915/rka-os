@@ -1245,7 +1245,7 @@ export function deleteItem(id: string): void {
 
 export type GtdDestination =
   | 'today' | 'morning' | 'evening'
-  | 'project' | 'area' | 'habit' | 'medication'
+  | 'project' | 'area' | 'habit' | 'medication' | 'object'
   | 'reference' | 'someday' | 'delete';
 
 export function processInboxItem(id: string, destination: GtdDestination): void {
@@ -1302,6 +1302,12 @@ export function processInboxItem(id: string, destination: GtdDestination): void 
       db.runSync(
         'UPDATE items SET type = ?, status = ?, metadata = ?, updatedAt = ? WHERE id = ?',
         ['medication', 'active', JSON.stringify({ ...meta, gtdContext: 'medication' }), now, id]
+      );
+      break;
+    case 'object':
+      db.runSync(
+        'UPDATE items SET type = ?, status = ?, metadata = ?, updatedAt = ? WHERE id = ?',
+        ['object', 'active', JSON.stringify({ ...meta, gtdContext: 'object', objectStatus: 'want' }), now, id]
       );
       break;
     case 'reference':

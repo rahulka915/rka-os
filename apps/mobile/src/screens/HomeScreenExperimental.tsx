@@ -27,6 +27,7 @@ const TYPE_COLORS: Record<ItemType, string> = {
   'workout-block': '#EF4444',
   exercise: '#EF4444',
   meal: '#EAB308',
+  object: '#EC4899',
 };
 
 function typeColor(type: ItemType): string {
