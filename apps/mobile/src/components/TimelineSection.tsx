@@ -3,12 +3,13 @@ import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { NestedReorderableList } from 'react-native-reorderable-list';
 import { useVerticalDragGesture } from './ui/dragFeel';
-import { SwipeableItem } from './SwipeableItem';
+import { SwipeableItem, type SwipeAction } from './SwipeableItem';
 import { ContextMenu } from './ContextMenu';
 import type { Item } from '../db/types';
 import { useThemeContext } from '../hooks/useThemeContext';
-import { getThemeColors, type ThemeColors } from '../theme';
+import { colors, getThemeColors, type ThemeColors } from '../theme';
 import { TimeIcon } from './icons/TimeIcon';
+import { TimerReset, ArrowRight, Archive, Check, Plus } from '../icons';
 import { RiverStoneSurface } from './riverstone';
 import {
   LacquerDiscControl,
@@ -146,14 +147,38 @@ const TimelineTaskRow = memo(function TimelineTaskRow({
   return (
     <View>
       <SwipeableItem
-        onActivate={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          onItemActivate?.(item.id);
+        leftAction={{
+          key: 'activate',
+          icon: <TimerReset size={20} color="#fff" strokeWidth={2} />,
+          label: 'Activate',
+          color: colors.orange,
+          onPress: () => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            onItemActivate?.(item.id);
+          },
         }}
-        onArchive={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          onItemArchive?.(item.id);
-        }}
+        rightActions={[
+          {
+            key: 'complete',
+            icon: <ArrowRight size={20} color="#fff" strokeWidth={2.5} />,
+            label: 'Done',
+            color: colors.blue,
+            onPress: () => {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              onItemComplete?.(item.id);
+            },
+          },
+          {
+            key: 'archive',
+            icon: <Archive size={20} color="#fff" strokeWidth={1.5} />,
+            label: 'Archive',
+            color: colors.textTertiary,
+            onPress: () => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              onItemArchive?.(item.id);
+            },
+          },
+        ]}
       >
         <View>
           <View style={[styles.itemRow, { paddingHorizontal: 10, paddingVertical: 6 }]}>
