@@ -114,7 +114,10 @@ export function HomeScreenExperimental() {
 
   useEffect(() => {
     const refetchEvents = () => {
-      getTodayDeviceEvents().then(setDeviceEvents).catch(() => setDeviceEvents([]));
+      getTodayDeviceEvents().then(setDeviceEvents).catch((error) => {
+        console.log('[deviceCalendar] fetch failed:', error);
+        setDeviceEvents([]);
+      });
     };
 
     refetchEvents();
