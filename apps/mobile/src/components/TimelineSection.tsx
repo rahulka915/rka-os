@@ -499,14 +499,28 @@ export function TimelineSection({
           style={reorderByBlock[block.key].isReordering ? styles.blockDragging : undefined}
         >
         <SwipeableItem
-          onActivate={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            onTimeBlockAction?.(block.key, 'completeAll');
+          leftAction={{
+            key: 'completeAll',
+            icon: <Check size={20} color="#fff" strokeWidth={2.5} />,
+            label: 'Complete All',
+            color: colors.green,
+            onPress: () => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              onTimeBlockAction?.(block.key, 'completeAll');
+            },
           }}
-          onArchive={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            onTimeBlockAction?.(block.key, 'quickAdd');
-          }}
+          rightActions={[
+            {
+              key: 'quickAdd',
+              icon: <Plus size={20} color="#fff" strokeWidth={2.5} />,
+              label: 'Add',
+              color: colors.blue,
+              onPress: () => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                onTimeBlockAction?.(block.key, 'quickAdd');
+              },
+            },
+          ]}
         >
           <View>
             <TimeBlockHeader
