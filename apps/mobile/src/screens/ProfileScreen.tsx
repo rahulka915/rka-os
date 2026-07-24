@@ -8,6 +8,7 @@ import { useThemeContext } from '../hooks/useThemeContext';
 import { useUIModeContext } from '../hooks/useUIModeContext';
 import { getThemeColors, spacing } from '../theme';
 import { useBackup } from '../hooks/useBackup';
+import { BackupShrinkGuardError } from '../services/backupSync';
 import { useLoadingBanner } from '../hooks/useLoadingBanner';
 import { Archive, CheckCircle2, ChevronRight, Lock, LogOut, Mail, Sparkles, Upload } from '../icons';
 
@@ -62,24 +63,35 @@ function BackupSection() {
     }
   };
 
-  const handleBackUpNow = async () => {
+  const handleBackUpNow = async (force = false) => {
     tap();
     showLoadingBanner('Backing up…');
     try {
-      await backup.backUpNow();
+      await backup.backUpNow({ force });
       Alert.alert('Backup complete', 'Your RKA OS data is safely backed up.');
     } catch (err) {
-      Alert.alert('Backup failed', err instanceof Error ? err.message : 'Please try again.');
-    } finally {
       hideLoadingBanner();
+      if (err instanceof BackupShrinkGuardError) {
+        Alert.alert(
+          'This backup looks smaller',
+          `Your last backup had ${err.previousCount} item(s); this one only has ${err.newCount}. Back up anyway?`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Back up anyway', style: 'destructive', onPress: () => handleBackUpNow(true) },
+          ]
+        );
+        return;
+      }
+      Alert.alert('Backup failed', err instanceof Error ? err.message : 'Please try again.');
+      return;
     }
+    hideLoadingBanner();
   };
 
-  const handleRestore = () => {
-    tap();
+  const confirmRestore = (backupId: string, label: string) => {
     Alert.alert(
-      'Restore latest backup',
-      'This replaces all data currently on this device with your last backup. This cannot be undone. Continue?',
+      'Restore this backup',
+      `This replaces all data currently on this device with the ${label} backup. This cannot be undone. Continue?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -88,11 +100,11 @@ function BackupSection() {
           onPress: async () => {
             showLoadingBanner('Restoring…');
             try {
-              const restored = await backup.restoreLatest();
+              const restored = await backup.restoreBackupById(backupId);
               if (restored) {
                 Alert.alert('Restore complete', 'Close and reopen the app to see the restored data.');
               } else {
-                Alert.alert('No backup found', 'There is no backup to restore yet.');
+                Alert.alert('Restore failed', 'That backup could no longer be found.');
               }
             } finally {
               hideLoadingBanner();
@@ -101,6 +113,36 @@ function BackupSection() {
         },
       ]
     );
+  };
+
+  const handleRestore = () => {
+    tap();
+    (async () => {
+      showLoadingBanner('Checking backups…');
+      let backups: Awaited<ReturnType<typeof backup.listAllBackups>> = [];
+      try {
+        backups = await backup.listAllBackups();
+      } finally {
+        hideLoadingBanner();
+      }
+
+      if (backups.length === 0) {
+        Alert.alert('No backup found', 'There is no backup to restore yet.');
+        return;
+      }
+
+      Alert.alert(
+        'Choose a backup to restore',
+        'Pick the snapshot to bring back — the item count helps tell them apart.',
+        [
+          ...backups.map((b) => ({
+            text: `${new Date(b.createdAt).toLocaleString()} — ${b.itemCount} item${b.itemCount === 1 ? '' : 's'}`,
+            onPress: () => confirmRestore(b.id, new Date(b.createdAt).toLocaleString()),
+          })),
+          { text: 'Cancel', style: 'cancel' as const },
+        ]
+      );
+    })();
   };
 
   if (backup.isSignedIn) {
@@ -129,7 +171,7 @@ function BackupSection() {
 
         <TouchableOpacity
           activeOpacity={0.82}
-          onPress={handleBackUpNow}
+          onPress={() => handleBackUpNow()}
           disabled={backup.busy}
           accessibilityRole="button"
           accessibilityLabel="Back up now"

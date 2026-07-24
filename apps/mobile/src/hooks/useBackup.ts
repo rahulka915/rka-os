@@ -7,7 +7,14 @@ import {
   type User,
 } from 'firebase/auth';
 import { auth, hasFirebaseConfig } from '../lib/firebase';
-import { pushBackup, getLatestBackupMeta, fetchLatestBackupPayload } from '../services/backupSync';
+import {
+  pushBackup,
+  getLatestBackupMeta,
+  fetchLatestBackupPayload,
+  listBackups,
+  fetchBackupPayload,
+  type BackupListEntry,
+} from '../services/backupSync';
 import { restoreBackup } from '../db/backup';
 
 function useBackupState() {
@@ -36,12 +43,12 @@ function useBackupState() {
     return unsubscribe;
   }, [refreshLastBackup]);
 
-  const backUpNow = useCallback(async () => {
+  const backUpNow = useCallback(async (options?: { force?: boolean }) => {
     if (!user || busy) return;
     setBusy(true);
     setError(null);
     try {
-      await pushBackup(user.uid);
+      await pushBackup(user.uid, options);
       await refreshLastBackup(user.uid);
     } catch (err) {
       console.warn('[backup] push failed', err);
@@ -57,9 +64,6 @@ function useBackupState() {
     setBusy(true);
     try {
       const credential = await signInWithEmailAndPassword(auth, email, password);
-      await pushBackup(credential.user.uid).catch((err) =>
-        console.warn('[backup] initial push after sign-in failed', err)
-      );
       await refreshLastBackup(credential.user.uid);
     } finally {
       setBusy(false);
@@ -71,9 +75,6 @@ function useBackupState() {
     setBusy(true);
     try {
       const credential = await createUserWithEmailAndPassword(auth, email, password);
-      await pushBackup(credential.user.uid).catch((err) =>
-        console.warn('[backup] initial push after sign-up failed', err)
-      );
       await refreshLastBackup(credential.user.uid);
     } finally {
       setBusy(false);
@@ -98,6 +99,24 @@ function useBackupState() {
     }
   }, [user]);
 
+  const listAllBackups = useCallback(async (): Promise<BackupListEntry[]> => {
+    if (!user) return [];
+    return listBackups(user.uid);
+  }, [user]);
+
+  const restoreBackupById = useCallback(async (backupId: string): Promise<boolean> => {
+    if (!user) return false;
+    setBusy(true);
+    try {
+      const payload = await fetchBackupPayload(backupId);
+      if (!payload) return false;
+      restoreBackup(payload);
+      return true;
+    } finally {
+      setBusy(false);
+    }
+  }, [user]);
+
   return {
     isSignedIn: !!user,
     email: user?.email ?? null,
@@ -109,6 +128,8 @@ function useBackupState() {
     signOut,
     backUpNow,
     restoreLatest,
+    listAllBackups,
+    restoreBackupById,
   };
 }
 
