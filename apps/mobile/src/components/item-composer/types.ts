@@ -12,6 +12,8 @@ export type ItemComposerContext = {
   projectTitle?: string;
   lockScheduleDate?: boolean;
   minuteInterval?: 1 | 5 | 10 | 15 | 20 | 30;
+  durationMinutes?: number;
+  preferredTimeBucket?: TimeOfDay;
 };
 
 export type ItemDraft = {
