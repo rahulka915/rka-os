@@ -8,6 +8,8 @@ import { TasksScreen } from '../screens/TasksScreen';
 import { UpcomingScreen } from '../screens/UpcomingScreen';
 import { WorkoutsScreen } from '../screens/WorkoutsScreen';
 import { MedicationsScreen } from '../screens/MedicationsScreen';
+import { ToGetScreen } from '../screens/ToGetScreen';
+import { ObjectDetailScreen } from '../screens/ObjectDetailScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -23,6 +25,8 @@ export function MenuStack() {
       <Stack.Screen name="Upcoming" component={UpcomingScreen} />
       <Stack.Screen name="Workouts" component={WorkoutsScreen} />
       <Stack.Screen name="Medications" component={MedicationsScreen} />
+      <Stack.Screen name="ToGet" component={ToGetScreen} />
+      <Stack.Screen name="ObjectDetail" component={ObjectDetailScreen} />
     </Stack.Navigator>
   );
 }

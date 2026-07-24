@@ -29,6 +29,7 @@ export { default as Plus } from 'react-native-heroicons/outline/PlusIcon';
 export { default as ArrowRight } from 'react-native-heroicons/outline/ArrowRightIcon';
 export { default as Inbox } from 'react-native-heroicons/outline/InboxIcon';
 export { default as Tag } from 'react-native-heroicons/outline/TagIcon';
+export { default as ShoppingBag } from 'react-native-heroicons/outline/ShoppingBagIcon';
 export { default as Flag } from 'react-native-heroicons/outline/FlagIcon';
 export { default as FolderKanban } from 'react-native-heroicons/outline/FolderIcon';
 export { default as Dumbbell } from 'react-native-heroicons/outline/FireIcon';
