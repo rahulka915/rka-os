@@ -1,14 +1,15 @@
 import { useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { RiverStoneSurface } from '../components/riverstone';
 import { RoninMonIcon } from '../components/icons/DockIcons';
 import { useThemeContext } from '../hooks/useThemeContext';
+import { useUIModeContext } from '../hooks/useUIModeContext';
 import { getThemeColors, spacing } from '../theme';
 import { useBackup } from '../hooks/useBackup';
 import { useLoadingBanner } from '../hooks/useLoadingBanner';
-import { Archive, CheckCircle2, ChevronRight, Lock, LogOut, Mail, Upload } from '../icons';
+import { Archive, CheckCircle2, ChevronRight, Lock, LogOut, Mail, Sparkles, Upload } from '../icons';
 
 const PROFILE_BLUE = '#2b7ff0';
 
@@ -288,6 +289,7 @@ function BackupSection() {
 export function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { isDark } = useThemeContext();
+  const { isExperimentalHome, toggle: toggleExperimentalHome } = useUIModeContext();
   const palette = getThemeColors(isDark);
   const backup = useBackup();
 
@@ -326,6 +328,25 @@ export function ProfileScreen() {
         </View>
 
         <BackupSection />
+
+        <View style={styles.sectionHeading}>
+          <View style={styles.sectionHeadingLeft}>
+            <View style={[styles.sectionRule, { backgroundColor: palette.purple }]} />
+            <Text style={[styles.sectionTitle, { color: palette.textSecondary }]}>DEVELOPER</Text>
+          </View>
+        </View>
+        <View style={styles.list}>
+          <RiverStoneSurface variant="list" mode={isDark ? 'dark' : 'light'} shape="regular" contentStyle={styles.rowContent}>
+            <View style={[styles.iconFrame, { backgroundColor: palette.purpleSoft }]}>
+              <Sparkles size={19} color={palette.purple} strokeWidth={1.8} />
+            </View>
+            <View style={styles.copy}>
+              <Text style={[styles.rowLabel, { color: palette.text }]}>Experimental Home</Text>
+              <Text style={[styles.rowSub, { color: palette.textSecondary }]}>Try the new Home screen in progress</Text>
+            </View>
+            <Switch value={isExperimentalHome} onValueChange={toggleExperimentalHome} />
+          </RiverStoneSurface>
+        </View>
       </ScrollView>
     </View>
   );
