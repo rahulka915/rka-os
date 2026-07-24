@@ -19,11 +19,9 @@ export async function requestCalendarAccess(): Promise<boolean> {
 // they have no clock time to position on an hour-grid timeline.
 export async function getTodayDeviceEvents(): Promise<DeviceCalendarEvent[]> {
   const granted = await requestCalendarAccess();
-  console.log('[deviceCalendar] permission granted:', granted);
   if (!granted) return [];
 
   const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
-  console.log('[deviceCalendar] calendars found:', calendars.length, calendars.map((c) => c.title));
   const calendarIds = calendars.map((calendar) => calendar.id);
   if (calendarIds.length === 0) return [];
 
@@ -33,7 +31,6 @@ export async function getTodayDeviceEvents(): Promise<DeviceCalendarEvent[]> {
   endOfDay.setHours(23, 59, 59, 999);
 
   const events = await Calendar.getEventsAsync(calendarIds, startOfDay, endOfDay);
-  console.log('[deviceCalendar] raw events found:', events.length, events.map((e) => ({ title: e.title, start: e.startDate, allDay: e.allDay })));
 
   return events
     .filter((event) => !event.allDay)
