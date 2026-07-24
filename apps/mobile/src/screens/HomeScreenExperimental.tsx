@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { ScrollView, Text, TouchableOpacity, View, StyleSheet } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { AppState, ScrollView, Text, TouchableOpacity, View, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { useHomeData } from '../hooks/useDb';
@@ -110,9 +110,27 @@ export function HomeScreenExperimental() {
   const { todayItems, refresh } = useHomeData();
   const { openEditorForItem } = useItemComposer();
   const [deviceEvents, setDeviceEvents] = useState<DeviceCalendarEvent[]>([]);
+  const appStateRef = useRef(AppState.currentState);
 
   useEffect(() => {
-    getTodayDeviceEvents().then(setDeviceEvents).catch(() => setDeviceEvents([]));
+    const refetchEvents = () => {
+      getTodayDeviceEvents().then(setDeviceEvents).catch(() => setDeviceEvents([]));
+    };
+
+    refetchEvents();
+
+    // expo-calendar has no live change-subscription API (unlike our own SQLite data,
+    // which the rest of the app refreshes reactively) — refetching on foreground is the
+    // practical middle ground: covers "I added an event, switched back to check," not
+    // "I'm staring at this screen while adding an event in another app."
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (appStateRef.current.match(/inactive|background/) && nextState === 'active') {
+        refetchEvents();
+      }
+      appStateRef.current = nextState;
+    });
+
+    return () => subscription.remove();
   }, []);
 
   const bg = isDark ? '#000000' : '#f5f5f5';
