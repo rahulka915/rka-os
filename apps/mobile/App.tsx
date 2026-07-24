@@ -39,8 +39,10 @@ import { riverStoneMaterial, TRAY_BOTTOM_OFFSET_REDUCTION } from './src/theme';
 
 import config from './tamagui.config';
 import { ThemeContext } from './src/hooks/useThemeContext';
+import { UIModeContext, useUIModeContext } from './src/hooks/useUIModeContext';
 import { FabHoldContext } from './src/hooks/useFabHoldAction';
 import { HomeScreen } from './src/screens/HomeScreen';
+import { HomeScreenExperimental } from './src/screens/HomeScreenExperimental';
 import { CalendarScreen } from './src/screens/CalendarScreen';
 import { MenuStack } from './src/navigation/MenuStack';
 import { ProfileScreen } from './src/screens/ProfileScreen';
@@ -184,6 +186,7 @@ function NavigationLayer({
 }) {
   const navigationRef = useNavigationContainerRef();
   const { openCapture } = useItemComposer();
+  const { isExperimentalHome } = useUIModeContext();
 
   const openQuickCapture = () => {
     const route = navigationRef.getCurrentRoute();
@@ -220,12 +223,16 @@ function NavigationLayer({
               >
                 <Tab.Screen name="Home">
                   {({ navigation }) => (
-                    <HomeScreen
-                      onInboxPress={() => setInboxOpen(true)}
-                      inboxOpen={inboxOpen}
-                      onHeroPress={() => navigation.navigate('Profile')}
-                      onSettingsPress={() => (navigation.getParent() as any)?.navigate('Settings')}
-                    />
+                    isExperimentalHome ? (
+                      <HomeScreenExperimental />
+                    ) : (
+                      <HomeScreen
+                        onInboxPress={() => setInboxOpen(true)}
+                        inboxOpen={inboxOpen}
+                        onHeroPress={() => navigation.navigate('Profile')}
+                        onSettingsPress={() => (navigation.getParent() as any)?.navigate('Settings')}
+                      />
+                    )
                   )}
                 </Tab.Screen>
                 <Tab.Screen name="Calendar" component={CalendarScreen} />
@@ -287,6 +294,12 @@ export default function App() {
     toggle: () => setManualDark(d => d === null ? !(systemScheme === 'dark') : !d),
   }), [isDark, systemScheme]);
 
+  const [isExperimentalHome, setIsExperimentalHome] = useState(false);
+  const uiModeCtx = useMemo(() => ({
+    isExperimentalHome,
+    toggle: () => setIsExperimentalHome((v) => !v),
+  }), [isExperimentalHome]);
+
   useEffect(() => {
     async function init() {
       await reconcileMedicationTimers().catch(() => {});
@@ -330,6 +343,7 @@ export default function App() {
 
   return (
     <ThemeContext.Provider value={themeCtx}>
+      <UIModeContext.Provider value={uiModeCtx}>
       <BackupProvider>
       <FabHoldContext.Provider value={fabHoldCtx}>
       <TamaguiProvider config={config as any} defaultTheme={isDark ? 'dark' : 'light'}>
@@ -354,6 +368,7 @@ export default function App() {
       </TamaguiProvider>
       </FabHoldContext.Provider>
       </BackupProvider>
+      </UIModeContext.Provider>
     </ThemeContext.Provider>
   );
 }
