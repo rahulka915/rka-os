@@ -10,7 +10,7 @@ import { getThemeColors, lineHeight, letterSpacing } from '../theme';
 import { useInbox } from '../hooks/useDb';
 import { updateItemStatus, processInboxItem, getBlockingTask } from '../db/database';
 import { X } from '../icons';
-import { FabControl } from '../components/fab/FabControl';
+import { CaptureFAB } from '../components/capture/CaptureFAB';
 import { useItemComposer } from '../components/item-composer';
 
 const CHECKBOX_CENTER_X = 38; // TaskSwipeItem's taskRow paddingHorizontal(16) + half the 44pt disc touch target
@@ -25,7 +25,7 @@ export function InboxScreenV2({ visible, onClose }: InboxScreenV2Props) {
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
   const { items: inboxItems, refresh } = useInbox();
-  const { openCapture, openEditorForItem, revision: composerRevision } = useItemComposer();
+  const { openEditorForItem, revision: composerRevision } = useItemComposer();
 
   // Hold-to-select: long-press any row enters selection mode and selects it; tapping other
   // rows (or their selection indicators) while active toggles them into/out of the set. A bottom
@@ -97,6 +97,7 @@ export function InboxScreenV2({ visible, onClose }: InboxScreenV2Props) {
       { text: 'Domain', onPress: () => handleBulkProcess('area') },
       { text: 'Habit', onPress: () => handleBulkProcess('habit') },
       { text: 'Medication', onPress: () => handleBulkProcess('medication') },
+      { text: 'Object', onPress: () => handleBulkProcess('object') },
       { text: 'Reference', onPress: () => handleBulkProcess('reference') },
     ]);
   }, [handleBulkProcess]);
@@ -190,16 +191,11 @@ export function InboxScreenV2({ visible, onClose }: InboxScreenV2Props) {
         {/* Floating Add Button — hidden during selection, replaced by the bulk toolbar.
             Uses the same registered brush-and-paper sequence as the dock FAB. */}
         {!selectionMode ? (
-          <FabControl
+          <CaptureFAB
             size={56}
-            onPress={() => openCapture({
-              context: { status: 'inbox' },
-              onComplete: ({ action }) => {
-                if (action === 'saved') refresh();
-              },
-            })}
+            captureContext={{ status: 'inbox' }}
+            onSaved={refresh}
             style={s.fab}
-            hitSlop={12}
           />
         ) : null}
 
