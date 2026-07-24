@@ -1,9 +1,11 @@
+import { useEffect, useState } from 'react';
 import { ScrollView, Text, TouchableOpacity, View, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { useHomeData } from '../hooks/useDb';
 import { useItemComposer } from '../components/item-composer';
 import { getTimelineDurationMinutes } from '../utils/timelineItem';
+import { getTodayDeviceEvents, type DeviceCalendarEvent } from '../services/deviceCalendar';
 import type { Item, ItemType } from '../db/types';
 
 const HOUR_HEIGHT = 60;
@@ -65,11 +67,9 @@ function formatDuration(minutes: number): string {
   return mins === 0 ? `${hours}h` : `${hours}h ${mins}m`;
 }
 
-interface TimelineRow {
-  item: Item;
-  minutes: number;
-  duration: number;
-}
+type TimelineRow =
+  | { kind: 'task'; key: string; minutes: number; duration: number; item: Item }
+  | { kind: 'event'; key: string; minutes: number; duration: number; event: DeviceCalendarEvent };
 
 interface GapLabel {
   key: string;
@@ -79,7 +79,8 @@ interface GapLabel {
 
 // Tiimo-style: label the free time between items instead of leaving blank grid space,
 // so "how full is my day" reads at a glance rather than requiring the hour lines to be
-// mentally added up.
+// mentally added up. Runs across tasks AND device calendar events together — a gap
+// between a task and a real meeting is still a gap.
 function computeGaps(rows: TimelineRow[]): GapLabel[] {
   const gaps: GapLabel[] = [];
   for (let i = 0; i < rows.length - 1; i++) {
@@ -89,7 +90,7 @@ function computeGaps(rows: TimelineRow[]): GapLabel[] {
     if (gapMinutes >= MIN_GAP_MINUTES_TO_LABEL) {
       const midpoint = currentEnd + gapMinutes / 2;
       gaps.push({
-        key: `gap-${rows[i].item.id}`,
+        key: `gap-${rows[i].key}`,
         top: ((midpoint - TIMELINE_START_HOUR * 60) / 60) * HOUR_HEIGHT,
         minutes: gapMinutes,
       });
@@ -108,12 +109,18 @@ export function HomeScreenExperimental() {
   const { isDark } = useThemeContext();
   const { todayItems, refresh } = useHomeData();
   const { openEditorForItem } = useItemComposer();
+  const [deviceEvents, setDeviceEvents] = useState<DeviceCalendarEvent[]>([]);
+
+  useEffect(() => {
+    getTodayDeviceEvents().then(setDeviceEvents).catch(() => setDeviceEvents([]));
+  }, []);
 
   const bg = isDark ? '#000000' : '#f5f5f5';
   const fg = isDark ? '#ffffff' : '#000000';
   const dim = isDark ? '#888888' : '#666666';
   const line = isDark ? '#333333' : '#dddddd';
   const cardBg = isDark ? '#1a1a1a' : '#ffffff';
+  const eventCardBg = isDark ? '#141414' : '#e8e8e8';
 
   const openItem = (item: Item) => {
     openEditorForItem({
@@ -125,16 +132,25 @@ export function HomeScreenExperimental() {
   };
 
   const needsDoing = todayItems.filter(isNeedsDoing);
-  const timelineItems: TimelineRow[] = todayItems
+
+  const taskRows: TimelineRow[] = todayItems
     .map((item) => {
       const minutes = scheduledMinutes(item);
       if (minutes == null) return null;
-      return { item, minutes, duration: getTimelineDurationMinutes(item) };
+      return { kind: 'task' as const, key: `task-${item.id}`, item, minutes, duration: getTimelineDurationMinutes(item) };
     })
-    .filter((row): row is TimelineRow => row != null)
-    .sort((a, b) => a.minutes - b.minutes);
+    .filter((row): row is Extract<TimelineRow, { kind: 'task' }> => row != null);
 
-  const gaps = computeGaps(timelineItems);
+  const eventRows: TimelineRow[] = deviceEvents.map((event) => ({
+    kind: 'event' as const,
+    key: `event-${event.id}`,
+    event,
+    minutes: event.startMinutes,
+    duration: event.durationMinutes,
+  }));
+
+  const timelineRows = [...taskRows, ...eventRows].sort((a, b) => a.minutes - b.minutes);
+  const gaps = computeGaps(timelineRows);
 
   const hours = [];
   for (let hour = TIMELINE_START_HOUR; hour <= TIMELINE_END_HOUR; hour++) {
@@ -183,27 +199,52 @@ export function HomeScreenExperimental() {
               {formatDuration(gap.minutes)} free
             </Text>
           ))}
-          {timelineItems.map(({ item, minutes, duration }) => {
-            const offsetMinutes = minutes - TIMELINE_START_HOUR * 60;
+          {timelineRows.map((row) => {
+            const offsetMinutes = row.minutes - TIMELINE_START_HOUR * 60;
             const top = (offsetMinutes / 60) * HOUR_HEIGHT;
-            const height = Math.max(28, (duration / 60) * HOUR_HEIGHT);
+            const height = Math.max(28, (row.duration / 60) * HOUR_HEIGHT);
             if (top < 0 || top > timelineHeight) return null;
+
+            // Device calendar events get a distinct muted card — no color accent, dashed
+            // border — so they read as background context you're planning around, never
+            // confused with your own colored task cards (matches Things 3's treatment).
+            if (row.kind === 'event') {
+              return (
+                <View
+                  key={row.key}
+                  style={[
+                    styles.card,
+                    styles.timelineItem,
+                    styles.eventCard,
+                    { top, minHeight: height, backgroundColor: eventCardBg, borderColor: line },
+                  ]}
+                >
+                  <View style={styles.cardBody}>
+                    <Text style={[styles.timelineItemText, { color: dim }]} numberOfLines={1}>
+                      {row.event.title}
+                    </Text>
+                    <Text style={[styles.cardSub, { color: dim }]}>{formatDuration(row.duration)}</Text>
+                  </View>
+                </View>
+              );
+            }
+
             return (
               <TouchableOpacity
-                key={item.id}
+                key={row.key}
                 style={[
                   styles.card,
                   styles.timelineItem,
                   { top, minHeight: height, backgroundColor: cardBg, borderColor: line },
                 ]}
-                onPress={() => openItem(item)}
+                onPress={() => openItem(row.item)}
               >
-                <View style={[styles.accentBar, { backgroundColor: typeColor(item.type) }]} />
+                <View style={[styles.accentBar, { backgroundColor: typeColor(row.item.type) }]} />
                 <View style={styles.cardBody}>
                   <Text style={[styles.timelineItemText, { color: fg }]} numberOfLines={1}>
-                    {item.title}
+                    {row.item.title}
                   </Text>
-                  <Text style={[styles.cardSub, { color: dim }]}>{formatDuration(duration)}</Text>
+                  <Text style={[styles.cardSub, { color: dim }]}>{formatDuration(row.duration)}</Text>
                 </View>
               </TouchableOpacity>
             );
@@ -240,6 +281,9 @@ const styles = StyleSheet.create({
   },
   needsCard: {
     marginBottom: 8,
+  },
+  eventCard: {
+    borderStyle: 'dashed',
   },
   accentBar: {
     width: 4,

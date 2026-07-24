@@ -62,6 +62,12 @@
         }
       ],
       "expo-background-task",
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "RKA OS reads your calendar so your day view can show real events alongside your tasks."
+        }
+      ],
       "expo-sqlite",
       "expo-status-bar",
       [
@@ -95,7 +101,14 @@
         }
       ],
       "./plugins/withWidgetVersionSync.js",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "RKA OS uses the microphone to capture your voice notes.",
+          "speechRecognitionPermission": "RKA OS transcribes your speech into Inbox captures."
+        }
+      ]
     ],
     "extra": {
       "eas": {
