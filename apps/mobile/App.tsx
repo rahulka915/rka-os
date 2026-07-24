@@ -224,7 +224,7 @@ function NavigationLayer({
                 <Tab.Screen name="Home">
                   {({ navigation }) => (
                     isExperimentalHome ? (
-                      <HomeScreenExperimental onInboxPress={() => setInboxOpen(true)} />
+                      <HomeScreenExperimental onInboxPress={() => setInboxOpen(true)} inboxOpen={inboxOpen} />
                     ) : (
                       <HomeScreen
                         onInboxPress={() => setInboxOpen(true)}

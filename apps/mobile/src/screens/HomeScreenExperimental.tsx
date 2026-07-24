@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AppState, ScrollView, Text, TouchableOpacity, View, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeContext } from '../hooks/useThemeContext';
-import { useHomeData, useInbox } from '../hooks/useDb';
+import { useHomeData } from '../hooks/useDb';
 import { useItemComposer } from '../components/item-composer';
 import { getTimelineDurationMinutes } from '../utils/timelineItem';
 import { getTodayDeviceEvents, type DeviceCalendarEvent } from '../services/deviceCalendar';
@@ -106,14 +106,27 @@ function computeGaps(rows: TimelineRow[]): GapLabel[] {
 // accent palette above, added deliberately per the Mobbin comparison, not inherited).
 interface HomeScreenExperimentalProps {
   onInboxPress: () => void;
+  inboxOpen: boolean;
 }
 
-export function HomeScreenExperimental({ onInboxPress }: HomeScreenExperimentalProps) {
+export function HomeScreenExperimental({ onInboxPress, inboxOpen }: HomeScreenExperimentalProps) {
   const insets = useSafeAreaInsets();
   const { isDark } = useThemeContext();
-  const { todayItems, refresh } = useHomeData();
-  const { items: inboxItems } = useInbox();
-  const { openEditorForItem } = useItemComposer();
+  const { todayItems, inboxCount, refresh } = useHomeData();
+  const { openEditorForItem, revision: composerRevision } = useItemComposer();
+
+  // useHomeData only fetches on mount — Inbox lives in a sibling modal (App.tsx), not a
+  // child of this screen, so triaging there never triggers a refetch here on its own.
+  // Same two triggers the old HomeScreen uses: refetch when the Inbox modal closes, and
+  // refetch on any save anywhere in the app (composerRevision bumps on every save,
+  // including a fresh FAB capture that never touches the Inbox modal at all).
+  useEffect(() => {
+    if (!inboxOpen) refresh();
+  }, [inboxOpen, refresh]);
+
+  useEffect(() => {
+    refresh();
+  }, [composerRevision, refresh]);
   const [deviceEvents, setDeviceEvents] = useState<DeviceCalendarEvent[]>([]);
   const appStateRef = useRef(AppState.currentState);
 
@@ -194,7 +207,7 @@ export function HomeScreenExperimental({ onInboxPress }: HomeScreenExperimentalP
           <View style={styles.cardBody}>
             <Text style={[styles.inboxTitle, { color: fg }]}>Inbox</Text>
             <Text style={[styles.cardSub, { color: dim }]}>
-              {inboxItems.length === 0 ? 'Nothing to action' : `${inboxItems.length} to action`}
+              {inboxCount === 0 ? 'Nothing to action' : `${inboxCount} to action`}
             </Text>
           </View>
         </TouchableOpacity>
