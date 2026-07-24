@@ -49,7 +49,9 @@ import { ProfileScreen } from './src/screens/ProfileScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { InboxScreenV2 } from './src/screens/InboxScreenV2';
 import { ItemComposerProvider, useItemComposer } from './src/components/item-composer';
-import { OverlayHostProvider } from './src/hooks/useOverlayHost';
+import { OverlayHostProvider, useOverlayHost } from './src/hooks/useOverlayHost';
+import { CaptureMethodMenu } from './src/components/capture/CaptureMethodMenu';
+import { VoiceCaptureOverlay } from './src/components/capture/VoiceCaptureOverlay';
 import { PersistentTimerBanner } from './src/components/PersistentTimerBanner';
 import { AppLoadingScreen } from './src/components/AppLoadingScreen';
 import { requestNotificationPermission, setBadgeCount } from './src/hooks/useNotifications';
@@ -187,6 +189,8 @@ function NavigationLayer({
   const navigationRef = useNavigationContainerRef();
   const { openCapture } = useItemComposer();
   const { isExperimentalHome } = useUIModeContext();
+  const { setOverlay } = useOverlayHost();
+  const [captureMenuOpen, setCaptureMenuOpen] = useState(false);
 
   const openQuickCapture = () => {
     const route = navigationRef.getCurrentRoute();
@@ -204,6 +208,24 @@ function NavigationLayer({
     openCapture({ context: { status: route?.name === 'Tasks' ? 'active' : 'inbox' } });
   };
 
+  const closeVoiceOverlay = () => setOverlay('capture-voice', null);
+
+  const openVoiceOverlay = () => {
+    setOverlay(
+      'capture-voice',
+      <VoiceCaptureOverlay
+        onSaved={closeVoiceOverlay}
+        onClose={closeVoiceOverlay}
+        onTypeInstead={() => {
+          closeVoiceOverlay();
+          openQuickCapture();
+        }}
+      />,
+    );
+  };
+
+  const handleFabPress = () => setCaptureMenuOpen(true);
+
   return (
     <>
       <NavigationContainer ref={navigationRef}>
@@ -215,7 +237,7 @@ function NavigationLayer({
                   <AppleTabBar
                     {...props}
                     isDark={isDark}
-                    onFabPress={openQuickCapture}
+                    onFabPress={handleFabPress}
                     onFabHold={onFabHold}
                   />
                 )}
@@ -251,6 +273,18 @@ function NavigationLayer({
 
       <InboxScreenV2 visible={inboxOpen} onClose={() => setInboxOpen(false)} />
       <PersistentTimerBanner />
+      <CaptureMethodMenu
+        visible={captureMenuOpen}
+        onSelectType={() => {
+          setCaptureMenuOpen(false);
+          openQuickCapture();
+        }}
+        onSelectSpeak={() => {
+          setCaptureMenuOpen(false);
+          openVoiceOverlay();
+        }}
+        onDismiss={() => setCaptureMenuOpen(false)}
+      />
     </>
   );
 }
