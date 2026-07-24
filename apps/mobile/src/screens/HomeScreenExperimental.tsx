@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AppState, ScrollView, Text, TouchableOpacity, View, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeContext } from '../hooks/useThemeContext';
-import { useHomeData } from '../hooks/useDb';
+import { useHomeData, useInbox } from '../hooks/useDb';
 import { useItemComposer } from '../components/item-composer';
 import { getTimelineDurationMinutes } from '../utils/timelineItem';
 import { getTodayDeviceEvents, type DeviceCalendarEvent } from '../services/deviceCalendar';
@@ -104,10 +104,15 @@ function computeGaps(rows: TimelineRow[]): GapLabel[] {
 // rather than inheriting the existing app's design language. Only dark/light background
 // awareness is kept, everything else is plain system defaults (plus the fresh TYPE_COLORS
 // accent palette above, added deliberately per the Mobbin comparison, not inherited).
-export function HomeScreenExperimental() {
+interface HomeScreenExperimentalProps {
+  onInboxPress: () => void;
+}
+
+export function HomeScreenExperimental({ onInboxPress }: HomeScreenExperimentalProps) {
   const insets = useSafeAreaInsets();
   const { isDark } = useThemeContext();
   const { todayItems, refresh } = useHomeData();
+  const { items: inboxItems } = useInbox();
   const { openEditorForItem } = useItemComposer();
   const [deviceEvents, setDeviceEvents] = useState<DeviceCalendarEvent[]>([]);
   const appStateRef = useRef(AppState.currentState);
@@ -182,6 +187,18 @@ export function HomeScreenExperimental() {
   return (
     <View style={[styles.container, { backgroundColor: bg, paddingTop: insets.top }]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        <TouchableOpacity
+          style={[styles.card, styles.inboxCard, { backgroundColor: cardBg, borderColor: line }]}
+          onPress={onInboxPress}
+        >
+          <View style={styles.cardBody}>
+            <Text style={[styles.inboxTitle, { color: fg }]}>Inbox</Text>
+            <Text style={[styles.cardSub, { color: dim }]}>
+              {inboxItems.length === 0 ? 'Nothing to action' : `${inboxItems.length} to action`}
+            </Text>
+          </View>
+        </TouchableOpacity>
+
         <Text style={[styles.sectionLabel, { color: dim }]}>NEEDS DOING ({needsDoing.length})</Text>
         {needsDoing.length === 0 ? (
           <Text style={[styles.emptyText, { color: dim }]}>Nothing urgent.</Text>
@@ -302,6 +319,13 @@ const styles = StyleSheet.create({
   },
   needsCard: {
     marginBottom: 8,
+  },
+  inboxCard: {
+    marginBottom: 20,
+  },
+  inboxTitle: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   eventCard: {
     borderStyle: 'dashed',
