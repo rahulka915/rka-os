@@ -279,6 +279,10 @@ export function updateItemMetadata(id: string, metadata: Record<string, any>): v
   );
 }
 
+export function updateItemTitle(id: string, title: string): void {
+  getDb().runSync(`UPDATE items SET title = ?, updatedAt = ? WHERE id = ?`, [title, Date.now(), id]);
+}
+
 // "Plan for Today" — the lightweight way to put an un-dated task onto the Home
 // Today blocks without giving it a calendar date/time. Marks it with today's
 // date in metadata.plannedDate; Home shows the union of scheduledDate=today and
