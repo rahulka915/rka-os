@@ -1330,6 +1330,48 @@ export function processInboxItem(id: string, destination: GtdDestination): void 
   logActivity(id, 'status-changed', JSON.stringify({ destination }));
 }
 
+// Confirmed Task-branch decision from Inbox Triage Mode (see useTriageSession).
+// Three separate writes, same composable pattern saveItemDraft already uses
+// (updateItem for status/scheduledDate, updateItemMetadata for the metadata
+// blob, setRelation for the project link) rather than processInboxItem's
+// single-statement style — triage has richer combined state than a single
+// GTD destination.
+export function applyTaskTriage(
+  id: string,
+  decision: {
+    priority: 'low' | 'medium' | 'high';
+    when: 'today' | 'tomorrow' | 'week' | 'someday';
+    projectId: string | null;
+  },
+): void {
+  const item = getItemWithMetadata(id);
+  const meta = item?.metadata ? JSON.parse(item.metadata) : {};
+  meta.priority = decision.priority;
+
+  const today = formatDate(new Date());
+  const tomorrow = formatDate(new Date(Date.now() + 24 * 60 * 60 * 1000));
+
+  switch (decision.when) {
+    case 'today':
+      updateItem(id, { status: 'active', scheduledDate: today });
+      break;
+    case 'tomorrow':
+      updateItem(id, { status: 'active', scheduledDate: tomorrow });
+      break;
+    case 'week':
+      meta.gtdContext = 'week';
+      updateItem(id, { status: 'active', scheduledDate: null });
+      break;
+    case 'someday':
+      updateItem(id, { status: 'someday', scheduledDate: null });
+      break;
+  }
+
+  updateItemMetadata(id, meta);
+  setRelation(id, 'project', decision.projectId);
+  logActivity(id, 'status-changed', JSON.stringify({ destination: 'triage-task', ...decision }));
+}
+
 // ── Instances ──────────────────────────────────────────────────────────
 
 export function getTodayInstances(): ItemInstance[] {
