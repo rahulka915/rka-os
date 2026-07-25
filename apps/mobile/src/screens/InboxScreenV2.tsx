@@ -12,6 +12,9 @@ import { updateItemStatus, processInboxItem, getBlockingTask } from '../db/datab
 import { X } from '../icons';
 import { CaptureFAB } from '../components/capture/CaptureFAB';
 import { useItemComposer } from '../components/item-composer';
+import { useOverlayHost } from '../hooks/useOverlayHost';
+import { TriageOverlay } from '../components/triage/TriageOverlay';
+import type { Item } from '../db/types';
 
 const CHECKBOX_CENTER_X = 38; // TaskSwipeItem's taskRow paddingHorizontal(16) + half the 44pt disc touch target
 
@@ -25,7 +28,24 @@ export function InboxScreenV2({ visible, onClose }: InboxScreenV2Props) {
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
   const { items: inboxItems, refresh } = useInbox();
-  const { openEditorForItem, revision: composerRevision } = useItemComposer();
+  const { revision: composerRevision } = useItemComposer();
+  const { setOverlay } = useOverlayHost();
+
+  // Tapping an unprocessed item enters Triage Mode (a full-screen guided
+  // session over the whole queue) instead of opening the generic task
+  // editor. Selection-mode's swipe actions and "Classify as..." action
+  // sheet are unaffected — those stay as the fast bulk-action path.
+  const closeTriage = useCallback(() => {
+    setOverlay('inbox-triage', null);
+    refresh();
+  }, [setOverlay, refresh]);
+
+  const openTriage = useCallback((tappedItem: Item) => {
+    setOverlay(
+      'inbox-triage',
+      <TriageOverlay tappedItem={tappedItem} allItems={inboxItems} onClose={closeTriage} />,
+    );
+  }, [setOverlay, inboxItems, closeTriage]);
 
   // Hold-to-select: long-press any row enters selection mode and selects it; tapping other
   // rows (or their selection indicators) while active toggles them into/out of the set. A bottom
@@ -168,12 +188,7 @@ export function InboxScreenV2({ visible, onClose }: InboxScreenV2Props) {
                 onArchive={handleArchive}
                 blockedByTitle={blocker?.title}
                 hideBlockedBadge={chainedToPrev}
-                onPress={(selectedItem) => openEditorForItem({
-                  item: selectedItem,
-                  onComplete: ({ action }) => {
-                    if (action !== 'cancelled') refresh();
-                  },
-                })}
+                onPress={(selectedItem) => openTriage(selectedItem)}
                 onLongPress={() => enterSelection(item.id)}
                 selectionMode={selectionMode}
                 selected={selectedIds.has(item.id)}
