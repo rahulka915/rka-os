@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { getTimeOfDayFromHour, normalizeTimeInput, timeToMinutes, type TimeOfDay } from '../utils/time';
 import { resolveAutoStopAfterMs } from '../domain/medicationTimer/timerMath';
 import { nextOccurrenceDate, parseRepeatRule, dayMatchesRepeat } from '../utils/repeat';
+import { countDosesByDay } from '../utils/medicationDoseHistory';
 
 let db: SQLite.SQLiteDatabase;
 
@@ -767,21 +768,12 @@ export function getMedicationLogs(itemId: string, limit = 10): ActivityLog[] {
   );
 }
 
-// Two-state (taken / not taken) history per calendar day. There's no per-day dose-schedule
-// model yet (medications don't carry an rrule), so a third "not scheduled" state can't be
-// derived honestly — this only reports what's known: whether a dose was logged that day.
-export function getMedicationDoseHistory(itemId: string, days = 7): Array<{ date: string; taken: boolean }> {
+// Per-day dose count over the trailing window. There's no per-day dose-schedule model yet
+// (medications don't carry an rrule), so this can't say whether a count is "enough" — it only
+// reports what's known: how many times a dose was logged on each calendar day.
+export function getMedicationDoseHistory(itemId: string, days = 7): Array<{ date: string; count: number }> {
   const logs = getMedicationLogs(itemId, days * 3);
-  const takenDates = new Set(logs.map(log => formatDate(new Date(log.timestamp))));
-
-  const history: Array<{ date: string; taken: boolean }> = [];
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    const date = formatDate(d);
-    history.push({ date, taken: takenDates.has(date) });
-  }
-  return history;
+  return countDosesByDay(logs.map(log => log.timestamp), days);
 }
 
 export function deleteMedicationLog(logId: string, itemId: string): void {
