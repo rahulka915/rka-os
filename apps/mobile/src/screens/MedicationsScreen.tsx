@@ -1,8 +1,9 @@
 import { useCallback, useState, useEffect } from 'react';
-import { Modal, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Alert, View as RNView, Text as RNText, StyleSheet, TextInput, FlatList, Switch } from 'react-native';
+import { Modal, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Alert, View as RNView, Text as RNText, StyleSheet, TextInput, SectionList, Switch } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useMedications } from '../hooks/useDb';
 import { createMedication, updateMedication, deleteItem, getLastTakenLog, getMedicationDoseHistory, getMedicationLogs, getTotalStock, getStockBreakdown, restockMedication, startTimerFromLoggedDose, getPersistentMedicationTimers, type MedicationMeta } from '../db/database';
+import { groupLogsByDay } from '../utils/medicationDoseHistory';
 import { LogDoseSheet } from '../components/LogDoseSheet';
 import { LensSurface } from '../components/LensSurface';
 import { MedicationStockMeter } from '../components/MedicationStockMeter';
@@ -419,6 +420,12 @@ function MedFormSheet({ visible, onClose, onSaved, isDark, editTarget }: MedForm
 function SeeAllHistorySheet({ visible, item, onClose, isDark }: { visible: boolean; item: Item | null; onClose: () => void; isDark: boolean }) {
   const palette = getThemeColors(isDark);
   const logs = item ? getMedicationLogs(item.id, 30) : [];
+  const sections = groupLogsByDay(logs).map(group => ({
+    title: group.date,
+    label: group.label,
+    count: group.count,
+    data: group.logs,
+  }));
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
@@ -430,13 +437,18 @@ function SeeAllHistorySheet({ visible, item, onClose, isDark }: { visible: boole
             <X size={16} color={palette.text} strokeWidth={2.5} />
           </TouchableOpacity>
         </RNView>
-        <FlatList
-          data={logs}
+        <SectionList
+          sections={sections}
           keyExtractor={l => l.id}
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 }}
+          renderSectionHeader={({ section }) => (
+            <RNText style={[s.historyDayHeader, { color: palette.textSecondary, backgroundColor: palette.bg }]}>
+              {section.label} · {section.count} {section.count === 1 ? 'dose' : 'doses'}
+            </RNText>
+          )}
           renderItem={({ item: log }) => (
             <RNText style={[s.historyLogRow, { color: palette.text, borderBottomColor: palette.separator }]}>
-              {new Date(log.timestamp).toLocaleString()}
+              {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </RNText>
           )}
           ListEmptyComponent={<RNText style={{ color: palette.textSecondary, padding: 16 }}>No doses logged yet.</RNText>}
@@ -741,6 +753,13 @@ const s = StyleSheet.create({
     fontSize: 14,
     paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  historyDayHeader: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
+    paddingTop: 16,
+    paddingBottom: 6,
   },
   empty: {
     flex: 1,
