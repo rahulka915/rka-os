@@ -11,7 +11,7 @@ import { startMedicationLiveActivity } from '../services/medicationLiveActivity'
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
 import type { Item } from '../db/types';
-import { X, AlertTriangle, Clock, PlayCircle, Check } from '../icons';
+import { X, AlertTriangle, Clock, PlayCircle } from '../icons';
 import { MedicationBottleIcon } from '../components/icons/MedicationBottleIcon';
 import { ensureMedicationTimerAutoStop } from '../services/medicationTimerController';
 import { presentMedicationTimer } from '../utils/timerPresentation';
@@ -217,14 +217,15 @@ function HistoryRow({ item, isDark, onPress }: { item: Item; isDark: boolean; on
     >
       <RNText style={[s.historyLabel, { color: palette.text }]} numberOfLines={1}>{item.title}</RNText>
       <RNView style={s.historyDays}>
-        {history.map(({ date, taken }) => (
-          <RNView
-            key={date}
-            style={[s.historyDot, { backgroundColor: taken ? palette.green : palette.fill }]}
-          >
-            {taken && <Check size={10} color="#ffffff" strokeWidth={3} />}
-          </RNView>
-        ))}
+        {history.map(({ date, count }) => {
+          const backgroundColor = count === 0 ? palette.fill : count === 1 ? palette.greenSoft : palette.green;
+          const textColor = count === 0 ? palette.textSecondary : count === 1 ? palette.green : '#ffffff';
+          return (
+            <RNView key={date} style={[s.historyDot, { backgroundColor }]}>
+              {count > 0 && <RNText style={[s.historyDotText, { color: textColor }]}>{count}</RNText>}
+            </RNView>
+          );
+        })}
       </RNView>
     </TouchableOpacity>
   );
@@ -730,6 +731,11 @@ const s = StyleSheet.create({
     borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  historyDotText: {
+    fontSize: 11,
+    fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
   },
   historyLogRow: {
     fontSize: 14,
