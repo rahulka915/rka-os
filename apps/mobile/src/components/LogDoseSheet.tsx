@@ -48,7 +48,16 @@ function formatLogTime(ts: number): string {
   return `${timeStr} · ${mins}m ago`;
 }
 
-function parseTimeInput(hours: string, minutes: string, mode: Mode, exactHour: string, exactMin: string): number | null {
+function parseTimeInput(
+  hours: string,
+  minutes: string,
+  mode: Mode,
+  exactHour: string,
+  exactMin: string,
+  exactMonth: string,
+  exactDay: string,
+  exactYear: string
+): number | null {
   if (mode === 'relative') {
     const h = parseFloat(hours || '0');
     const m = parseFloat(minutes || '0');
@@ -61,9 +70,15 @@ function parseTimeInput(hours: string, minutes: string, mode: Mode, exactHour: s
   if (isNaN(h) || h < 0 || h > 23) return null;
   if (isNaN(m) || m < 0 || m > 59) return null;
 
-  const d = new Date();
-  d.setHours(h, m, 0, 0);
-  if (d.getTime() > Date.now()) d.setDate(d.getDate() - 1);
+  const month = parseInt(exactMonth);
+  const day = parseInt(exactDay);
+  const year = parseInt(exactYear);
+  if (isNaN(month) || month < 1 || month > 12) return null;
+  if (isNaN(day) || day < 1 || day > 31) return null;
+  if (isNaN(year) || year < 2000 || year > 2100) return null;
+
+  const d = new Date(year, month - 1, day, h, m, 0, 0);
+  if (d.getMonth() !== month - 1 || d.getDate() !== day) return null;
   return d.getTime();
 }
 
@@ -180,6 +195,10 @@ export function LogDoseSheet({ visible, medicationName, medicationId, onClose, o
   const [minutes, setMinutes] = useState('');
   const [exactHour, setExactHour] = useState('');
   const [exactMin, setExactMin] = useState('');
+  const today = new Date();
+  const [exactMonth, setExactMonth] = useState(String(today.getMonth() + 1));
+  const [exactDay, setExactDay] = useState(String(today.getDate()));
+  const [exactYear, setExactYear] = useState(String(today.getFullYear()));
   const [, setTick] = useState(0);
 
   const recentLogs: ActivityLog[] = visible ? getMedicationLogs(medicationId, 10) : [];
@@ -191,9 +210,9 @@ export function LogDoseSheet({ visible, medicationName, medicationId, onClose, o
   const refresh = () => setTick((tick) => tick + 1);
 
   const handleLog = (startTimer = false) => {
-    const ts = parseTimeInput(hours, minutes, mode, exactHour, exactMin);
+    const ts = parseTimeInput(hours, minutes, mode, exactHour, exactMin, exactMonth, exactDay, exactYear);
     if (!ts) {
-      Alert.alert('Invalid time', mode === 'relative' ? 'Enter hours or minutes ago.' : 'Enter a valid hour (0–23).');
+      Alert.alert('Invalid time', mode === 'relative' ? 'Enter hours or minutes ago.' : 'Enter a valid date and hour (0–23).');
       return;
     }
 
@@ -209,6 +228,10 @@ export function LogDoseSheet({ visible, medicationName, medicationId, onClose, o
           setMinutes('');
           setExactHour('');
           setExactMin('');
+          const now = new Date();
+          setExactMonth(String(now.getMonth() + 1));
+          setExactDay(String(now.getDate()));
+          setExactYear(String(now.getFullYear()));
           onClose();
         },
       },
@@ -347,21 +370,67 @@ export function LogDoseSheet({ visible, medicationName, medicationId, onClose, o
                 ))}
               </XStack>
             ) : (
-              <XStack gap="$3" alignItems="flex-end">
-                <YStack flex={1} gap="$1">
-                  <Text fontSize="$2" fontWeight="600" color="$textSecondary">Hour (0–23)</Text>
-                  <View backgroundColor="$surface" borderRadius="$3" borderWidth={0.5} borderColor="$separator" paddingHorizontal="$3">
-                    <Input unstyled fontSize="$3" color="$text" paddingVertical="$3" placeholder="14" placeholderTextColor={palette.textTertiary} keyboardType="numeric" value={exactHour} onChangeText={setExactHour} keyboardAppearance={isDark ? 'dark' : 'light'} />
-                  </View>
-                </YStack>
-                <Text fontSize="$5" fontWeight="700" color="$textSecondary" paddingBottom="$3">:</Text>
-                <YStack flex={1} gap="$1">
-                  <Text fontSize="$2" fontWeight="600" color="$textSecondary">Minute</Text>
-                  <View backgroundColor="$surface" borderRadius="$3" borderWidth={0.5} borderColor="$separator" paddingHorizontal="$3">
-                    <Input unstyled fontSize="$3" color="$text" paddingVertical="$3" placeholder="30" placeholderTextColor={palette.textTertiary} keyboardType="numeric" value={exactMin} onChangeText={setExactMin} keyboardAppearance={isDark ? 'dark' : 'light'} />
-                  </View>
-                </YStack>
-              </XStack>
+              <YStack gap="$3">
+                <XStack gap="$2">
+                  {[
+                    { label: 'Today', offset: 0 },
+                    { label: 'Yesterday', offset: 1 },
+                  ].map(({ label, offset }) => {
+                    const d = new Date();
+                    d.setDate(d.getDate() - offset);
+                    const isActive = exactMonth === String(d.getMonth() + 1) && exactDay === String(d.getDate()) && exactYear === String(d.getFullYear());
+                    return (
+                      <TouchableOpacity
+                        key={label}
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          setExactMonth(String(d.getMonth() + 1));
+                          setExactDay(String(d.getDate()));
+                          setExactYear(String(d.getFullYear()));
+                        }}
+                        style={{ flex: 1, height: 34, alignItems: 'center', justifyContent: 'center', borderRadius: 8, backgroundColor: isActive ? palette.blueSoft : palette.fill }}
+                      >
+                        <Text fontSize={13} fontWeight="600" color={isActive ? '$blue' : '$textSecondary'}>{label}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </XStack>
+                <XStack gap="$2" alignItems="flex-end">
+                  <YStack flex={1.1} gap="$1">
+                    <Text fontSize="$2" fontWeight="600" color="$textSecondary">Month</Text>
+                    <View backgroundColor="$surface" borderRadius="$3" borderWidth={0.5} borderColor="$separator" paddingHorizontal="$3">
+                      <Input unstyled fontSize="$3" color="$text" paddingVertical="$3" placeholder="7" placeholderTextColor={palette.textTertiary} keyboardType="numeric" value={exactMonth} onChangeText={setExactMonth} keyboardAppearance={isDark ? 'dark' : 'light'} />
+                    </View>
+                  </YStack>
+                  <YStack flex={1.1} gap="$1">
+                    <Text fontSize="$2" fontWeight="600" color="$textSecondary">Day</Text>
+                    <View backgroundColor="$surface" borderRadius="$3" borderWidth={0.5} borderColor="$separator" paddingHorizontal="$3">
+                      <Input unstyled fontSize="$3" color="$text" paddingVertical="$3" placeholder="26" placeholderTextColor={palette.textTertiary} keyboardType="numeric" value={exactDay} onChangeText={setExactDay} keyboardAppearance={isDark ? 'dark' : 'light'} />
+                    </View>
+                  </YStack>
+                  <YStack flex={1.4} gap="$1">
+                    <Text fontSize="$2" fontWeight="600" color="$textSecondary">Year</Text>
+                    <View backgroundColor="$surface" borderRadius="$3" borderWidth={0.5} borderColor="$separator" paddingHorizontal="$3">
+                      <Input unstyled fontSize="$3" color="$text" paddingVertical="$3" placeholder="2026" placeholderTextColor={palette.textTertiary} keyboardType="numeric" value={exactYear} onChangeText={setExactYear} keyboardAppearance={isDark ? 'dark' : 'light'} />
+                    </View>
+                  </YStack>
+                </XStack>
+                <XStack gap="$3" alignItems="flex-end">
+                  <YStack flex={1} gap="$1">
+                    <Text fontSize="$2" fontWeight="600" color="$textSecondary">Hour (0–23)</Text>
+                    <View backgroundColor="$surface" borderRadius="$3" borderWidth={0.5} borderColor="$separator" paddingHorizontal="$3">
+                      <Input unstyled fontSize="$3" color="$text" paddingVertical="$3" placeholder="14" placeholderTextColor={palette.textTertiary} keyboardType="numeric" value={exactHour} onChangeText={setExactHour} keyboardAppearance={isDark ? 'dark' : 'light'} />
+                    </View>
+                  </YStack>
+                  <Text fontSize="$5" fontWeight="700" color="$textSecondary" paddingBottom="$3">:</Text>
+                  <YStack flex={1} gap="$1">
+                    <Text fontSize="$2" fontWeight="600" color="$textSecondary">Minute</Text>
+                    <View backgroundColor="$surface" borderRadius="$3" borderWidth={0.5} borderColor="$separator" paddingHorizontal="$3">
+                      <Input unstyled fontSize="$3" color="$text" paddingVertical="$3" placeholder="30" placeholderTextColor={palette.textTertiary} keyboardType="numeric" value={exactMin} onChangeText={setExactMin} keyboardAppearance={isDark ? 'dark' : 'light'} />
+                    </View>
+                  </YStack>
+                </XStack>
+              </YStack>
             )}
           </YStack>
 
