@@ -19,10 +19,12 @@ import {
 import { DragHandleButton } from './ui/DragHandleButton';
 import { BlockedBadge } from './BlockedBadge';
 import { RepeatBadge } from './RepeatBadge';
-import { getBlockingTask, applyManualOrder } from '../db/database';
+import { getBlockingTask, applyManualOrder, getRelation, getDb } from '../db/database';
 import { promptSetDependency } from '../utils/dependencyPrompt';
 import { showActionSheet } from '../utils/actionSheet';
 import { useHapticReorder } from '../hooks/useHapticReorder';
+import { readChecklist, checklistProgress } from '../utils/checklist';
+import { DeadlineBadge } from './DeadlineBadge';
 
 
 // Bold palette — richer saturation than the muted/sunrise options explored
@@ -131,6 +133,27 @@ function hexToRgba(hex: string, alpha: number): string {
 // inter-row dependency-connector line is intentionally omitted in this
 // dense, gap-less timeline list (it needs gap space to live in that the
 // list doesn't have); the badge carries the "blocked" signal here.
+function getProjectTitle(itemId: string): string | null {
+  const projectId = getRelation(itemId, 'project');
+  if (!projectId) return null;
+  try {
+    const row = getDb().getAllSync<{ title: string }>(
+      `SELECT title FROM items WHERE id = ? AND deletedAt IS NULL LIMIT 1`,
+      [projectId]
+    );
+    return row[0]?.title ?? null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function checklistLabel(item: Item): string | null {
+  const entries = readChecklist(item.metadata ? JSON.parse(item.metadata) : {});
+  if (!entries.length) return null;
+  const { done, total } = checklistProgress(entries);
+  return `${done}/${total}`;
+}
+
 const TimelineTaskRow = memo(function TimelineTaskRow({
   item,
   isDark,
@@ -151,6 +174,8 @@ const TimelineTaskRow = memo(function TimelineTaskRow({
   onLongPress: (item: Item) => void;
 }) {
   const blocker = getBlockingTask(item.id);
+  const projectTitle = getProjectTitle(item.id);
+  const chLabel = checklistLabel(item);
 
   return (
     <View>
@@ -210,13 +235,24 @@ const TimelineTaskRow = memo(function TimelineTaskRow({
                     {formatDurationBadge(getTimelineDurationMinutes(item))}
                   </Text>
                 </View>
+                {projectTitle && (
+                  <Text style={[styles.rowSub, { color: palette.textTertiary }]} numberOfLines={1}>
+                    {projectTitle}
+                  </Text>
+                )}
                 {item.notes && (
                   <Text style={[styles.itemNotes, { color: palette.textMuted }]} numberOfLines={1}>
                     {item.notes}
                   </Text>
                 )}
                 {blocker && <BlockedBadge isDark={isDark} title={blocker.title} />}
+                {item.dueDate && <DeadlineBadge isDark={isDark} dueDate={item.dueDate} />}
                 {item.rrule && <RepeatBadge isDark={isDark} rrule={item.rrule} />}
+                {chLabel && (
+                  <Text style={[styles.rowSub, { color: palette.textTertiary }]}>
+                    {chLabel}
+                  </Text>
+                )}
               </View>
             </TouchableOpacity>
             <DragHandleButton color={palette.textMuted} />
@@ -280,10 +316,6 @@ function TimeBlockItems({
   // so it no longer fights the swipe gesture.
   const panGesture = useVerticalDragGesture();
 
-  if (items.length === 0) {
-    return null;
-  }
-
   // Memoised because it is a prop of the memoised row: recreated every render
   // it would defeat that memo, and Home re-renders once a second (see the
   // useCallback block in HomeScreen), so rows would re-render and re-measure
@@ -310,6 +342,10 @@ function TimeBlockItems({
       onLongPress={handleLongPress}
     />
   );
+
+  if (items.length === 0) {
+    return null;
+  }
 
   return (
     <View style={[styles.itemsContainer, { backgroundColor: hexToRgba(color, isDark ? 0.08 : 0.06) }]}>
@@ -476,10 +512,10 @@ export function TimelineSection({
   ];
 
   const [expandedSections, setExpandedSections] = useState<Record<TimeBlockType, boolean>>({
-    anytime: false,
-    morning: false,
-    afternoon: false,
-    evening: false,
+    anytime: true,
+    morning: true,
+    afternoon: true,
+    evening: true,
   });
 
   const toggleSection = (block: TimeBlockType) => {
@@ -703,6 +739,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '400',
     lineHeight: 18,
+    marginTop: 2,
+  },
+  rowSub: {
+    fontSize: 12,
+    fontWeight: '500',
+    fontFamily: 'Inter_500Medium',
     marginTop: 2,
   },
   hairline: {
