@@ -12,7 +12,7 @@ import { useColorScheme, TouchableOpacity, View, StyleSheet, AppState, Text as R
 LogBox.ignoreLogs([
   'VirtualizedLists should never be nested inside plain ScrollViews',
 ]);
-import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
+import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -50,8 +50,11 @@ import { SettingsScreen } from './src/screens/SettingsScreen';
 import { InboxScreenV2 } from './src/screens/InboxScreenV2';
 import { ItemComposerProvider, useItemComposer } from './src/components/item-composer';
 import { OverlayHostProvider, useOverlayHost } from './src/hooks/useOverlayHost';
-import { CaptureMethodMenu } from './src/components/capture/CaptureMethodMenu';
-import { VoiceCaptureOverlay } from './src/components/capture/VoiceCaptureOverlay';
+import { AssistantOverlay } from './src/components/assistant/AssistantOverlay';
+import { navigationRef } from './src/navigation/rootNavigation';
+import { AreaDetailScreen } from './src/screens/AreaDetailScreen';
+import { ProjectDetailScreen } from './src/screens/ProjectDetailScreen';
+import { ObjectDetailScreen } from './src/screens/ObjectDetailScreen';
 import { PersistentTimerBanner } from './src/components/PersistentTimerBanner';
 import { AppLoadingScreen } from './src/components/AppLoadingScreen';
 import { requestNotificationPermission, setBadgeCount } from './src/hooks/useNotifications';
@@ -186,11 +189,9 @@ function NavigationLayer({
   setInboxOpen: (open: boolean) => void;
   onFabHold: () => boolean;
 }) {
-  const navigationRef = useNavigationContainerRef();
   const { openCapture } = useItemComposer();
   const { isExperimentalHome } = useUIModeContext();
   const { setOverlay } = useOverlayHost();
-  const [captureMenuOpen, setCaptureMenuOpen] = useState(false);
 
   const openQuickCapture = () => {
     const route = navigationRef.getCurrentRoute();
@@ -208,23 +209,29 @@ function NavigationLayer({
     openCapture({ context: { status: route?.name === 'Tasks' ? 'active' : 'inbox' } });
   };
 
-  const closeVoiceOverlay = () => setOverlay('capture-voice', null);
+  // Tap always goes straight to the typing sheet — Speak now lives inside
+  // that sheet (mic icon next to the title field) so quick capture is a
+  // single tap, and voice is one extra tap away rather than an up-front
+  // Type/Speak choice.
+  const handleFabPress = () => openQuickCapture();
 
-  const openVoiceOverlay = () => {
-    setOverlay(
-      'capture-voice',
-      <VoiceCaptureOverlay
-        onSaved={closeVoiceOverlay}
-        onClose={closeVoiceOverlay}
-        onTypeInstead={() => {
-          closeVoiceOverlay();
-          openQuickCapture();
-        }}
-      />,
-    );
+  const closeAssistantOverlay = () => setOverlay('assistant', null);
+
+  const openAssistantOverlay = () => {
+    setOverlay('assistant', <AssistantOverlay onClose={closeAssistantOverlay} />);
   };
 
-  const handleFabPress = () => setCaptureMenuOpen(true);
+  // Long-press runs the current screen's distinct create action if it
+  // registered one (see useRegisterFabHoldAction); screens with no such
+  // action leave the dock FAB long-press otherwise unused, so that's where
+  // the assistant lives — reachable everywhere without displacing anything.
+  const handleFabHold = () => {
+    const ranScreenAction = onFabHold();
+    if (!ranScreenAction) {
+      openAssistantOverlay();
+    }
+    return true;
+  };
 
   return (
     <>
@@ -238,7 +245,7 @@ function NavigationLayer({
                     {...props}
                     isDark={isDark}
                     onFabPress={handleFabPress}
-                    onFabHold={onFabHold}
+                    onFabHold={handleFabHold}
                   />
                 )}
                 screenOptions={{ headerShown: false }}
@@ -268,23 +275,30 @@ function NavigationLayer({
             component={SettingsScreen}
             options={{ animation: 'slide_from_right' }}
           />
+          {/* Entity-specific detail screens live at the root, not inside MenuStack,
+              so useOpenItem() can push them from any tab/overlay (Home, Inbox,
+              Calendar) via the global navigationRef, not just from Menu's own
+              Areas/Projects/ToGet lists. */}
+          <RootStack.Screen
+            name="AreaDetail"
+            component={AreaDetailScreen}
+            options={{ animation: 'slide_from_right' }}
+          />
+          <RootStack.Screen
+            name="ProjectDetail"
+            component={ProjectDetailScreen}
+            options={{ animation: 'slide_from_right' }}
+          />
+          <RootStack.Screen
+            name="ObjectDetail"
+            component={ObjectDetailScreen}
+            options={{ animation: 'slide_from_right' }}
+          />
         </RootStack.Navigator>
       </NavigationContainer>
 
       <InboxScreenV2 visible={inboxOpen} onClose={() => setInboxOpen(false)} />
       <PersistentTimerBanner />
-      <CaptureMethodMenu
-        visible={captureMenuOpen}
-        onSelectType={() => {
-          setCaptureMenuOpen(false);
-          openQuickCapture();
-        }}
-        onSelectSpeak={() => {
-          setCaptureMenuOpen(false);
-          openVoiceOverlay();
-        }}
-        onDismiss={() => setCaptureMenuOpen(false)}
-      />
     </>
   );
 }

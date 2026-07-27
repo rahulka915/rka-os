@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import MicrophoneIcon from 'react-native-heroicons/outline/MicrophoneIcon';
 import { BottomSheet } from '../ui/BottomSheet';
 import { useThemeContext } from '../../hooks/useThemeContext';
 import { getItemComposerMaterial, getThemeColors, spacing } from '../../theme';
@@ -13,6 +14,7 @@ type CaptureSheetProps = {
   onChange: (updates: Partial<ItemDraft>) => void;
   onSave: () => void;
   onDetails: () => void;
+  onSpeak: () => void;
   onCancel: () => void;
 };
 
@@ -36,6 +38,7 @@ export function CaptureSheet({
   onChange,
   onSave,
   onDetails,
+  onSpeak,
   onCancel,
 }: CaptureSheetProps) {
   const { isDark } = useThemeContext();
@@ -58,7 +61,7 @@ export function CaptureSheet({
       visible={visible}
       onClose={onCancel}
       isDark={isDark}
-      title="New task"
+      title="New item"
       topAnchored
       scrollable
       sheetStyle={[styles.sheet, { backgroundColor: material.surface, borderColor: material.rim }]}
@@ -80,19 +83,32 @@ export function CaptureSheet({
         </View>
       ) : null}
 
-      <TextInput
-        ref={titleRef}
-        style={[styles.titleInput, { color: palette.text }]}
-        placeholder="What needs doing?"
-        placeholderTextColor={palette.textTertiary}
-        value={draft.title}
-        onChangeText={(title) => onChange({ title })}
-        onSubmitEditing={onSave}
-        returnKeyType="done"
-        submitBehavior="submit"
-        autoCorrect={false}
-        keyboardAppearance={isDark ? 'dark' : 'light'}
-      />
+      <View style={styles.titleRow}>
+        <TextInput
+          ref={titleRef}
+          style={[styles.titleInput, { color: palette.text }]}
+          placeholder="What needs doing?"
+          placeholderTextColor={palette.textTertiary}
+          value={draft.title}
+          onChangeText={(title) => onChange({ title })}
+          onSubmitEditing={onSave}
+          returnKeyType="done"
+          submitBehavior="submit"
+          autoCorrect={false}
+          keyboardAppearance={isDark ? 'dark' : 'light'}
+        />
+        <TouchableOpacity
+          onPress={onSpeak}
+          hitSlop={12}
+          disabled={busy}
+          activeOpacity={0.6}
+          style={styles.speakButton}
+          accessibilityRole="button"
+          accessibilityLabel="Speak instead"
+        >
+          <MicrophoneIcon size={20} color={material.accent} strokeWidth={1.75} />
+        </TouchableOpacity>
+      </View>
 
       <View style={[styles.separator, { backgroundColor: material.rim }]} />
 
@@ -153,13 +169,24 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontFamily: 'Inter_600SemiBold',
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   titleInput: {
+    flex: 1,
     minHeight: 54,
     paddingVertical: 10,
     fontSize: 22,
     fontWeight: '500',
     fontFamily: 'Inter_500Medium',
     letterSpacing: -0.3,
+  },
+  speakButton: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   separator: {
     height: StyleSheet.hairlineWidth,

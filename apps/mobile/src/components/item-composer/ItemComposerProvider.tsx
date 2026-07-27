@@ -3,6 +3,8 @@ import { Keyboard } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { CaptureSheet } from './CaptureSheet';
 import { ItemEditorSheet } from './ItemEditorSheet';
+import { VoiceCaptureOverlay } from '../capture/VoiceCaptureOverlay';
+import { useOverlayHost } from '../../hooks/useOverlayHost';
 import { completeDraftItem, createDraft, createEditDraft, deleteDraftItem, saveItemDraft } from './itemComposerPersistence';
 import type { ItemComposerContext, ItemDraft, OpenComposerOptions, OpenItemEditorOptions } from './types';
 
@@ -19,6 +21,7 @@ type ItemComposerApi = {
 const ItemComposerContextValue = createContext<ItemComposerApi | null>(null);
 
 export function ItemComposerProvider({ children }: { children: React.ReactNode }) {
+  const { setOverlay } = useOverlayHost();
   const [presentation, setPresentation] = useState<Presentation>('closed');
   const [draft, setDraft] = useState<ItemDraft | null>(null);
   const [revision, setRevision] = useState(0);
@@ -73,6 +76,33 @@ export function ItemComposerProvider({ children }: { children: React.ReactNode }
     setDraft((current) => current ? { ...current, ...updates } : current);
     setError(undefined);
   }, []);
+
+  // Voice hands off from the typing sheet — hide it (draft/completion kept
+  // alive, not reset) while the full-screen voice overlay records, then
+  // restore it on any non-save exit. A successful voice save resets the
+  // composer first, so the restore afterward is a no-op (CaptureSheet
+  // renders nothing once draft is null) rather than reopening a stale draft.
+  const closeVoiceCapture = useCallback(() => {
+    setOverlay('capture-voice', null);
+    setPresentation('capture');
+  }, [setOverlay]);
+
+  const openVoiceCapture = useCallback(() => {
+    setPresentation('closed');
+    setOverlay(
+      'capture-voice',
+      <VoiceCaptureOverlay
+        onSaved={() => {
+          const completion = completionRef.current;
+          setRevision((current) => current + 1);
+          reset();
+          completion?.({ action: 'saved' });
+        }}
+        onClose={closeVoiceCapture}
+        onTypeInstead={closeVoiceCapture}
+      />,
+    );
+  }, [setOverlay, closeVoiceCapture, reset]);
 
   const showDetails = useCallback(() => {
     if (!draft || busy) return;
@@ -155,6 +185,7 @@ export function ItemComposerProvider({ children }: { children: React.ReactNode }
         onChange={updateDraft}
         onSave={save}
         onDetails={showDetails}
+        onSpeak={openVoiceCapture}
         onCancel={closeComposer}
       />
       <ItemEditorSheet
