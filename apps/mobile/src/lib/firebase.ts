@@ -36,4 +36,4 @@ if (hasFirebaseConfig) {
   firestore = getFirestore(app);
 }
 
-export { auth, firestore };
+export { app, auth, firestore };
