@@ -257,6 +257,10 @@ updater with a `// TODO: sync with Firebase when online` that was never implemen
    - Deleted obsolete Supabase plan/spec files (`2026-07-10-mobile-supabase-backup.md`, etc.).
 4. **Multi-Agent & Developer Synchronization Protocol**:
    - Added a mandatory protocol section to `AGENTS.md` and `apps/mobile/CLAUDE.md` governing documentation synchronization, zero context drift, mandatory handover logging, and repository verification for all present and future AI agents (Claude, Codex, Antigravity) and developers.
+5. **Firebase Real-time Sync Service** (`apps/mobile/src/services/firestoreSync.ts`):
+   - Implemented real-time bidirectional synchronization service between local SQLite (`expo-sqlite`) and Cloud Firestore (`firebase/firestore`).
+   - Wired `onSnapshot` listeners to `users/{userId}/items` and `users/{userId}/itemInstances`.
+   - Wired local mutation hooks (`createItem`, `updateItem`) to automatically push local edits up to Firestore when signed in.
 
 ---
 
