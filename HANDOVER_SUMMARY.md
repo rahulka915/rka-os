@@ -67,7 +67,7 @@ Full RKA design token parity with web CSS custom properties:
 - `useNotifications.ts` — permission, schedule, badge, daily reminders
 
 #### Services (`src/services/`)
-- `backgroundSync.ts` — 15-min background task, updates badge, stub for Supabase
+- `backgroundSync.ts` — 15-min background task, updates badge, stub for Firebase
 - `locationReminders.ts` — geofencing, arrive/leave notifications, `addGeofence()` / `removeGeofence()`
 
 #### Components (`src/components/`)
@@ -236,13 +236,9 @@ together — separate these concerns before committing anything.
 
 ### Known gap, explicitly deferred (not this session's scope)
 **There is no real sync/multi-device story.** `src/services/backgroundSync.ts` is a badge-count
-updater with a `// TODO: sync with Supabase when online` that was never implemented.
-`@supabase/supabase-js` is a dependency but no client is instantiated anywhere, no auth exists,
-and the SQLite schema's `userId TEXT` column (`src/db/database.ts:32`) is unused. Everything is
-100% local SQLite today — reinstall the app and all data is gone. The user is having a separate
-session with **Fable 5** scope this properly (auth approach, schema changes, sync trigger points,
-Supabase vs. alternatives). Don't start building this without checking whether that scoping
-session has produced a plan first.
+updater with a `// TODO: sync with Firebase when online` that was never implemented.
+`firebase` is a dependency (`firebase.ts`), but no realtime listeners exist yet. Everything is
+100% local SQLite today — reinstall the app and all data is gone.
 
 ---
 
@@ -274,7 +270,7 @@ npx eas-cli build --platform ios --profile development --non-interactive
 3. **Rive animations** — empty states, check animations, loading
 4. **Calendar screen** — weekly view of scheduled items
 5. **Profile + Settings** — notifications prefs, location reminders manager
-6. **Supabase sync** — wire background task to real API
+6. **Firebase sync** — wire background task to real API
 7. **Deep links** — `rkaos://inbox`, `rkaos://item/:id`
 8. **Projects screen** — task management with Kanban view
 

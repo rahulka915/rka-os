@@ -144,7 +144,7 @@ Tab icons: currently emoji — replace with lucide-react-native icons
 | Profile screen | Build out |
 | HealthKit | Dev build + `react-native-health` package |
 | True background sync | Dev build |
-| Supabase sync | Wire `backgroundSync.ts` to API |
+| Firebase sync | Wire `backgroundSync.ts` to API |
 | Deep links | `rkaos://` URL scheme |
 | Lucide icons in tab bar | Replace emoji with proper icons |
 
@@ -220,7 +220,7 @@ npm start
 3. Add `react-native-health` → wire up HealthKit (steps, sleep, workouts, HR)
 4. Build Calendar screen (today's schedule from SQLite)
 5. Build Profile screen (user settings)
-6. Wire `backgroundSync.ts` to Supabase API
+6. Wire `backgroundSync.ts` to Firebase API
 7. Add deep link handler (`rkaos://`)
 8. Replace emoji tab icons with lucide-react-native
 

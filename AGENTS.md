@@ -122,7 +122,7 @@ App-specific conventions (component structure, styling strategy, theme tokens, t
 - `docs/migration/REACT_NATIVE_SETUP.md` — Full RN/Expo setup guide, architecture, file map
 
 **Shared backend:**
-- `supabase/` — Migrations for the shared Supabase backend used by the mobile app (`apps/mobile/src/lib/supabase.ts`, `backupSync.ts`)
+- `firebase/` — Backend configuration for the shared Firebase backend used by the mobile app (`apps/mobile/src/lib/firebase.ts`, `backup.ts`)
 
 ## Launcher
 
