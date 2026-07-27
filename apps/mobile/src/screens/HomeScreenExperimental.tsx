@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { useHomeData } from '../hooks/useDb';
 import { useItemComposer } from '../components/item-composer';
+import { useOpenItem } from '../hooks/useOpenItem';
 import { getTimelineDurationMinutes } from '../utils/timelineItem';
 import { getTodayDeviceEvents, type DeviceCalendarEvent } from '../services/deviceCalendar';
 import type { Item, ItemType } from '../db/types';
@@ -114,7 +115,8 @@ export function HomeScreenExperimental({ onInboxPress, inboxOpen }: HomeScreenEx
   const insets = useSafeAreaInsets();
   const { isDark } = useThemeContext();
   const { todayItems, inboxCount, refresh } = useHomeData();
-  const { openEditorForItem, revision: composerRevision } = useItemComposer();
+  const { revision: composerRevision } = useItemComposer();
+  const openItem = useOpenItem();
 
   // useHomeData only fetches on mount — Inbox lives in a sibling modal (App.tsx), not a
   // child of this screen, so triaging there never triggers a refetch here on its own.
@@ -162,8 +164,8 @@ export function HomeScreenExperimental({ onInboxPress, inboxOpen }: HomeScreenEx
   const cardBg = isDark ? '#1a1a1a' : '#ffffff';
   const eventCardBg = isDark ? '#141414' : '#e8e8e8';
 
-  const openItem = (item: Item) => {
-    openEditorForItem({
+  const handleOpenItem = (item: Item) => {
+    openItem({
       item,
       onComplete: ({ action }) => {
         if (action !== 'cancelled') refresh();
@@ -221,7 +223,7 @@ export function HomeScreenExperimental({ onInboxPress, inboxOpen }: HomeScreenEx
             <TouchableOpacity
               key={item.id}
               style={[styles.card, styles.needsCard, { backgroundColor: cardBg, borderColor: line }]}
-              onPress={() => openItem(item)}
+              onPress={() => handleOpenItem(item)}
             >
               <View style={[styles.accentBar, { backgroundColor: typeColor(item.type) }]} />
               <View style={styles.cardBody}>
@@ -289,7 +291,7 @@ export function HomeScreenExperimental({ onInboxPress, inboxOpen }: HomeScreenEx
                   styles.timelineItem,
                   { top, minHeight: height, backgroundColor: cardBg, borderColor: line },
                 ]}
-                onPress={() => openItem(row.item)}
+                onPress={() => handleOpenItem(row.item)}
               >
                 <View style={[styles.accentBar, { backgroundColor: typeColor(row.item.type) }]} />
                 <View style={styles.cardBody}>

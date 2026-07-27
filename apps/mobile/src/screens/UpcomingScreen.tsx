@@ -8,12 +8,14 @@ import { getThemeColors } from '../theme';
 import { LensSurface } from '../components/LensSurface';
 import { DeadlineBadge } from '../components/DeadlineBadge';
 import { useItemComposer } from '../components/item-composer';
+import { useOpenItem } from '../hooks/useOpenItem';
 import type { Item } from '../db/types';
 
 export function UpcomingScreen() {
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
-  const { openEditorForItem, revision } = useItemComposer();
+  const { revision } = useItemComposer();
+  const openItem = useOpenItem();
   const [groups, setGroups] = useState<UpcomingGroup[]>([]);
 
   const refresh = useCallback(() => {
@@ -28,7 +30,7 @@ export function UpcomingScreen() {
       key={item.id}
       style={[styles.row, { backgroundColor: palette.surface }]}
       activeOpacity={0.7}
-      onPress={() => openEditorForItem({
+      onPress={() => openItem({
         item,
         onComplete: ({ action }) => {
           if (action !== 'cancelled') refresh();

@@ -63,6 +63,7 @@ import {
 } from '../utils/time';
 import { formatTimelineTimeRange, getTimelineItemDensity } from '../utils/timelineItem';
 import { useItemComposer } from '../components/item-composer';
+import { useOpenItem } from '../hooks/useOpenItem';
 
 const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -965,7 +966,8 @@ export function CalendarScreen() {
   const insets = useSafeAreaInsets();
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
-  const { openCapture, openEditorForItem, revision: composerRevision } = useItemComposer();
+  const { openCapture, revision: composerRevision } = useItemComposer();
+  const openItem = useOpenItem();
   const [selected, setSelected] = useState(new Date());
   const [nowTick, setNowTick] = useState(Date.now());
   const [daySectionLayouts, setDaySectionLayouts] = useState<Record<string, { y: number }>>({});
@@ -1127,7 +1129,7 @@ export function CalendarScreen() {
 
   const openEdit = (entry: TimelineEntry, entryDateStr: string) => {
     setPreview(null);
-    openEditorForItem({
+    openItem({
       item: entry.item,
       context: {
         scheduledDate: entryDateStr,

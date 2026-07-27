@@ -20,6 +20,7 @@ import { getRoninGreetingWord } from '../domain/ronin/roninGreeting';
 import { findNextUpItem } from '../utils/nextUpItem';
 import { NATURAL_ROW_HEIGHT, MIN_ROW_HEIGHT, MAX_ROW_HEIGHT, TIMELINE_ROW_COUNT } from '../components/TimelineSection';
 import { useItemComposer } from '../components/item-composer';
+import { useOpenItem } from '../hooks/useOpenItem';
 import type { Item } from '../db/types';
 
 interface HomeScreenProps {
@@ -32,7 +33,8 @@ interface HomeScreenProps {
 export function HomeScreen({ onInboxPress, inboxOpen, onHeroPress, onSettingsPress }: HomeScreenProps) {
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
-  const { openCapture, openEditorForItem, revision: composerRevision } = useItemComposer();
+  const { openCapture, revision: composerRevision } = useItemComposer();
+  const openItem = useOpenItem();
   const { inboxCount, todayItems, anytime, morningItems, afternoonItems, eveningItems, refresh } = useHomeData();
 
   // useHomeData only fetches on mount — Inbox lives in a sibling modal (App.tsx), not a child
@@ -116,13 +118,13 @@ export function HomeScreen({ onInboxPress, inboxOpen, onHeroPress, onSettingsPre
   // which meant rows re-rendered and re-measured mid-drag, and that is what
   // made reordering on Home feel unsteady.
   const handleItemTap = useCallback((item: Item) => {
-    openEditorForItem({
+    openItem({
       item,
       onComplete: ({ action }) => {
         if (action !== 'cancelled') refresh();
       },
     });
-  }, [openEditorForItem, refresh]);
+  }, [openItem, refresh]);
 
   const handleItemComplete = useCallback((id: string) => {
     const blocker = getBlockingTask(id);
@@ -191,7 +193,7 @@ export function HomeScreen({ onInboxPress, inboxOpen, onHeroPress, onSettingsPre
                 const item = todayItems.find((candidate) => candidate.id === result.id);
                 if (!item) return;
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                openEditorForItem({
+                openItem({
                   item,
                   onComplete: ({ action }) => {
                     if (action !== 'cancelled') refresh();
