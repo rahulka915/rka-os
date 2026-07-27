@@ -7,7 +7,18 @@ import { resolveAutoStopAfterMs } from '../domain/medicationTimer/timerMath';
 import { nextOccurrenceDate, parseRepeatRule, dayMatchesRepeat } from '../utils/repeat';
 import { countDosesByDay } from '../utils/medicationDoseHistory';
 
+import { getCurrentSyncUserId, pushItemToFirestore } from '../services/firestoreSync';
+
 let db: SQLite.SQLiteDatabase;
+
+export function syncItemToRemote(id: string): void {
+  const userId = getCurrentSyncUserId();
+  if (!userId) return;
+  const item = getItemWithMetadata(id);
+  if (item) {
+    pushItemToFirestore(userId, item).catch(() => {});
+  }
+}
 
 export function getDb(): SQLite.SQLiteDatabase {
   if (!db) {
@@ -410,6 +421,7 @@ export function updateItem(
     `UPDATE items SET ${fields.join(', ')} WHERE id = ?`,
     values
   );
+  syncItemToRemote(id);
 }
 
 export function updateInstanceMetadata(instanceId: string, metadata: Record<string, any>): void {
@@ -423,6 +435,8 @@ export function getItemWithMetadata(id: string): Item | null {
   const result = getDb().getAllSync<Item>(`SELECT * FROM items WHERE id = ?`, [id]);
   return result[0] ?? null;
 }
+
+export const getItemById = getItemWithMetadata;
 
 function ensureItemInstance(item: Item, date: string): ItemInstance | null {
   const existing = getDb().getAllSync<ItemInstance>(
@@ -1092,6 +1106,7 @@ export function createItem(
     [id, type, title, status, scheduledDate ?? null, notes ?? null, voice_transcript ?? null, now, now]
   );
   logActivity(id, 'created');
+  syncItemToRemote(id);
   return id;
 }
 

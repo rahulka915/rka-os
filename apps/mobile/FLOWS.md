@@ -21,7 +21,7 @@ Any agent or human can edit this file directly. Authoritative source, same patte
 | Avatar (left) | ⬜ Dead | `onProfilePress` prop exists on `AppHeader` but `HomeScreen` renders `<AppHeader />` with no props — tap does nothing | TBD — likely should navigate to Profile, same as the hero card tap below |
 | "RKA OS" wordmark | ✅ Working (static) | Decorative, not tappable — no handler exists, none expected | — |
 | Dark-mode toggle | ✅ Working | Calls `useThemeContext().toggle()`, flips theme app-wide, haptic feedback | — |
-| "Synced" indicator | 🟡 Stub | Static `CheckCircle2` + hardcoded "Synced" text, not bound to any real sync/backup state | TBD — should reflect actual `pushBackup`/Supabase sync status |
+| "Synced" indicator | 🟡 Stub | Static `CheckCircle2` + hardcoded "Synced" text, not bound to any real sync/backup state | TBD — should reflect actual `pushBackup`/Firebase sync status |
 | Timer-restore dot | ✅ Working | Only shown when a hidden timer is active; tap re-shows `PersistentTimerBanner` | — |
 
 ### RoninHero / RoninGreetingCard (`components/home/RoninGreetingCard.tsx`)

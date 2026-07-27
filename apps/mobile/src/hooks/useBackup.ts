@@ -15,6 +15,7 @@ import {
   fetchBackupPayload,
   type BackupListEntry,
 } from '../services/backupSync';
+import { startRealtimeSync, stopRealtimeSync } from '../services/firestoreSync';
 import { restoreBackup } from '../db/backup';
 
 function useBackupState() {
@@ -35,12 +36,17 @@ function useBackupState() {
       setUser(nextUser);
       if (nextUser) {
         refreshLastBackup(nextUser.uid);
+        startRealtimeSync(nextUser.uid);
       } else {
+        stopRealtimeSync();
         setLastBackupAt(null);
       }
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+      stopRealtimeSync();
+    };
   }, [refreshLastBackup]);
 
   const backUpNow = useCallback(async (options?: { force?: boolean }) => {

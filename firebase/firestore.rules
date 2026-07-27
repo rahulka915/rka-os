@@ -1,7 +1,6 @@
 rules_version = '2';
 
-// Mirrors the RLS policy from the retired supabase/migrations/20260710120000_mobile_backups.sql:
-// each user can only read/write their own backup snapshots. See apps/mobile/src/services/backupSync.ts
+// Access rules: each user can only read/write their own backup snapshots. See apps/mobile/src/services/backupSync.ts
 // for the collection shape (userId, deviceId, payload, createdAt).
 service cloud.firestore {
   match /databases/{database}/documents {
