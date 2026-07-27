@@ -92,6 +92,31 @@ App-specific conventions (component structure, styling strategy, theme tokens, t
 
 ---
 
+## 🚨 Multi-Agent & Developer Synchronization Protocol
+
+Multiple AI agents (Claude, Codex, Antigravity, etc.) and developers work on this repository simultaneously across different sessions. **Strict adherence to documentation synchronization is MANDATORY.**
+
+### 1. Continuous Documentation Updates (Zero Drift)
+- **Immediate Doc Synchronization**: Whenever you change backend services, database schemas, component structures, libraries, or architectural patterns, you **MUST** update `AGENTS.md`, `apps/mobile/CLAUDE.md`, and `HANDOVER_SUMMARY.md` in the same turn before finishing your task.
+- **Grep & Purge Stale References**: When retiring or replacing a stack component (e.g. Supabase -> Firebase), run a full repository grep search (`grep -rn -i "<old_term>" .`) and remove/update **ALL** references across all docs, specs, plans, and config files.
+- **Single Point of Truth**:
+  - `apps/mobile/CLAUDE.md`: Primary platform guide for mobile stack, components, and design system.
+  - `AGENTS.md`: Global repo configuration, agent skills, and rules.
+  - `HANDOVER_SUMMARY.md`: Session-by-session changelog and current system state.
+
+### 2. Mandatory Session Handover Logging
+- Before concluding any work session, update `HANDOVER_SUMMARY.md` with:
+  1. Date & brief session title.
+  2. Summary of changes made and files modified/created/deleted.
+  3. Verified working state / test results.
+  4. Immediate next steps for the next agent or developer.
+
+### 3. Verification Before Action
+- Never assume architecture or backend dependencies from memory or isolated doc snippets. Always inspect `package.json` and active code (e.g. `src/lib/`) to verify real code state before starting work.
+
+
+---
+
 ## When to Use Each Skill
 
 | Scenario | Skill | Trigger |

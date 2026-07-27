@@ -242,6 +242,24 @@ updater with a `// TODO: sync with Firebase when online` that was never implemen
 
 ---
 
+## Session 4 — Home Polish, Inbox Triage Modal, Backend Purge & Multi-Agent Protocol (2026-07-27)
+
+### What Was Done
+1. **Home Screen Timeline Polish** (`apps/mobile/src/components/TimelineSection.tsx`):
+   - Surfaced parent project subtitles, checklist progress fractions (e.g. `1/2`), and dynamic `DeadlineBadge` indicators on daily timeline task rows.
+   - Defaulted all daily time blocks (Morning, Afternoon, Evening, Anytime) to expanded mode on load.
+   - Fixed React Rules of Hooks ordering bug in `TimeBlockItems` by moving conditional early returns after all hook declarations.
+2. **Inbox Triage Modal Layering Fix** (`apps/mobile/src/components/triage/TriageOverlay.tsx`):
+   - Wrapped `TriageOverlay` in a React Native `<Modal>` component so tapping an Inbox item immediately presents the full-screen guided triage session over the Inbox modal rather than underneath it.
+3. **Purged Legacy Supabase References & Clarified Firebase**:
+   - Audited the entire repository and verified that `firebase` (`src/lib/firebase.ts`) is the sole backend package.
+   - Completely purged stale Supabase references in `AGENTS.md`, `HANDOVER_SUMMARY.md`, and `REACT_NATIVE_SETUP.md`.
+   - Deleted obsolete Supabase plan/spec files (`2026-07-10-mobile-supabase-backup.md`, etc.).
+4. **Multi-Agent & Developer Synchronization Protocol**:
+   - Added a mandatory protocol section to `AGENTS.md` and `apps/mobile/CLAUDE.md` governing documentation synchronization, zero context drift, mandatory handover logging, and repository verification for all present and future AI agents (Claude, Codex, Antigravity) and developers.
+
+---
+
 ## Blocker: Apple Developer Account — RESOLVED
 
 ~~Cannot test until resolved~~ — Apple Developer Program is active, EAS dev-client builds work.
