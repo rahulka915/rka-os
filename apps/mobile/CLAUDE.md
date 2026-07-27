@@ -229,8 +229,7 @@ Used in Tamagui (XStack/YStack gap, padding). StyleSheet uses literal pt values.
 2. **HealthKit screen** — once dev build available
 3. **Wiring metadata pills** — When/Tags/Priority in capture sheets
 4. **Calendar screen** — full functionality
-5. **Supabase sync** — wire backgroundSync to real API
-6. **Deep links** — `rkaos://inbox`, `rkaos://item/:id`
+5. **Deep links** — `rkaos://inbox`, `rkaos://item/:id`
 7. **Skia charts** — progress rings on home stats
 8. **Rive animations** — loading, empty states, check animations
 

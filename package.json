@@ -6,18 +6,7 @@
   "scripts": {
     "cli:doctor": "./scripts/tooling-doctor.sh",
     "cli:github": "gh",
-    "cli:supabase": "./scripts/supabase-cli.sh",
     "github:auth": "gh auth status",
-    "github:repo": "gh repo view --web=false",
-    "supabase:version": "./scripts/supabase-cli.sh --version",
-    "supabase:login": "./scripts/supabase-cli.sh login",
-    "supabase:link": "./scripts/supabase-cli.sh link --project-ref iypkcadrxjwmvlkwhwku",
-    "supabase:projects": "./scripts/supabase-cli.sh projects list",
-    "supabase:db:push": "./scripts/supabase-cli.sh db push",
-    "supabase:start": "./scripts/supabase-cli.sh start",
-    "supabase:stop": "./scripts/supabase-cli.sh stop"
-  },
-  "devDependencies": {
-    "supabase": "^2.107.0"
+    "github:repo": "gh repo view --web=false"
   }
 }

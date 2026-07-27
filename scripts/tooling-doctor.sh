@@ -11,11 +11,3 @@ echo
 
 echo "== GitHub CLI =="
 gh auth status
-echo
-
-echo "== Supabase CLI =="
-"$ROOT_DIR/scripts/supabase-cli.sh" --version
-echo
-
-echo "== Supabase Directory =="
-find "$ROOT_DIR/supabase" -maxdepth 2 -type f | sort

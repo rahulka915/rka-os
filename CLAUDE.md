@@ -122,7 +122,7 @@ App-specific conventions (component structure, styling strategy, theme tokens, t
 - `docs/migration/REACT_NATIVE_SETUP.md` — Full RN/Expo setup guide, architecture, file map
 
 **Shared backend:**
-- `supabase/` — Migrations for the shared Supabase backend used by the mobile app (`apps/mobile/src/lib/supabase.ts`, `backupSync.ts`)
+- Firebase (Auth + Firestore) is the shared backend for sync/backup and the AI assistant — see `apps/mobile/src/lib/firebase.ts`, `services/backupSync.ts`, `services/ai/assistant.ts`. The `supabase/` directory at repo root is a leftover from a prior backend and is no longer wired up to the app.
 
 ## Launcher
 
