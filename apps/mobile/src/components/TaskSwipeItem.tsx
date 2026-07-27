@@ -114,6 +114,8 @@ export function TaskSwipeItem({
   // mode first; this makes it a direct one-gesture action like Complete).
   const panGesture = Gesture.Pan()
     .enabled(!selectionMode)
+    .activeOffsetX([-10, 10])
+    .failOffsetY([-15, 15])
     .onUpdate((event) => {
       if (event.translationX < 0 || onArchive) {
         translateX.value = event.translationX;
