@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View, Modal } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue,
@@ -110,100 +110,102 @@ export function TriageOverlay({ tappedItem, allItems, onClose }: TriageOverlayPr
   const progressIndex = STEP_INDEX[session.step] ?? 1;
 
   return (
-    <Animated.View
-      style={[
-        StyleSheet.absoluteFill,
-        styles.overlay,
-        { backgroundColor: mat.background, paddingTop: insets.top, paddingBottom: insets.bottom },
-        overlayStyle,
-      ]}
-      accessibilityViewIsModal
-    >
-      {session.currentItem ? (
-        <>
-          <View style={styles.header}>
-            <TouchableOpacity
-              onPress={onClose}
-              style={styles.closeBtn}
-              accessibilityRole="button"
-              accessibilityLabel="Close Triage Mode"
-              hitSlop={12}
-            >
-              <X size={20} color={mat.platinum} strokeWidth={2} />
-            </TouchableOpacity>
-            <Text style={[styles.remaining, { color: mat.platinumMuted }]}>
-              {session.remaining} remaining
-            </Text>
-          </View>
-
-          <View style={styles.progressTrack}>
-            {Array.from({ length: STEP_COUNT }, (_, i) => (
-              <View
-                key={i}
-                style={[
-                  styles.progressSegment,
-                  { backgroundColor: i < progressIndex ? mat.accent : mat.rim },
-                ]}
-              />
-            ))}
-          </View>
-
-          <Animated.View style={[styles.cardArea, cardStyle]}>
-            {session.step === 'type' ? (
-              <TypeStep
-                itemTitle={session.currentItem.title}
-                onChooseTask={() => tapWithHaptic(session.chooseTask)}
-                onChooseObject={() => commitWithPulse(session.chooseObject)}
-              />
-            ) : session.step === 'importance' ? (
-              <ImportanceStep onAnswer={(v) => tapWithHaptic(() => session.answerImportance(v))} />
-            ) : session.step === 'when' ? (
-              <WhenStep onAnswer={(v) => tapWithHaptic(() => session.answerWhen(v))} />
-            ) : session.step === 'project' ? (
-              <ProjectStep
-                projects={session.projects}
-                selectedProjectId={session.answers.projectId}
-                onAnswer={(v) => tapWithHaptic(() => session.answerProject(v))}
-              />
-            ) : (
-              <ReviewStep
-                priority={session.answers.priority ?? 'low'}
-                when={session.answers.when ?? 'someday'}
-                projectTitle={
-                  session.answers.projectId
-                    ? session.projects.find((p) => p.id === session.answers.projectId)?.title ?? null
-                    : null
-                }
-                onConfirm={() => commitWithPulse(session.confirm)}
-              />
-            )}
-          </Animated.View>
-
-          {session.step !== 'type' ? (
-            <TouchableOpacity
-              onPress={() => tapWithHaptic(session.back)}
-              style={styles.backBtn}
-              accessibilityRole="button"
-              accessibilityLabel="Back"
-            >
-              <Text style={[styles.backText, { color: mat.platinumMuted }]}>‹ Back</Text>
-            </TouchableOpacity>
-          ) : null}
-
-          {pulseVisible ? (
-            <View style={styles.pulseWrap} pointerEvents="none">
-              <Animated.View
-                style={[styles.pulseBadge, { backgroundColor: mat.accentSoft, borderColor: mat.rimStrong }, pulseStyle]}
+    <Modal visible animationType="none" transparent>
+      <Animated.View
+        style={[
+          StyleSheet.absoluteFill,
+          styles.overlay,
+          { backgroundColor: mat.background, paddingTop: insets.top, paddingBottom: insets.bottom },
+          overlayStyle,
+        ]}
+        accessibilityViewIsModal
+      >
+        {session.currentItem ? (
+          <>
+            <View style={styles.header}>
+              <TouchableOpacity
+                onPress={onClose}
+                style={styles.closeBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Close Triage Mode"
+                hitSlop={12}
               >
-                <Check size={28} color={mat.accent} strokeWidth={2.5} />
-              </Animated.View>
+                <X size={20} color={mat.platinum} strokeWidth={2} />
+              </TouchableOpacity>
+              <Text style={[styles.remaining, { color: mat.platinumMuted }]}>
+                {session.remaining} remaining
+              </Text>
             </View>
-          ) : null}
-        </>
-      ) : (
-        <TriageComplete processedCount={session.processedCount} onDone={onClose} />
-      )}
-    </Animated.View>
+
+            <View style={styles.progressTrack}>
+              {Array.from({ length: STEP_COUNT }, (_, i) => (
+                <View
+                  key={i}
+                  style={[
+                    styles.progressSegment,
+                    { backgroundColor: i < progressIndex ? mat.accent : mat.rim },
+                  ]}
+                />
+              ))}
+            </View>
+
+            <Animated.View style={[styles.cardArea, cardStyle]}>
+              {session.step === 'type' ? (
+                <TypeStep
+                  itemTitle={session.currentItem.title}
+                  onChooseTask={() => tapWithHaptic(session.chooseTask)}
+                  onChooseObject={() => commitWithPulse(session.chooseObject)}
+                />
+              ) : session.step === 'importance' ? (
+                <ImportanceStep onAnswer={(v) => tapWithHaptic(() => session.answerImportance(v))} />
+              ) : session.step === 'when' ? (
+                <WhenStep onAnswer={(v) => tapWithHaptic(() => session.answerWhen(v))} />
+              ) : session.step === 'project' ? (
+                <ProjectStep
+                  projects={session.projects}
+                  selectedProjectId={session.answers.projectId}
+                  onAnswer={(v) => tapWithHaptic(() => session.answerProject(v))}
+                />
+              ) : (
+                <ReviewStep
+                  priority={session.answers.priority ?? 'low'}
+                  when={session.answers.when ?? 'someday'}
+                  projectTitle={
+                    session.answers.projectId
+                      ? session.projects.find((p) => p.id === session.answers.projectId)?.title ?? null
+                      : null
+                  }
+                  onConfirm={() => commitWithPulse(session.confirm)}
+                />
+              )}
+            </Animated.View>
+
+            {session.step !== 'type' ? (
+              <TouchableOpacity
+                onPress={() => tapWithHaptic(session.back)}
+                style={styles.backBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Back"
+              >
+                <Text style={[styles.backText, { color: mat.platinumMuted }]}>‹ Back</Text>
+              </TouchableOpacity>
+            ) : null}
+
+            {pulseVisible ? (
+              <View style={styles.pulseWrap} pointerEvents="none">
+                <Animated.View
+                  style={[styles.pulseBadge, { backgroundColor: mat.accentSoft, borderColor: mat.rimStrong }, pulseStyle]}
+                >
+                  <Check size={28} color={mat.accent} strokeWidth={2.5} />
+                </Animated.View>
+              </View>
+            ) : null}
+          </>
+        ) : (
+          <TriageComplete processedCount={session.processedCount} onDone={onClose} />
+        )}
+      </Animated.View>
+    </Modal>
   );
 }
 
