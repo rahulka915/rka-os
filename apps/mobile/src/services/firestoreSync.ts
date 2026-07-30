@@ -12,13 +12,14 @@ import {
 } from 'firebase/firestore';
 import { firestore, hasFirebaseConfig } from '../lib/firebase';
 import { getDb, getItemById } from '../db/database';
-import type { Item, ItemInstance, ItemRelationRow, ItemOrderRow } from '../db/types';
+import type { Item, ItemInstance, ItemRelationRow, ItemOrderRow, AppSettingRow } from '../db/types';
 
 let currentUserId: string | null = null;
 let itemsUnsubscribe: Unsubscribe | null = null;
 let instancesUnsubscribe: Unsubscribe | null = null;
 let itemRelationsUnsubscribe: Unsubscribe | null = null;
 let itemOrderUnsubscribe: Unsubscribe | null = null;
+let appSettingsUnsubscribe: Unsubscribe | null = null;
 let isApplyingRemoteChange = false;
 
 // Remove undefined values because Firestore errors on undefined fields
@@ -127,6 +128,20 @@ export async function pushItemOrderBatchToFirestore(
     await batch.commit();
   } catch (err) {
     console.warn('[firestoreSync] pushItemOrderBatch error:', err);
+  }
+}
+
+/**
+ * Pushes a single app setting to Firestore for the active user.
+ */
+export async function pushAppSettingToFirestore(userId: string, key: string, value: string): Promise<void> {
+  if (!hasFirebaseConfig || !firestore || !userId || isApplyingRemoteChange) return;
+
+  try {
+    const settingRef = doc(firestore, 'users', userId, 'appSettings', key);
+    await setDoc(settingRef, { key, value, updatedAt: Date.now() }, { merge: true });
+  } catch (err) {
+    console.warn('[firestoreSync] pushAppSetting error:', err);
   }
 }
 
@@ -358,6 +373,57 @@ export function startRealtimeSync(userId: string, onLocalChange?: () => void): U
     }
   );
 
+  // Listen to remote appSettings subcollection
+  const appSettingsRef = collection(firestore, 'users', userId, 'appSettings');
+  appSettingsUnsubscribe = onSnapshot(
+    appSettingsRef,
+    (snapshot) => {
+      isApplyingRemoteChange = true;
+      let hasMutatedLocal = false;
+
+      try {
+        db.withTransactionSync(() => {
+          snapshot.docChanges().forEach((change) => {
+            const remote = change.doc.data() as AppSettingRow;
+            if (!remote.key) return;
+
+            if (change.type === 'added' || change.type === 'modified') {
+              const localRows = db.getAllSync<{ updatedAt: number }>(
+                `SELECT updatedAt FROM appSettings WHERE key = ?`,
+                [remote.key]
+              );
+              const local = localRows[0];
+
+              if (!local || (remote.updatedAt && remote.updatedAt > local.updatedAt)) {
+                db.runSync(
+                  `INSERT INTO appSettings (key, value, updatedAt)
+                   VALUES (?, ?, ?)
+                   ON CONFLICT(key) DO UPDATE SET value = excluded.value, updatedAt = excluded.updatedAt`,
+                  [remote.key, remote.value, remote.updatedAt ?? Date.now()]
+                );
+                hasMutatedLocal = true;
+              }
+            } else if (change.type === 'removed') {
+              db.runSync(`DELETE FROM appSettings WHERE key = ?`, [remote.key]);
+              hasMutatedLocal = true;
+            }
+          });
+        });
+      } catch (err) {
+        console.warn('[firestoreSync] local appSettings apply error:', err);
+      } finally {
+        isApplyingRemoteChange = false;
+      }
+
+      if (hasMutatedLocal && onLocalChange) {
+        onLocalChange();
+      }
+    },
+    (error) => {
+      console.warn('[firestoreSync] appSettings listener error:', error);
+    }
+  );
+
   return stopRealtimeSync;
 }
 
@@ -380,6 +446,10 @@ export function stopRealtimeSync(): void {
   if (itemOrderUnsubscribe) {
     itemOrderUnsubscribe();
     itemOrderUnsubscribe = null;
+  }
+  if (appSettingsUnsubscribe) {
+    appSettingsUnsubscribe();
+    appSettingsUnsubscribe = null;
   }
   currentUserId = null;
 }

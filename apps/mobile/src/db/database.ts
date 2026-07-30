@@ -7,7 +7,7 @@ import { resolveAutoStopAfterMs } from '../domain/medicationTimer/timerMath';
 import { nextOccurrenceDate, parseRepeatRule, dayMatchesRepeat } from '../utils/repeat';
 import { countDosesByDay } from '../utils/medicationDoseHistory';
 
-import { getCurrentSyncUserId, pushItemToFirestore, pushItemRelationToFirestore, deleteItemRelationFromFirestore, pushItemOrderBatchToFirestore } from '../services/firestoreSync';
+import { getCurrentSyncUserId, pushItemToFirestore, pushItemRelationToFirestore, deleteItemRelationFromFirestore, pushItemOrderBatchToFirestore, pushAppSettingToFirestore } from '../services/firestoreSync';
 
 let db: SQLite.SQLiteDatabase;
 
@@ -704,12 +704,17 @@ function getAppSetting<T>(key: string, fallback: T): T {
 
 function setAppSetting(key: string, value: unknown): void {
   const now = Date.now();
+  const serialized = JSON.stringify(value);
   getDb().runSync(
     `INSERT INTO appSettings (key, value, updatedAt)
      VALUES (?, ?, ?)
      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updatedAt = excluded.updatedAt`,
-    [key, JSON.stringify(value), now]
+    [key, serialized, now]
   );
+  const userId = getCurrentSyncUserId();
+  if (userId) {
+    pushAppSettingToFirestore(userId, key, serialized).catch(() => {});
+  }
 }
 
 export function getMedications(): Item[] {
