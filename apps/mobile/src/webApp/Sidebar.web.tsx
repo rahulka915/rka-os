@@ -1,8 +1,8 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Inbox, ListTodo, CalendarDays, Folder } from 'lucide-react-native';
+import { Home, Inbox, ListTodo, CalendarDays, Folder } from 'lucide-react-native';
 import { webColors, webSpacing, webRadius, webFontSize } from '../theme/webTheme';
 
-export type SidebarView = 'inbox' | 'tasks';
+export type SidebarView = 'home' | 'inbox' | 'tasks';
 
 export interface SidebarProps {
   activeView: SidebarView;
@@ -11,6 +11,7 @@ export interface SidebarProps {
 }
 
 const NAV_ITEMS: Array<{ view: SidebarView; label: string; Icon: typeof Inbox }> = [
+  { view: 'home', label: 'Home', Icon: Home },
   { view: 'inbox', label: 'Inbox', Icon: Inbox },
   { view: 'tasks', label: 'Tasks', Icon: ListTodo },
 ];
