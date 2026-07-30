@@ -575,6 +575,97 @@ export function completeInstance(instanceId: string): void {
   );
 }
 
+// ── GTD triage ─────────────────────────────────────────────────────────
+
+export function processInboxItem(id: string, destination: GtdDestination): void {
+  const now = Date.now();
+  const today = formatDate(new Date());
+
+  if (destination === 'delete') {
+    write(patchItem(id, { deletedAt: now, updatedAt: now }), 'processInboxItem');
+    return;
+  }
+
+  const item = getItemWithMetadata(id);
+  const meta = item?.metadata ? JSON.parse(item.metadata) : {};
+
+  // Exhaustive by construction: adding a GtdDestination without a patch here
+  // is a compile error rather than a silent no-op.
+  const patches: Record<GtdDestination, Record<string, unknown> | null> = {
+    delete: null, // handled above
+    today: { status: 'active', scheduledDate: today, metadata: JSON.stringify({ ...meta, gtdContext: 'today' }) },
+    morning: {
+      status: 'active',
+      scheduledDate: today,
+      metadata: JSON.stringify({ ...meta, timeOfDay: 'morning', gtdContext: 'scheduled' }),
+    },
+    evening: {
+      status: 'active',
+      scheduledDate: today,
+      metadata: JSON.stringify({ ...meta, timeOfDay: 'evening', gtdContext: 'scheduled' }),
+    },
+    project: { type: 'project', status: 'active', metadata: JSON.stringify({ ...meta, gtdContext: 'project' }) },
+    area: { type: 'area', status: 'active', metadata: JSON.stringify({ ...meta, gtdContext: 'area' }) },
+    habit: { type: 'habit', status: 'active', metadata: JSON.stringify({ ...meta, gtdContext: 'habit' }) },
+    medication: {
+      type: 'medication',
+      status: 'active',
+      metadata: JSON.stringify({ ...meta, gtdContext: 'medication' }),
+    },
+    object: {
+      type: 'object',
+      status: 'active',
+      metadata: JSON.stringify({ ...meta, gtdContext: 'object', objectStatus: 'want' }),
+    },
+    reference: { status: 'archived', metadata: JSON.stringify({ ...meta, gtdContext: 'reference' }) },
+    someday: { status: 'someday', metadata: JSON.stringify({ ...meta, gtdContext: 'someday' }) },
+  };
+
+  const patch = patches[destination];
+  if (patch) {
+    write(patchItem(id, { ...patch, updatedAt: now }), 'processInboxItem');
+  }
+  logActivity(id, 'status-changed', JSON.stringify({ destination }));
+}
+
+// Three separate writes rather than processInboxItem's single patch, matching
+// database.ts — triage carries richer combined state than one GTD destination.
+export function applyTaskTriage(
+  id: string,
+  decision: {
+    priority: 'low' | 'medium' | 'high';
+    when: 'today' | 'tomorrow' | 'week' | 'someday';
+    projectId: string | null;
+  },
+): void {
+  const item = getItemWithMetadata(id);
+  const meta = item?.metadata ? JSON.parse(item.metadata) : {};
+  meta.priority = decision.priority;
+
+  const today = formatDate(new Date());
+  const tomorrow = formatDate(new Date(Date.now() + 24 * 60 * 60 * 1000));
+
+  switch (decision.when) {
+    case 'today':
+      updateItem(id, { status: 'active', scheduledDate: today });
+      break;
+    case 'tomorrow':
+      updateItem(id, { status: 'active', scheduledDate: tomorrow });
+      break;
+    case 'week':
+      meta.gtdContext = 'week';
+      updateItem(id, { status: 'active', scheduledDate: null });
+      break;
+    case 'someday':
+      updateItem(id, { status: 'someday', scheduledDate: null });
+      break;
+  }
+
+  updateItemMetadata(id, meta);
+  setRelation(id, 'project', decision.projectId);
+  logActivity(id, 'status-changed', JSON.stringify({ destination: 'triage-task', ...decision }));
+}
+
 // ── Activity Logs ──────────────────────────────────────────────────────
 
 export function logActivity(entityId: string, actionType: string, details?: string): string {
@@ -691,13 +782,3 @@ export function getLastTakenLog(_itemId: string): ActivityLog | null {
 }
 
 
-// TODO(web-companion): not yet ported — GTD triage, Plan 2
-export function processInboxItem(_id: string, _destination: GtdDestination): void {
-  notImplementedOnWeb('processInboxItem');
-}
-export function applyTaskTriage(
-  _id: string,
-  _decision: { priority: 'low' | 'medium' | 'high'; when: 'today' | 'tomorrow' | 'week' | 'someday'; projectId: string | null },
-): void {
-  notImplementedOnWeb('applyTaskTriage');
-}
