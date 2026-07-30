@@ -4,16 +4,21 @@ import {
   onSnapshot,
   setDoc,
   deleteDoc,
+  writeBatch,
+  getDocs,
+  query,
+  where,
   type Unsubscribe,
 } from 'firebase/firestore';
 import { firestore, hasFirebaseConfig } from '../lib/firebase';
 import { getDb, getItemById } from '../db/database';
-import type { Item, ItemInstance, ItemRelationRow } from '../db/types';
+import type { Item, ItemInstance, ItemRelationRow, ItemOrderRow } from '../db/types';
 
 let currentUserId: string | null = null;
 let itemsUnsubscribe: Unsubscribe | null = null;
 let instancesUnsubscribe: Unsubscribe | null = null;
 let itemRelationsUnsubscribe: Unsubscribe | null = null;
+let itemOrderUnsubscribe: Unsubscribe | null = null;
 let isApplyingRemoteChange = false;
 
 // Remove undefined values because Firestore errors on undefined fields
@@ -94,6 +99,34 @@ export async function deleteItemRelationFromFirestore(userId: string, relationId
     await deleteDoc(relationRef);
   } catch (err) {
     console.warn('[firestoreSync] deleteItemRelation error:', err);
+  }
+}
+
+/**
+ * Replaces all itemOrder rows for one listKey in Firestore, matching the local
+ * SQLite delete-then-reinsert pattern in setManualOrder.
+ */
+export async function pushItemOrderBatchToFirestore(
+  userId: string,
+  listKey: string,
+  orderedIds: string[]
+): Promise<void> {
+  if (!hasFirebaseConfig || !firestore || !userId || isApplyingRemoteChange) return;
+  const firestoreDb = firestore;
+
+  try {
+    const batch = writeBatch(firestoreDb);
+    const existingSnapshot = await getDocs(
+      query(collection(firestoreDb, 'users', userId, 'itemOrder'), where('listKey', '==', listKey))
+    );
+    existingSnapshot.docs.forEach((d) => batch.delete(d.ref));
+    orderedIds.forEach((itemId, position) => {
+      const docId = `${listKey}__${itemId}`;
+      batch.set(doc(firestoreDb, 'users', userId, 'itemOrder', docId), { listKey, itemId, position });
+    });
+    await batch.commit();
+  } catch (err) {
+    console.warn('[firestoreSync] pushItemOrderBatch error:', err);
   }
 }
 
@@ -284,6 +317,47 @@ export function startRealtimeSync(userId: string, onLocalChange?: () => void): U
     }
   );
 
+  // Listen to remote itemOrder subcollection
+  const itemOrderRef = collection(firestore, 'users', userId, 'itemOrder');
+  itemOrderUnsubscribe = onSnapshot(
+    itemOrderRef,
+    (snapshot) => {
+      isApplyingRemoteChange = true;
+      let hasMutatedLocal = false;
+
+      try {
+        db.withTransactionSync(() => {
+          snapshot.docChanges().forEach((change) => {
+            const remote = change.doc.data() as ItemOrderRow;
+            if (!remote.listKey || !remote.itemId) return;
+
+            if (change.type === 'added' || change.type === 'modified') {
+              db.runSync(
+                `INSERT OR REPLACE INTO itemOrder (listKey, itemId, position) VALUES (?, ?, ?)`,
+                [remote.listKey, remote.itemId, remote.position]
+              );
+              hasMutatedLocal = true;
+            } else if (change.type === 'removed') {
+              db.runSync(`DELETE FROM itemOrder WHERE listKey = ? AND itemId = ?`, [remote.listKey, remote.itemId]);
+              hasMutatedLocal = true;
+            }
+          });
+        });
+      } catch (err) {
+        console.warn('[firestoreSync] local itemOrder apply error:', err);
+      } finally {
+        isApplyingRemoteChange = false;
+      }
+
+      if (hasMutatedLocal && onLocalChange) {
+        onLocalChange();
+      }
+    },
+    (error) => {
+      console.warn('[firestoreSync] itemOrder listener error:', error);
+    }
+  );
+
   return stopRealtimeSync;
 }
 
@@ -302,6 +376,10 @@ export function stopRealtimeSync(): void {
   if (itemRelationsUnsubscribe) {
     itemRelationsUnsubscribe();
     itemRelationsUnsubscribe = null;
+  }
+  if (itemOrderUnsubscribe) {
+    itemOrderUnsubscribe();
+    itemOrderUnsubscribe = null;
   }
   currentUserId = null;
 }

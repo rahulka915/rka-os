@@ -7,7 +7,7 @@ import { resolveAutoStopAfterMs } from '../domain/medicationTimer/timerMath';
 import { nextOccurrenceDate, parseRepeatRule, dayMatchesRepeat } from '../utils/repeat';
 import { countDosesByDay } from '../utils/medicationDoseHistory';
 
-import { getCurrentSyncUserId, pushItemToFirestore, pushItemRelationToFirestore, deleteItemRelationFromFirestore } from '../services/firestoreSync';
+import { getCurrentSyncUserId, pushItemToFirestore, pushItemRelationToFirestore, deleteItemRelationFromFirestore, pushItemOrderBatchToFirestore } from '../services/firestoreSync';
 
 let db: SQLite.SQLiteDatabase;
 
@@ -249,6 +249,10 @@ export function setManualOrder(listKey: string, orderedIds: string[]): void {
       );
     });
   });
+  const userId = getCurrentSyncUserId();
+  if (userId) {
+    pushItemOrderBatchToFirestore(userId, listKey, orderedIds).catch(() => {});
+  }
 }
 
 // Sorts `items` by their saved manual position for `listKey`, if any. Items with no saved
