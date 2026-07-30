@@ -147,6 +147,21 @@ export async function deleteItemInstanceDoc(id: string): Promise<void> {
   await deleteDoc(doc(db, 'users', requireUid(), 'itemInstances', id));
 }
 
+// Mirrors `DELETE FROM itemInstances WHERE itemId = ? AND status = 'pending'`.
+// Reads the ids off the mirror rather than querying, since the listener already
+// holds every instance for this user.
+export async function deletePendingInstancesForItem(itemId: string): Promise<void> {
+  const db = requireFirestore();
+  const userId = requireUid();
+  const pending = state.itemInstances.filter((i) => i.itemId === itemId && i.status === 'pending');
+  if (pending.length === 0) return;
+  const batch = writeBatch(db);
+  pending.forEach((instance) => {
+    batch.delete(doc(db, 'users', userId, 'itemInstances', instance.id));
+  });
+  await batch.commit();
+}
+
 export async function putItemRelation(row: ItemRelationRow): Promise<void> {
   const db = requireFirestore();
   await setDoc(doc(db, 'users', requireUid(), 'itemRelations', row.id), sanitize(row));

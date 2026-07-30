@@ -36,12 +36,14 @@ import {
   getActivityLogsSnapshot,
   getItemRelationsSnapshot,
   getItemOrderSnapshot,
+  getItemInstancesSnapshot,
   putItem,
   patchItem,
   putActivityLogDoc,
   putItemRelation,
   deleteItemRelationDoc,
   replaceItemOrder,
+  putItemInstance,
 } from './firestoreWebStore';
 
 function notImplementedOnWeb(name: string): never {
@@ -365,6 +367,39 @@ export function getProjectsForArea(areaId: string): Item[] {
   return getRelatedItems(areaId, 'area');
 }
 
+// ── Instances ──────────────────────────────────────────────────────────
+
+export function getInstancesForDate(date: string): ItemInstance[] {
+  return getItemInstancesSnapshot()
+    .filter((i) => i.scheduledDate === date)
+    .sort((a, b) => a.createdAt - b.createdAt);
+}
+
+export function getTodayInstances(): ItemInstance[] {
+  const today = formatDate(new Date());
+  return getItemInstancesSnapshot().filter((i) => i.scheduledDate === today);
+}
+
+// A missing instance is a no-op, matching an UPDATE that matches no rows.
+export function updateInstanceMetadata(instanceId: string, metadata: Record<string, any>): void {
+  const instance = getItemInstancesSnapshot().find((i) => i.id === instanceId);
+  if (!instance) return;
+  write(
+    putItemInstance({ ...instance, instanceMetadata: JSON.stringify(metadata), updatedAt: Date.now() }),
+    'updateInstanceMetadata'
+  );
+}
+
+export function completeInstance(instanceId: string): void {
+  const instance = getItemInstancesSnapshot().find((i) => i.id === instanceId);
+  if (!instance) return;
+  const now = Date.now();
+  write(
+    putItemInstance({ ...instance, status: 'completed', completedAt: now, updatedAt: now }),
+    'completeInstance'
+  );
+}
+
 // ── Activity Logs ──────────────────────────────────────────────────────
 
 export function logActivity(entityId: string, actionType: string, details?: string): string {
@@ -484,9 +519,6 @@ export function getLastTakenLog(_itemId: string): ActivityLog | null {
 export function getItemsForDate(_date: string): Item[] {
   return notImplementedOnWeb('getItemsForDate');
 }
-export function getInstancesForDate(_date: string): ItemInstance[] {
-  return notImplementedOnWeb('getInstancesForDate');
-}
 export function getTimelineEntriesForDate(_date: string): TimelineEntry[] {
   return notImplementedOnWeb('getTimelineEntriesForDate');
 }
@@ -504,15 +536,6 @@ export function updateTimelineItemTime(_id: string, _time: string): void {
 }
 export function updateTimelineItemSchedule(_id: string, _scheduledDate?: string, _time?: string): void {
   notImplementedOnWeb('updateTimelineItemSchedule');
-}
-export function updateInstanceMetadata(_instanceId: string, _metadata: Record<string, any>): void {
-  notImplementedOnWeb('updateInstanceMetadata');
-}
-export function getTodayInstances(): ItemInstance[] {
-  return notImplementedOnWeb('getTodayInstances');
-}
-export function completeInstance(_instanceId: string): void {
-  notImplementedOnWeb('completeInstance');
 }
 
 // TODO(web-companion): not yet ported — GTD triage, Plan 2
