@@ -146,9 +146,17 @@ Expected: FAIL — `Cannot find module './timelineEntry.ts'`.
 
 This is a verbatim move of `parseJson`, `getEntryTiming`, the `TimelineEntry` interface, and the body of `getTimelineEntriesForDate` out of `database.ts` — the only change is taking `items`/`instances` as arguments instead of querying for them.
 
+Note the import style: Node's test runner resolves this module directly, so
+**value** imports need an explicit `.ts` extension (the repo already does this
+in `utils/upcomingGrouping.ts`). Type-only imports are erased before Node sees
+them and stay extensionless.
+
 ```typescript
 // apps/mobile/src/db/timelineEntry.ts
-import { getTimeOfDayFromHour, normalizeTimeInput, timeToMinutes, type TimeOfDay } from '../utils/time';
+// Value import carries the .ts extension so Node's test runner can resolve it
+// directly; the type-only imports below are erased before it ever runs.
+import { getTimeOfDayFromHour, normalizeTimeInput, timeToMinutes } from '../utils/time.ts';
+import type { TimeOfDay } from '../utils/time';
 import type { Item, ItemInstance } from './types';
 
 export interface TimelineEntry {
