@@ -26,6 +26,7 @@ dist-ssr
 __MACOSX
 .vercel
 .vercel-cli
+.firebase
 .tooling-home
 .tooling-cache
 references

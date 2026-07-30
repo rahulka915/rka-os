@@ -69,6 +69,7 @@
     "android": "expo start --dev-client --android",
     "ios": "expo start --dev-client --ios",
     "web": "expo start --web",
+    "web:build": "expo export -p web",
     "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test src/**/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
