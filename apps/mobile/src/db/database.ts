@@ -289,10 +289,12 @@ export function updateItemMetadata(id: string, metadata: Record<string, any>): v
     `UPDATE items SET metadata = ?, updatedAt = ? WHERE id = ?`,
     [JSON.stringify(metadata), Date.now(), id]
   );
+  syncItemToRemote(id);
 }
 
 export function updateItemTitle(id: string, title: string): void {
   getDb().runSync(`UPDATE items SET title = ?, updatedAt = ? WHERE id = ?`, [title, Date.now(), id]);
+  syncItemToRemote(id);
 }
 
 // "Plan for Today" — the lightweight way to put an un-dated task onto the Home
@@ -699,6 +701,7 @@ export function createMedication(title: string, meta: MedicationMeta): string {
     [id, title, JSON.stringify(metadata), now, now]
   );
   logActivity(id, 'created');
+  syncItemToRemote(id);
   return id;
 }
 
@@ -1186,6 +1189,7 @@ export function updateTimelineItemSchedule(id: string, scheduledDate?: string, t
       `DELETE FROM itemInstances WHERE itemId = ? AND status = 'pending'`,
       [id],
     );
+    syncItemToRemote(id);
     return;
   }
 
@@ -1199,6 +1203,7 @@ export function updateTimelineItemSchedule(id: string, scheduledDate?: string, t
     `UPDATE items SET scheduledDate = ?, status = 'scheduled', metadata = ?, updatedAt = ? WHERE id = ?`,
     [scheduledDate, JSON.stringify(nextMetadata), now, id],
   );
+  syncItemToRemote(id);
 
   const instance = getDb().getAllSync<ItemInstance>(
     `SELECT * FROM itemInstances WHERE itemId = ? AND status = 'pending' ORDER BY createdAt DESC LIMIT 1`,
@@ -1236,6 +1241,7 @@ export function updateItemStatus(id: string, status: Item['status']): void {
         [next, 'active', now, id]
       );
       logActivity(id, 'completed-occurrence', JSON.stringify({ occurrence: item.scheduledDate, next }));
+      syncItemToRemote(id);
       return;
     }
   }
@@ -1245,6 +1251,7 @@ export function updateItemStatus(id: string, status: Item['status']): void {
     [status, status === 'completed' ? now : null, now, id]
   );
   logActivity(id, 'status-changed', JSON.stringify({ status }));
+  syncItemToRemote(id);
 }
 
 export function deleteItem(id: string): void {
@@ -1252,6 +1259,7 @@ export function deleteItem(id: string): void {
     `UPDATE items SET deletedAt = ?, updatedAt = ? WHERE id = ?`,
     [Date.now(), Date.now(), id]
   );
+  syncItemToRemote(id);
 }
 
 export type GtdDestination =
@@ -1266,6 +1274,7 @@ export function processInboxItem(id: string, destination: GtdDestination): void 
 
   if (destination === 'delete') {
     db.runSync('UPDATE items SET deletedAt = ?, updatedAt = ? WHERE id = ?', [now, now, id]);
+    syncItemToRemote(id);
     return;
   }
 
@@ -1335,6 +1344,7 @@ export function processInboxItem(id: string, destination: GtdDestination): void 
       break;
   }
   logActivity(id, 'status-changed', JSON.stringify({ destination }));
+  syncItemToRemote(id);
 }
 
 // Confirmed Task-branch decision from Inbox Triage Mode (see useTriageSession).
