@@ -11,6 +11,7 @@ import { QuickCreateSheet } from '../components/QuickCreateSheet';
 import { useRegisterFabHoldAction } from '../hooks/useFabHoldAction';
 import type { Item } from '../db/types';
 import { ProjectPortfolioIcon } from '../components/icons/ProjectPortfolioIcon';
+import { ProjectPlaceholderIcon } from '../components/icons/ProjectPlaceholderIcon';
 import { showActionSheet } from '../utils/actionSheet';
 
 // No header "+" — holding the dock FAB while this screen is focused opens
@@ -22,6 +23,7 @@ export function ProjectsScreen() {
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
   const [createOpen, setCreateOpen] = useState(false);
+  const areaTitleById = new Map(areas.map(area => [area.id, area.title]));
 
   useRegisterFabHoldAction(useCallback(() => setCreateOpen(true), []));
 
@@ -76,20 +78,36 @@ export function ProjectsScreen() {
     ]);
   };
 
-  const renderRow = (item: Item) => (
-    <TouchableOpacity
-      key={item.id}
-      style={[styles.row, { backgroundColor: palette.surface }]}
-      activeOpacity={0.7}
-      onPress={() => (navigation as any).navigate('ProjectDetail', { projectId: item.id, title: item.title })}
-      onLongPress={() => handleLongPress(item)}
-      delayLongPress={400}
-    >
-      <ProjectPortfolioIcon size={34} />
-      <Text style={[styles.rowTitle, { color: palette.text }]} numberOfLines={1}>{item.title}</Text>
-      <Text style={[styles.rowCount, { color: palette.textTertiary }]}>{getProjectItemCount(item.id)}</Text>
-    </TouchableOpacity>
-  );
+  const renderRow = (item: Item) => {
+    const meta = item.metadata ? JSON.parse(item.metadata) : {};
+    const icon: string | undefined = typeof meta.icon === 'string' ? meta.icon : undefined;
+    const areaId = getRelation(item.id, 'area');
+    const areaTitle = areaId ? areaTitleById.get(areaId) : undefined;
+
+    return (
+      <TouchableOpacity
+        key={item.id}
+        style={[styles.row, { backgroundColor: palette.surface }]}
+        activeOpacity={0.7}
+        onPress={() => (navigation as any).navigate('ProjectDetail', { projectId: item.id, title: item.title })}
+        onLongPress={() => handleLongPress(item)}
+        delayLongPress={400}
+      >
+        {icon ? <Text style={styles.rowIconEmoji}>{icon}</Text> : <ProjectPlaceholderIcon size={34} />}
+        <View style={styles.rowTitleGroup}>
+          <Text style={[styles.rowTitle, { color: palette.text }]} numberOfLines={1}>{item.title}</Text>
+          {areaTitle ? (
+            <View style={[styles.areaBadge, { backgroundColor: palette.fill }]}>
+              <Text style={[styles.areaBadgeText, { color: palette.textSecondary }]} numberOfLines={1}>
+                {areaTitle}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+        <Text style={[styles.rowCount, { color: palette.textTertiary }]}>{getProjectItemCount(item.id)}</Text>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <LensSurface title="Missions">
@@ -156,11 +174,29 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 10,
   },
+  rowTitleGroup: {
+    flex: 1,
+    gap: 2,
+  },
   rowTitle: {
     fontSize: 16,
     fontWeight: '600',
     fontFamily: 'Inter_600SemiBold',
-    flex: 1,
+  },
+  rowIconEmoji: {
+    fontSize: 28,
+    width: 34,
+    textAlign: 'center',
+  },
+  areaBadge: {
+    alignSelf: 'flex-start',
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  areaBadgeText: {
+    fontSize: 11,
+    fontWeight: '500',
   },
   rowCount: {
     fontSize: 14,
