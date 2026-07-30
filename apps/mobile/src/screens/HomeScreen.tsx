@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { View, Alert, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 import { ScrollViewContainer } from 'react-native-reorderable-list';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -6,18 +6,11 @@ import * as Haptics from 'expo-haptics';
 import { YStack } from 'tamagui';
 import { AppHeader } from '../components/AppHeader';
 import { TimelineSection } from '../components/TimelineSection';
-import { RoninHero } from '../components/home/RoninHero';
 import { InboxScrollCard } from '../components/home/InboxScrollCard';
-import { NextUpCard } from '../components/home/NextUpCard';
 import { useHomeData, completeAllInTimeBlock } from '../hooks/useDb';
 import { useThemeContext } from '../hooks/useThemeContext';
-import { usePersistentTimerState } from '../hooks/usePersistentTimerState';
-import { getThemeColors, getUsableContentHeight } from '../theme';
+import { getUsableContentHeight } from '../theme';
 import { updateItemStatus, deleteItem, getBlockingTask } from '../db/database';
-import { getRoninStatus } from '../utils/roninMood';
-import { getTimeOfDay } from '../domain/ronin/roninScenes';
-import { getRoninGreetingWord } from '../domain/ronin/roninGreeting';
-import { findNextUpItem } from '../utils/nextUpItem';
 import { NATURAL_ROW_HEIGHT, MIN_ROW_HEIGHT, MAX_ROW_HEIGHT, TIMELINE_ROW_COUNT } from '../components/TimelineSection';
 import { useItemComposer } from '../components/item-composer';
 import { useOpenItem } from '../hooks/useOpenItem';
@@ -32,7 +25,6 @@ interface HomeScreenProps {
 
 export function HomeScreen({ onInboxPress, inboxOpen, onHeroPress, onSettingsPress }: HomeScreenProps) {
   const { isDark } = useThemeContext();
-  const palette = getThemeColors(isDark);
   const { openCapture, revision: composerRevision } = useItemComposer();
   const openItem = useOpenItem();
   const { inboxCount, todayItems, anytime, morningItems, afternoonItems, eveningItems, refresh } = useHomeData();
@@ -49,41 +41,14 @@ export function HomeScreen({ onInboxPress, inboxOpen, onHeroPress, onSettingsPre
     refresh();
   }, [composerRevision, refresh]);
 
-  const { timers } = usePersistentTimerState();
-  const [completedJustNow, setCompletedJustNow] = useState(false);
-  const completedResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const flashCompletedJustNow = () => {
-    setCompletedJustNow(true);
-    if (completedResetTimer.current) clearTimeout(completedResetTimer.current);
-    completedResetTimer.current = setTimeout(() => setCompletedJustNow(false), 4000);
-  };
-
-  const overdueCount = todayItems.filter((item) => item.status === 'overdue').length;
-  const hour = new Date().getHours();
-  const { mood: roninMood, statusLine } = getRoninStatus({
-    isTimerRunning: timers.length > 0,
-    overdueCount,
-    inboxCount,
-    completedJustNow,
-    hour,
-  });
-  const timeOfDay = getTimeOfDay(hour);
-  const completedToday = todayItems.filter((item) => item.status === 'completed').length;
-
-  const activeTimerItemIds = timers.map((t) => t.med.id);
-  const nextUp = findNextUpItem(todayItems, activeTimerItemIds, hour);
-
-  // Fit the whole page (hero, cards, collapsed timeline) into the space
+  // Fit the whole page (cards, collapsed timeline) into the space
   // between the header and the floating tab tray on any device — growing
   // the timeline's 4 rows (and their icons) to use leftover space when the
   // natural layout is shorter than the screen, or shrinking them when it
-  // overflows. The hero card's height isn't computable up front (its
-  // content — greeting text, mood glow — varies), so this measures the ONE
-  // natural render once and distributes the difference across the 4 rows.
-  // Only the first onLayout call is used (measuredHeight stays fixed after
-  // that) so this settles in a single adjustment rather than oscillating
-  // as the rows themselves change size.
+  // overflows. This measures the ONE natural render once and distributes
+  // the difference across the 4 rows. Only the first onLayout call is used
+  // (measuredHeight stays fixed after that) so this settles in a single
+  // adjustment rather than oscillating as the rows themselves change size.
   const insets = useSafeAreaInsets();
   const { height: screenHeight } = useWindowDimensions();
   const usableHeight = getUsableContentHeight(screenHeight, insets.top, insets.bottom);
@@ -112,11 +77,10 @@ export function HomeScreen({ onInboxPress, inboxOpen, onHeroPress, onSettingsPre
   }
 
   // Stable identities are load-bearing, not a micro-optimisation: these are
-  // passed down to the memoised timeline rows, and usePersistentTimerState
-  // re-renders this screen once a second (unconditionally, even with no active
-  // timer). Recreated inline, they broke every row's memo on every tick —
-  // which meant rows re-rendered and re-measured mid-drag, and that is what
-  // made reordering on Home feel unsteady.
+  // passed down to the memoised timeline rows. Recreated inline, they broke
+  // every row's memo on every tick — which meant rows re-rendered and
+  // re-measured mid-drag, and that is what made reordering on Home feel
+  // unsteady.
   const handleItemTap = useCallback((item: Item) => {
     openItem({
       item,
@@ -163,52 +127,13 @@ export function HomeScreen({ onInboxPress, inboxOpen, onHeroPress, onSettingsPre
       <ScrollViewContainer showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 16 }}>
         <View onLayout={onContentLayout}>
 
-        {/* Ronin hero — greeting + mood, tappable through to Profile for now.
-            No borderRadius/overflow here — RiverStoneSurface (inside
-            RoninGreetingCard) owns its own shape and needs its outer shadow
-            to render past the card bounds, not get clipped by this wrapper. */}
+        {/* Inbox preview */}
         <View style={{ marginHorizontal: 12, marginTop: 8 }}>
-          <RoninHero
-            mood={roninMood}
-            timeOfDay={timeOfDay}
-            greetingWord={getRoninGreetingWord(timeOfDay)}
-            name="Rahul"
-            statusLine={statusLine}
-            completedCount={completedToday}
-            totalCount={todayItems.length}
+          <InboxScrollCard
             inboxCount={inboxCount}
-            focusActive={timers.length > 0}
-            onPress={onHeroPress}
+            onPress={onInboxPress}
+            isDark={isDark}
           />
-        </View>
-
-        {/* Next Up + Inbox — side by side, both square, splitting the row */}
-        <View style={{ flexDirection: 'row', gap: 12, marginHorizontal: 12, marginTop: 12 }}>
-          <View style={{ flex: 1 }}>
-            <NextUpCard
-              result={nextUp}
-              isDark={isDark}
-              timeOfDay={timeOfDay}
-              onAction={(result) => {
-                const item = todayItems.find((candidate) => candidate.id === result.id);
-                if (!item) return;
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                openItem({
-                  item,
-                  onComplete: ({ action }) => {
-                    if (action !== 'cancelled') refresh();
-                  },
-                });
-              }}
-            />
-          </View>
-          <View style={{ flex: 1 }}>
-            <InboxScrollCard
-              inboxCount={inboxCount}
-              onPress={onInboxPress}
-              isDark={isDark}
-            />
-          </View>
         </View>
 
         {/* Today timeline */}
@@ -239,7 +164,6 @@ export function HomeScreen({ onInboxPress, inboxOpen, onHeroPress, onSettingsPre
                       onPress: () => {
                         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                         completeAllInTimeBlock(block as 'anytime' | 'morning' | 'afternoon' | 'evening');
-                        flashCompletedJustNow();
                         refresh();
                       },
                     },

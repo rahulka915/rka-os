@@ -10,9 +10,8 @@ interface InboxScrollCardProps {
   isDark: boolean;
 }
 
-// Square tile — sits side by side with NextUpCard (see HomeScreen.tsx), each
-// taking half the row width. Restructured from the old horizontal row
-// (illustration/icon + stat + text + chevron all in one line) to a column:
+// Full-width tile on HomeScreen.tsx. Restructured from the old horizontal
+// row (illustration/icon + stat + text + chevron all in one line) to a column:
 // illustration on top, stat + text stacked below, chevron as a small
 // top-right corner accent instead of competing with the illustration. Color
 // and depth now come entirely from RiverStoneSurface (this card has no
