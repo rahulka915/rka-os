@@ -4,19 +4,60 @@ import { Sidebar, type SidebarView } from './Sidebar';
 import { HomeScreen } from './HomeScreen';
 import { InboxScreen } from './InboxScreen';
 import { TasksScreen } from './TasksScreen';
+import { AreasProjectsScreen } from './AreasProjectsScreen';
 import { useInbox } from '../hooks/useDb';
 import { webColors } from '../theme/webTheme';
 
 export function AppShell() {
   const [activeView, setActiveView] = useState<SidebarView>('home');
+  const [selectedAreaId, setSelectedAreaId] = useState<string | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const { count: inboxCount } = useInbox();
+
+  const handleSelectArea = (id: string) => {
+    setSelectedAreaId(id);
+    setSelectedProjectId(null);
+    setActiveView('areas');
+  };
+
+  const handleSelectProject = (id: string) => {
+    setSelectedProjectId(id);
+    setActiveView('areas');
+  };
+
+  const handleSelectAreasOverview = () => {
+    setSelectedAreaId(null);
+    setSelectedProjectId(null);
+    setActiveView('areas');
+  };
+
+  let content;
+  if (activeView === 'home') content = <HomeScreen />;
+  else if (activeView === 'inbox') content = <InboxScreen />;
+  else if (activeView === 'tasks') content = <TasksScreen />;
+  else
+    content = (
+      <AreasProjectsScreen
+        selectedAreaId={selectedAreaId}
+        selectedProjectId={selectedProjectId}
+        onSelectArea={handleSelectArea}
+        onSelectProject={handleSelectProject}
+      />
+    );
 
   return (
     <View style={styles.container}>
-      <Sidebar activeView={activeView} onSelectView={setActiveView} inboxCount={inboxCount} />
-      <View style={styles.content}>
-        {activeView === 'home' ? <HomeScreen /> : activeView === 'inbox' ? <InboxScreen /> : <TasksScreen />}
-      </View>
+      <Sidebar
+        activeView={activeView}
+        onSelectView={setActiveView}
+        inboxCount={inboxCount}
+        selectedAreaId={selectedAreaId}
+        selectedProjectId={selectedProjectId}
+        onSelectArea={handleSelectArea}
+        onSelectProject={handleSelectProject}
+        onSelectAreasOverview={handleSelectAreasOverview}
+      />
+      <View style={styles.content}>{content}</View>
     </View>
   );
 }
