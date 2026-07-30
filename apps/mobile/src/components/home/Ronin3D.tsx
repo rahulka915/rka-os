@@ -2,7 +2,6 @@ import { Component, useEffect, useMemo, useRef, useState, type ReactNode } from 
 import { StyleSheet, View, type ViewStyle } from 'react-native';
 import { Canvas, useFrame } from '@react-three/fiber/native';
 import { Asset } from 'expo-asset';
-import { File } from 'expo-file-system';
 import { AnimationMixer, LoopOnce } from 'three';
 import type { AnimationAction, Mesh } from 'three';
 import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -36,6 +35,9 @@ async function loadRoninGltf(): Promise<GLTF> {
   const asset = Asset.fromModule(RONIN_MODEL);
   await asset.downloadAsync();
   const uri = asset.localUri ?? asset.uri;
+  // Dynamic import: expo-file-system's own module-scope code throws on web
+  // when merely imported (unrelated to whether `File` is actually used).
+  const { File } = await import('expo-file-system');
   const bytes = await new File(uri).bytes();
   const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
   return new GLTFLoader().parseAsync(buffer as ArrayBuffer, '');

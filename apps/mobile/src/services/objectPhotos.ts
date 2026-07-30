@@ -1,11 +1,21 @@
 import * as ImagePicker from 'expo-image-picker';
 import { Directory, File, Paths } from 'expo-file-system';
 
-const photosDir = new Directory(Paths.document, 'objectPhotos');
+// Lazy, not module-scope: expo-file-system's own module-scope code throws on
+// web when merely imported, and constructing a Directory at module load time
+// would run that code for every consumer of this file, not just when a photo
+// is actually picked/deleted.
+let photosDir: Directory | null = null;
+
+function getPhotosDir(): Directory {
+  photosDir ??= new Directory(Paths.document, 'objectPhotos');
+  return photosDir;
+}
 
 function ensurePhotosDir(): void {
-  if (!photosDir.exists) {
-    photosDir.create({ intermediates: true });
+  const dir = getPhotosDir();
+  if (!dir.exists) {
+    dir.create({ intermediates: true });
   }
 }
 
@@ -23,7 +33,7 @@ export async function pickAndStoreObjectPhoto(): Promise<string | null> {
 
   ensurePhotosDir();
   const source = new File(result.assets[0].uri);
-  const destination = new File(photosDir, `${Date.now()}${source.extension || '.jpg'}`);
+  const destination = new File(getPhotosDir(), `${Date.now()}${source.extension || '.jpg'}`);
   source.copySync(destination);
   return destination.uri;
 }

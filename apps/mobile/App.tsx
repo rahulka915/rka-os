@@ -1,6 +1,6 @@
 import 'react-native-get-random-values';
 import { useCallback, useState, useEffect, useMemo, useRef } from 'react';
-import { useColorScheme, TouchableOpacity, View, StyleSheet, AppState, Text as RNText, LogBox } from 'react-native';
+import { useColorScheme, TouchableOpacity, View, StyleSheet, AppState, Text as RNText, LogBox, Platform } from 'react-native';
 
 // Home and Tasks nest reorderable lists inside react-native-reorderable-list's
 // ScrollViewContainer, which is an Animated.ScrollView rather than a
@@ -66,7 +66,12 @@ import { pushBackup } from './src/services/backupSync';
 import { reconcileMedicationTimers } from './src/services/medicationTimerController';
 import { BackupProvider } from './src/hooks/useBackup';
 
-getDb();
+// Warms the SQLite connection at cold start. Meaningless on web (Firestore is
+// the data source there, not SQLite) — database.web.ts's getDb() stub throws
+// if called, so this must stay native-only.
+if (Platform.OS !== 'web') {
+  getDb();
+}
 
 // Held until the Inter font weights finish loading, so the app never
 // flashes with the system fallback font on cold start.

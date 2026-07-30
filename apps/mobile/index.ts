@@ -1,4 +1,12 @@
-import 'expo-dev-client';
+import { Platform } from 'react-native';
+
+if (Platform.OS !== 'web') {
+  // expo-dev-client is native-only (dev-client/EAS builds) — it has no web
+  // implementation, and importing it unconditionally breaks the web bundle
+  // before registerRootComponent ever runs.
+  require('expo-dev-client');
+}
+
 import { registerRootComponent } from 'expo';
 
 import App from './App';

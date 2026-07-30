@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { Asset } from 'expo-asset';
-import { File } from 'expo-file-system';
 import { RONIN_MODEL } from './roninModel';
 
 // Reads the bundled Ronin GLB and exposes it base64-encoded for the DOM
@@ -15,6 +14,11 @@ function loadGlbBase64(): Promise<string> {
     const asset = Asset.fromModule(RONIN_MODEL);
     await asset.downloadAsync();
     const uri = asset.localUri ?? asset.uri;
+    // Dynamic import: expo-file-system's own module-scope code throws on web
+    // when merely imported (unrelated to whether `File` is actually used), so
+    // this is deferred to only run when this hook is actually invoked, rather
+    // than crashing at app boot for every consumer of this module.
+    const { File } = await import('expo-file-system');
     return new File(uri).base64();
   })();
   return cached;

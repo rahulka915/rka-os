@@ -1,6 +1,7 @@
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { initializeApp, type FirebaseApp } from 'firebase/app';
-import { initializeAuth, type Auth, type Persistence } from 'firebase/auth';
+import { initializeAuth, getAuth, type Auth, type Persistence } from 'firebase/auth';
 // @firebase/auth's own exports map correctly conditions this helper behind a
 // `react-native` branch, but a top-level `"types"` key on the same export entry
 // shadows it for tsc's resolution (TS treats "types" as always-satisfied and
@@ -32,7 +33,13 @@ let firestore: Firestore | null = null;
 
 if (hasFirebaseConfig) {
   app = initializeApp({ apiKey, authDomain, projectId, storageBucket, messagingSenderId, appId });
-  auth = initializeAuth(app, { persistence: getReactNativePersistence(AsyncStorage) });
+  // getReactNativePersistence is genuinely RN-only at runtime (not just a tsc
+  // resolution quirk, see comment above) — @firebase/auth's web build doesn't
+  // export it at all, so calling it on web throws "is not a function". Use the
+  // browser's default persistence (IndexedDB-backed) there instead.
+  auth = Platform.OS === 'web'
+    ? getAuth(app)
+    : initializeAuth(app, { persistence: getReactNativePersistence(AsyncStorage) });
   firestore = getFirestore(app);
 }
 
