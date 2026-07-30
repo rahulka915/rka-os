@@ -8,10 +8,14 @@ import { ItemDetailForm } from './ItemDetailForm';
 import { webColors, webSpacing, webRadius, webFontSize } from '../theme/webTheme';
 import type { Item } from '../db/types';
 
+// Pure local-calendar arithmetic — deliberately avoids formatDate's toISOString
+// (UTC-based), which silently drops a day whenever the browser's timezone is
+// ahead of UTC (local midnight of the next day is still "today" in UTC).
 function addDays(dateStr: string, delta: number): string {
-  const date = new Date(`${dateStr}T00:00:00`);
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
   date.setDate(date.getDate() + delta);
-  return formatDate(date);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
 function dateLabelFor(dateStr: string): string {
