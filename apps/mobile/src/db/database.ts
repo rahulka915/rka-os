@@ -1225,12 +1225,29 @@ export function updateTimelineItemSchedule(id: string, scheduledDate?: string, t
   const metadata: Record<string, unknown> = item.metadata ? JSON.parse(item.metadata) : {};
   const now = Date.now();
 
-  if (!scheduledDate || !time) {
+  if (!scheduledDate) {
     delete metadata.time;
     delete metadata.timeOfDay;
     getDb().runSync(
       `UPDATE items SET scheduledDate = NULL, status = ?, metadata = ?, updatedAt = ? WHERE id = ?`,
       [item.status === 'scheduled' ? 'active' : item.status, JSON.stringify(metadata), now, id],
+    );
+    getDb().runSync(
+      `DELETE FROM itemInstances WHERE itemId = ? AND status = 'pending'`,
+      [id],
+    );
+    syncItemToRemote(id);
+    return;
+  }
+
+  if (!time) {
+    // Date-only: keep the date, drop the time-of-day and any pending timed
+    // instance that went with it, but don't clear the date itself.
+    delete metadata.time;
+    delete metadata.timeOfDay;
+    getDb().runSync(
+      `UPDATE items SET scheduledDate = ?, status = 'scheduled', metadata = ?, updatedAt = ? WHERE id = ?`,
+      [scheduledDate, JSON.stringify(metadata), now, id],
     );
     getDb().runSync(
       `DELETE FROM itemInstances WHERE itemId = ? AND status = 'pending'`,

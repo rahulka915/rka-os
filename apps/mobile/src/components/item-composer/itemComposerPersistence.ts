@@ -131,22 +131,29 @@ function mergedMetadata(draft: ItemDraft): Record<string, unknown> {
 export function saveItemDraft(draft: ItemDraft): string {
   const title = draft.title.trim();
   if (!title) throw new Error('Add a title before saving.');
-  if ((draft.scheduledDate && !draft.scheduledTime) || (!draft.scheduledDate && draft.scheduledTime)) {
-    throw new Error('Choose both a date and time for a scheduled task.');
+  if (draft.scheduledTime && !draft.scheduledDate) {
+    throw new Error('Choose a date before setting a time.');
   }
 
   const notes = draft.notes.trim();
-  const isScheduled = Boolean(draft.scheduledDate && draft.scheduledTime);
+  const hasTime = Boolean(draft.scheduledDate && draft.scheduledTime);
+  const hasDate = Boolean(draft.scheduledDate);
   let itemId = draft.itemId;
 
   if (draft.mode === 'create') {
-    itemId = isScheduled
+    itemId = hasTime
       ? createTimedItem(draft.itemType, title, draft.scheduledDate!, draft.scheduledTime!, notes || undefined).itemId
-      : createItem(draft.itemType, title, draft.status === 'scheduled' ? 'active' : draft.status, undefined, notes || undefined);
+      : createItem(
+          draft.itemType,
+          title,
+          hasDate ? 'scheduled' : (draft.status === 'scheduled' ? 'active' : draft.status),
+          hasDate ? draft.scheduledDate : undefined,
+          notes || undefined,
+        );
   } else if (itemId) {
     updateItem(itemId, { type: draft.itemType, title, notes, dueDate: draft.dueDate ?? null, rrule: draft.rrule ?? null });
     updateTimelineItemSchedule(itemId, draft.scheduledDate, draft.scheduledTime);
-    if (!isScheduled) updateItem(itemId, { status: draft.status === 'scheduled' ? 'active' : draft.status });
+    if (!hasDate) updateItem(itemId, { status: draft.status === 'scheduled' ? 'active' : draft.status });
   }
 
   if (draft.mode === 'create' && itemId && (draft.dueDate || draft.rrule)) {

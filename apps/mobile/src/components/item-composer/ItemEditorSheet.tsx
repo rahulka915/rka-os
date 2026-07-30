@@ -98,7 +98,7 @@ export function ItemEditorSheet({
   }, [visible, draft?.itemId]);
 
   if (!draft) return null;
-  const scheduled = Boolean(draft.scheduledDate && draft.scheduledTime);
+  const scheduled = Boolean(draft.scheduledDate);
   const scheduledMinutes = timeToMinutes(draft.scheduledTime);
   const scheduledRange = scheduledMinutes == null
     ? null
@@ -410,7 +410,7 @@ export function ItemEditorSheet({
                       onPress={() => showView('time')}
                       activeOpacity={0.7}
                       accessibilityRole="button"
-                      accessibilityLabel={`Scheduled time, ${draft.scheduledTime}`}
+                      accessibilityLabel={draft.scheduledTime ? `Scheduled time, ${draft.scheduledTime}` : 'Add a time'}
                       accessibilityHint="Opens the time picker"
                     >
                       <View style={styles.rowLabelWithIcon}>
@@ -418,36 +418,56 @@ export function ItemEditorSheet({
                         <Text style={[styles.fieldLabel, { color: palette.text }]}>Time</Text>
                       </View>
                       <View style={styles.pickerValueRow}>
-                        <Text style={[styles.pickerValue, { color: palette.textSecondary }]}>{draft.scheduledTime}</Text>
-                        <ChevronRight size={16} color={material.accent} strokeWidth={1.8} />
+                        <Text style={[styles.pickerValue, { color: palette.textSecondary }]}>
+                          {draft.scheduledTime ?? 'Add time'}
+                        </Text>
+                        {draft.scheduledTime ? (
+                          <TouchableOpacity
+                            onPress={(event) => {
+                              event.stopPropagation();
+                              onChange({ scheduledTime: undefined });
+                            }}
+                            accessibilityRole="button"
+                            accessibilityLabel="Clear time, keep date only"
+                            hitSlop={8}
+                          >
+                            <X size={16} color={palette.textSecondary} strokeWidth={1.8} />
+                          </TouchableOpacity>
+                        ) : (
+                          <ChevronRight size={16} color={material.accent} strokeWidth={1.8} />
+                        )}
                       </View>
                     </TouchableOpacity>
-                    <View style={[styles.separator, { backgroundColor: material.rim }]} />
-                    <View style={styles.durationSection}>
-                      <View style={styles.durationHeader}>
-                        <Text style={[styles.fieldLabel, { color: palette.text }]}>Duration</Text>
-                        {scheduledRange ? <Text style={[styles.pickerValue, { color: palette.textSecondary }]}>{scheduledRange}</Text> : null}
-                      </View>
-                      <View style={styles.choiceRow}>
-                        {DURATION_OPTIONS.map((minutes) => {
-                          const selected = draft.durationMinutes === minutes;
-                          return (
-                            <TouchableOpacity
-                              key={minutes}
-                              style={[
-                                styles.durationChip,
-                                { backgroundColor: selected ? material.accentSoft : material.fill, borderColor: selected ? material.rimStrong : material.rim },
-                              ]}
-                              onPress={() => onChange({ durationMinutes: minutes })}
-                            >
-                              <Text style={[styles.durationText, { color: selected ? material.accent : palette.textSecondary }]}>
-                                {minutes < 60 ? `${minutes}m` : `${minutes / 60}h`}
-                              </Text>
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </View>
-                    </View>
+                    {draft.scheduledTime ? (
+                      <>
+                        <View style={[styles.separator, { backgroundColor: material.rim }]} />
+                        <View style={styles.durationSection}>
+                          <View style={styles.durationHeader}>
+                            <Text style={[styles.fieldLabel, { color: palette.text }]}>Duration</Text>
+                            {scheduledRange ? <Text style={[styles.pickerValue, { color: palette.textSecondary }]}>{scheduledRange}</Text> : null}
+                          </View>
+                          <View style={styles.choiceRow}>
+                            {DURATION_OPTIONS.map((minutes) => {
+                              const selected = draft.durationMinutes === minutes;
+                              return (
+                                <TouchableOpacity
+                                  key={minutes}
+                                  style={[
+                                    styles.durationChip,
+                                    { backgroundColor: selected ? material.accentSoft : material.fill, borderColor: selected ? material.rimStrong : material.rim },
+                                  ]}
+                                  onPress={() => onChange({ durationMinutes: minutes })}
+                                >
+                                  <Text style={[styles.durationText, { color: selected ? material.accent : palette.textSecondary }]}>
+                                    {minutes < 60 ? `${minutes}m` : `${minutes / 60}h`}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+                        </View>
+                      </>
+                    ) : null}
                   </View>
                 ) : null}
 
