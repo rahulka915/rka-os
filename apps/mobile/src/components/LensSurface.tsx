@@ -8,6 +8,7 @@ import { ChevronLeft } from '../icons';
 
 interface LensSurfaceProps {
   title: string;
+  icon?: ReactNode;
   onBack?: () => void;
   headerRight?: ReactNode;
   contextBar?: ReactNode;
@@ -16,7 +17,7 @@ interface LensSurfaceProps {
 
 // Shared chrome-less container for "Lens" destinations (Projects, Workouts, Medications, ...).
 // No border, no corner radius, no close button — these are pushed screens, not sheets.
-export function LensSurface({ title, onBack, headerRight, contextBar, children }: LensSurfaceProps) {
+export function LensSurface({ title, icon, onBack, headerRight, contextBar, children }: LensSurfaceProps) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { isDark } = useThemeContext();
@@ -34,6 +35,7 @@ export function LensSurface({ title, onBack, headerRight, contextBar, children }
               <ChevronLeft size={20} color={palette.text} strokeWidth={2} />
             </TouchableOpacity>
           )}
+          {icon}
           <Text style={[styles.title, { color: palette.text }]} numberOfLines={1}>
             {title}
           </Text>
