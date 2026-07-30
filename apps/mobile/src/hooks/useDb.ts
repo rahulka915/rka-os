@@ -214,6 +214,15 @@ export function useCompletedItems() {
   return { items, refresh };
 }
 
+export function useArchivedItems() {
+  const [items, setItems] = useState<Item[]>([]);
+  const refresh = useCallback(() => {
+    setItems(getItemsByStatus('archived'));
+  }, []);
+  useEffect(() => { refresh(); }, [refresh]);
+  return { items, refresh };
+}
+
 export function completeAllInTimeBlock(bucket: 'anytime' | 'morning' | 'afternoon' | 'evening'): void {
   // Same Today union + bucket resolution as useHomeData, so "complete all in
   // this block" acts on exactly the rows the block displays.

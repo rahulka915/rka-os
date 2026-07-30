@@ -6,7 +6,7 @@ import * as Haptics from 'expo-haptics';
 import { RiverStoneSurface } from '../components/riverstone';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors, spacing } from '../theme';
-import { Dumbbell, ChevronRight, ShoppingBag } from '../icons';
+import { Dumbbell, ChevronRight, ShoppingBag, Archive } from '../icons';
 import { MedicationBottleIcon } from '../components/icons/MedicationBottleIcon';
 import { TaskNoteIcon } from '../components/icons/TaskNoteIcon';
 import { AreaBonsaiIcon } from '../components/icons/AreaBonsaiIcon';
@@ -78,6 +78,14 @@ export function MenuScreen() {
       accent: palette.pink,
       soft: palette.pinkSoft,
     },
+    {
+      route: 'Archive',
+      label: 'Archive',
+      sub: 'Everything you’ve tucked away',
+      icon: Archive,
+      accent: palette.silver,
+      soft: palette.silverSoft,
+    },
   ] as const;
 
   return (
@@ -122,7 +130,7 @@ export function MenuScreen() {
             <View style={styles.sectionRule} />
             <Text style={[styles.sectionTitle, { color: palette.textSecondary }]}>COLLECTIONS</Text>
           </View>
-          <Text style={[styles.sectionCount, { color: palette.textTertiary }]}>7 destinations</Text>
+          <Text style={[styles.sectionCount, { color: palette.textTertiary }]}>{menuItems.length} destinations</Text>
         </View>
 
         <View style={styles.list}>
