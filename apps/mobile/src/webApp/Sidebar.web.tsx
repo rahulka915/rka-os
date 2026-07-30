@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { Home, Inbox, ListTodo, CalendarDays, CalendarRange, Archive, Folder, ChevronRight, ChevronDown, Plus } from 'lucide-react-native';
+import { Home, Inbox, ListTodo, CalendarDays, CalendarRange, Archive, Settings, Folder, ChevronRight, ChevronDown, Plus } from 'lucide-react-native';
 import { useAreas, useProjects } from '../hooks/useDb';
 import { getAreaProjectCount, getProjectItemCount, getProjectsForArea, getRelation, createItem } from '../db/database';
 import { webColors, webSpacing, webRadius, webFontSize } from '../theme/webTheme';
 
-export type SidebarView = 'home' | 'inbox' | 'tasks' | 'upcoming' | 'areas' | 'calendar' | 'archive';
+export type SidebarView = 'home' | 'inbox' | 'tasks' | 'upcoming' | 'areas' | 'calendar' | 'archive' | 'settings';
 
 export interface SidebarProps {
   activeView: SidebarView;
@@ -186,6 +186,20 @@ export function Sidebar({
           </View>
         ) : null}
       </ScrollView>
+
+      <View style={styles.footer}>
+        <Pressable
+          onPress={() => onSelectView('settings')}
+          style={[styles.navRow, activeView === 'settings' && styles.navRowActive]}
+        >
+          <Settings
+            size={18}
+            color={activeView === 'settings' ? webColors.accent : webColors.mutedForeground}
+            strokeWidth={1.75}
+          />
+          <Text style={[styles.navLabel, activeView === 'settings' && styles.navLabelActive]}>Settings</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -299,6 +313,11 @@ const styles = StyleSheet.create({
   },
   treeSection: {
     flex: 1,
+  },
+  footer: {
+    paddingTop: webSpacing[3],
+    borderTopWidth: 1,
+    borderTopColor: webColors.border,
   },
   treeCount: {
     fontSize: webFontSize.xs,

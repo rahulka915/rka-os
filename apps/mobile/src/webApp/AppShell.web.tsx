@@ -8,6 +8,7 @@ import { AreasProjectsScreen } from './AreasProjectsScreen';
 import { CalendarScreen } from './CalendarScreen';
 import { UpcomingScreen } from './UpcomingScreen';
 import { ArchiveScreen } from './ArchiveScreen';
+import { SettingsScreen } from './SettingsScreen';
 import { useInbox } from '../hooks/useDb';
 import { webColors } from '../theme/webTheme';
 
@@ -41,6 +42,7 @@ export function AppShell() {
   else if (activeView === 'upcoming') content = <UpcomingScreen />;
   else if (activeView === 'calendar') content = <CalendarScreen />;
   else if (activeView === 'archive') content = <ArchiveScreen />;
+  else if (activeView === 'settings') content = <SettingsScreen />;
   else
     content = (
       <AreasProjectsScreen
