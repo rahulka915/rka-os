@@ -31,6 +31,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { deleteField } from 'firebase/firestore';
 import { nextOccurrenceDate, parseRepeatRule, dayMatchesRepeat } from '../utils/repeat';
 import { buildTimelineEntries } from './timelineEntry';
+import { getTimeOfDayFromHour, normalizeTimeInput, timeToMinutes, type TimeOfDay } from '../utils/time';
 import type { Item, ItemInstance, ActivityLog } from './types';
 import {
   getItemsSnapshot,
@@ -45,6 +46,7 @@ import {
   deleteItemRelationDoc,
   replaceItemOrder,
   putItemInstance,
+  deletePendingInstancesForItem,
 } from './firestoreWebStore';
 
 function notImplementedOnWeb(name: string): never {
@@ -380,6 +382,166 @@ export function getTimelineEntriesForDate(date: string): TimelineEntry[] {
   return buildTimelineEntries(getItemsForDate(date), getInstancesForDate(date));
 }
 
+export function createTimedItem(
+  type: Item['type'],
+  title: string,
+  scheduledDate: string,
+  time: string,
+  notes?: string,
+): { itemId: string; instanceId: string } {
+  const normalizedTime = normalizeTimeInput(time) ?? '09:00';
+  const itemId = createItem(type, title, 'scheduled', scheduledDate, notes);
+  const timeOfDay = getTimeOfDayFromHour(Math.floor(timeToMinutes(normalizedTime)! / 60));
+  const nextMeta = { time: normalizedTime, timeOfDay, preferredTimeBucket: 'anytime', durationMinutes: 45 };
+  updateItemMetadata(itemId, nextMeta);
+
+  const now = Date.now();
+  const instanceId = uuid();
+  write(
+    putItemInstance({
+      id: instanceId,
+      itemId,
+      scheduledDate,
+      status: 'pending',
+      instanceMetadata: JSON.stringify(nextMeta),
+      createdAt: now,
+      updatedAt: now,
+    }),
+    'createTimedItem'
+  );
+
+  return { itemId, instanceId };
+}
+
+export function updateTimelineItemTime(id: string, time: string, timeOfDay?: TimeOfDay): void {
+  const item = getItemWithMetadata(id);
+  if (!item) return;
+
+  const normalizedTime = normalizeTimeInput(time);
+  if (!normalizedTime) return;
+
+  const meta = item.metadata ? JSON.parse(item.metadata) : {};
+  const nextTimeOfDay = timeOfDay ?? getTimeOfDayFromHour(Math.floor(timeToMinutes(normalizedTime)! / 60));
+  const preferredTimeBucket = meta.preferredTimeBucket ?? meta.timeOfDay ?? 'anytime';
+  updateItemMetadata(id, {
+    ...meta,
+    time: normalizedTime,
+    timeOfDay: nextTimeOfDay,
+    preferredTimeBucket,
+  });
+
+  // Newest instance on the item's own scheduled date, matching the ORDER BY
+  // createdAt DESC LIMIT 1 in database.ts.
+  const instance = getInstancesForDate(item.scheduledDate ?? '')
+    .filter((i) => i.itemId === id)
+    .sort((a, b) => b.createdAt - a.createdAt)[0];
+
+  if (instance) {
+    const parsed = instance.instanceMetadata ? JSON.parse(instance.instanceMetadata) : {};
+    const instancePreferredTimeBucket = parsed.preferredTimeBucket ?? preferredTimeBucket;
+    updateInstanceMetadata(instance.id, {
+      ...parsed,
+      time: normalizedTime,
+      timeOfDay: nextTimeOfDay,
+      preferredTimeBucket: instancePreferredTimeBucket,
+    });
+  }
+}
+
+export function updateTimelineItemSchedule(id: string, scheduledDate?: string, time?: string): void {
+  const item = getItemWithMetadata(id);
+  if (!item) return;
+
+  const metadata: Record<string, unknown> = item.metadata ? JSON.parse(item.metadata) : {};
+  const now = Date.now();
+
+  if (!scheduledDate) {
+    delete metadata.time;
+    delete metadata.timeOfDay;
+    write(
+      patchItem(id, {
+        scheduledDate: deleteField(),
+        status: item.status === 'scheduled' ? 'active' : item.status,
+        metadata: JSON.stringify(metadata),
+        updatedAt: now,
+      }),
+      'updateTimelineItemSchedule'
+    );
+    write(deletePendingInstancesForItem(id), 'updateTimelineItemSchedule');
+    return;
+  }
+
+  if (!time) {
+    // Date-only: keep the date, drop the time-of-day and any pending timed
+    // instance that went with it, but don't clear the date itself.
+    delete metadata.time;
+    delete metadata.timeOfDay;
+    write(
+      patchItem(id, {
+        scheduledDate,
+        status: 'scheduled',
+        metadata: JSON.stringify(metadata),
+        updatedAt: now,
+      }),
+      'updateTimelineItemSchedule'
+    );
+    write(deletePendingInstancesForItem(id), 'updateTimelineItemSchedule');
+    return;
+  }
+
+  const normalizedTime = normalizeTimeInput(time);
+  if (!normalizedTime) return;
+  const timeOfDay = getTimeOfDayFromHour(Math.floor(timeToMinutes(normalizedTime)! / 60));
+  const preferredTimeBucket = metadata.preferredTimeBucket ?? metadata.timeOfDay ?? 'anytime';
+  const nextMetadata = { ...metadata, time: normalizedTime, timeOfDay, preferredTimeBucket };
+
+  write(
+    patchItem(id, {
+      scheduledDate,
+      status: 'scheduled',
+      metadata: JSON.stringify(nextMetadata),
+      updatedAt: now,
+    }),
+    'updateTimelineItemSchedule'
+  );
+
+  const instance = getItemInstancesSnapshot()
+    .filter((i) => i.itemId === id && i.status === 'pending')
+    .sort((a, b) => b.createdAt - a.createdAt)[0];
+
+  if (instance) {
+    const instanceMetadata = instance.instanceMetadata ? JSON.parse(instance.instanceMetadata) : {};
+    const instancePreferredTimeBucket = instanceMetadata.preferredTimeBucket ?? preferredTimeBucket;
+    write(
+      putItemInstance({
+        ...instance,
+        scheduledDate,
+        instanceMetadata: JSON.stringify({
+          ...instanceMetadata,
+          time: normalizedTime,
+          timeOfDay,
+          preferredTimeBucket: instancePreferredTimeBucket,
+        }),
+        updatedAt: now,
+      }),
+      'updateTimelineItemSchedule'
+    );
+  } else {
+    write(
+      putItemInstance({
+        id: uuid(),
+        itemId: id,
+        scheduledDate,
+        status: 'pending',
+        instanceMetadata: JSON.stringify({ time: normalizedTime, timeOfDay }),
+        createdAt: now,
+        updatedAt: now,
+      }),
+      'updateTimelineItemSchedule'
+    );
+  }
+}
+
 // ── Instances ──────────────────────────────────────────────────────────
 
 export function getInstancesForDate(date: string): ItemInstance[] {
@@ -528,22 +690,6 @@ export function getLastTakenLog(_itemId: string): ActivityLog | null {
   return notImplementedOnWeb('getLastTakenLog');
 }
 
-// TODO(web-companion): not yet ported — calendar/timeline, Plan 2
-export function createTimedItem(
-  _type: Item['type'],
-  _title: string,
-  _scheduledDate: string,
-  _time: string,
-  _notes?: string,
-): { itemId: string; instanceId: string } {
-  return notImplementedOnWeb('createTimedItem');
-}
-export function updateTimelineItemTime(_id: string, _time: string): void {
-  notImplementedOnWeb('updateTimelineItemTime');
-}
-export function updateTimelineItemSchedule(_id: string, _scheduledDate?: string, _time?: string): void {
-  notImplementedOnWeb('updateTimelineItemSchedule');
-}
 
 // TODO(web-companion): not yet ported — GTD triage, Plan 2
 export function processInboxItem(_id: string, _destination: GtdDestination): void {
