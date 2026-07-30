@@ -4,6 +4,8 @@ One SQLite database (`rka-os.db`), one master table per concept, plus a generic 
 
 This file is the source of truth for the schema. Update it whenever `src/db/database.ts`'s `initSchema()` or an entity's `metadata` shape changes. For a live, clickable version of this same schema (with a form to propose new relations), ask Claude to show the interactive entity-schema widget in chat.
 
+> **Naming note:** the `type` discriminator, column names, `relationType` values, and identifiers throughout the codebase (`ItemType`, `getRelation(id, 'area')`, `AreasScreen.tsx`, `getProjectItemCount`, etc.) all use the literal words **`area`** and **`project`** — these are internal/code names and are never renamed. Every *user-facing* string, however, must say **"Domain"** (for `area`) and **"Mission"** (for `project`) instead — this is an established product-vocabulary decision, not a bug. If you're adding a new screen, alert, label, or empty-state copy that surfaces an area/project entity to the user, use "Domain"/"Mission", not "Area"/"Project".
+
 ## Relation graph
 
 ```mermaid
@@ -70,8 +72,8 @@ Supporting tables, not part of the entity/relation model: `itemInstances` tracks
 
 | Type | Status | Type-specific `metadata` fields |
 |---|---|---|
-| `area` | built | none yet |
-| `project` | built | none yet (area link lives in `itemRelations`, not metadata) |
+| `area` (user-facing: **Domain**) | built | none yet |
+| `project` (user-facing: **Mission**) | built | none yet (area link lives in `itemRelations`, not metadata) |
 | `task` | built | `gtdContext` (`today`\|`morning`\|`evening`\|`someday`\|`project`\|`area`\|`habit`\|`medication`\|`reference`), `timeOfDay` (`morning`\|`evening`) |
 | `habit` | built | `gtdContext` (set to `'habit'` on triage) |
 | `medication` | built | `dose`, `stockRemaining` (derived total, see Packaging below), `initialStock`, `refillThreshold`, `lastTakenAt`, `maxPerDay`, `minHoursBetweenDoses`, `frequency`, `containerLabel`, `containerSize`, `containersPerRestock`, `sheetsPerContainer`, `pillsPerSheet`, `packagingNote`, `containers[]` |

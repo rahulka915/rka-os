@@ -17,7 +17,7 @@ export function ProjectStep({ projects, selectedProjectId, onAnswer }: ProjectSt
       <Text style={[styles.prompt, { color: mat.platinum }]}>Where does this belong?</Text>
       <ScrollView showsVerticalScrollIndicator={false}>
         <TriageOptionRow
-          label="No project"
+          label="No mission"
           selected={selectedProjectId === null}
           onPress={() => onAnswer(null)}
         />

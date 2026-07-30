@@ -102,7 +102,7 @@ export function AssistantOverlay({ onClose }: AssistantOverlayProps) {
         >
           {turns.length === 0 ? (
             <Text style={[styles.empty, { color: mat.platinumMuted }]}>
-              Ask about your tasks, projects, medications, or domains — I can see your current data
+              Ask about your tasks, missions, medications, or domains — I can see your current data
               but can't change anything yet.
             </Text>
           ) : null}

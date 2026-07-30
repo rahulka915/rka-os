@@ -30,7 +30,7 @@ export function ReviewStep({ priority, when, projectTitle, onConfirm }: ReviewSt
         <ReviewRow label="Type" value="Task" />
         <ReviewRow label="Importance" value={PRIORITY_LABELS[priority]} />
         <ReviewRow label="When" value={WHEN_LABELS[when]} />
-        <ReviewRow label="Project" value={projectTitle ?? 'None'} />
+        <ReviewRow label="Mission" value={projectTitle ?? 'None'} />
       </View>
       <TouchableOpacity
         style={[styles.confirmButton, { backgroundColor: mat.accent }]}
