@@ -44,6 +44,7 @@ export function AppShell() {
         selectedProjectId={selectedProjectId}
         onSelectArea={handleSelectArea}
         onSelectProject={handleSelectProject}
+        onClearSelection={handleSelectAreasOverview}
       />
     );
 

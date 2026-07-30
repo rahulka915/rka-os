@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { Check, Plus } from 'lucide-react-native';
+import { Check, Pencil, Plus } from 'lucide-react-native';
 import { useAreas, useProjects } from '../hooks/useDb';
 import {
   createItem,
@@ -13,6 +13,7 @@ import {
 } from '../db/database';
 import { DetailPanel } from './DetailPanel';
 import { ItemDetailForm } from './ItemDetailForm';
+import { DomainMissionDetailForm } from './DomainMissionDetailForm';
 import { webColors, webSpacing, webRadius, webFontSize } from '../theme/webTheme';
 import type { Item } from '../db/types';
 
@@ -21,6 +22,7 @@ export interface AreasProjectsScreenProps {
   selectedProjectId: string | null;
   onSelectArea: (id: string) => void;
   onSelectProject: (id: string) => void;
+  onClearSelection: () => void;
 }
 
 export function AreasProjectsScreen({
@@ -28,14 +30,46 @@ export function AreasProjectsScreen({
   selectedProjectId,
   onSelectArea,
   onSelectProject,
+  onClearSelection,
 }: AreasProjectsScreenProps) {
-  const { areas } = useAreas();
+  const { areas, refresh: refreshAreas } = useAreas();
   const { projects, refresh: refreshProjects } = useProjects();
   const [captureText, setCaptureText] = useState('');
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [editingItem, setEditingItem] = useState<Item | null>(null);
 
   const selectedArea = areas.find((a) => a.id === selectedAreaId) ?? null;
   const selectedProject = projects.find((p) => p.id === selectedProjectId) ?? null;
+
+  const closeEdit = () => setEditingItem(null);
+  const handleEditChanged = () => {
+    refreshAreas();
+    refreshProjects();
+  };
+  const handleEditDeleted = () => {
+    const wasViewing = editingItem?.id === selectedAreaId || editingItem?.id === selectedProjectId;
+    setEditingItem(null);
+    refreshAreas();
+    refreshProjects();
+    if (wasViewing) onClearSelection();
+  };
+
+  const editPanel = (
+    <DetailPanel
+      visible={!!editingItem}
+      onClose={closeEdit}
+      title={editingItem?.type === 'area' ? 'Domain' : 'Mission'}
+    >
+      {editingItem ? (
+        <DomainMissionDetailForm
+          item={editingItem}
+          domains={areas}
+          onChanged={handleEditChanged}
+          onDeleted={handleEditDeleted}
+        />
+      ) : null}
+    </DetailPanel>
+  );
 
   if (selectedProject) {
     const areaId = getRelation(selectedProject.id, 'area');
@@ -61,7 +95,12 @@ export function AreasProjectsScreen({
       <View style={styles.container}>
         <View style={styles.scrollContent}>
           <View style={styles.header}>
-            <Text style={styles.title}>{selectedProject.title}</Text>
+            <View style={styles.headerTitleRow}>
+              <Text style={styles.title}>{selectedProject.title}</Text>
+              <Pressable onPress={() => setEditingItem(selectedProject)} style={styles.iconButton}>
+                <Pencil size={14} color={webColors.mutedForeground} strokeWidth={1.75} />
+              </Pressable>
+            </View>
             <Text style={styles.subtitle}>{areaName ?? 'No domain'}</Text>
           </View>
 
@@ -119,6 +158,7 @@ export function AreasProjectsScreen({
             />
           ) : null}
         </DetailPanel>
+        {editPanel}
       </View>
     );
   }
@@ -139,7 +179,12 @@ export function AreasProjectsScreen({
       <View style={styles.container}>
         <View style={styles.scrollContent}>
           <View style={styles.header}>
-            <Text style={styles.title}>{selectedArea.title}</Text>
+            <View style={styles.headerTitleRow}>
+              <Text style={styles.title}>{selectedArea.title}</Text>
+              <Pressable onPress={() => setEditingItem(selectedArea)} style={styles.iconButton}>
+                <Pencil size={14} color={webColors.mutedForeground} strokeWidth={1.75} />
+              </Pressable>
+            </View>
           </View>
 
           <View style={styles.captureRow}>
@@ -165,11 +210,21 @@ export function AreasProjectsScreen({
                 <Pressable style={styles.row} onPress={() => onSelectProject(item.id)}>
                   <Text style={styles.rowTitle} numberOfLines={1}>{item.title}</Text>
                   <Text style={styles.rowCount}>{getProjectItemCount(item.id)}</Text>
+                  <Pressable
+                    onPress={(event) => {
+                      event.stopPropagation();
+                      setEditingItem(item);
+                    }}
+                    style={styles.iconButton}
+                  >
+                    <Pencil size={14} color={webColors.mutedForeground} strokeWidth={1.75} />
+                  </Pressable>
                 </Pressable>
               )}
             />
           )}
         </View>
+        {editPanel}
       </View>
     );
   }
@@ -192,11 +247,21 @@ export function AreasProjectsScreen({
               <Pressable style={styles.row} onPress={() => onSelectArea(item.id)}>
                 <Text style={styles.rowTitle} numberOfLines={1}>{item.title}</Text>
                 <Text style={styles.rowCount}>{getAreaProjectCount(item.id)}</Text>
+                <Pressable
+                  onPress={(event) => {
+                    event.stopPropagation();
+                    setEditingItem(item);
+                  }}
+                  style={styles.iconButton}
+                >
+                  <Pencil size={14} color={webColors.mutedForeground} strokeWidth={1.75} />
+                </Pressable>
               </Pressable>
             )}
           />
         )}
       </View>
+      {editPanel}
     </View>
   );
 }
@@ -215,6 +280,11 @@ const styles = StyleSheet.create({
   },
   header: {
     gap: webSpacing[1],
+  },
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: webSpacing[2],
   },
   title: {
     fontSize: webFontSize.xl,
@@ -267,6 +337,13 @@ const styles = StyleSheet.create({
   rowCount: {
     fontSize: webFontSize.xs,
     color: webColors.mutedForeground,
+  },
+  iconButton: {
+    width: 24,
+    height: 24,
+    borderRadius: webRadius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   checkbox: {
     width: 18,
