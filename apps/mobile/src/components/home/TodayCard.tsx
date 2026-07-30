@@ -1,11 +1,17 @@
-import { memo, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { NestedReorderableList } from 'react-native-reorderable-list';
 import { LacquerDiscControl } from '../ui/LacquerDiscControl';
+import { DragHandleButton } from '../ui/DragHandleButton';
 import { DeadlineBadge } from '../DeadlineBadge';
 import { ChevronRight } from '../../icons';
 import { getThemeColors } from '../../theme';
+import { applyManualOrder } from '../../db/database';
+import { useHapticReorder } from '../../hooks/useHapticReorder';
 import type { Item } from '../../db/types';
 import type { UpcomingGroup } from '../../utils/upcomingGrouping';
+
+const TODAY_LIST_KEY = 'home:today';
 
 interface TodayCardProps {
   items: Item[];
@@ -53,6 +59,7 @@ const TodayTaskRow = memo(function TodayTaskRow({
           {item.title}
         </Text>
       </TouchableOpacity>
+      <DragHandleButton color={palette.textMuted} />
     </View>
   );
 });
@@ -81,17 +88,6 @@ const UpcomingTaskRow = memo(function UpcomingTaskRow({
   );
 });
 
-// Overdue items surface first so they're not buried in the day's list; the
-// remainder keep whatever order useHomeData's todayItems already returns
-// them in (no secondary sort key worth relying on there).
-function sortTodayItems(items: Item[]): Item[] {
-  return [...items].sort((a, b) => {
-    const aOverdue = a.status === 'overdue' ? 0 : 1;
-    const bOverdue = b.status === 'overdue' ? 0 : 1;
-    return aOverdue - bOverdue;
-  });
-}
-
 export function TodayCard({
   items,
   completingIds,
@@ -103,8 +99,17 @@ export function TodayCard({
 }: TodayCardProps) {
   const palette = getThemeColors(isDark);
   const [activeTab, setActiveTab] = useState<TodayTab>('today');
-  const sorted = sortTodayItems(items);
   const hasUpcoming = upcomingGroups.some((group) => group.items.length > 0);
+
+  // Manual drag order takes over from here — items land in their
+  // last-persisted order (new items with no stored position fall to the
+  // end). Overdue styling stays per-row (see TodayTaskRow), independent of
+  // this order.
+  const [ordered, setOrdered] = useState<Item[]>([]);
+  useEffect(() => {
+    setOrdered(applyManualOrder(TODAY_LIST_KEY, items));
+  }, [items]);
+  const { onDragStart, onIndexChange, onReorder } = useHapticReorder(TODAY_LIST_KEY, ordered, setOrdered);
 
   return (
     <View style={styles.container}>
@@ -128,24 +133,29 @@ export function TodayCard({
       </View>
 
       {activeTab === 'today' ? (
-        sorted.length === 0 ? (
+        ordered.length === 0 ? (
           <View style={styles.empty}>
             <Text style={[styles.emptyTitle, { color: palette.text }]}>Nothing to do today</Text>
             <Text style={[styles.emptySub, { color: palette.textSecondary }]}>Enjoy the calm</Text>
           </View>
         ) : (
-          <View style={styles.rows}>
-            {sorted.map((item) => (
+          <NestedReorderableList
+            data={ordered}
+            keyExtractor={(item, index) => item?.id ?? String(index)}
+            renderItem={({ item }: { item: Item }) => (
               <TodayTaskRow
-                key={item.id}
                 item={item}
                 isDark={isDark}
                 isCompleting={completingIds.has(item.id)}
                 onComplete={onComplete}
                 onOpen={onOpen}
               />
-            ))}
-          </View>
+            )}
+            onDragStart={onDragStart}
+            onIndexChange={onIndexChange}
+            onReorder={onReorder}
+            scrollable={false}
+          />
         )
       ) : !hasUpcoming ? (
         <View style={styles.empty}>
