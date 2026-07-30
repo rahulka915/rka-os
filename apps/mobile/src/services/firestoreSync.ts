@@ -8,11 +8,12 @@ import {
 } from 'firebase/firestore';
 import { firestore, hasFirebaseConfig } from '../lib/firebase';
 import { getDb, getItemById } from '../db/database';
-import type { Item, ItemInstance } from '../db/types';
+import type { Item, ItemInstance, ItemRelationRow } from '../db/types';
 
 let currentUserId: string | null = null;
 let itemsUnsubscribe: Unsubscribe | null = null;
 let instancesUnsubscribe: Unsubscribe | null = null;
+let itemRelationsUnsubscribe: Unsubscribe | null = null;
 let isApplyingRemoteChange = false;
 
 // Remove undefined values because Firestore errors on undefined fields
@@ -65,6 +66,34 @@ export async function deleteItemFromFirestore(userId: string, itemId: string): P
     await deleteDoc(itemRef);
   } catch (err) {
     console.warn('[firestoreSync] deleteItem error:', err);
+  }
+}
+
+/**
+ * Pushes a single item relation to Firestore for the active user.
+ */
+export async function pushItemRelationToFirestore(userId: string, relation: ItemRelationRow): Promise<void> {
+  if (!hasFirebaseConfig || !firestore || !userId || isApplyingRemoteChange) return;
+
+  try {
+    const relationRef = doc(firestore, 'users', userId, 'itemRelations', relation.id);
+    await setDoc(relationRef, sanitizeForFirestore(relation), { merge: true });
+  } catch (err) {
+    console.warn('[firestoreSync] pushItemRelation error:', err);
+  }
+}
+
+/**
+ * Deletes an item relation from Firestore.
+ */
+export async function deleteItemRelationFromFirestore(userId: string, relationId: string): Promise<void> {
+  if (!hasFirebaseConfig || !firestore || !userId || isApplyingRemoteChange) return;
+
+  try {
+    const relationRef = doc(firestore, 'users', userId, 'itemRelations', relationId);
+    await deleteDoc(relationRef);
+  } catch (err) {
+    console.warn('[firestoreSync] deleteItemRelation error:', err);
   }
 }
 
@@ -205,6 +234,56 @@ export function startRealtimeSync(userId: string, onLocalChange?: () => void): U
     }
   );
 
+  // Listen to remote itemRelations subcollection
+  const itemRelationsRef = collection(firestore, 'users', userId, 'itemRelations');
+  itemRelationsUnsubscribe = onSnapshot(
+    itemRelationsRef,
+    (snapshot) => {
+      isApplyingRemoteChange = true;
+      let hasMutatedLocal = false;
+
+      try {
+        db.withTransactionSync(() => {
+          snapshot.docChanges().forEach((change) => {
+            const remote = change.doc.data() as ItemRelationRow;
+            if (!remote.id) return;
+
+            if (change.type === 'added' || change.type === 'modified') {
+              const localRows = db.getAllSync<{ createdAt: number }>(
+                `SELECT createdAt FROM itemRelations WHERE id = ?`,
+                [remote.id]
+              );
+              const local = localRows[0];
+
+              if (!local || (remote.createdAt && remote.createdAt >= local.createdAt)) {
+                db.runSync(
+                  `INSERT OR REPLACE INTO itemRelations (id, sourceId, targetId, relationType, createdAt)
+                   VALUES (?, ?, ?, ?, ?)`,
+                  [remote.id, remote.sourceId, remote.targetId, remote.relationType, remote.createdAt ?? Date.now()]
+                );
+                hasMutatedLocal = true;
+              }
+            } else if (change.type === 'removed') {
+              db.runSync(`DELETE FROM itemRelations WHERE id = ?`, [remote.id]);
+              hasMutatedLocal = true;
+            }
+          });
+        });
+      } catch (err) {
+        console.warn('[firestoreSync] local itemRelations apply error:', err);
+      } finally {
+        isApplyingRemoteChange = false;
+      }
+
+      if (hasMutatedLocal && onLocalChange) {
+        onLocalChange();
+      }
+    },
+    (error) => {
+      console.warn('[firestoreSync] itemRelations listener error:', error);
+    }
+  );
+
   return stopRealtimeSync;
 }
 
@@ -219,6 +298,10 @@ export function stopRealtimeSync(): void {
   if (instancesUnsubscribe) {
     instancesUnsubscribe();
     instancesUnsubscribe = null;
+  }
+  if (itemRelationsUnsubscribe) {
+    itemRelationsUnsubscribe();
+    itemRelationsUnsubscribe = null;
   }
   currentUserId = null;
 }

@@ -44,3 +44,23 @@ export interface ActivityLog {
   details?: string;
   createdAt: number;
 }
+
+export interface ItemRelationRow {
+  id: string;
+  sourceId: string;
+  targetId: string;
+  relationType: string;
+  createdAt: number;
+}
+
+export interface ItemOrderRow {
+  listKey: string;
+  itemId: string;
+  position: number;
+}
+
+export interface AppSettingRow {
+  key: string;
+  value: string;
+  updatedAt: number;
+}

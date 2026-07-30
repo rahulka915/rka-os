@@ -7,7 +7,7 @@ import { resolveAutoStopAfterMs } from '../domain/medicationTimer/timerMath';
 import { nextOccurrenceDate, parseRepeatRule, dayMatchesRepeat } from '../utils/repeat';
 import { countDosesByDay } from '../utils/medicationDoseHistory';
 
-import { getCurrentSyncUserId, pushItemToFirestore } from '../services/firestoreSync';
+import { getCurrentSyncUserId, pushItemToFirestore, pushItemRelationToFirestore, deleteItemRelationFromFirestore } from '../services/firestoreSync';
 
 let db: SQLite.SQLiteDatabase;
 
@@ -178,15 +178,39 @@ export function getItemsByType(type: string): Item[] {
 
 export function setRelation(sourceId: string, relationType: string, targetId: string | null): void {
   if (targetId === null) {
+    const existing = getDb().getAllSync<{ id: string }>(
+      `SELECT id FROM itemRelations WHERE sourceId = ? AND relationType = ?`,
+      [sourceId, relationType]
+    );
     getDb().runSync(`DELETE FROM itemRelations WHERE sourceId = ? AND relationType = ?`, [sourceId, relationType]);
+    const userId = getCurrentSyncUserId();
+    if (userId) {
+      for (const row of existing) {
+        deleteItemRelationFromFirestore(userId, row.id).catch(() => {});
+      }
+    }
     return;
   }
+  const id = uuidv4();
+  const createdAt = Date.now();
   getDb().runSync(
     `INSERT INTO itemRelations (id, sourceId, targetId, relationType, createdAt)
      VALUES (?, ?, ?, ?, ?)
      ON CONFLICT(sourceId, relationType) DO UPDATE SET targetId = excluded.targetId`,
-    [uuidv4(), sourceId, targetId, relationType, Date.now()]
+    [id, sourceId, targetId, relationType, createdAt]
   );
+  const userId = getCurrentSyncUserId();
+  if (userId) {
+    // Read back the row so an upsert (ON CONFLICT branch) pushes the existing
+    // id/createdAt rather than the freshly generated ones from this call.
+    const row = getDb().getAllSync<{ id: string; createdAt: number }>(
+      `SELECT id, createdAt FROM itemRelations WHERE sourceId = ? AND relationType = ?`,
+      [sourceId, relationType]
+    )[0];
+    if (row) {
+      pushItemRelationToFirestore(userId, { id: row.id, sourceId, targetId, relationType, createdAt: row.createdAt }).catch(() => {});
+    }
+  }
 }
 
 export function getRelation(sourceId: string, relationType: string): string | null {
