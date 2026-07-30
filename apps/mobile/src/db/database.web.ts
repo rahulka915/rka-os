@@ -30,6 +30,7 @@ import 'react-native-get-random-values';
 import { v4 as uuidv4 } from 'uuid';
 import { deleteField } from 'firebase/firestore';
 import { nextOccurrenceDate, parseRepeatRule, dayMatchesRepeat } from '../utils/repeat';
+import { buildTimelineEntries } from './timelineEntry';
 import type { Item, ItemInstance, ActivityLog } from './types';
 import {
   getItemsSnapshot,
@@ -367,6 +368,18 @@ export function getProjectsForArea(areaId: string): Item[] {
   return getRelatedItems(areaId, 'area');
 }
 
+// ── Calendar ───────────────────────────────────────────────────────────
+
+export function getItemsForDate(date: string): Item[] {
+  return getItemsSnapshot()
+    .filter((i) => i.scheduledDate === date && i.deletedAt == null)
+    .sort((a, b) => a.createdAt - b.createdAt);
+}
+
+export function getTimelineEntriesForDate(date: string): TimelineEntry[] {
+  return buildTimelineEntries(getItemsForDate(date), getInstancesForDate(date));
+}
+
 // ── Instances ──────────────────────────────────────────────────────────
 
 export function getInstancesForDate(date: string): ItemInstance[] {
@@ -516,12 +529,6 @@ export function getLastTakenLog(_itemId: string): ActivityLog | null {
 }
 
 // TODO(web-companion): not yet ported — calendar/timeline, Plan 2
-export function getItemsForDate(_date: string): Item[] {
-  return notImplementedOnWeb('getItemsForDate');
-}
-export function getTimelineEntriesForDate(_date: string): TimelineEntry[] {
-  return notImplementedOnWeb('getTimelineEntriesForDate');
-}
 export function createTimedItem(
   _type: Item['type'],
   _title: string,
