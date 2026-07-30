@@ -39,9 +39,11 @@ direction already set, and every other desktop screen is single-list, not grid-b
   Empty title is a no-op, matching every other capture bar's guard.
 - **List**: `useCalendar(viewedDate).timelineEntries`, already time-sorted with untimed last (per
   `buildTimelineEntries`). Each row: time label (`entry.time` or "Anytime", muted, fixed-width
-  left column) + title + checkbox. Checkbox toggles via `completeInstance(entry.instance.id)`
-  when an instance exists, else falls back to `updateItemStatus(entry.item.id, ...)` — same
-  dual-path mobile already uses for timeline entries. Row click opens the shared
+  left column) + title + checkbox. Checkbox toggles `updateItemStatus(entry.item.id, ...)`
+  between `'active'` and `'completed'` — same mechanism every other desktop screen's row
+  checkbox already uses (Home, Tasks, Areas & Projects), kept consistent rather than introducing
+  `completeInstance`'s one-way (no uncomplete) instance-level completion just for this screen.
+  Row click opens the shared
   `DetailPanel`/`ItemDetailForm` on `entry.item` (consistent with every other screen — editing
   targets the item, not the instance). Empty state: "Nothing scheduled for this day."
 
@@ -63,6 +65,6 @@ direction already set, and every other desktop screen is single-list, not grid-b
 - **Consistency:** reuses `webColors`/`webSpacing`/`webRadius`/`webFontSize`, the same
   capture-bar/row/`DetailPanel` patterns as every prior phase.
 - **Scope:** one new screen + two small edits, same shape as Home and Areas & Projects.
-- **Ambiguity resolved:** checkbox completes via instance when present, else via item status —
-  matches the exact fallback mobile's own timeline UI relies on, since `createTimedItem` always
-  creates an instance but manually-triaged scheduled items (via `processInboxItem`) may not.
+- **Ambiguity resolved:** checkbox completion targets the item's status, not the instance —
+  chosen for consistency with every other desktop row checkbox rather than mobile's
+  instance-level completion, and because `completeInstance` has no uncomplete path.
