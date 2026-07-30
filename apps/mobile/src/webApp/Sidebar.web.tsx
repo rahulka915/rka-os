@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { Home, Inbox, ListTodo, CalendarDays, CalendarRange, Archive, Settings, ShoppingBag, Folder, ChevronRight, ChevronDown, Plus } from 'lucide-react-native';
+import { Home, Inbox, ListTodo, CalendarDays, CalendarRange, Archive, Settings, ShoppingBag, Pill, Folder, ChevronRight, ChevronDown, Plus } from 'lucide-react-native';
 import { useAreas, useProjects } from '../hooks/useDb';
 import { getAreaProjectCount, getProjectItemCount, getProjectsForArea, getRelation, createItem } from '../db/database';
 import { webColors, webSpacing, webRadius, webFontSize } from '../theme/webTheme';
 
-export type SidebarView = 'home' | 'inbox' | 'tasks' | 'upcoming' | 'areas' | 'calendar' | 'archive' | 'objects' | 'settings';
+export type SidebarView = 'home' | 'inbox' | 'tasks' | 'upcoming' | 'areas' | 'calendar' | 'archive' | 'objects' | 'medications' | 'workouts' | 'settings';
 
 export interface SidebarProps {
   activeView: SidebarView;
@@ -26,6 +26,7 @@ const NAV_ITEMS: Array<{ view: SidebarView; label: string; Icon: typeof Inbox }>
   { view: 'calendar', label: 'Calendar', Icon: CalendarDays },
   { view: 'archive', label: 'Archive', Icon: Archive },
   { view: 'objects', label: 'To Get', Icon: ShoppingBag },
+  { view: 'medications', label: 'Medications', Icon: Pill },
 ];
 
 export function Sidebar({

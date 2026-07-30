@@ -32,6 +32,7 @@ import { deleteField } from 'firebase/firestore';
 import { nextOccurrenceDate, parseRepeatRule, dayMatchesRepeat } from '../utils/repeat';
 import { buildTimelineEntries } from './timelineEntry';
 import { getTimeOfDayFromHour, normalizeTimeInput, timeToMinutes, type TimeOfDay } from '../utils/time';
+import { countDosesByDay } from '../utils/medicationDoseHistory';
 import type { Item, ItemInstance, ActivityLog } from './types';
 import {
   getItemsSnapshot,
@@ -42,6 +43,8 @@ import {
   putItem,
   patchItem,
   putActivityLogDoc,
+  patchActivityLogDoc,
+  deleteActivityLogDoc,
   putItemRelation,
   deleteItemRelationDoc,
   replaceItemOrder,
@@ -688,6 +691,13 @@ export function getTodayLogs(): ActivityLog[] {
     .sort((a, b) => b.timestamp - a.timestamp);
 }
 
+export function getMedicationLogs(itemId: string, limit = 10): ActivityLog[] {
+  return getActivityLogsSnapshot()
+    .filter((l) => l.entityId === itemId && l.actionType === 'medication-taken')
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .slice(0, limit);
+}
+
 // TODO(web-companion): not yet ported — raw SQLite handle, meaningless on web
 export function getDb(): never {
   return notImplementedOnWeb('getDb');
@@ -698,9 +708,12 @@ export function syncItemToRemote(_id: string): void {
   notImplementedOnWeb('syncItemToRemote');
 }
 
-// TODO(web-companion): not yet ported — medication tracking (future sub-project)
-export function getTotalStock(_meta: MedicationMeta): number {
-  return notImplementedOnWeb('getTotalStock');
+// Stock/container helpers ported verbatim from database.ts (pure functions over
+// MedicationMeta, no SQLite/Firestore access — safe to duplicate rather than share,
+// since database.ts's copies are private (unexported) implementation details).
+export function getTotalStock(meta: MedicationMeta): number {
+  if (meta.containers) return meta.containers.reduce((sum, c) => sum + c.remaining, 0);
+  return meta.stockRemaining ?? 0;
 }
 export function getStockBreakdown(_meta: MedicationMeta): StockBreakdown | null {
   return notImplementedOnWeb('getStockBreakdown');
@@ -708,38 +721,104 @@ export function getStockBreakdown(_meta: MedicationMeta): StockBreakdown | null 
 export function getContainerSummary(_meta: MedicationMeta): string | null {
   return notImplementedOnWeb('getContainerSummary');
 }
-export function restockMedication(_itemId: string, _containerCount?: number): void {
-  notImplementedOnWeb('restockMedication');
+export function restockMedication(itemId: string, containerCount = 1): void {
+  const item = getItemWithMetadata(itemId);
+  if (!item) return;
+  const meta: MedicationMeta = item.metadata ? JSON.parse(item.metadata) : {};
+  if (!meta.containerSize) {
+    write(patchItem(itemId, { metadata: JSON.stringify({ ...meta, stockRemaining: (meta.stockRemaining ?? 0) + (meta.initialStock ?? 0) }), updatedAt: Date.now() }), 'restockMedication');
+    return;
+  }
+  const containers = [...(meta.containers ?? [])];
+  for (let i = 0; i < containerCount; i++) {
+    containers.push({ total: meta.containerSize, remaining: meta.containerSize });
+  }
+  const nextMeta = { ...meta, containers, stockRemaining: containers.reduce((sum, c) => sum + c.remaining, 0) };
+  write(patchItem(itemId, { metadata: JSON.stringify(nextMeta), updatedAt: Date.now() }), 'restockMedication');
 }
 export function parseMedicationTimerDetails(_details?: string | null): MedicationTimerDetails {
   return notImplementedOnWeb('parseMedicationTimerDetails');
 }
 export function getMedications(): Item[] {
-  return notImplementedOnWeb('getMedications');
+  return getItemsByType('medication');
 }
-export function createMedication(_title: string, _meta: MedicationMeta): string {
-  return notImplementedOnWeb('createMedication');
+export function createMedication(title: string, meta: MedicationMeta): string {
+  const id = uuidv4();
+  const now = Date.now();
+  const initial = meta.initialStock ?? meta.stockRemaining ?? 0;
+  const metadata: MedicationMeta = meta.containerSize
+    ? { ...meta, containers: initial > 0 ? [{ total: meta.containerSize, remaining: initial }] : [], stockRemaining: initial }
+    : { ...meta, stockRemaining: initial };
+  write(
+    putItem({ id, type: 'medication', title, status: 'active', metadata: JSON.stringify(metadata), createdAt: now, updatedAt: now }),
+    'createMedication'
+  );
+  return id;
 }
-export function updateMedication(_id: string, _title: string, _meta: MedicationMeta): void {
-  notImplementedOnWeb('updateMedication');
+export function updateMedication(id: string, title: string, meta: MedicationMeta): void {
+  write(patchItem(id, { title, metadata: JSON.stringify(meta), updatedAt: Date.now() }), 'updateMedication');
 }
-export function logMedicationTaken(_itemId: string, _takenAt?: number, _startTimer?: boolean, _amount?: number): void {
-  notImplementedOnWeb('logMedicationTaken');
+function decrementStock(meta: MedicationMeta, amount = 1): MedicationMeta {
+  if (meta.containers) {
+    const containers = meta.containers.map((c) => ({ ...c }));
+    const target = containers.find((c) => c.remaining > 0);
+    if (target) target.remaining = Math.max(0, target.remaining - amount);
+    return { ...meta, containers, stockRemaining: containers.reduce((sum, c) => sum + c.remaining, 0) };
+  }
+  if (meta.stockRemaining !== undefined && meta.stockRemaining > 0) {
+    return { ...meta, stockRemaining: Math.max(0, meta.stockRemaining - amount) };
+  }
+  return meta;
 }
-export function logHalfDoseTaken(_itemId: string, _takenAt?: number, _startTimer?: boolean): boolean {
-  return notImplementedOnWeb('logHalfDoseTaken');
+export function logMedicationTaken(itemId: string, takenAt: number = Date.now(), _startTimer = false, amount = 1): void {
+  const item = getItemWithMetadata(itemId);
+  if (!item) return;
+  let meta: MedicationMeta = item.metadata ? JSON.parse(item.metadata) : {};
+  if (!meta.lastTakenAt || takenAt > meta.lastTakenAt) meta.lastTakenAt = takenAt;
+  meta = decrementStock(meta, amount);
+  write(patchItem(itemId, { metadata: JSON.stringify(meta), updatedAt: Date.now() }), 'logMedicationTaken');
+  const logId = uuidv4();
+  const now = Date.now();
+  write(
+    putActivityLogDoc({ id: logId, entityId: itemId, actionType: 'medication-taken', timestamp: takenAt, createdAt: now }),
+    'logMedicationTaken:log'
+  );
 }
-export function getMedicationLogs(_itemId: string, _limit?: number): ActivityLog[] {
-  return notImplementedOnWeb('getMedicationLogs');
+export function logHalfDoseTaken(itemId: string, takenAt: number = Date.now(), _startTimer = false): boolean {
+  const item = getItemWithMetadata(itemId);
+  if (!item) return false;
+  const meta: MedicationMeta = item.metadata ? JSON.parse(item.metadata) : {};
+  const completingSplit = !!meta.pendingHalfDoseAt;
+  logMedicationTaken(itemId, takenAt, false, 0.5);
+  const updated = getItemWithMetadata(itemId);
+  const updatedMeta: MedicationMeta = updated?.metadata ? JSON.parse(updated.metadata) : {};
+  updatedMeta.pendingHalfDoseAt = completingSplit ? undefined : takenAt;
+  write(patchItem(itemId, { metadata: JSON.stringify(updatedMeta), updatedAt: Date.now() }), 'logHalfDoseTaken');
+  return completingSplit;
 }
-export function getMedicationDoseHistory(_itemId: string, _days?: number): Array<{ date: string; count: number }> {
-  return notImplementedOnWeb('getMedicationDoseHistory');
+export function getMedicationDoseHistory(itemId: string, days = 7): Array<{ date: string; count: number }> {
+  const logs = getMedicationLogs(itemId, days * 3);
+  return countDosesByDay(logs.map((log) => log.timestamp), days);
 }
-export function deleteMedicationLog(_logId: string, _itemId: string): void {
-  notImplementedOnWeb('deleteMedicationLog');
+export function deleteMedicationLog(logId: string, itemId: string): void {
+  write(deleteActivityLogDoc(logId), 'deleteMedicationLog');
+  const logs = getMedicationLogs(itemId, 1);
+  const meta = getItemWithMetadata(itemId)?.metadata;
+  const parsed: MedicationMeta = meta ? JSON.parse(meta) : {};
+  write(
+    patchItem(itemId, { metadata: JSON.stringify({ ...parsed, lastTakenAt: logs[0]?.timestamp }), updatedAt: Date.now() }),
+    'deleteMedicationLog:resync'
+  );
 }
-export function editMedicationLog(_logId: string, _itemId: string, _newTimestamp: number): void {
-  notImplementedOnWeb('editMedicationLog');
+export function editMedicationLog(logId: string, itemId: string, newTimestamp: number): void {
+  write(patchActivityLogDoc(logId, { timestamp: newTimestamp }), 'editMedicationLog');
+  const logs = getMedicationLogs(itemId, 1);
+  const meta = getItemWithMetadata(itemId)?.metadata;
+  const parsed: MedicationMeta = meta ? JSON.parse(meta) : {};
+  write(
+    patchItem(itemId, { metadata: JSON.stringify({ ...parsed, lastTakenAt: logs[0]?.timestamp }), updatedAt: Date.now() }),
+    'editMedicationLog:resync'
+  );
 }
 export function stopMedicationTimer(_logId: string, _itemId: string): void {
   notImplementedOnWeb('stopMedicationTimer');
@@ -777,8 +856,8 @@ export function getTimerWidgetPreferences(): TimerWidgetPreferences {
 export function setTimerWidgetPreferences(_preferences: Partial<TimerWidgetPreferences>): TimerWidgetPreferences {
   return notImplementedOnWeb('setTimerWidgetPreferences');
 }
-export function getLastTakenLog(_itemId: string): ActivityLog | null {
-  return notImplementedOnWeb('getLastTakenLog');
+export function getLastTakenLog(itemId: string): ActivityLog | null {
+  return getMedicationLogs(itemId, 1)[0] ?? null;
 }
 
 

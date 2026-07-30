@@ -195,3 +195,13 @@ export async function putActivityLogDoc(log: ActivityLog): Promise<void> {
   const db = requireFirestore();
   await setDoc(doc(db, 'users', requireUid(), 'activityLogs', log.id), sanitize(log));
 }
+
+export async function patchActivityLogDoc(id: string, patch: Record<string, unknown>): Promise<void> {
+  const db = requireFirestore();
+  await updateDoc(doc(db, 'users', requireUid(), 'activityLogs', id), sanitize(patch));
+}
+
+export async function deleteActivityLogDoc(id: string): Promise<void> {
+  const db = requireFirestore();
+  await deleteDoc(doc(db, 'users', requireUid(), 'activityLogs', id));
+}
