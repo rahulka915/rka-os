@@ -62,7 +62,7 @@ export function AreasProjectsScreen({
         <View style={styles.scrollContent}>
           <View style={styles.header}>
             <Text style={styles.title}>{selectedProject.title}</Text>
-            <Text style={styles.subtitle}>{areaName ?? 'No area'}</Text>
+            <Text style={styles.subtitle}>{areaName ?? 'No domain'}</Text>
           </View>
 
           <View style={styles.captureRow}>
@@ -78,7 +78,7 @@ export function AreasProjectsScreen({
           </View>
 
           {tasks.length === 0 ? (
-            <Text style={styles.empty}>No tasks in this project yet.</Text>
+            <Text style={styles.empty}>No tasks in this mission yet.</Text>
           ) : (
             <FlatList
               data={tasks}
@@ -148,14 +148,14 @@ export function AreasProjectsScreen({
               value={captureText}
               onChangeText={setCaptureText}
               onSubmitEditing={submitProject}
-              placeholder="New project..."
+              placeholder="New mission..."
               placeholderTextColor={webColors.mutedForeground}
               style={styles.captureInput}
             />
           </View>
 
           {areaProjects.length === 0 ? (
-            <Text style={styles.empty}>No projects in this area yet.</Text>
+            <Text style={styles.empty}>No missions in this domain yet.</Text>
           ) : (
             <FlatList
               data={areaProjects}
@@ -178,11 +178,11 @@ export function AreasProjectsScreen({
     <View style={styles.container}>
       <View style={styles.scrollContent}>
         <View style={styles.header}>
-          <Text style={styles.title}>Areas & Projects</Text>
+          <Text style={styles.title}>Domains & Missions</Text>
         </View>
 
         {areas.length === 0 ? (
-          <Text style={styles.empty}>No areas yet. Add one from the sidebar.</Text>
+          <Text style={styles.empty}>No domains yet. Add one from the sidebar.</Text>
         ) : (
           <FlatList
             data={areas}

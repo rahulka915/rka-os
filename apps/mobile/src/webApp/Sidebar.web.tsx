@@ -107,7 +107,7 @@ export function Sidebar({
 
       <View style={styles.sectionHeaderRow}>
         <Pressable onPress={onSelectAreasOverview} style={styles.sectionLabelButton}>
-          <Text style={styles.sectionLabel}>Areas & Projects</Text>
+          <Text style={styles.sectionLabel}>Domains & Missions</Text>
         </Pressable>
         <Pressable onPress={() => setAddingArea((v) => !v)} style={styles.addAreaButton}>
           <Plus size={14} color={webColors.mutedForeground} strokeWidth={2} />
@@ -120,7 +120,7 @@ export function Sidebar({
           onChangeText={setNewAreaTitle}
           onSubmitEditing={submitNewArea}
           onBlur={submitNewArea}
-          placeholder="New area..."
+          placeholder="New domain..."
           placeholderTextColor={webColors.mutedForeground}
           style={styles.inlineInput}
           autoFocus
@@ -131,7 +131,7 @@ export function Sidebar({
         {areas.length === 0 && unassignedProjects.length === 0 ? (
           <Pressable disabled style={[styles.navRow, styles.navRowDisabled]}>
             <Folder size={16} color={webColors.mutedForeground} strokeWidth={1.75} />
-            <Text style={styles.navLabelDisabled}>No areas yet</Text>
+            <Text style={styles.navLabelDisabled}>No domains yet</Text>
           </Pressable>
         ) : null}
 
@@ -175,7 +175,7 @@ export function Sidebar({
 
         {unassignedProjects.length > 0 ? (
           <View>
-            <Text style={styles.noAreaLabel}>No area</Text>
+            <Text style={styles.noAreaLabel}>No domain</Text>
             {unassignedProjects.map((project) => {
               const activeProject = selectedProjectId === project.id;
               return (
