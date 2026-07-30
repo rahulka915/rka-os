@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { Home, Inbox, ListTodo, CalendarDays, CalendarRange, Archive, Settings, ShoppingBag, Pill, Folder, ChevronRight, ChevronDown, Plus } from 'lucide-react-native';
+import { Home, Inbox, ListTodo, CalendarDays, CalendarRange, Archive, Settings, ShoppingBag, Pill, Dumbbell, Folder, ChevronRight, ChevronDown, Plus } from 'lucide-react-native';
 import { useAreas, useProjects } from '../hooks/useDb';
 import { getAreaProjectCount, getProjectItemCount, getProjectsForArea, getRelation, createItem } from '../db/database';
 import { webColors, webSpacing, webRadius, webFontSize } from '../theme/webTheme';
@@ -27,6 +27,7 @@ const NAV_ITEMS: Array<{ view: SidebarView; label: string; Icon: typeof Inbox }>
   { view: 'archive', label: 'Archive', Icon: Archive },
   { view: 'objects', label: 'To Get', Icon: ShoppingBag },
   { view: 'medications', label: 'Medications', Icon: Pill },
+  { view: 'workouts', label: 'Workouts', Icon: Dumbbell },
 ];
 
 export function Sidebar({

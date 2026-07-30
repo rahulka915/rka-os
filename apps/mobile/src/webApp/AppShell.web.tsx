@@ -10,6 +10,7 @@ import { UpcomingScreen } from './UpcomingScreen';
 import { ArchiveScreen } from './ArchiveScreen';
 import { ObjectsScreen } from './ObjectsScreen';
 import { MedicationsScreen } from './MedicationsScreen';
+import { WorkoutsScreen } from './WorkoutsScreen';
 import { SettingsScreen } from './SettingsScreen';
 import { useInbox } from '../hooks/useDb';
 import { webColors } from '../theme/webTheme';
@@ -46,6 +47,7 @@ export function AppShell() {
   else if (activeView === 'archive') content = <ArchiveScreen />;
   else if (activeView === 'objects') content = <ObjectsScreen />;
   else if (activeView === 'medications') content = <MedicationsScreen />;
+  else if (activeView === 'workouts') content = <WorkoutsScreen />;
   else if (activeView === 'settings') content = <SettingsScreen />;
   else
     content = (
