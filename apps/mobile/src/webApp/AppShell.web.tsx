@@ -5,6 +5,7 @@ import { HomeScreen } from './HomeScreen';
 import { InboxScreen } from './InboxScreen';
 import { TasksScreen } from './TasksScreen';
 import { AreasProjectsScreen } from './AreasProjectsScreen';
+import { CalendarScreen } from './CalendarScreen';
 import { useInbox } from '../hooks/useDb';
 import { webColors } from '../theme/webTheme';
 
@@ -35,6 +36,7 @@ export function AppShell() {
   if (activeView === 'home') content = <HomeScreen />;
   else if (activeView === 'inbox') content = <InboxScreen />;
   else if (activeView === 'tasks') content = <TasksScreen />;
+  else if (activeView === 'calendar') content = <CalendarScreen />;
   else
     content = (
       <AreasProjectsScreen
