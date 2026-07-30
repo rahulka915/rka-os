@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useState, memo } from 'react';
-import { Alert, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { useCallback, useEffect, useState, useRef, memo } from 'react';
+import { Alert, View, Text, TouchableOpacity, TextInput, StyleSheet } from 'react-native';
 import { useFocusEffect, useRoute } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import ReorderableList from 'react-native-reorderable-list';
-import { getRelatedItems, getBlockingTask, applyManualOrder, updateItemStatus, deleteItem, planForToday, unplanToday, isPlannedForToday } from '../db/database';
+import { getRelatedItems, getBlockingTask, applyManualOrder, updateItemStatus, deleteItem, planForToday, unplanToday, isPlannedForToday, getItemWithMetadata, updateItemMetadata } from '../db/database';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
 import { LensSurface } from '../components/LensSurface';
@@ -22,6 +22,7 @@ import { promptSetDependency } from '../utils/dependencyPrompt';
 import { showActionSheet } from '../utils/actionSheet';
 import { useHapticReorder } from '../hooks/useHapticReorder';
 import { readChecklist, checklistProgress } from '../utils/checklist';
+import { ProjectPlaceholderIcon } from '../components/icons/ProjectPlaceholderIcon';
 
 // Item-local, so it never makes a row's height depend on list position.
 function checklistLabel(item: Item): string | null {
@@ -106,12 +107,25 @@ export function ProjectDetailScreen() {
   const { openEditorForItem, revision: composerRevision } = useItemComposer();
   const [tasks, setTasks] = useState<Item[]>([]);
   const [completingIds, setCompletingIds] = useState<Set<string>>(new Set());
+  const [icon, setIcon] = useState<string | undefined>(undefined);
+  const emojiInputRef = useRef<TextInput>(null);
 
   const listKey = `project:${projectId}`;
 
   const refresh = useCallback(() => {
     setTasks(applyManualOrder(listKey, getRelatedItems(projectId, 'project')));
+    const project = getItemWithMetadata(projectId);
+    const meta = project?.metadata ? JSON.parse(project.metadata) : {};
+    setIcon(typeof meta.icon === 'string' ? meta.icon : undefined);
   }, [projectId, listKey]);
+
+  const saveIcon = useCallback((nextIcon: string) => {
+    const project = getItemWithMetadata(projectId);
+    const meta = project?.metadata ? JSON.parse(project.metadata) : {};
+    updateItemMetadata(projectId, { ...meta, icon: nextIcon });
+    setIcon(nextIcon);
+    emojiInputRef.current?.blur();
+  }, [projectId]);
 
   const { isReordering, onDragStart, onIndexChange, onReorder } = useHapticReorder(listKey, tasks, setTasks);
 
@@ -200,7 +214,35 @@ export function ProjectDetailScreen() {
   };
 
   return (
-    <LensSurface title={title}>
+    <LensSurface
+      title={title}
+      icon={
+        <TouchableOpacity
+          onPress={() => emojiInputRef.current?.focus()}
+          accessibilityRole="button"
+          accessibilityLabel="Change mission icon"
+          hitSlop={8}
+        >
+          {icon ? (
+            <Text style={styles.iconEmoji}>{icon}</Text>
+          ) : (
+            <ProjectPlaceholderIcon size={22} />
+          )}
+          <TextInput
+            ref={emojiInputRef}
+            style={styles.hiddenEmojiInput}
+            value=""
+            onChangeText={(text) => {
+              const firstChar = Array.from(text)[0];
+              if (firstChar) saveIcon(firstChar);
+            }}
+            keyboardAppearance="dark"
+            autoCorrect={false}
+            autoCapitalize="none"
+          />
+        </TouchableOpacity>
+      }
+    >
       {tasks.length === 0 ? (
         <View style={styles.empty}>
           <Text style={[styles.emptyTitle, { color: palette.text }]}>No tasks yet</Text>
@@ -272,5 +314,14 @@ const styles = StyleSheet.create({
   emptySub: {
     fontSize: 14,
     fontWeight: '400',
+  },
+  iconEmoji: {
+    fontSize: 22,
+  },
+  hiddenEmojiInput: {
+    position: 'absolute',
+    width: 1,
+    height: 1,
+    opacity: 0,
   },
 });
