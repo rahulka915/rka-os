@@ -1,4 +1,5 @@
 import { createContext, createElement, type ReactNode, useCallback, useContext, useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
@@ -16,7 +17,23 @@ import {
   type BackupListEntry,
 } from '../services/backupSync';
 import { startRealtimeSync, stopRealtimeSync } from '../services/firestoreSync';
+import { startWebStore, stopWebStore } from '../db/firestoreWebStore';
 import { restoreBackup } from '../db/backup';
+
+// Web has no local SQLite to sync against — it reads and writes Firestore
+// directly through database.web.ts, so it starts the in-memory mirror instead
+// of firestoreSync's dual-write listeners.
+const isWeb = Platform.OS === 'web';
+
+function startSync(userId: string): void {
+  if (isWeb) startWebStore(userId);
+  else startRealtimeSync(userId);
+}
+
+function stopSync(): void {
+  if (isWeb) stopWebStore();
+  else stopRealtimeSync();
+}
 
 function useBackupState() {
   const [user, setUser] = useState<User | null>(null);
@@ -36,16 +53,16 @@ function useBackupState() {
       setUser(nextUser);
       if (nextUser) {
         refreshLastBackup(nextUser.uid);
-        startRealtimeSync(nextUser.uid);
+        startSync(nextUser.uid);
       } else {
-        stopRealtimeSync();
+        stopSync();
         setLastBackupAt(null);
       }
     });
 
     return () => {
       unsubscribe();
-      stopRealtimeSync();
+      stopSync();
     };
   }, [refreshLastBackup]);
 

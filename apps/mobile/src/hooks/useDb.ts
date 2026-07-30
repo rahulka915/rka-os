@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Platform } from 'react-native';
 import {
   getInboxItems,
   getTodayItems,
@@ -34,6 +35,22 @@ import { groupByScheduledDate, type UpcomingGroup } from '../utils/upcomingGroup
 import { startMedicationLiveActivity } from '../services/medicationLiveActivity';
 import { ensureMedicationTimerAutoStop } from '../services/medicationTimerController';
 import { presentMedicationTimer } from '../utils/timerPresentation';
+import { subscribeToWebStoreChanges } from '../db/firestoreWebStore';
+
+// Reads once on mount, as every hook here has always done. On web the data
+// lives in a Firestore mirror that updates on its own, so the hooks also
+// re-read whenever it changes — on native the store is never started and this
+// is a no-op (firestoreSync writes straight into SQLite instead).
+function useDbRefresh(refresh: () => void): void {
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    return subscribeToWebStoreChanges(refresh);
+  }, [refresh]);
+}
 
 export function useInbox() {
   const [items, setItems] = useState<Item[]>([]);
@@ -42,7 +59,7 @@ export function useInbox() {
     setItems(getInboxItems());
   }, []);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useDbRefresh(refresh);
 
   const addItem = useCallback((title: string) => {
     createItem('task', title, 'inbox');
@@ -87,7 +104,7 @@ export function useHomeData() {
     setUpcomingCount(getItemsByStatus('active').length);
   }, []);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useDbRefresh(refresh);
 
   // Each task lands in exactly one block via its resolved bucket (chosen
   // preferred bucket → scheduled clock time → Anytime), so the four blocks
@@ -107,7 +124,7 @@ export function useItems(status: string) {
     setItems(getItemsByStatus(status));
   }, [status]);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useDbRefresh(refresh);
 
   return { items, refresh };
 }
@@ -119,7 +136,7 @@ export function useMedications() {
     setMedications(getMedications());
   }, []);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useDbRefresh(refresh);
 
   // Shared by full and half doses — a live-activity timer just tracks elapsed time since
   // whatever log entry started it, so it works identically regardless of dose size.
@@ -165,7 +182,7 @@ export function useCalendar(date: string) {
     setTimelineEntries(getTimelineEntriesForDate(date));
   }, [date]);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useDbRefresh(refresh);
 
   return { items, instances, timelineEntries, refresh };
 }
@@ -175,7 +192,7 @@ export function useWorkouts() {
   const refresh = useCallback(() => {
     setWorkouts(getItemsByType('workout-template'));
   }, []);
-  useEffect(() => { refresh(); }, [refresh]);
+  useDbRefresh(refresh);
   return { workouts, refresh };
 }
 
@@ -184,7 +201,7 @@ export function useProjects() {
   const refresh = useCallback(() => {
     setProjects(getItemsByType('project'));
   }, []);
-  useEffect(() => { refresh(); }, [refresh]);
+  useDbRefresh(refresh);
   return { projects, refresh };
 }
 
@@ -193,7 +210,7 @@ export function useAreas() {
   const refresh = useCallback(() => {
     setAreas(getItemsByType('area'));
   }, []);
-  useEffect(() => { refresh(); }, [refresh]);
+  useDbRefresh(refresh);
   return { areas, refresh };
 }
 
@@ -204,7 +221,7 @@ export function useTasks() {
   const refresh = useCallback(() => {
     setTasks(getItemsByType('task').filter(t => t.status !== 'inbox' && t.status !== 'completed'));
   }, []);
-  useEffect(() => { refresh(); }, [refresh]);
+  useDbRefresh(refresh);
   return { tasks, refresh };
 }
 
@@ -213,7 +230,7 @@ export function useCompletedItems() {
   const refresh = useCallback(() => {
     setItems(getCompletedItems());
   }, []);
-  useEffect(() => { refresh(); }, [refresh]);
+  useDbRefresh(refresh);
   return { items, refresh };
 }
 
@@ -222,7 +239,7 @@ export function useArchivedItems() {
   const refresh = useCallback(() => {
     setItems(getItemsByStatus('archived'));
   }, []);
-  useEffect(() => { refresh(); }, [refresh]);
+  useDbRefresh(refresh);
   return { items, refresh };
 }
 
@@ -249,7 +266,7 @@ export function useUpcomingPreview() {
     const today = formatDate(new Date());
     setGroups(capUpcomingGroups(groupByScheduledDate(getUpcomingItems(today), today), UPCOMING_PREVIEW_LIMIT));
   }, []);
-  useEffect(() => { refresh(); }, [refresh]);
+  useDbRefresh(refresh);
   return { groups, refresh };
 }
 

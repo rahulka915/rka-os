@@ -304,7 +304,9 @@ function NavigationLayer({
       </NavigationContainer>
 
       <InboxScreenV2 visible={inboxOpen} onClose={() => setInboxOpen(false)} />
-      <PersistentTimerBanner />
+      {/* Medication timers aren't ported to web yet — the banner mounts app-wide
+          and reads timer state that database.web.ts doesn't implement. */}
+      {Platform.OS !== 'web' ? <PersistentTimerBanner /> : null}
     </>
   );
 }
