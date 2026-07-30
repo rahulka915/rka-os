@@ -5,7 +5,7 @@ import { YStack } from 'tamagui';
 import { AppHeader } from '../components/AppHeader';
 import { InboxScrollCard } from '../components/home/InboxScrollCard';
 import { TodayCard } from '../components/home/TodayCard';
-import { useHomeData } from '../hooks/useDb';
+import { useHomeData, useUpcomingPreview } from '../hooks/useDb';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { useItemComposer } from '../components/item-composer';
 import { useOpenItem } from '../hooks/useOpenItem';
@@ -18,13 +18,15 @@ interface HomeScreenProps {
   inboxOpen: boolean;
   onHeroPress: () => void;
   onSettingsPress: () => void;
+  onViewUpcoming: () => void;
 }
 
-export function HomeScreen({ onInboxPress, inboxOpen, onHeroPress, onSettingsPress }: HomeScreenProps) {
+export function HomeScreen({ onInboxPress, inboxOpen, onHeroPress, onSettingsPress, onViewUpcoming }: HomeScreenProps) {
   const { isDark } = useThemeContext();
   const { revision: composerRevision } = useItemComposer();
   const openItem = useOpenItem();
   const { inboxCount, todayItems, refresh } = useHomeData();
+  const { groups: upcomingGroups, refresh: refreshUpcoming } = useUpcomingPreview();
   const [completingIds, setCompletingIds] = useState<Set<string>>(new Set());
 
   // useHomeData only fetches on mount — Inbox lives in a sibling modal (App.tsx), not a child
@@ -32,12 +34,16 @@ export function HomeScreen({ onInboxPress, inboxOpen, onHeroPress, onSettingsPre
   // their own, and this isn't a navigation transition so useFocusEffect wouldn't fire either.
   // Refetch whenever the Inbox modal closes.
   useEffect(() => {
-    if (!inboxOpen) refresh();
-  }, [inboxOpen, refresh]);
+    if (!inboxOpen) {
+      refresh();
+      refreshUpcoming();
+    }
+  }, [inboxOpen, refresh, refreshUpcoming]);
 
   useEffect(() => {
     refresh();
-  }, [composerRevision, refresh]);
+    refreshUpcoming();
+  }, [composerRevision, refresh, refreshUpcoming]);
 
   const handleItemComplete = useCallback((item: Item) => {
     if (completingIds.has(item.id)) return;
@@ -78,7 +84,7 @@ export function HomeScreen({ onInboxPress, inboxOpen, onHeroPress, onSettingsPre
         <View>
 
         {/* Inbox preview */}
-        <View style={{ marginHorizontal: 12, marginTop: 8 }}>
+        <View style={{ width: '50%', marginHorizontal: 12, marginTop: 8 }}>
           <InboxScrollCard
             inboxCount={inboxCount}
             onPress={onInboxPress}
@@ -92,6 +98,8 @@ export function HomeScreen({ onInboxPress, inboxOpen, onHeroPress, onSettingsPre
           completingIds={completingIds}
           onComplete={handleItemComplete}
           onOpen={handleItemTap}
+          upcomingGroups={upcomingGroups}
+          onViewUpcoming={onViewUpcoming}
           isDark={isDark}
         />
 
