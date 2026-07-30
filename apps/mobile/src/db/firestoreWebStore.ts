@@ -129,7 +129,10 @@ export async function putItem(item: Item): Promise<void> {
   await setDoc(doc(db, 'users', requireUid(), 'items', item.id), sanitize(item));
 }
 
-export async function patchItem(id: string, patch: Partial<Omit<Item, 'id'>>): Promise<void> {
+// Deliberately looser than Partial<Item>: callers pass deleteField() sentinels
+// to clear optional fields, which is how "set this column to NULL" in
+// database.ts maps onto Firestore.
+export async function patchItem(id: string, patch: Record<string, unknown>): Promise<void> {
   const db = requireFirestore();
   await updateDoc(doc(db, 'users', requireUid(), 'items', id), sanitize(patch));
 }

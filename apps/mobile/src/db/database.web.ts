@@ -26,10 +26,203 @@ export type {
   GtdDestination,
 };
 
+import 'react-native-get-random-values';
+import { v4 as uuidv4 } from 'uuid';
+import { deleteField } from 'firebase/firestore';
+import { nextOccurrenceDate } from '../utils/repeat';
 import type { Item, ItemInstance, ActivityLog } from './types';
+import {
+  getItemsSnapshot,
+  getActivityLogsSnapshot,
+  putItem,
+  patchItem,
+  putActivityLogDoc,
+} from './firestoreWebStore';
 
 function notImplementedOnWeb(name: string): never {
   throw new Error(`${name} is not implemented on web yet`);
+}
+
+// ── Items ──────────────────────────────────────────────────────────────
+// Each query below is a direct port of the SQL predicate in database.ts,
+// evaluated over the in-memory Firestore mirror instead of SQLite.
+
+export function formatDate(date: Date): string {
+  return date.toISOString().split('T')[0];
+}
+
+export function uuid(): string {
+  return uuidv4();
+}
+
+export function getInboxItems(): Item[] {
+  return getItemsSnapshot()
+    .filter((i) => i.status === 'inbox' && i.deletedAt == null)
+    .sort((a, b) => b.createdAt - a.createdAt);
+}
+
+export function getTodayItems(): Item[] {
+  const today = formatDate(new Date());
+  return getItemsSnapshot().filter(
+    (i) =>
+      (i.scheduledDate === today || i.status === 'due-today' || i.status === 'overdue') &&
+      i.deletedAt == null
+  );
+}
+
+export function getUpcomingItems(fromDate: string): Item[] {
+  return getItemsSnapshot()
+    .filter((i) => (i.scheduledDate ?? '') > fromDate && i.status !== 'completed' && i.deletedAt == null)
+    .sort((a, b) => {
+      const byDate = (a.scheduledDate ?? '').localeCompare(b.scheduledDate ?? '');
+      return byDate !== 0 ? byDate : a.createdAt - b.createdAt;
+    });
+}
+
+export function getItemsByStatus(status: string): Item[] {
+  return getItemsSnapshot()
+    .filter((i) => i.status === status && i.deletedAt == null)
+    .sort((a, b) => b.createdAt - a.createdAt);
+}
+
+export function getCompletedItems(): Item[] {
+  return getItemsSnapshot()
+    .filter((i) => i.status === 'completed' && i.deletedAt == null)
+    .sort((a, b) => (b.completedAt ?? b.updatedAt) - (a.completedAt ?? a.updatedAt));
+}
+
+export function getItemsByType(type: string): Item[] {
+  return getItemsSnapshot()
+    .filter((i) => i.type === type && i.deletedAt == null && i.status !== 'archived')
+    .sort((a, b) => b.createdAt - a.createdAt);
+}
+
+export function getItemWithMetadata(id: string): Item | null {
+  return getItemsSnapshot().find((i) => i.id === id) ?? null;
+}
+
+export const getItemById = getItemWithMetadata;
+
+// Writes are fire-and-forget to keep these signatures synchronous, matching
+// database.ts so no call site has to change. The onSnapshot listener echoes the
+// write back into the store, which re-renders through subscribeToWebStoreChanges.
+function write(promise: Promise<void>, label: string): void {
+  promise.catch((error) => console.warn(`[database.web] ${label} failed:`, error));
+}
+
+export function createItem(
+  type: Item['type'],
+  title: string,
+  status: Item['status'] = 'inbox',
+  scheduledDate?: string,
+  notes?: string,
+  voice_transcript?: string
+): string {
+  const id = uuidv4();
+  const now = Date.now();
+  write(
+    putItem({ id, type, title, status, scheduledDate, notes, voice_transcript, createdAt: now, updatedAt: now }),
+    'createItem'
+  );
+  logActivity(id, 'created');
+  return id;
+}
+
+export function updateItem(
+  id: string,
+  // `undefined` means "leave alone", `null` means "clear" — same contract as
+  // database.ts, where null writes a real SQL NULL.
+  updates: Partial<{
+    type: Item['type'];
+    title: string;
+    status: Item['status'];
+    notes: string | null;
+    scheduledDate: string | null;
+    dueDate: string | null;
+    rrule: string | null;
+  }>
+): void {
+  // null clears the field outright (Firestore's equivalent of SQL NULL) so it
+  // reads back as absent, matching Item's optional-property types.
+  const set = (value: string | null) => (value === null ? deleteField() : value);
+
+  const fields: Record<string, unknown> = {};
+  if (updates.type !== undefined) fields.type = updates.type;
+  if (updates.title !== undefined) fields.title = updates.title;
+  if (updates.status !== undefined) fields.status = updates.status;
+  if (updates.notes !== undefined) fields.notes = set(updates.notes);
+  if (updates.scheduledDate !== undefined) fields.scheduledDate = set(updates.scheduledDate);
+  if (updates.dueDate !== undefined) fields.dueDate = set(updates.dueDate);
+  if (updates.rrule !== undefined) fields.rrule = set(updates.rrule);
+
+  if (Object.keys(fields).length === 0) return;
+
+  fields.updatedAt = Date.now();
+  write(patchItem(id, fields), 'updateItem');
+}
+
+export function updateItemMetadata(id: string, metadata: Record<string, any>): void {
+  write(patchItem(id, { metadata: JSON.stringify(metadata), updatedAt: Date.now() }), 'updateItemMetadata');
+}
+
+export function updateItemTitle(id: string, title: string): void {
+  write(patchItem(id, { title, updatedAt: Date.now() }), 'updateItemTitle');
+}
+
+export function updateItemStatus(id: string, status: Item['status']): void {
+  const now = Date.now();
+
+  // A repeating task is never "done" — completing one occurrence rolls it
+  // forward to its next matching date instead (Things 3 style).
+  if (status === 'completed') {
+    const item = getItemWithMetadata(id);
+    const next = item ? nextOccurrenceDate(item.rrule, item.scheduledDate ?? formatDate(new Date())) : null;
+    if (item && next) {
+      write(
+        patchItem(id, { scheduledDate: next, status: 'active', completedAt: deleteField(), updatedAt: now }),
+        'updateItemStatus'
+      );
+      logActivity(id, 'completed-occurrence', JSON.stringify({ occurrence: item.scheduledDate, next }));
+      return;
+    }
+  }
+
+  write(
+    patchItem(id, {
+      status,
+      completedAt: status === 'completed' ? now : deleteField(),
+      updatedAt: now,
+    }),
+    'updateItemStatus'
+  );
+  logActivity(id, 'status-changed', JSON.stringify({ status }));
+}
+
+export function deleteItem(id: string): void {
+  const now = Date.now();
+  write(patchItem(id, { deletedAt: now, updatedAt: now }), 'deleteItem');
+}
+
+// ── Activity Logs ──────────────────────────────────────────────────────
+
+export function logActivity(entityId: string, actionType: string, details?: string): string {
+  const id = uuidv4();
+  const now = Date.now();
+  write(
+    putActivityLogDoc({ id, entityId, actionType, timestamp: now, details, createdAt: now }),
+    'logActivity'
+  );
+  return id;
+}
+
+export function getTodayLogs(): ActivityLog[] {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const end = new Date();
+  end.setHours(23, 59, 59, 999);
+  return getActivityLogsSnapshot()
+    .filter((l) => l.timestamp >= start.getTime() && l.timestamp <= end.getTime())
+    .sort((a, b) => b.timestamp - a.timestamp);
 }
 
 // TODO(web-companion): not yet ported — raw SQLite handle, meaningless on web
