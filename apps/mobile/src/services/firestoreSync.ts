@@ -160,6 +160,71 @@ export async function pushActivityLogToFirestore(userId: string, log: ActivityLo
   }
 }
 
+// startRealtimeSync only pushes local changes going forward (via the create/update
+// wrappers in database.ts calling syncItemToRemote) and pulls remote changes via
+// onSnapshot — it never pushes pre-existing local rows. Any item/instance/relation
+// created before real-time sync was wired up (or before the Firestore rules
+// permitted these collections) is stuck local-only forever unless something
+// pushes it once. This one-time reconciliation pass does that: for each local
+// row missing remotely or newer than its remote counterpart, push it up.
+async function backfillLocalToRemote(userId: string): Promise<void> {
+  if (!firestore) return;
+  const db = getDb();
+
+  try {
+    const remoteSnapshot = await getDocs(collection(firestore, 'users', userId, 'items'));
+    const remoteUpdatedAt = new Map<string, number>();
+    remoteSnapshot.forEach((docSnap) => {
+      const data = docSnap.data() as Item;
+      remoteUpdatedAt.set(docSnap.id, data.updatedAt ?? 0);
+    });
+
+    const localItems = db.getAllSync<Item>(`SELECT * FROM items`);
+    for (const item of localItems) {
+      const remoteAt = remoteUpdatedAt.get(item.id);
+      if (remoteAt === undefined || item.updatedAt > remoteAt) {
+        await pushItemToFirestore(userId, item);
+      }
+    }
+  } catch (err) {
+    console.warn('[firestoreSync] items backfill error:', err);
+  }
+
+  try {
+    const remoteSnapshot = await getDocs(collection(firestore, 'users', userId, 'itemInstances'));
+    const remoteUpdatedAt = new Map<string, number>();
+    remoteSnapshot.forEach((docSnap) => {
+      const data = docSnap.data() as ItemInstance;
+      remoteUpdatedAt.set(docSnap.id, data.updatedAt ?? 0);
+    });
+
+    const localInstances = db.getAllSync<ItemInstance>(`SELECT * FROM itemInstances`);
+    for (const instance of localInstances) {
+      const remoteAt = remoteUpdatedAt.get(instance.id);
+      if (remoteAt === undefined || instance.updatedAt > remoteAt) {
+        await pushInstanceToFirestore(userId, instance);
+      }
+    }
+  } catch (err) {
+    console.warn('[firestoreSync] itemInstances backfill error:', err);
+  }
+
+  try {
+    const remoteSnapshot = await getDocs(collection(firestore, 'users', userId, 'itemRelations'));
+    const remoteIds = new Set<string>();
+    remoteSnapshot.forEach((docSnap) => remoteIds.add(docSnap.id));
+
+    const localRelations = db.getAllSync<ItemRelationRow>(`SELECT * FROM itemRelations`);
+    for (const relation of localRelations) {
+      if (!remoteIds.has(relation.id)) {
+        await pushItemRelationToFirestore(userId, relation);
+      }
+    }
+  } catch (err) {
+    console.warn('[firestoreSync] itemRelations backfill error:', err);
+  }
+}
+
 /**
  * Starts real-time Firestore listeners for items and instances.
  * Whenever a remote change arrives, local SQLite is updated if the remote timestamp is newer.
@@ -171,6 +236,10 @@ export function startRealtimeSync(userId: string, onLocalChange?: () => void): U
 
   stopRealtimeSync();
   currentUserId = userId;
+
+  // Fire-and-forget: reconciles any pre-existing local-only rows without
+  // blocking listener setup below.
+  backfillLocalToRemote(userId).catch((err) => console.warn('[firestoreSync] backfill error:', err));
 
   const db = getDb();
 
