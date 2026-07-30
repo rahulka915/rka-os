@@ -12,7 +12,7 @@ import {
 } from 'firebase/firestore';
 import { firestore, hasFirebaseConfig } from '../lib/firebase';
 import { getDb, getItemById } from '../db/database';
-import type { Item, ItemInstance, ItemRelationRow, ItemOrderRow, AppSettingRow } from '../db/types';
+import type { Item, ItemInstance, ItemRelationRow, ItemOrderRow, AppSettingRow, ActivityLog } from '../db/types';
 
 let currentUserId: string | null = null;
 let itemsUnsubscribe: Unsubscribe | null = null;
@@ -20,6 +20,7 @@ let instancesUnsubscribe: Unsubscribe | null = null;
 let itemRelationsUnsubscribe: Unsubscribe | null = null;
 let itemOrderUnsubscribe: Unsubscribe | null = null;
 let appSettingsUnsubscribe: Unsubscribe | null = null;
+let activityLogsUnsubscribe: Unsubscribe | null = null;
 let isApplyingRemoteChange = false;
 
 // Remove undefined values because Firestore errors on undefined fields
@@ -142,6 +143,20 @@ export async function pushAppSettingToFirestore(userId: string, key: string, val
     await setDoc(settingRef, { key, value, updatedAt: Date.now() }, { merge: true });
   } catch (err) {
     console.warn('[firestoreSync] pushAppSetting error:', err);
+  }
+}
+
+/**
+ * Pushes a single activity log entry to Firestore for the active user.
+ */
+export async function pushActivityLogToFirestore(userId: string, log: ActivityLog): Promise<void> {
+  if (!hasFirebaseConfig || !firestore || !userId || isApplyingRemoteChange) return;
+
+  try {
+    const logRef = doc(firestore, 'users', userId, 'activityLogs', log.id);
+    await setDoc(logRef, sanitizeForFirestore(log), { merge: true });
+  } catch (err) {
+    console.warn('[firestoreSync] pushActivityLog error:', err);
   }
 }
 
@@ -424,6 +439,63 @@ export function startRealtimeSync(userId: string, onLocalChange?: () => void): U
     }
   );
 
+  // Listen to remote activityLogs subcollection
+  const activityLogsRef = collection(firestore, 'users', userId, 'activityLogs');
+  activityLogsUnsubscribe = onSnapshot(
+    activityLogsRef,
+    (snapshot) => {
+      isApplyingRemoteChange = true;
+      let hasMutatedLocal = false;
+
+      try {
+        db.withTransactionSync(() => {
+          snapshot.docChanges().forEach((change) => {
+            const remote = change.doc.data() as ActivityLog;
+            if (!remote.id) return;
+
+            if (change.type === 'added' || change.type === 'modified') {
+              const localRows = db.getAllSync<{ createdAt: number }>(
+                `SELECT createdAt FROM activityLogs WHERE id = ?`,
+                [remote.id]
+              );
+              const local = localRows[0];
+
+              if (!local || (remote.createdAt && remote.createdAt >= local.createdAt)) {
+                db.runSync(
+                  `INSERT OR REPLACE INTO activityLogs (id, entityId, actionType, timestamp, details, createdAt)
+                   VALUES (?, ?, ?, ?, ?, ?)`,
+                  [
+                    remote.id,
+                    remote.entityId,
+                    remote.actionType,
+                    remote.timestamp ?? Date.now(),
+                    remote.details ?? null,
+                    remote.createdAt ?? Date.now(),
+                  ]
+                );
+                hasMutatedLocal = true;
+              }
+            } else if (change.type === 'removed') {
+              db.runSync(`DELETE FROM activityLogs WHERE id = ?`, [remote.id]);
+              hasMutatedLocal = true;
+            }
+          });
+        });
+      } catch (err) {
+        console.warn('[firestoreSync] local activityLogs apply error:', err);
+      } finally {
+        isApplyingRemoteChange = false;
+      }
+
+      if (hasMutatedLocal && onLocalChange) {
+        onLocalChange();
+      }
+    },
+    (error) => {
+      console.warn('[firestoreSync] activityLogs listener error:', error);
+    }
+  );
+
   return stopRealtimeSync;
 }
 
@@ -450,6 +522,10 @@ export function stopRealtimeSync(): void {
   if (appSettingsUnsubscribe) {
     appSettingsUnsubscribe();
     appSettingsUnsubscribe = null;
+  }
+  if (activityLogsUnsubscribe) {
+    activityLogsUnsubscribe();
+    activityLogsUnsubscribe = null;
   }
   currentUserId = null;
 }

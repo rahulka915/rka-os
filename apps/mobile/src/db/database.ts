@@ -7,7 +7,7 @@ import { resolveAutoStopAfterMs } from '../domain/medicationTimer/timerMath';
 import { nextOccurrenceDate, parseRepeatRule, dayMatchesRepeat } from '../utils/repeat';
 import { countDosesByDay } from '../utils/medicationDoseHistory';
 
-import { getCurrentSyncUserId, pushItemToFirestore, pushItemRelationToFirestore, deleteItemRelationFromFirestore, pushItemOrderBatchToFirestore, pushAppSettingToFirestore } from '../services/firestoreSync';
+import { getCurrentSyncUserId, pushItemToFirestore, pushItemRelationToFirestore, deleteItemRelationFromFirestore, pushItemOrderBatchToFirestore, pushAppSettingToFirestore, pushActivityLogToFirestore } from '../services/firestoreSync';
 
 let db: SQLite.SQLiteDatabase;
 
@@ -840,6 +840,12 @@ export function editMedicationLog(logId: string, itemId: string, newTimestamp: n
   _syncLastTakenAt(itemId);
 }
 
+function pushActivityLogUpdate(log: ActivityLog, details: MedicationTimerDetails): void {
+  const userId = getCurrentSyncUserId();
+  if (!userId) return;
+  pushActivityLogToFirestore(userId, { ...log, details: JSON.stringify(details) }).catch(() => {});
+}
+
 export function stopMedicationTimer(logId: string, itemId: string): void {
   const log = getDb().getAllSync<ActivityLog>(`SELECT * FROM activityLogs WHERE id = ? LIMIT 1`, [logId])[0];
   if (!log) return;
@@ -852,6 +858,7 @@ export function stopMedicationTimer(logId: string, itemId: string): void {
     `UPDATE activityLogs SET details = ? WHERE id = ?`,
     [JSON.stringify(details), logId]
   );
+  pushActivityLogUpdate(log, details);
   _syncLastTakenAt(itemId);
 }
 
@@ -873,6 +880,7 @@ export function completeMedicationTimer(
   details.stoppedAt = Date.now();
   delete details.autoStopNotificationId;
   getDb().runSync(`UPDATE activityLogs SET details = ? WHERE id = ?`, [JSON.stringify(details), logId]);
+  pushActivityLogUpdate(log, details);
   _syncLastTakenAt(itemId);
 }
 
@@ -883,6 +891,7 @@ export function setMedicationTimerNotificationId(logId: string, notificationId?:
   if (notificationId) details.autoStopNotificationId = notificationId;
   else delete details.autoStopNotificationId;
   getDb().runSync(`UPDATE activityLogs SET details = ? WHERE id = ?`, [JSON.stringify(details), logId]);
+  pushActivityLogUpdate(log, details);
 }
 
 export function pauseMedicationTimer(logId: string, itemId: string): void {
@@ -900,6 +909,7 @@ export function pauseMedicationTimer(logId: string, itemId: string): void {
     `UPDATE activityLogs SET details = ? WHERE id = ?`,
     [JSON.stringify(details), logId]
   );
+  pushActivityLogUpdate(log, details);
   _syncLastTakenAt(itemId);
 }
 
@@ -913,6 +923,7 @@ export function markMedicationTimerNotified(logId: string): void {
     `UPDATE activityLogs SET details = ? WHERE id = ?`,
     [JSON.stringify(details), logId]
   );
+  pushActivityLogUpdate(log, details);
 }
 
 export function resumeMedicationTimer(logId: string, itemId: string): void {
@@ -928,6 +939,7 @@ export function resumeMedicationTimer(logId: string, itemId: string): void {
     `UPDATE activityLogs SET details = ? WHERE id = ?`,
     [JSON.stringify(details), logId]
   );
+  pushActivityLogUpdate(log, details);
   _syncLastTakenAt(itemId);
 }
 
@@ -946,6 +958,7 @@ export function resetMedicationTimer(logId: string, itemId: string): void {
     `UPDATE activityLogs SET details = ? WHERE id = ?`,
     [JSON.stringify(details), logId]
   );
+  pushActivityLogUpdate(log, details);
   _syncLastTakenAt(itemId);
 }
 
@@ -970,6 +983,7 @@ export function startTimerFromLoggedDose(logId: string, itemId: string): void {
     `UPDATE activityLogs SET details = ? WHERE id = ?`,
     [JSON.stringify(details), logId]
   );
+  pushActivityLogUpdate(log, details);
   _syncLastTakenAt(itemId);
 }
 
@@ -1442,13 +1456,27 @@ export function completeInstance(instanceId: string): void {
 
 // ── Activity Logs ──────────────────────────────────────────────────────
 
-export function logActivity(entityId: string, actionType: string, details?: string): void {
+export function logActivity(entityId: string, actionType: string, details?: string): string {
+  const id = uuid();
   const now = Date.now();
+  const serializedDetails = stringifyDetails(details) ?? undefined;
   getDb().runSync(
     `INSERT INTO activityLogs (id, entityId, actionType, timestamp, details, createdAt)
      VALUES (?, ?, ?, ?, ?, ?)`,
-    [uuid(), entityId, actionType, now, stringifyDetails(details) ?? null, now]
+    [id, entityId, actionType, now, serializedDetails ?? null, now]
   );
+  const userId = getCurrentSyncUserId();
+  if (userId) {
+    pushActivityLogToFirestore(userId, {
+      id,
+      entityId,
+      actionType,
+      timestamp: now,
+      details: serializedDetails,
+      createdAt: now,
+    }).catch(() => {});
+  }
+  return id;
 }
 
 export function getTodayLogs(): ActivityLog[] {
