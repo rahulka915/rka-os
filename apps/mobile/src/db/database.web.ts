@@ -34,9 +34,14 @@ import type { Item, ItemInstance, ActivityLog } from './types';
 import {
   getItemsSnapshot,
   getActivityLogsSnapshot,
+  getItemRelationsSnapshot,
+  getItemOrderSnapshot,
   putItem,
   patchItem,
   putActivityLogDoc,
+  putItemRelation,
+  deleteItemRelationDoc,
+  replaceItemOrder,
 } from './firestoreWebStore';
 
 function notImplementedOnWeb(name: string): never {
@@ -201,6 +206,95 @@ export function updateItemStatus(id: string, status: Item['status']): void {
 export function deleteItem(id: string): void {
   const now = Date.now();
   write(patchItem(id, { deletedAt: now, updatedAt: now }), 'deleteItem');
+}
+
+// ── Relations & manual order ───────────────────────────────────────────
+
+export function setRelation(sourceId: string, relationType: string, targetId: string | null): void {
+  if (targetId === null) {
+    write(deleteItemRelationDoc(sourceId, relationType), 'setRelation');
+    return;
+  }
+  // Upsert on (sourceId, relationType), mirroring the ON CONFLICT clause in
+  // database.ts — an existing edge keeps its id and createdAt.
+  const existing = getItemRelationsSnapshot().find(
+    (r) => r.sourceId === sourceId && r.relationType === relationType
+  );
+  write(
+    putItemRelation({
+      id: existing?.id ?? uuidv4(),
+      sourceId,
+      targetId,
+      relationType,
+      createdAt: existing?.createdAt ?? Date.now(),
+    }),
+    'setRelation'
+  );
+}
+
+export function getRelation(sourceId: string, relationType: string): string | null {
+  return (
+    getItemRelationsSnapshot().find((r) => r.sourceId === sourceId && r.relationType === relationType)
+      ?.targetId ?? null
+  );
+}
+
+export function getBlockingTask(itemId: string): Item | null {
+  const dependsOnId = getRelation(itemId, 'dependsOn');
+  if (!dependsOnId) return null;
+  const blocker = getItemWithMetadata(dependsOnId);
+  if (!blocker || blocker.status === 'completed' || blocker.deletedAt) return null;
+  return blocker;
+}
+
+export function setManualOrder(listKey: string, orderedIds: string[]): void {
+  write(replaceItemOrder(listKey, orderedIds), 'setManualOrder');
+}
+
+export function applyManualOrder<T extends { id: string }>(listKey: string, items: T[]): T[] {
+  const rows = getItemOrderSnapshot().filter((r) => r.listKey === listKey);
+  if (rows.length === 0) return items;
+  const positions = new Map(rows.map((r) => [r.itemId, r.position]));
+  return [...items].sort((a, b) => {
+    const posA = positions.get(a.id);
+    const posB = positions.get(b.id);
+    if (posA === undefined && posB === undefined) return 0;
+    if (posA === undefined) return 1;
+    if (posB === undefined) return -1;
+    return posA - posB;
+  });
+}
+
+// Rollup equivalents of the JOINs in database.ts: resolve the edges first,
+// then filter the items they point at.
+export function getRelatedItems(targetId: string, relationType: string): Item[] {
+  const sourceIds = new Set(
+    getItemRelationsSnapshot()
+      .filter((r) => r.targetId === targetId && r.relationType === relationType)
+      .map((r) => r.sourceId)
+  );
+  return getItemsSnapshot()
+    .filter(
+      (i) =>
+        sourceIds.has(i.id) && i.deletedAt == null && i.status !== 'completed' && i.status !== 'archived'
+    )
+    .sort((a, b) => b.createdAt - a.createdAt);
+}
+
+export function countRelated(targetId: string, relationType: string): number {
+  return getRelatedItems(targetId, relationType).length;
+}
+
+export function getProjectItemCount(projectId: string): number {
+  return countRelated(projectId, 'project');
+}
+
+export function getAreaProjectCount(areaId: string): number {
+  return countRelated(areaId, 'area');
+}
+
+export function getProjectsForArea(areaId: string): Item[] {
+  return getRelatedItems(areaId, 'area');
 }
 
 // ── Activity Logs ──────────────────────────────────────────────────────
