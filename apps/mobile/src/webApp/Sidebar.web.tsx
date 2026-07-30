@@ -5,7 +5,7 @@ import { useAreas, useProjects } from '../hooks/useDb';
 import { getAreaProjectCount, getProjectItemCount, getProjectsForArea, getRelation, createItem } from '../db/database';
 import { webColors, webSpacing, webRadius, webFontSize } from '../theme/webTheme';
 
-export type SidebarView = 'home' | 'inbox' | 'tasks' | 'areas';
+export type SidebarView = 'home' | 'inbox' | 'tasks' | 'areas' | 'calendar';
 
 export interface SidebarProps {
   activeView: SidebarView;
@@ -90,10 +90,16 @@ export function Sidebar({
           );
         })}
 
-        <Pressable disabled style={[styles.navRow, styles.navRowDisabled]}>
-          <CalendarDays size={18} color={webColors.mutedForeground} strokeWidth={1.75} />
-          <Text style={styles.navLabelDisabled}>Calendar</Text>
-          <Text style={styles.comingSoon}>Soon</Text>
+        <Pressable
+          onPress={() => onSelectView('calendar')}
+          style={[styles.navRow, activeView === 'calendar' && styles.navRowActive]}
+        >
+          <CalendarDays
+            size={18}
+            color={activeView === 'calendar' ? webColors.accent : webColors.mutedForeground}
+            strokeWidth={1.75}
+          />
+          <Text style={[styles.navLabel, activeView === 'calendar' && styles.navLabelActive]}>Calendar</Text>
         </Pressable>
       </View>
 
