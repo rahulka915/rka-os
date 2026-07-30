@@ -24,10 +24,13 @@ import {
   getCompletedItems,
   getPlannedTodayItems,
   getRepeatingItemsForToday,
+  getUpcomingItems,
+  formatDate,
 } from '../db/database';
 import type { Item, ItemInstance } from '../db/types';
 import type { TimelineEntry } from '../db/database';
 import { resolveTimeBucket, type TimeOfDay } from '../utils/time';
+import { groupByScheduledDate, type UpcomingGroup } from '../utils/upcomingGrouping';
 import { startMedicationLiveActivity } from '../services/medicationLiveActivity';
 import { ensureMedicationTimerAutoStop } from '../services/medicationTimerController';
 import { presentMedicationTimer } from '../utils/timerPresentation';
@@ -221,6 +224,33 @@ export function useArchivedItems() {
   }, []);
   useEffect(() => { refresh(); }, [refresh]);
   return { items, refresh };
+}
+
+const UPCOMING_PREVIEW_LIMIT = 5;
+
+// Caps a date-grouped list at `limit` items total, cutting off mid-group
+// (not dropping whole trailing groups) — the "View all" row in the
+// consuming UI covers whatever's cut off after this point.
+function capUpcomingGroups(groups: UpcomingGroup[], limit: number): UpcomingGroup[] {
+  const capped: UpcomingGroup[] = [];
+  let remaining = limit;
+  for (const group of groups) {
+    if (remaining <= 0) break;
+    const items = group.items.slice(0, remaining);
+    capped.push({ ...group, items });
+    remaining -= items.length;
+  }
+  return capped;
+}
+
+export function useUpcomingPreview() {
+  const [groups, setGroups] = useState<UpcomingGroup[]>([]);
+  const refresh = useCallback(() => {
+    const today = formatDate(new Date());
+    setGroups(capUpcomingGroups(groupByScheduledDate(getUpcomingItems(today), today), UPCOMING_PREVIEW_LIMIT));
+  }, []);
+  useEffect(() => { refresh(); }, [refresh]);
+  return { groups, refresh };
 }
 
 export function completeAllInTimeBlock(bucket: 'anytime' | 'morning' | 'afternoon' | 'evening'): void {
