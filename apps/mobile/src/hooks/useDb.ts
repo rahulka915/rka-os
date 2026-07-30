@@ -41,7 +41,7 @@ import { subscribeToWebStoreChanges } from '../db/firestoreWebStore';
 // lives in a Firestore mirror that updates on its own, so the hooks also
 // re-read whenever it changes — on native the store is never started and this
 // is a no-op (firestoreSync writes straight into SQLite instead).
-function useDbRefresh(refresh: () => void): void {
+export function useDbRefresh(refresh: () => void): void {
   useEffect(() => {
     refresh();
   }, [refresh]);

@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { Home, Inbox, ListTodo, CalendarDays, Folder, ChevronRight, ChevronDown, Plus } from 'lucide-react-native';
+import { Home, Inbox, ListTodo, CalendarDays, CalendarRange, Archive, Folder, ChevronRight, ChevronDown, Plus } from 'lucide-react-native';
 import { useAreas, useProjects } from '../hooks/useDb';
 import { getAreaProjectCount, getProjectItemCount, getProjectsForArea, getRelation, createItem } from '../db/database';
 import { webColors, webSpacing, webRadius, webFontSize } from '../theme/webTheme';
 
-export type SidebarView = 'home' | 'inbox' | 'tasks' | 'areas' | 'calendar';
+export type SidebarView = 'home' | 'inbox' | 'tasks' | 'upcoming' | 'areas' | 'calendar' | 'archive';
 
 export interface SidebarProps {
   activeView: SidebarView;
@@ -22,6 +22,9 @@ const NAV_ITEMS: Array<{ view: SidebarView; label: string; Icon: typeof Inbox }>
   { view: 'home', label: 'Home', Icon: Home },
   { view: 'inbox', label: 'Inbox', Icon: Inbox },
   { view: 'tasks', label: 'Tasks', Icon: ListTodo },
+  { view: 'upcoming', label: 'Upcoming', Icon: CalendarRange },
+  { view: 'calendar', label: 'Calendar', Icon: CalendarDays },
+  { view: 'archive', label: 'Archive', Icon: Archive },
 ];
 
 export function Sidebar({
@@ -89,18 +92,6 @@ export function Sidebar({
             </Pressable>
           );
         })}
-
-        <Pressable
-          onPress={() => onSelectView('calendar')}
-          style={[styles.navRow, activeView === 'calendar' && styles.navRowActive]}
-        >
-          <CalendarDays
-            size={18}
-            color={activeView === 'calendar' ? webColors.accent : webColors.mutedForeground}
-            strokeWidth={1.75}
-          />
-          <Text style={[styles.navLabel, activeView === 'calendar' && styles.navLabelActive]}>Calendar</Text>
-        </Pressable>
       </View>
 
       <View style={styles.divider} />
