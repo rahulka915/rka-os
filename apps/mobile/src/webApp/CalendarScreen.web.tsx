@@ -32,6 +32,14 @@ function hourLabel(hour: number): string {
   return `${twelve} ${period}`;
 }
 
+function weekdayShort(dateStr: string): string {
+  return new Date(`${dateStr}T00:00:00`).toLocaleDateString('en-US', { weekday: 'short' });
+}
+
+function dayOfMonth(dateStr: string): number {
+  return Number(dateStr.split('-')[2]);
+}
+
 function hourOf(entry: TimelineEntry): number | null {
   if (!entry.time) return null;
   const hour = Number(entry.time.split(':')[0]);
@@ -171,6 +179,31 @@ function UnscheduledPane({ sections, onOpen, onToggleComplete, onDropItem }: Uns
   );
 }
 
+interface WeekDayChipProps {
+  date: string;
+  active: boolean;
+  isToday: boolean;
+  onSelect: (date: string) => void;
+  onDropItem: (date: string, itemId: string) => void;
+}
+
+function WeekDayChip({ date, active, isToday, onSelect, onDropItem }: WeekDayChipProps) {
+  const [hovering, setHovering] = useState(false);
+  const ref = useDropZoneRef((id) => onDropItem(date, id), setHovering);
+  return (
+    <Pressable
+      ref={ref}
+      onPress={() => onSelect(date)}
+      style={[styles.weekChip, active && styles.weekChipActive, hovering && styles.dropTargetActive]}
+    >
+      <Text style={[styles.weekChipDay, active && styles.weekChipTextActive]}>{weekdayShort(date)}</Text>
+      <Text style={[styles.weekChipDate, active && styles.weekChipTextActive, isToday && !active && styles.weekChipToday]}>
+        {dayOfMonth(date)}
+      </Text>
+    </Pressable>
+  );
+}
+
 export function CalendarScreen() {
   const [viewedDate, setViewedDate] = useState(() => formatDate(new Date()));
   const { timelineEntries, refresh } = useCalendar(viewedDate);
@@ -229,6 +262,18 @@ export function CalendarScreen() {
     refreshAll();
   };
 
+  // Coarse date-only assignment (dropped on a week-strip day, not an hour
+  // row) — clears any existing time since the target day's timeline hasn't
+  // been chosen yet, and jumps the view there so the time can be refined by
+  // dragging within that day right after.
+  const scheduleDate = (date: string, itemId: string) => {
+    updateTimelineItemSchedule(itemId, date, undefined);
+    setViewedDate(date);
+    refreshAll();
+  };
+
+  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(today, i));
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -246,6 +291,19 @@ export function CalendarScreen() {
         <Pressable onPress={() => setViewedDate((d) => addDays(d, 1))} style={styles.navButton}>
           <ChevronRight size={18} color={webColors.mutedForeground} strokeWidth={1.75} />
         </Pressable>
+      </View>
+
+      <View style={styles.weekStrip}>
+        {weekDays.map((date) => (
+          <WeekDayChip
+            key={date}
+            date={date}
+            active={date === viewedDate}
+            isToday={date === today}
+            onSelect={setViewedDate}
+            onDropItem={scheduleDate}
+          />
+        ))}
       </View>
 
       <View style={styles.captureRow}>
@@ -340,6 +398,42 @@ const styles = StyleSheet.create({
     fontSize: webFontSize.sm,
     color: webColors.accent,
     fontWeight: '600',
+  },
+  weekStrip: {
+    flexDirection: 'row',
+    gap: webSpacing[2],
+    marginHorizontal: webSpacing[6],
+    marginTop: webSpacing[4],
+  },
+  weekChip: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
+    paddingVertical: webSpacing[2],
+    borderRadius: webRadius.sm,
+    backgroundColor: webColors.card,
+    borderWidth: 1,
+    borderColor: webColors.border,
+  },
+  weekChipActive: {
+    backgroundColor: webColors.accent,
+    borderColor: webColors.accent,
+  },
+  weekChipDay: {
+    fontSize: webFontSize.xs,
+    color: webColors.mutedForeground,
+    fontWeight: '600',
+  },
+  weekChipDate: {
+    fontSize: webFontSize.sm,
+    color: webColors.foreground,
+    fontWeight: '700',
+  },
+  weekChipTextActive: {
+    color: webColors.card,
+  },
+  weekChipToday: {
+    color: webColors.accent,
   },
   captureRow: {
     marginHorizontal: webSpacing[6],
