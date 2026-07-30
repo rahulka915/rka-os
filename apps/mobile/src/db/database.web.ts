@@ -29,7 +29,7 @@ export type {
 import 'react-native-get-random-values';
 import { v4 as uuidv4 } from 'uuid';
 import { deleteField } from 'firebase/firestore';
-import { nextOccurrenceDate } from '../utils/repeat';
+import { nextOccurrenceDate, parseRepeatRule, dayMatchesRepeat } from '../utils/repeat';
 import type { Item, ItemInstance, ActivityLog } from './types';
 import {
   getItemsSnapshot,
@@ -206,6 +206,74 @@ export function updateItemStatus(id: string, status: Item['status']): void {
 export function deleteItem(id: string): void {
   const now = Date.now();
   write(patchItem(id, { deletedAt: now, updatedAt: now }), 'deleteItem');
+}
+
+// ── Today planning ─────────────────────────────────────────────────────
+
+// "Plan for Today" — puts an un-dated task on the Home Today blocks without
+// giving it a calendar date. The stamp is date-specific, so it falls off by
+// itself the next day.
+export function planForToday(itemId: string, bucket?: 'anytime' | 'morning' | 'afternoon' | 'evening'): void {
+  const item = getItemWithMetadata(itemId);
+  if (!item) return;
+  const meta = item.metadata ? JSON.parse(item.metadata) : {};
+  meta.plannedDate = formatDate(new Date());
+  if (bucket) meta.preferredTimeBucket = bucket;
+  updateItemMetadata(itemId, meta);
+}
+
+export function unplanToday(itemId: string): void {
+  const item = getItemWithMetadata(itemId);
+  if (!item) return;
+  const meta = item.metadata ? JSON.parse(item.metadata) : {};
+  delete meta.plannedDate;
+  // Reset a real block preference back to Anytime, otherwise the editor's save
+  // path would immediately re-plan the task and fight this removal.
+  if (meta.preferredTimeBucket && meta.preferredTimeBucket !== 'anytime') {
+    meta.preferredTimeBucket = 'anytime';
+  }
+  updateItemMetadata(itemId, meta);
+}
+
+export function getPlannedTodayItems(): Item[] {
+  const today = formatDate(new Date());
+  return getItemsSnapshot().filter(
+    (i) =>
+      i.type === 'task' &&
+      i.status !== 'completed' &&
+      i.status !== 'inbox' &&
+      i.deletedAt == null &&
+      (i.metadata ?? '').includes(`"plannedDate":"${today}"`)
+  );
+}
+
+// Repeating tasks usually carry no scheduledDate of their own, so getTodayItems
+// can never see them — the rule itself decides membership.
+export function getRepeatingItemsForToday(): Item[] {
+  const today = formatDate(new Date());
+  return getItemsSnapshot()
+    .filter(
+      (i) =>
+        i.rrule != null &&
+        i.rrule !== '' &&
+        i.type === 'task' &&
+        i.status !== 'completed' &&
+        i.status !== 'inbox' &&
+        i.deletedAt == null
+    )
+    .filter((item) => {
+      const rule = parseRepeatRule(item.rrule);
+      return rule ? dayMatchesRepeat(rule, today, item.scheduledDate ?? undefined) : false;
+    });
+}
+
+export function isPlannedForToday(item: Item): boolean {
+  if (!item.metadata) return false;
+  try {
+    return (JSON.parse(item.metadata) as { plannedDate?: string }).plannedDate === formatDate(new Date());
+  } catch {
+    return false;
+  }
 }
 
 // ── Relations & manual order ───────────────────────────────────────────
