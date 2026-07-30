@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Check, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { useCalendar, useInbox, useTasks } from '../hooks/useDb';
@@ -39,17 +39,137 @@ function hourOf(entry: TimelineEntry): number | null {
   return Math.max(6, Math.min(23, hour));
 }
 
-// RNW's View/Pressable forward unrecognized props straight to the DOM node,
-// so native HTML5 drag-and-drop works via a type-cast past ViewProps — there's
-// no first-class RN drag API, and this is a .web.tsx-only file anyway.
-const dragProps = (itemId: string) =>
-  ({
-    draggable: true,
-    onDragStart: (event: any) => {
-      event.dataTransfer.setData('text/plain', itemId);
-      event.dataTransfer.effectAllowed = 'move';
-    },
-  }) as any;
+// RNW's Pressable/View don't forward unrecognized props (draggable,
+// onDragStart, ...) to the underlying DOM node — there's no first-class RN
+// drag API — so drag source/target behavior is wired directly onto the real
+// DOM element via a ref instead, in a plain useEffect.
+function useDraggableRef(itemId: string) {
+  const ref = useRef<any>(null);
+  useEffect(() => {
+    const node = ref.current;
+    if (!node || typeof node.addEventListener !== 'function') return;
+    node.draggable = true;
+    node.style.cursor = 'grab';
+    const onDragStart = (event: DragEvent) => {
+      event.dataTransfer?.setData('text/plain', itemId);
+      if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+    };
+    node.addEventListener('dragstart', onDragStart);
+    return () => node.removeEventListener('dragstart', onDragStart);
+  }, [itemId]);
+  return ref;
+}
+
+function useDropZoneRef(onDropItemId: (id: string) => void, onHoverChange: (hovering: boolean) => void) {
+  const ref = useRef<any>(null);
+  useEffect(() => {
+    const node = ref.current;
+    if (!node || typeof node.addEventListener !== 'function') return;
+    const onDragOver = (event: DragEvent) => {
+      event.preventDefault();
+      onHoverChange(true);
+    };
+    const onDragLeave = () => onHoverChange(false);
+    const onDrop = (event: DragEvent) => {
+      event.preventDefault();
+      onHoverChange(false);
+      const id = event.dataTransfer?.getData('text/plain');
+      if (id) onDropItemId(id);
+    };
+    node.addEventListener('dragover', onDragOver);
+    node.addEventListener('dragleave', onDragLeave);
+    node.addEventListener('drop', onDrop);
+    return () => {
+      node.removeEventListener('dragover', onDragOver);
+      node.removeEventListener('dragleave', onDragLeave);
+      node.removeEventListener('drop', onDrop);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return ref;
+}
+
+interface CardProps {
+  item: Item;
+  onOpen: (id: string) => void;
+  onToggleComplete: (item: Item) => void;
+}
+
+function CalendarCard({ item, onOpen, onToggleComplete }: CardProps) {
+  const ref = useDraggableRef(item.id);
+  const completed = item.status === 'completed';
+  return (
+    <Pressable ref={ref} style={styles.card} onPress={() => onOpen(item.id)}>
+      <Pressable
+        onPress={(event) => {
+          event.stopPropagation();
+          onToggleComplete(item);
+        }}
+        style={[styles.checkbox, completed && styles.checkboxDone]}
+      >
+        {completed ? <Check size={12} color={webColors.card} strokeWidth={2.5} /> : null}
+      </Pressable>
+      <Text style={[styles.cardTitle, completed && styles.cardTitleDone]} numberOfLines={1}>
+        {item.title}
+      </Text>
+    </Pressable>
+  );
+}
+
+interface RowProps extends CardProps {
+  label: string;
+  items: Item[];
+  onDropItem: (id: string) => void;
+}
+
+function DropRow({ label, items, onOpen, onToggleComplete, onDropItem }: Omit<RowProps, 'item'>) {
+  const [hovering, setHovering] = useState(false);
+  const ref = useDropZoneRef(onDropItem, setHovering);
+  return (
+    <View ref={ref} style={[styles.hourRow, hovering && styles.dropTargetActive]}>
+      <Text style={styles.hourLabel}>{label}</Text>
+      <View style={styles.hourCards}>
+        {items.map((item) => (
+          <CalendarCard key={item.id} item={item} onOpen={onOpen} onToggleComplete={onToggleComplete} />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+interface UnscheduledPaneProps {
+  sections: Array<{ label: string; items: Item[] }>;
+  onOpen: (id: string) => void;
+  onToggleComplete: (item: Item) => void;
+  onDropItem: (id: string) => void;
+}
+
+function UnscheduledPane({ sections, onOpen, onToggleComplete, onDropItem }: UnscheduledPaneProps) {
+  const [hovering, setHovering] = useState(false);
+  const ref = useDropZoneRef(onDropItem, setHovering);
+  const isEmpty = sections.every((s) => s.items.length === 0);
+  return (
+    <View ref={ref} style={[styles.unscheduledPane, hovering && styles.dropTargetActive]}>
+      <Text style={styles.paneTitle}>Unscheduled</Text>
+      <ScrollView contentContainerStyle={styles.paneScrollContent}>
+        {isEmpty ? (
+          <Text style={styles.empty}>Nothing unscheduled.</Text>
+        ) : (
+          sections.map((section) =>
+            section.items.length > 0 ? (
+              <View key={section.label} style={styles.section}>
+                <Text style={styles.sectionLabel}>{section.label}</Text>
+                {section.items.map((item) => (
+                  <CalendarCard key={item.id} item={item} onOpen={onOpen} onToggleComplete={onToggleComplete} />
+                ))}
+              </View>
+            ) : null
+          )
+        )}
+      </ScrollView>
+    </View>
+  );
+}
 
 export function CalendarScreen() {
   const [viewedDate, setViewedDate] = useState(() => formatDate(new Date()));
@@ -58,7 +178,6 @@ export function CalendarScreen() {
   const { tasks, refresh: refreshTasks } = useTasks();
   const [captureText, setCaptureText] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [dragOverKey, setDragOverKey] = useState<string | null>(null);
 
   const today = formatDate(new Date());
   const isToday = viewedDate === today;
@@ -99,58 +218,15 @@ export function CalendarScreen() {
     refreshAll();
   };
 
-  const dropOnHour = (event: any, hour: number | null) => {
-    event.preventDefault();
-    const itemId = event.dataTransfer.getData('text/plain');
-    setDragOverKey(null);
-    if (!itemId) return;
+  const scheduleAt = (itemId: string, hour: number | null) => {
     const time = hour === null ? undefined : `${String(hour).padStart(2, '0')}:00`;
     updateTimelineItemSchedule(itemId, viewedDate, time);
     refreshAll();
   };
 
-  const dropOnUnscheduled = (event: any) => {
-    event.preventDefault();
-    const itemId = event.dataTransfer.getData('text/plain');
-    setDragOverKey(null);
-    if (!itemId) return;
+  const unschedule = (itemId: string) => {
     updateTimelineItemSchedule(itemId, undefined, undefined);
     refreshAll();
-  };
-
-  const dropTargetProps = (key: string, onDrop: (event: any) => void) =>
-    ({
-      onDragOver: (event: any) => {
-        event.preventDefault();
-        if (dragOverKey !== key) setDragOverKey(key);
-      },
-      onDragLeave: () => setDragOverKey((k) => (k === key ? null : k)),
-      onDrop,
-    }) as any;
-
-  const renderCard = (item: Item) => {
-    const completed = item.status === 'completed';
-    return (
-      <Pressable
-        key={item.id}
-        style={styles.card}
-        onPress={() => setSelectedId(item.id)}
-        {...dragProps(item.id)}
-      >
-        <Pressable
-          onPress={(event) => {
-            event.stopPropagation();
-            toggleComplete(item);
-          }}
-          style={[styles.checkbox, completed && styles.checkboxDone]}
-        >
-          {completed ? <Check size={12} color={webColors.card} strokeWidth={2.5} /> : null}
-        </Pressable>
-        <Text style={[styles.cardTitle, completed && styles.cardTitleDone]} numberOfLines={1}>
-          {item.title}
-        </Text>
-      </Pressable>
-    );
   };
 
   return (
@@ -184,55 +260,34 @@ export function CalendarScreen() {
       </View>
 
       <View style={styles.panes}>
-        <View
-          style={[styles.unscheduledPane, dragOverKey === 'unscheduled' && styles.dropTargetActive]}
-          {...dropTargetProps('unscheduled', dropOnUnscheduled)}
-        >
-          <Text style={styles.paneTitle}>Unscheduled</Text>
-          <ScrollView contentContainerStyle={styles.paneScrollContent}>
-            {unscheduledInbox.length === 0 && unscheduledTasks.length === 0 ? (
-              <Text style={styles.empty}>Nothing unscheduled.</Text>
-            ) : (
-              <>
-                {unscheduledInbox.length > 0 ? (
-                  <View style={styles.section}>
-                    <Text style={styles.sectionLabel}>INBOX</Text>
-                    {unscheduledInbox.map(renderCard)}
-                  </View>
-                ) : null}
-                {unscheduledTasks.length > 0 ? (
-                  <View style={styles.section}>
-                    <Text style={styles.sectionLabel}>TASKS</Text>
-                    {unscheduledTasks.map(renderCard)}
-                  </View>
-                ) : null}
-              </>
-            )}
-          </ScrollView>
-        </View>
+        <UnscheduledPane
+          sections={[
+            { label: 'INBOX', items: unscheduledInbox },
+            { label: 'TASKS', items: unscheduledTasks },
+          ]}
+          onOpen={setSelectedId}
+          onToggleComplete={toggleComplete}
+          onDropItem={unschedule}
+        />
 
         <ScrollView style={styles.timelinePane} contentContainerStyle={styles.timelineContent}>
-          <View
-            style={[styles.hourRow, dragOverKey === 'anytime' && styles.dropTargetActive]}
-            {...dropTargetProps('anytime', (event: any) => dropOnHour(event, null))}
-          >
-            <Text style={styles.hourLabel}>Anytime</Text>
-            <View style={styles.hourCards}>{anytimeEntries.map((e) => renderCard(e.item))}</View>
-          </View>
-
-          {HOURS.map((hour) => {
-            const key = `hour-${hour}`;
-            return (
-              <View
-                key={hour}
-                style={[styles.hourRow, dragOverKey === key && styles.dropTargetActive]}
-                {...dropTargetProps(key, (event: any) => dropOnHour(event, hour))}
-              >
-                <Text style={styles.hourLabel}>{hourLabel(hour)}</Text>
-                <View style={styles.hourCards}>{(entriesByHour.get(hour) ?? []).map((e) => renderCard(e.item))}</View>
-              </View>
-            );
-          })}
+          <DropRow
+            label="Anytime"
+            items={anytimeEntries.map((e) => e.item)}
+            onOpen={setSelectedId}
+            onToggleComplete={toggleComplete}
+            onDropItem={(id) => scheduleAt(id, null)}
+          />
+          {HOURS.map((hour) => (
+            <DropRow
+              key={hour}
+              label={hourLabel(hour)}
+              items={(entriesByHour.get(hour) ?? []).map((e) => e.item)}
+              onOpen={setSelectedId}
+              onToggleComplete={toggleComplete}
+              onDropItem={(id) => scheduleAt(id, hour)}
+            />
+          ))}
         </ScrollView>
       </View>
 
@@ -381,8 +436,7 @@ const styles = StyleSheet.create({
     borderColor: webColors.border,
     paddingHorizontal: webSpacing[3],
     paddingVertical: webSpacing[2],
-    cursor: 'grab',
-  } as any,
+  },
   checkbox: {
     width: 16,
     height: 16,
