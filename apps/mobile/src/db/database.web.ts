@@ -33,6 +33,7 @@ import { nextOccurrenceDate, parseRepeatRule, dayMatchesRepeat } from '../utils/
 import { buildTimelineEntries } from './timelineEntry';
 import { getTimeOfDayFromHour, normalizeTimeInput, timeToMinutes, type TimeOfDay } from '../utils/time';
 import { countDosesByDay } from '../utils/medicationDoseHistory';
+import { resolveAutoStopAfterMs } from '../domain/medicationTimer/timerMath';
 import type { Item, ItemInstance, ActivityLog } from './types';
 import {
   getItemsSnapshot,
@@ -715,11 +716,54 @@ export function getTotalStock(meta: MedicationMeta): number {
   if (meta.containers) return meta.containers.reduce((sum, c) => sum + c.remaining, 0);
   return meta.stockRemaining ?? 0;
 }
-export function getStockBreakdown(_meta: MedicationMeta): StockBreakdown | null {
-  return notImplementedOnWeb('getStockBreakdown');
+// Ported verbatim from database.ts's getStockBreakdown — projects held stock against
+// the *configured* full-restock shape (empty/never-restocked containers still show as
+// an empty slot), deriving sheets front-to-back from consumption. Pure function, no DB.
+export function getStockBreakdown(meta: MedicationMeta): StockBreakdown | null {
+  if (!meta.containerSize && (!meta.containers || meta.containers.length === 0)) return null;
+
+  const containerSize = meta.containerSize ?? meta.containers![0].total;
+  const perRestock = meta.containersPerRestock ?? 1;
+  const real = meta.containers ?? [];
+  const slots = Math.max(perRestock, real.length);
+
+  const containers: StockBreakdownContainer[] = Array.from({ length: slots }, (_, i) => {
+    const c = real[i] ?? { total: containerSize, remaining: 0 };
+    if (!meta.sheetsPerContainer || !meta.pillsPerSheet) return c;
+
+    let consumed = c.total - c.remaining;
+    const sheets: StockBreakdownSheet[] = Array.from({ length: meta.sheetsPerContainer! }, () => {
+      const taken = Math.max(0, Math.min(meta.pillsPerSheet!, consumed));
+      consumed -= taken;
+      return { total: meta.pillsPerSheet!, remaining: meta.pillsPerSheet! - taken };
+    });
+    return { ...c, sheets };
+  });
+
+  return {
+    current: containers.reduce((sum, c) => sum + c.remaining, 0),
+    capacity: containers.reduce((sum, c) => sum + c.total, 0),
+    containers,
+  };
 }
-export function getContainerSummary(_meta: MedicationMeta): string | null {
-  return notImplementedOnWeb('getContainerSummary');
+
+// Ported verbatim from database.ts's getContainerSummary.
+export function getContainerSummary(meta: MedicationMeta): string | null {
+  const breakdown = getStockBreakdown(meta);
+  if (!breakdown) return null;
+  const { current, capacity, containers } = breakdown;
+  const top = `${current}/${capacity}`;
+  const showDetail = containers.length > 1 || containers.some((c) => c.sheets);
+  if (!showDetail) return top;
+
+  const containerParts = containers.map((c) => {
+    if (c.sheets) {
+      const sheetParts = c.sheets.map((s) => `${s.remaining}/${s.total}`).join('+');
+      return `${c.remaining}/${c.total} (${sheetParts})`;
+    }
+    return `${c.remaining}/${c.total}`;
+  });
+  return `${top} · ${containerParts.join(' + ')}`;
 }
 export function restockMedication(itemId: string, containerCount = 1): void {
   const item = getItemWithMetadata(itemId);
@@ -736,8 +780,13 @@ export function restockMedication(itemId: string, containerCount = 1): void {
   const nextMeta = { ...meta, containers, stockRemaining: containers.reduce((sum, c) => sum + c.remaining, 0) };
   write(patchItem(itemId, { metadata: JSON.stringify(nextMeta), updatedAt: Date.now() }), 'restockMedication');
 }
-export function parseMedicationTimerDetails(_details?: string | null): MedicationTimerDetails {
-  return notImplementedOnWeb('parseMedicationTimerDetails');
+export function parseMedicationTimerDetails(details?: string | null): MedicationTimerDetails {
+  if (!details) return {};
+  try {
+    return JSON.parse(details) as MedicationTimerDetails;
+  } catch {
+    return {};
+  }
 }
 export function getMedications(): Item[] {
   return getItemsByType('medication');
@@ -770,7 +819,7 @@ function decrementStock(meta: MedicationMeta, amount = 1): MedicationMeta {
   }
   return meta;
 }
-export function logMedicationTaken(itemId: string, takenAt: number = Date.now(), _startTimer = false, amount = 1): void {
+export function logMedicationTaken(itemId: string, takenAt: number = Date.now(), startTimer = false, amount = 1): void {
   const item = getItemWithMetadata(itemId);
   if (!item) return;
   let meta: MedicationMeta = item.metadata ? JSON.parse(item.metadata) : {};
@@ -779,17 +828,33 @@ export function logMedicationTaken(itemId: string, takenAt: number = Date.now(),
   write(patchItem(itemId, { metadata: JSON.stringify(meta), updatedAt: Date.now() }), 'logMedicationTaken');
   const logId = uuidv4();
   const now = Date.now();
+  const details: MedicationTimerDetails = {
+    dose: meta.dose,
+    loggedAt: now,
+    timerActive: startTimer,
+    startedAt: startTimer ? takenAt : undefined,
+    accumulatedMs: 0,
+    autoStopAfterMs: startTimer ? resolveAutoStopAfterMs(meta.autoStopAfterHours) : undefined,
+    notified: false,
+  };
   write(
-    putActivityLogDoc({ id: logId, entityId: itemId, actionType: 'medication-taken', timestamp: takenAt, createdAt: now }),
+    putActivityLogDoc({
+      id: logId,
+      entityId: itemId,
+      actionType: 'medication-taken',
+      timestamp: takenAt,
+      details: JSON.stringify(details),
+      createdAt: now,
+    }),
     'logMedicationTaken:log'
   );
 }
-export function logHalfDoseTaken(itemId: string, takenAt: number = Date.now(), _startTimer = false): boolean {
+export function logHalfDoseTaken(itemId: string, takenAt: number = Date.now(), startTimer = false): boolean {
   const item = getItemWithMetadata(itemId);
   if (!item) return false;
   const meta: MedicationMeta = item.metadata ? JSON.parse(item.metadata) : {};
   const completingSplit = !!meta.pendingHalfDoseAt;
-  logMedicationTaken(itemId, takenAt, false, 0.5);
+  logMedicationTaken(itemId, takenAt, startTimer, 0.5);
   const updated = getItemWithMetadata(itemId);
   const updatedMeta: MedicationMeta = updated?.metadata ? JSON.parse(updated.metadata) : {};
   updatedMeta.pendingHalfDoseAt = completingSplit ? undefined : takenAt;
@@ -802,53 +867,148 @@ export function getMedicationDoseHistory(itemId: string, days = 7): Array<{ date
 }
 export function deleteMedicationLog(logId: string, itemId: string): void {
   write(deleteActivityLogDoc(logId), 'deleteMedicationLog');
-  const logs = getMedicationLogs(itemId, 1);
-  const meta = getItemWithMetadata(itemId)?.metadata;
-  const parsed: MedicationMeta = meta ? JSON.parse(meta) : {};
-  write(
-    patchItem(itemId, { metadata: JSON.stringify({ ...parsed, lastTakenAt: logs[0]?.timestamp }), updatedAt: Date.now() }),
-    'deleteMedicationLog:resync'
-  );
+  syncLastTakenAt(itemId);
 }
 export function editMedicationLog(logId: string, itemId: string, newTimestamp: number): void {
   write(patchActivityLogDoc(logId, { timestamp: newTimestamp }), 'editMedicationLog');
-  const logs = getMedicationLogs(itemId, 1);
-  const meta = getItemWithMetadata(itemId)?.metadata;
-  const parsed: MedicationMeta = meta ? JSON.parse(meta) : {};
-  write(
-    patchItem(itemId, { metadata: JSON.stringify({ ...parsed, lastTakenAt: logs[0]?.timestamp }), updatedAt: Date.now() }),
-    'editMedicationLog:resync'
-  );
+  syncLastTakenAt(itemId);
 }
-export function stopMedicationTimer(_logId: string, _itemId: string): void {
-  notImplementedOnWeb('stopMedicationTimer');
+// Timer state lives entirely in an activityLogs row's `details` JSON — same shape as
+// native, so every function below is a direct port substituting patchActivityLogDoc for
+// the native UPDATE. syncLastTakenAt mirrors database.ts's private _syncLastTakenAt.
+function findLog(logId: string): ActivityLog | undefined {
+  return getActivityLogsSnapshot().find((l) => l.id === logId);
 }
-export function completeMedicationTimer(_logId: string, _itemId: string, _completedElapsedMs: number, _reason: 'manual' | 'automatic'): void {
-  notImplementedOnWeb('completeMedicationTimer');
+
+function syncLastTakenAt(itemId: string): void {
+  const latest = getMedicationLogs(itemId, 1)[0];
+  const item = getItemWithMetadata(itemId);
+  if (!item) return;
+  const meta: MedicationMeta = item.metadata ? JSON.parse(item.metadata) : {};
+  const next = { ...meta };
+  if (latest) next.lastTakenAt = latest.timestamp;
+  else delete next.lastTakenAt;
+  write(patchItem(itemId, { metadata: JSON.stringify(next), updatedAt: Date.now() }), 'syncLastTakenAt');
+}
+
+export function stopMedicationTimer(logId: string, itemId: string): void {
+  const log = findLog(logId);
+  if (!log) return;
+  const details = parseMedicationTimerDetails(log.details);
+  details.timerActive = false;
+  delete details.pausedAt;
+  delete details.accumulatedMs;
+  details.stoppedAt = Date.now();
+  write(patchActivityLogDoc(logId, { details: JSON.stringify(details) }), 'stopMedicationTimer');
+  syncLastTakenAt(itemId);
+}
+export function completeMedicationTimer(
+  logId: string,
+  itemId: string,
+  completedElapsedMs: number,
+  reason: 'manual' | 'automatic'
+): void {
+  const log = findLog(logId);
+  if (!log) return;
+  const details = parseMedicationTimerDetails(log.details);
+  if (details.stoppedAt && details.timerStoppedReason) return;
+  details.timerActive = false;
+  delete details.pausedAt;
+  details.accumulatedMs = completedElapsedMs;
+  details.completedElapsedMs = completedElapsedMs;
+  details.timerStoppedReason = reason;
+  details.stoppedAt = Date.now();
+  delete details.autoStopNotificationId;
+  write(patchActivityLogDoc(logId, { details: JSON.stringify(details) }), 'completeMedicationTimer');
+  syncLastTakenAt(itemId);
 }
 export function setMedicationTimerNotificationId(_logId: string, _notificationId?: string): void {
+  // Local-notification bookkeeping only — no desktop UI ever calls this.
   notImplementedOnWeb('setMedicationTimerNotificationId');
 }
-export function pauseMedicationTimer(_logId: string, _itemId: string): void {
-  notImplementedOnWeb('pauseMedicationTimer');
+export function pauseMedicationTimer(logId: string, itemId: string): void {
+  const log = findLog(logId);
+  if (!log) return;
+  const details = parseMedicationTimerDetails(log.details);
+  if (!details.timerActive || !details.startedAt) return;
+  const now = Date.now();
+  const accumulatedMs = (details.accumulatedMs ?? 0) + Math.max(0, now - details.startedAt);
+  details.timerActive = false;
+  details.pausedAt = now;
+  details.accumulatedMs = accumulatedMs;
+  delete details.stoppedAt;
+  write(patchActivityLogDoc(logId, { details: JSON.stringify(details) }), 'pauseMedicationTimer');
+  syncLastTakenAt(itemId);
 }
 export function markMedicationTimerNotified(_logId: string): void {
+  // Local-notification bookkeeping only — no desktop UI ever calls this.
   notImplementedOnWeb('markMedicationTimerNotified');
 }
-export function resumeMedicationTimer(_logId: string, _itemId: string): void {
-  notImplementedOnWeb('resumeMedicationTimer');
+export function resumeMedicationTimer(logId: string, itemId: string): void {
+  const log = findLog(logId);
+  if (!log) return;
+  const details = parseMedicationTimerDetails(log.details);
+  details.timerActive = true;
+  details.startedAt = Date.now();
+  delete details.pausedAt;
+  details.notified = false;
+  delete details.stoppedAt;
+  write(patchActivityLogDoc(logId, { details: JSON.stringify(details) }), 'resumeMedicationTimer');
+  syncLastTakenAt(itemId);
 }
-export function resetMedicationTimer(_logId: string, _itemId: string): void {
-  notImplementedOnWeb('resetMedicationTimer');
+export function resetMedicationTimer(logId: string, itemId: string): void {
+  const log = findLog(logId);
+  if (!log) return;
+  const details = parseMedicationTimerDetails(log.details);
+  const now = Date.now();
+  details.timerActive = true;
+  details.startedAt = now;
+  details.accumulatedMs = 0;
+  delete details.pausedAt;
+  delete details.stoppedAt;
+  details.notified = false;
+  write(patchActivityLogDoc(logId, { details: JSON.stringify(details) }), 'resetMedicationTimer');
+  syncLastTakenAt(itemId);
 }
-export function startTimerFromLoggedDose(_logId: string, _itemId: string): void {
-  notImplementedOnWeb('startTimerFromLoggedDose');
+export function startTimerFromLoggedDose(logId: string, itemId: string): void {
+  const log = findLog(logId);
+  if (!log) return;
+  const details = parseMedicationTimerDetails(log.details);
+  const item = getItemWithMetadata(itemId);
+  const meta: MedicationMeta = item?.metadata ? JSON.parse(item.metadata) : {};
+  details.timerActive = true;
+  details.startedAt = log.timestamp;
+  details.accumulatedMs = 0;
+  details.autoStopAfterMs = resolveAutoStopAfterMs(meta.autoStopAfterHours);
+  delete details.pausedAt;
+  delete details.stoppedAt;
+  details.notified = false;
+  write(patchActivityLogDoc(logId, { details: JSON.stringify(details) }), 'startTimerFromLoggedDose');
+  syncLastTakenAt(itemId);
 }
 export function getActiveMedicationTimers(): Array<{ log: ActivityLog; med: Item; details: MedicationTimerDetails }> {
-  return notImplementedOnWeb('getActiveMedicationTimers');
+  return getActivityLogsSnapshot()
+    .filter((l) => l.actionType === 'medication-taken')
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .flatMap((log) => {
+      const details = parseMedicationTimerDetails(log.details);
+      if (!details.timerActive || !details.startedAt) return [];
+      const med = getItemWithMetadata(log.entityId);
+      if (!med) return [];
+      return [{ log, med, details }];
+    });
 }
 export function getPersistentMedicationTimers(): Array<{ log: ActivityLog; med: Item; details: MedicationTimerDetails }> {
-  return notImplementedOnWeb('getPersistentMedicationTimers');
+  return getActivityLogsSnapshot()
+    .filter((l) => l.actionType === 'medication-taken')
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .flatMap((log) => {
+      const details = parseMedicationTimerDetails(log.details);
+      if (!details.timerActive && !details.pausedAt) return [];
+      const med = getItemWithMetadata(log.entityId);
+      if (!med) return [];
+      return [{ log, med, details }];
+    });
 }
 export function getTimerWidgetPreferences(): TimerWidgetPreferences {
   return notImplementedOnWeb('getTimerWidgetPreferences');
