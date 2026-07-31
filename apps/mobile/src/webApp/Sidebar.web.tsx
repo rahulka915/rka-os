@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { Home, Inbox, ListTodo, CalendarDays, CalendarRange, Archive, Settings, ShoppingBag, Pill, Dumbbell, Folder, ChevronRight, ChevronDown, Plus } from 'lucide-react-native';
+import { Home, Inbox, ListTodo, CalendarDays, CalendarRange, Archive, Settings, ShoppingBag, Pill, Dumbbell, Folder, Target, Plus } from 'lucide-react-native';
 import { useAreas, useProjects } from '../hooks/useDb';
-import { getAreaProjectCount, getProjectItemCount, getProjectsForArea, getRelation, createItem } from '../db/database';
+import { getAreaProjectCount, getProjectItemCount, getRelation, createItem } from '../db/database';
 import { webColors, webSpacing, webRadius, webFontSize } from '../theme/webTheme';
 
 export type SidebarView = 'home' | 'inbox' | 'tasks' | 'upcoming' | 'areas' | 'calendar' | 'archive' | 'objects' | 'medications' | 'workouts' | 'settings';
@@ -41,24 +41,11 @@ export function Sidebar({
   onSelectAreasOverview,
 }: SidebarProps) {
   const { areas, refresh: refreshAreas } = useAreas();
-  const { projects } = useProjects();
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const { projects, refresh: refreshProjects } = useProjects();
   const [addingArea, setAddingArea] = useState(false);
   const [newAreaTitle, setNewAreaTitle] = useState('');
-
-  const toggleExpanded = (areaId: string) => {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(areaId)) next.delete(areaId);
-      else next.add(areaId);
-      return next;
-    });
-  };
-
-  const selectArea = (areaId: string) => {
-    onSelectArea(areaId);
-    toggleExpanded(areaId);
-  };
+  const [addingProject, setAddingProject] = useState(false);
+  const [newProjectTitle, setNewProjectTitle] = useState('');
 
   const submitNewArea = () => {
     const trimmed = newAreaTitle.trim();
@@ -70,124 +57,126 @@ export function Sidebar({
     setAddingArea(false);
   };
 
-  const unassignedProjects = projects.filter((p) => !getRelation(p.id, 'area'));
+  const submitNewProject = () => {
+    const trimmed = newProjectTitle.trim();
+    if (trimmed) {
+      createItem('project', trimmed, 'active');
+      refreshProjects();
+    }
+    setNewProjectTitle('');
+    setAddingProject(false);
+  };
 
   return (
     <View style={styles.container}>
       <Text style={styles.workspaceLabel}>RKA OS</Text>
 
-      <View style={styles.navSection}>
-        {NAV_ITEMS.map(({ view, label, Icon }) => {
-          const active = view === activeView;
-          return (
-            <Pressable
-              key={view}
-              onPress={() => onSelectView(view)}
-              style={[styles.navRow, active && styles.navRowActive]}
-            >
-              <Icon size={18} color={active ? webColors.accent : webColors.mutedForeground} strokeWidth={1.75} />
-              <Text style={[styles.navLabel, active && styles.navLabelActive]}>{label}</Text>
-              {view === 'inbox' && inboxCount > 0 ? (
-                <View style={styles.countBadge}>
-                  <Text style={styles.countBadgeText}>{inboxCount}</Text>
-                </View>
-              ) : null}
-            </Pressable>
-          );
-        })}
-      </View>
+      <ScrollView style={styles.scrollArea} contentContainerStyle={styles.scrollContent}>
+        <View style={styles.navSection}>
+          {NAV_ITEMS.map(({ view, label, Icon }) => {
+            const active = view === activeView;
+            return (
+              <Pressable
+                key={view}
+                onPress={() => onSelectView(view)}
+                style={[styles.navRow, active && styles.navRowActive]}
+              >
+                <Icon size={18} color={active ? webColors.accent : webColors.mutedForeground} strokeWidth={1.75} />
+                <Text style={[styles.navLabel, active && styles.navLabelActive]}>{label}</Text>
+                {view === 'inbox' && inboxCount > 0 ? (
+                  <View style={styles.countBadge}>
+                    <Text style={styles.countBadgeText}>{inboxCount}</Text>
+                  </View>
+                ) : null}
+              </Pressable>
+            );
+          })}
+        </View>
 
-      <View style={styles.divider} />
+        <View style={styles.divider} />
 
-      <View style={styles.sectionHeaderRow}>
-        <Pressable onPress={onSelectAreasOverview} style={styles.sectionLabelButton}>
-          <Text style={styles.sectionLabel}>Domains & Missions</Text>
-        </Pressable>
-        <Pressable onPress={() => setAddingArea((v) => !v)} style={styles.addAreaButton}>
-          <Plus size={14} color={webColors.mutedForeground} strokeWidth={2} />
-        </Pressable>
-      </View>
-
-      {addingArea ? (
-        <TextInput
-          value={newAreaTitle}
-          onChangeText={setNewAreaTitle}
-          onSubmitEditing={submitNewArea}
-          onBlur={submitNewArea}
-          placeholder="New domain..."
-          placeholderTextColor={webColors.mutedForeground}
-          style={styles.inlineInput}
-          autoFocus
-        />
-      ) : null}
-
-      <ScrollView style={styles.treeSection}>
-        {areas.length === 0 && unassignedProjects.length === 0 ? (
-          <Pressable disabled style={[styles.navRow, styles.navRowDisabled]}>
-            <Folder size={16} color={webColors.mutedForeground} strokeWidth={1.75} />
-            <Text style={styles.navLabelDisabled}>No domains yet</Text>
+        <View style={styles.sectionHeaderRow}>
+          <Pressable onPress={onSelectAreasOverview} style={styles.sectionLabelButton}>
+            <Text style={styles.sectionLabel}>Domains</Text>
           </Pressable>
+          <Pressable onPress={() => setAddingArea((v) => !v)} style={styles.addButton}>
+            <Plus size={14} color={webColors.mutedForeground} strokeWidth={2} />
+          </Pressable>
+        </View>
+
+        {addingArea ? (
+          <TextInput
+            value={newAreaTitle}
+            onChangeText={setNewAreaTitle}
+            onSubmitEditing={submitNewArea}
+            onBlur={submitNewArea}
+            placeholder="New domain..."
+            placeholderTextColor={webColors.mutedForeground}
+            style={styles.inlineInput}
+            autoFocus
+          />
         ) : null}
 
-        {areas.map((area) => {
-          const isExpanded = expanded.has(area.id);
-          const activeArea = selectedAreaId === area.id;
-          return (
-            <View key={area.id}>
-              <Pressable onPress={() => selectArea(area.id)} style={[styles.navRow, activeArea && styles.navRowActive]}>
-                {isExpanded ? (
-                  <ChevronDown size={14} color={webColors.mutedForeground} strokeWidth={2} />
-                ) : (
-                  <ChevronRight size={14} color={webColors.mutedForeground} strokeWidth={2} />
-                )}
-                <Folder size={16} color={activeArea ? webColors.accent : webColors.mutedForeground} strokeWidth={1.75} />
-                <Text style={[styles.navLabel, activeArea && styles.navLabelActive]} numberOfLines={1}>
+        {areas.length === 0 ? (
+          <Text style={styles.emptyLabel}>No domains yet</Text>
+        ) : (
+          areas.map((area) => {
+            const active = selectedAreaId === area.id;
+            return (
+              <Pressable key={area.id} onPress={() => onSelectArea(area.id)} style={[styles.navRow, active && styles.navRowActive]}>
+                <Folder size={16} color={active ? webColors.accent : webColors.mutedForeground} strokeWidth={1.75} />
+                <Text style={[styles.navLabel, active && styles.navLabelActive]} numberOfLines={1}>
                   {area.title}
                 </Text>
                 <Text style={styles.treeCount}>{getAreaProjectCount(area.id)}</Text>
               </Pressable>
-              {isExpanded
-                ? getProjectsForArea(area.id).map((project) => {
-                    const activeProject = selectedProjectId === project.id;
-                    return (
-                      <Pressable
-                        key={project.id}
-                        onPress={() => onSelectProject(project.id)}
-                        style={[styles.projectRow, activeProject && styles.navRowActive]}
-                      >
-                        <Text style={[styles.navLabel, activeProject && styles.navLabelActive]} numberOfLines={1}>
-                          {project.title}
-                        </Text>
-                        <Text style={styles.treeCount}>{getProjectItemCount(project.id)}</Text>
-                      </Pressable>
-                    );
-                  })
-                : null}
-            </View>
-          );
-        })}
+            );
+          })
+        )}
 
-        {unassignedProjects.length > 0 ? (
-          <View>
-            <Text style={styles.noAreaLabel}>No domain</Text>
-            {unassignedProjects.map((project) => {
-              const activeProject = selectedProjectId === project.id;
-              return (
-                <Pressable
-                  key={project.id}
-                  onPress={() => onSelectProject(project.id)}
-                  style={[styles.navRow, activeProject && styles.navRowActive]}
-                >
-                  <Folder size={16} color={activeProject ? webColors.accent : webColors.mutedForeground} strokeWidth={1.75} />
-                  <Text style={[styles.navLabel, activeProject && styles.navLabelActive]} numberOfLines={1}>
+        <View style={styles.divider} />
+
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionLabel}>Missions</Text>
+          <Pressable onPress={() => setAddingProject((v) => !v)} style={styles.addButton}>
+            <Plus size={14} color={webColors.mutedForeground} strokeWidth={2} />
+          </Pressable>
+        </View>
+
+        {addingProject ? (
+          <TextInput
+            value={newProjectTitle}
+            onChangeText={setNewProjectTitle}
+            onSubmitEditing={submitNewProject}
+            onBlur={submitNewProject}
+            placeholder="New mission..."
+            placeholderTextColor={webColors.mutedForeground}
+            style={styles.inlineInput}
+            autoFocus
+          />
+        ) : null}
+
+        {projects.length === 0 ? (
+          <Text style={styles.emptyLabel}>No missions yet</Text>
+        ) : (
+          projects.map((project) => {
+            const active = selectedProjectId === project.id;
+            const domainId = getRelation(project.id, 'area');
+            const domainName = domainId ? areas.find((a) => a.id === domainId)?.title : null;
+            return (
+              <Pressable key={project.id} onPress={() => onSelectProject(project.id)} style={[styles.navRow, active && styles.navRowActive]}>
+                <Target size={16} color={active ? webColors.accent : webColors.mutedForeground} strokeWidth={1.75} />
+                <View style={styles.missionLabelColumn}>
+                  <Text style={[styles.navLabel, active && styles.navLabelActive]} numberOfLines={1}>
                     {project.title}
                   </Text>
-                  <Text style={styles.treeCount}>{getProjectItemCount(project.id)}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        ) : null}
+                  {domainName ? <Text style={styles.missionDomain} numberOfLines={1}>{domainName}</Text> : null}
+                </View>
+                <Text style={styles.treeCount}>{getProjectItemCount(project.id)}</Text>
+              </Pressable>
+            );
+          })
+        )}
       </ScrollView>
 
       <View style={styles.footer}>
@@ -224,6 +213,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: webSpacing[2],
     marginBottom: webSpacing[5],
   },
+  scrollArea: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: webSpacing[3],
+  },
   navSection: {
     gap: webSpacing[1],
   },
@@ -238,9 +233,6 @@ const styles = StyleSheet.create({
   navRowActive: {
     backgroundColor: `${webColors.accent}1A`,
   },
-  navRowDisabled: {
-    opacity: 0.5,
-  },
   navLabel: {
     fontSize: webFontSize.sm,
     color: webColors.mutedForeground,
@@ -250,12 +242,6 @@ const styles = StyleSheet.create({
   navLabelActive: {
     color: webColors.foreground,
     fontWeight: '600',
-  },
-  navLabelDisabled: {
-    fontSize: webFontSize.sm,
-    color: webColors.mutedForeground,
-    fontWeight: '500',
-    flex: 1,
   },
   countBadge: {
     minWidth: 20,
@@ -270,10 +256,6 @@ const styles = StyleSheet.create({
     fontSize: webFontSize.xs,
     fontWeight: '700',
     color: webColors.card,
-  },
-  comingSoon: {
-    fontSize: webFontSize.xs,
-    color: webColors.mutedForeground,
   },
   divider: {
     height: 1,
@@ -297,7 +279,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  addAreaButton: {
+  addButton: {
     width: 20,
     height: 20,
     borderRadius: webRadius.sm,
@@ -314,8 +296,10 @@ const styles = StyleSheet.create({
     marginHorizontal: webSpacing[2],
     marginBottom: webSpacing[2],
   },
-  treeSection: {
-    flex: 1,
+  emptyLabel: {
+    fontSize: webFontSize.sm,
+    color: webColors.mutedForeground,
+    paddingHorizontal: webSpacing[2],
   },
   footer: {
     paddingTop: webSpacing[3],
@@ -326,23 +310,12 @@ const styles = StyleSheet.create({
     fontSize: webFontSize.xs,
     color: webColors.mutedForeground,
   },
-  projectRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: webSpacing[2],
-    paddingLeft: webSpacing[6],
-    paddingRight: webSpacing[2],
-    paddingVertical: webSpacing[2],
-    borderRadius: webRadius.sm,
+  missionLabelColumn: {
+    flex: 1,
   },
-  noAreaLabel: {
-    fontSize: webFontSize.xs,
-    fontWeight: '600',
+  missionDomain: {
+    fontSize: 10,
     color: webColors.mutedForeground,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    paddingHorizontal: webSpacing[2],
-    marginTop: webSpacing[3],
-    marginBottom: webSpacing[1],
+    opacity: 0.8,
   },
 });
