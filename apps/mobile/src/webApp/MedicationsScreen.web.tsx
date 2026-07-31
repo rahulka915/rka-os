@@ -317,10 +317,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: webSpacing[3],
-    backgroundColor: '#FEF3E2',
+    backgroundColor: webColors.warningBackground,
     borderRadius: webRadius.md,
     borderWidth: 1,
-    borderColor: '#F5D8A8',
+    borderColor: webColors.warningBorder,
     paddingHorizontal: webSpacing[4],
     paddingVertical: webSpacing[3],
   },
@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
   },
   attentionSub: {
     fontSize: webFontSize.xs,
-    color: '#B45309',
+    color: webColors.warningForeground,
     fontWeight: '600',
   },
   takeChip: {
@@ -358,12 +358,12 @@ const styles = StyleSheet.create({
     borderRadius: webRadius.pill,
     backgroundColor: webColors.card,
     borderWidth: 1,
-    borderColor: '#F5D8A8',
+    borderColor: webColors.warningBorder,
   },
   restockChipText: {
     fontSize: webFontSize.xs,
     fontWeight: '700',
-    color: '#B45309',
+    color: webColors.warningForeground,
   },
   iconButton: {
     width: 26,

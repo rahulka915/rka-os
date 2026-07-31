@@ -1,6 +1,9 @@
 import { BackupProvider, useBackup } from './src/hooks/useBackup';
 import { AppShell } from './src/webApp/AppShell';
 import { SignInScreen } from './src/webApp/SignInScreen';
+import { initWebTheme } from './src/theme/webThemeController';
+
+initWebTheme();
 
 function AppContent() {
   const { isSignedIn } = useBackup();
