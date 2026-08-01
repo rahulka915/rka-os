@@ -7,6 +7,7 @@ import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
 import { LensSurface } from '../components/LensSurface';
 import { ExerciseEditSheet, type ExerciseDraft } from '../components/ExerciseEditSheet';
+import { ExerciseThumbnail } from '../components/ExerciseThumbnail';
 import { groupExercisesByMuscle, filterExercisesByQuery, formatExerciseSubtitle, parseExerciseMeta } from '../utils/exerciseLibrary';
 import { STARTER_EXERCISES } from '../utils/starterExercises';
 import { showActionSheet } from '../utils/actionSheet';
@@ -41,13 +42,13 @@ export function ExerciseLibraryScreen() {
 
   const handleSubmit = (draft: ExerciseDraft) => {
     if (editTarget) {
-      updateItemMetadata(editTarget.id, { muscleGroup: draft.muscleGroup, equipment: draft.equipment, notes: draft.notes });
+      updateItemMetadata(editTarget.id, { muscleGroup: draft.muscleGroup, equipment: draft.equipment, notes: draft.notes, imageKey: draft.imageKey });
       if (draft.title !== editTarget.title) {
         updateItemTitle(editTarget.id, draft.title);
       }
     } else {
       const id = createItem('exercise', draft.title, 'active');
-      updateItemMetadata(id, { muscleGroup: draft.muscleGroup, equipment: draft.equipment, notes: draft.notes });
+      updateItemMetadata(id, { muscleGroup: draft.muscleGroup, equipment: draft.equipment, notes: draft.notes, imageKey: draft.imageKey });
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     refresh();
@@ -71,7 +72,7 @@ export function ExerciseLibraryScreen() {
   const addStarters = () => {
     for (const starter of STARTER_EXERCISES) {
       const id = createItem('exercise', starter.title, 'active');
-      updateItemMetadata(id, { muscleGroup: starter.muscleGroup, equipment: starter.equipment });
+      updateItemMetadata(id, { muscleGroup: starter.muscleGroup, equipment: starter.equipment, imageKey: starter.imageKey });
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     refresh();
@@ -119,10 +120,13 @@ export function ExerciseLibraryScreen() {
                   onLongPress={() => handleLongPress(item)}
                   delayLongPress={400}
                 >
-                  <Text style={[styles.rowTitle, { color: palette.text }]} numberOfLines={1}>{item.title}</Text>
-                  <Text style={[styles.rowSubtitle, { color: palette.textTertiary }]} numberOfLines={1}>
-                    {formatExerciseSubtitle(parseExerciseMeta(item.metadata))}
-                  </Text>
+                  <ExerciseThumbnail imageKey={parseExerciseMeta(item.metadata).imageKey} />
+                  <View style={styles.rowText}>
+                    <Text style={[styles.rowTitle, { color: palette.text }]} numberOfLines={1}>{item.title}</Text>
+                    <Text style={[styles.rowSubtitle, { color: palette.textTertiary }]} numberOfLines={1}>
+                      {formatExerciseSubtitle(parseExerciseMeta(item.metadata))}
+                    </Text>
+                  </View>
                 </TouchableOpacity>
               ))}
             </View>
@@ -159,7 +163,8 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     marginBottom: 4,
   },
-  row: { borderRadius: 14, paddingHorizontal: 16, paddingVertical: 12, gap: 2 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 12 },
+  rowText: { flex: 1, gap: 2 },
   rowTitle: { fontSize: 16, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
   rowSubtitle: { fontSize: 12, fontWeight: '500' },
   empty: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 8, paddingHorizontal: 24 },

@@ -21,6 +21,8 @@ import { BlockEditSheet } from '../components/BlockEditSheet';
 import { ExercisePickerSheet } from '../components/ExercisePickerSheet';
 import { useHapticReorder } from '../hooks/useHapticReorder';
 import { parseBlockMeta, formatBlockSummary } from '../utils/workoutBlock';
+import { parseExerciseMeta } from '../utils/exerciseLibrary';
+import { ExerciseThumbnail } from '../components/ExerciseThumbnail';
 import { showActionSheet } from '../utils/actionSheet';
 import { Plus } from '../icons';
 import type { Item } from '../db/types';
@@ -33,6 +35,7 @@ interface WorkoutTemplateDetailRouteParams {
 interface BlockRow {
   block: Item;
   exerciseTitle: string;
+  exerciseImageKey?: string;
 }
 
 export function WorkoutTemplateDetailScreen() {
@@ -51,7 +54,11 @@ export function WorkoutTemplateDetailScreen() {
     const nextRows: BlockRow[] = blocks.map((block) => {
       const exerciseId = getRelation(block.id, 'exercise');
       const exercise = exerciseId ? getItemWithMetadata(exerciseId) : null;
-      return { block, exerciseTitle: exercise?.title ?? block.title };
+      return {
+        block,
+        exerciseTitle: exercise?.title ?? block.title,
+        exerciseImageKey: exercise ? parseExerciseMeta(exercise.metadata).imageKey : undefined,
+      };
     });
     setRows(nextRows);
   }, [templateId, listKey]);
@@ -111,6 +118,7 @@ export function WorkoutTemplateDetailScreen() {
           onLongPress={() => handleLongPress(row)}
           delayLongPress={400}
         >
+          <ExerciseThumbnail imageKey={row.exerciseImageKey} size={36} />
           <View style={styles.rowContent}>
             <Text style={[styles.rowTitle, { color: palette.text }]} numberOfLines={1}>{row.exerciseTitle}</Text>
             <Text style={[styles.rowSubtitle, { color: palette.textTertiary }]} numberOfLines={1}>

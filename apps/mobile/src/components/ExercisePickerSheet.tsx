@@ -7,6 +7,7 @@ import { useThemeContext } from '../hooks/useThemeContext';
 import { getItemComposerMaterial, getThemeColors, spacing } from '../theme';
 import { BottomSheet } from './ui/BottomSheet';
 import { ExerciseEditSheet, type ExerciseDraft } from './ExerciseEditSheet';
+import { ExerciseThumbnail } from './ExerciseThumbnail';
 import { groupExercisesByMuscle, filterExercisesByQuery, formatExerciseSubtitle, parseExerciseMeta } from '../utils/exerciseLibrary';
 import type { Item } from '../db/types';
 
@@ -41,14 +42,14 @@ export function ExercisePickerSheet({ visible, onClose, onPick }: ExercisePicker
 
   const handleCreateSubmit = (draft: ExerciseDraft) => {
     const id = createItem('exercise', draft.title, 'active');
-    updateItemMetadata(id, { muscleGroup: draft.muscleGroup, equipment: draft.equipment, notes: draft.notes });
+    updateItemMetadata(id, { muscleGroup: draft.muscleGroup, equipment: draft.equipment, notes: draft.notes, imageKey: draft.imageKey });
     refresh();
     const created: Item = {
       id,
       type: 'exercise',
       title: draft.title,
       status: 'active',
-      metadata: JSON.stringify({ muscleGroup: draft.muscleGroup, equipment: draft.equipment, notes: draft.notes }),
+      metadata: JSON.stringify({ muscleGroup: draft.muscleGroup, equipment: draft.equipment, notes: draft.notes, imageKey: draft.imageKey }),
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
@@ -92,10 +93,13 @@ export function ExercisePickerSheet({ visible, onClose, onPick }: ExercisePicker
               <Text style={[styles.sectionLabel, { color: palette.textTertiary }]}>{group.label.toUpperCase()}</Text>
               {group.exercises.map((item) => (
                 <TouchableOpacity key={item.id} style={styles.row} onPress={() => handlePick(item)}>
-                  <Text style={[styles.rowTitle, { color: palette.text }]} numberOfLines={1}>{item.title}</Text>
-                  <Text style={[styles.rowSubtitle, { color: palette.textTertiary }]} numberOfLines={1}>
-                    {formatExerciseSubtitle(parseExerciseMeta(item.metadata))}
-                  </Text>
+                  <ExerciseThumbnail imageKey={parseExerciseMeta(item.metadata).imageKey} size={36} />
+                  <View style={styles.rowText}>
+                    <Text style={[styles.rowTitle, { color: palette.text }]} numberOfLines={1}>{item.title}</Text>
+                    <Text style={[styles.rowSubtitle, { color: palette.textTertiary }]} numberOfLines={1}>
+                      {formatExerciseSubtitle(parseExerciseMeta(item.metadata))}
+                    </Text>
+                  </View>
                 </TouchableOpacity>
               ))}
             </View>
@@ -122,7 +126,8 @@ const styles = StyleSheet.create({
   list: { maxHeight: 360 },
   sectionRows: { gap: 6, marginBottom: 14 },
   sectionLabel: { fontSize: 11, fontWeight: '700', fontFamily: 'Inter_700Bold', letterSpacing: 0.6, marginBottom: 2 },
-  row: { paddingVertical: 8, gap: 2 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 },
+  rowText: { flex: 1, gap: 2 },
   rowTitle: { fontSize: 15, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
   rowSubtitle: { fontSize: 12, fontWeight: '500' },
 });
