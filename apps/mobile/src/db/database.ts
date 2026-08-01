@@ -389,6 +389,28 @@ export function getRepeatingItemsForToday(): Item[] {
   });
 }
 
+// Reads back every occurrence a recurring item (task or habit) has ever
+// completed, from the 'completed-occurrence' activity log entries
+// updateItemStatus already writes on each roll-forward. Source of truth for
+// streak calculation (see utils/streak.ts) — never a separately stored count.
+export function getCompletedOccurrenceDates(itemId: string): Set<string> {
+  const rows = getDb().getAllSync<{ details: string | null }>(
+    `SELECT details FROM activityLogs WHERE entityId = ? AND actionType = 'completed-occurrence'`,
+    [itemId]
+  );
+  const dates = new Set<string>();
+  for (const row of rows) {
+    if (!row.details) continue;
+    try {
+      const parsed = JSON.parse(row.details) as { occurrence?: string };
+      if (parsed.occurrence) dates.add(parsed.occurrence);
+    } catch {
+      // Malformed/legacy details row — skip rather than throw.
+    }
+  }
+  return dates;
+}
+
 export function isPlannedForToday(item: Item): boolean {
   if (!item.metadata) return false;
   try {
