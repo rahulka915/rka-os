@@ -2,9 +2,8 @@ import { useCallback, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
-import { getItemsByType, createItem, updateItemStatus, deleteItem, formatDate, getCompletedOccurrenceDates } from '../db/database';
-import { parseRepeatRule, dayMatchesRepeat } from '../utils/repeat';
-import { computeStreak } from '../utils/streak';
+import { getItemsByType, createItem, updateItemStatus, deleteItem, formatDate } from '../db/database';
+import { buildHabitRowData, type HabitRowData } from '../utils/habits';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
 import { LensSurface } from '../components/LensSurface';
@@ -14,25 +13,6 @@ import { LacquerDiscControl, LACQUER_DISC_COMPLETION_DURATION } from '../compone
 import { useOpenItem } from '../hooks/useOpenItem';
 import { showActionSheet } from '../utils/actionSheet';
 import { Flame } from '../icons';
-import type { Item } from '../db/types';
-
-interface HabitRowData {
-  item: Item;
-  streak: number;
-  isScheduledToday: boolean;
-  isCompletedToday: boolean;
-}
-
-function buildRowData(item: Item, today: string): HabitRowData {
-  const rule = parseRepeatRule(item.rrule);
-  const completedDates = getCompletedOccurrenceDates(item.id);
-  return {
-    item,
-    streak: computeStreak(item.rrule, completedDates, today),
-    isScheduledToday: rule ? dayMatchesRepeat(rule, today, item.scheduledDate ?? undefined) : false,
-    isCompletedToday: completedDates.has(today),
-  };
-}
 
 // No header "+" — holding the dock FAB while this screen is focused opens
 // New Habit instead (see useRegisterFabHoldAction / App.tsx's runFabHold),
@@ -47,7 +27,7 @@ export function HabitsScreen() {
 
   const refresh = useCallback(() => {
     const today = formatDate(new Date());
-    setRows(getItemsByType('habit').map((item) => buildRowData(item, today)));
+    setRows(getItemsByType('habit').map((item) => buildHabitRowData(item, today)));
   }, []);
 
   useFocusEffect(refresh);
