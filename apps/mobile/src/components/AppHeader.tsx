@@ -1,10 +1,18 @@
-import { View as RNView, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View as RNView, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
 import { Settings, Moon, Sun } from '../icons';
-import { ScrollIcon } from './icons/ScrollIcon';
+
+// Same three illustration states InboxScrollCard uses on Home's Today
+// view — kept in sync here so the header button always matches whatever
+// that card would show, not a generic icon.
+function inboxIllustration(inboxCount: number) {
+  if (inboxCount === 0) return require('../../assets/illustrations/inbox/inbox-empty.png');
+  if (inboxCount > 10) return require('../../assets/illustrations/inbox/inbox-full.png');
+  return require('../../assets/illustrations/inbox/inbox-active.png');
+}
 
 interface AppHeaderProps {
   onSettingsPress?: () => void;
@@ -57,7 +65,12 @@ export function AppHeader({ onSettingsPress, onInboxPress, inboxCount = 0 }: App
           accessibilityRole="button"
           accessibilityLabel="Inbox"
         >
-          <ScrollIcon size={18} color={palette.textSecondary} strokeWidth={1.75} />
+          <Image
+            source={inboxIllustration(inboxCount)}
+            style={styles.inboxIllustration}
+            resizeMode="contain"
+            accessibilityIgnoresInvertColors
+          />
           {inboxCount > 0 && (
             <RNView style={styles.badge}>
               <Text style={styles.badgeText}>{inboxCount}</Text>
@@ -95,6 +108,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 15,
     letterSpacing: 0.5,
+  },
+  inboxIllustration: {
+    width: 26,
+    height: 26,
   },
   badge: {
     position: 'absolute',
