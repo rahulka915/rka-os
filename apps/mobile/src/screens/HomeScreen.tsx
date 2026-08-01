@@ -3,17 +3,30 @@ import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { ScrollViewContainer } from 'react-native-reorderable-list';
 import { YStack } from 'tamagui';
+import * as Haptics from 'expo-haptics';
 import { AppHeader } from '../components/AppHeader';
 import { MedicationQuickLogWidget } from '../components/home/MedicationQuickLogWidget';
 import { TodayCard } from '../components/home/TodayCard';
 import { HabitsWidget } from '../components/home/HabitsWidget';
-import { useHomeData, useUpcomingPreview, useTodayHabits } from '../hooks/useDb';
+import { HomeTaskRow } from '../components/home/HomeTaskRow';
+import { useHomeData, useUpcomingPreview, useTodayHabits, useProjects } from '../hooks/useDb';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { useItemComposer } from '../components/item-composer';
 import { useOpenItem } from '../hooks/useOpenItem';
-import { getBlockingTask, updateItemStatus, getUpcomingItems, getItemsByStatus, getCompletedItems, formatDate } from '../db/database';
+import {
+  getBlockingTask,
+  updateItemStatus,
+  getUpcomingItems,
+  getItemsByType,
+  getCompletedItems,
+  getRelation,
+  deleteItem,
+  formatDate,
+} from '../db/database';
 import { LACQUER_DISC_COMPLETION_DURATION } from '../components/ui/LacquerDiscControl';
 import { getThemeColors } from '../theme';
+import { showActionSheet } from '../utils/actionSheet';
+import { groupByScheduledDate } from '../utils/upcomingGrouping';
 import type { Item } from '../db/types';
 
 interface HomeScreenProps {
@@ -33,12 +46,6 @@ const VIEW_CHIPS: Array<{ key: HomeView; label: string }> = [
   { key: 'logbook', label: 'Logbook' },
 ];
 
-function formatRelativeDate(dateStr: string): string {
-  const today = formatDate(new Date());
-  if (dateStr === today) return 'Today';
-  return new Date(`${dateStr}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-}
-
 export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpcoming }: HomeScreenProps) {
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
@@ -47,6 +54,7 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
   const { inboxCount, todayItems, refresh } = useHomeData();
   const { groups: upcomingGroups, refresh: refreshUpcoming } = useUpcomingPreview();
   const { habits: todayHabits, refresh: refreshHabits } = useTodayHabits();
+  const { projects } = useProjects();
   const [completingIds, setCompletingIds] = useState<Set<string>>(new Set());
   const [activeView, setActiveView] = useState<HomeView>('today');
   const [upcomingItems, setUpcomingItems] = useState<Item[]>([]);
@@ -54,12 +62,21 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
   const [somedayItems, setSomedayItems] = useState<Item[]>([]);
   const [logbookItems, setLogbookItems] = useState<Item[]>([]);
 
+  // Anytime/Upcoming/Someday are task-only (matching the dedicated Tasks/
+  // Upcoming screens and GTD convention) — Domains/Missions/Habits/Workouts
+  // have their own dedicated places in the app, not mixed into these lists.
   const refreshViewLists = useCallback(() => {
-    setUpcomingItems(getUpcomingItems(formatDate(new Date())));
-    setAnytimeItems(getItemsByStatus('active').filter((item) => !item.scheduledDate));
-    setSomedayItems(getItemsByStatus('someday'));
+    const today = formatDate(new Date());
+    setUpcomingItems(getUpcomingItems(today).filter((item) => item.type === 'task'));
+    setAnytimeItems(getItemsByType('task').filter((item) => item.status === 'active' && !item.scheduledDate));
+    setSomedayItems(getItemsByType('task').filter((item) => item.status === 'someday'));
     setLogbookItems(getCompletedItems());
   }, []);
+
+  const getProjectTitle = useCallback((item: Item): string | null => {
+    const id = getRelation(item.id, 'project');
+    return id ? projects.find((p) => p.id === id)?.title ?? null : null;
+  }, [projects]);
 
   // useHomeData only fetches on mount — Inbox lives in a sibling modal (App.tsx), not a child
   // of this screen, so bulk actions there (delete, triage) never trigger a refetch here on
@@ -112,22 +129,50 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
     setTimeout(() => {
       updateItemStatus(item.id, 'completed');
       refresh();
+      refreshViewLists();
       setCompletingIds((current) => {
         const next = new Set(current);
         next.delete(item.id);
         return next;
       });
     }, LACQUER_DISC_COMPLETION_DURATION);
-  }, [completingIds, refresh]);
+  }, [completingIds, refresh, refreshViewLists]);
 
   const handleItemTap = useCallback((item: Item) => {
     openItem({
       item,
       onComplete: ({ action }) => {
-        if (action !== 'cancelled') refresh();
+        if (action !== 'cancelled') {
+          refresh();
+          refreshViewLists();
+        }
       },
     });
-  }, [openItem, refresh]);
+  }, [openItem, refresh, refreshViewLists]);
+
+  const handleTaskLongPress = useCallback((item: Item) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    const moveLabel = item.status === 'someday' ? 'Move to Active' : 'Move to Someday';
+    showActionSheet(item.title, [
+      { label: 'Edit', onPress: () => handleItemTap(item) },
+      { label: 'Complete', onPress: () => handleItemComplete(item) },
+      {
+        label: moveLabel,
+        onPress: () => {
+          updateItemStatus(item.id, item.status === 'someday' ? 'active' : 'someday');
+          refreshViewLists();
+        },
+      },
+      {
+        label: 'Delete',
+        onPress: () => {
+          deleteItem(item.id);
+          refreshViewLists();
+        },
+        destructive: true,
+      },
+    ]);
+  }, [handleItemTap, handleItemComplete, refreshViewLists]);
 
   const renderSimpleRow = (item: Item, subtitle: string) => (
     <TouchableOpacity
@@ -228,7 +273,26 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
             upcomingItems.length === 0 ? (
               <Text style={{ color: palette.textSecondary, fontSize: 14 }}>Nothing upcoming.</Text>
             ) : (
-              upcomingItems.map((item) => renderSimpleRow(item, item.scheduledDate ? formatRelativeDate(item.scheduledDate) : ''))
+              groupByScheduledDate(upcomingItems, formatDate(new Date())).map((group) => (
+                <View key={group.date} style={{ marginBottom: 20 }}>
+                  <Text style={{ color: palette.textTertiary, fontSize: 11, fontWeight: '700', letterSpacing: 0.6, textTransform: 'uppercase', marginBottom: 8, paddingHorizontal: 4 }}>
+                    {group.label}
+                  </Text>
+                  {group.items.map((item) => (
+                    <HomeTaskRow
+                      key={item.id}
+                      item={item}
+                      isDark={isDark}
+                      palette={palette}
+                      projectTitle={getProjectTitle(item)}
+                      isCompleting={completingIds.has(item.id)}
+                      onComplete={handleItemComplete}
+                      onOpen={handleItemTap}
+                      onLongPress={handleTaskLongPress}
+                    />
+                  ))}
+                </View>
+              ))
             )
           )}
 
@@ -236,7 +300,19 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
             anytimeItems.length === 0 ? (
               <Text style={{ color: palette.textSecondary, fontSize: 14 }}>Nothing here.</Text>
             ) : (
-              anytimeItems.map((item) => renderSimpleRow(item, item.type))
+              anytimeItems.map((item) => (
+                <HomeTaskRow
+                  key={item.id}
+                  item={item}
+                  isDark={isDark}
+                  palette={palette}
+                  projectTitle={getProjectTitle(item)}
+                  isCompleting={completingIds.has(item.id)}
+                  onComplete={handleItemComplete}
+                  onOpen={handleItemTap}
+                  onLongPress={handleTaskLongPress}
+                />
+              ))
             )
           )}
 
@@ -244,7 +320,19 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
             somedayItems.length === 0 ? (
               <Text style={{ color: palette.textSecondary, fontSize: 14 }}>Nothing filed for someday.</Text>
             ) : (
-              somedayItems.map((item) => renderSimpleRow(item, item.type))
+              somedayItems.map((item) => (
+                <HomeTaskRow
+                  key={item.id}
+                  item={item}
+                  isDark={isDark}
+                  palette={palette}
+                  projectTitle={getProjectTitle(item)}
+                  isCompleting={completingIds.has(item.id)}
+                  onComplete={handleItemComplete}
+                  onOpen={handleItemTap}
+                  onLongPress={handleTaskLongPress}
+                />
+              ))
             )
           )}
 
