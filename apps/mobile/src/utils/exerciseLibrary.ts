@@ -7,6 +7,7 @@ export interface ExerciseMeta {
   muscleGroup: MuscleGroup;
   equipment?: Equipment;
   notes?: string;
+  imageKey?: string;
 }
 
 export const MUSCLE_GROUPS: MuscleGroup[] = ['chest', 'back', 'shoulders', 'arms', 'legs', 'core', 'full-body', 'cardio'];
@@ -45,6 +46,7 @@ export function parseExerciseMeta(metadata?: string): ExerciseMeta {
     const meta: ExerciseMeta = { muscleGroup };
     if (EQUIPMENT_OPTIONS.includes(parsed.equipment)) meta.equipment = parsed.equipment;
     if (typeof parsed.notes === 'string' && parsed.notes.trim()) meta.notes = parsed.notes;
+    if (typeof parsed.imageKey === 'string' && parsed.imageKey.trim()) meta.imageKey = parsed.imageKey;
     return meta;
   } catch {
     return DEFAULT_META;

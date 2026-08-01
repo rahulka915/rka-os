@@ -29,11 +29,11 @@ test('parseExerciseMeta falls back to full-body on missing/malformed metadata', 
 
 test('parseExerciseMeta reads valid fields and drops invalid ones', () => {
   assert.deepEqual(
-    parseExerciseMeta(JSON.stringify({ muscleGroup: 'chest', equipment: 'barbell', notes: 'form cue' })),
-    { muscleGroup: 'chest', equipment: 'barbell', notes: 'form cue' },
+    parseExerciseMeta(JSON.stringify({ muscleGroup: 'chest', equipment: 'barbell', notes: 'form cue', imageKey: 'BarbellBenchPressfinal' })),
+    { muscleGroup: 'chest', equipment: 'barbell', notes: 'form cue', imageKey: 'BarbellBenchPressfinal' },
   );
   assert.deepEqual(
-    parseExerciseMeta(JSON.stringify({ muscleGroup: 'not-a-group', equipment: 'not-equipment' })),
+    parseExerciseMeta(JSON.stringify({ muscleGroup: 'not-a-group', equipment: 'not-equipment', imageKey: 123 })),
     { muscleGroup: 'full-body' },
   );
 });

@@ -18,6 +18,7 @@ export interface ExerciseDraft {
   muscleGroup: MuscleGroup;
   equipment?: Equipment;
   notes?: string;
+  imageKey?: string;
 }
 
 interface ExerciseEditSheetProps {
@@ -55,7 +56,7 @@ export function ExerciseEditSheet({ visible, initialValue, onClose, onSubmit }: 
     const trimmedTitle = title.trim();
     if (!trimmedTitle) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    onSubmit({ title: trimmedTitle, muscleGroup, equipment, notes: notes.trim() || undefined });
+    onSubmit({ title: trimmedTitle, muscleGroup, equipment, notes: notes.trim() || undefined, imageKey: initialValue?.imageKey });
     onClose();
   };
 
