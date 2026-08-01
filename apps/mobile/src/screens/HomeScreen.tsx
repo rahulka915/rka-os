@@ -197,9 +197,13 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
 
         {activeView === 'today' && (
         <>
-        {/* Quick actions: Medication logging (Inbox now lives in the header) */}
-        <View style={{ marginHorizontal: 12, marginTop: 8 }}>
-          <MedicationQuickLogWidget isDark={isDark} />
+        {/* Quick actions: Medication logging (Inbox now lives in the header).
+            Sized to a third of the row (3 square widgets fit side by side) so
+            we can see how much room is left for more widgets on this row. */}
+        <View style={{ flexDirection: 'row', marginHorizontal: 12, marginTop: 8, gap: 8 }}>
+          <View style={{ width: '31%' }}>
+            <MedicationQuickLogWidget isDark={isDark} />
+          </View>
         </View>
 
         {/* Habits */}
