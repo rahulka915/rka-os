@@ -60,7 +60,7 @@ export function AppHeader({ onSettingsPress, onInboxPress, inboxCount = 0 }: App
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.circleButton, { backgroundColor: palette.fill, borderColor: palette.separator }]}
+          style={styles.inboxButton}
           onPress={press(onInboxPress)}
           accessibilityRole="button"
           accessibilityLabel="Inbox"
@@ -71,6 +71,11 @@ export function AppHeader({ onSettingsPress, onInboxPress, inboxCount = 0 }: App
             resizeMode="contain"
             accessibilityIgnoresInvertColors
           />
+          {inboxCount > 0 && (
+            <RNView style={styles.badge}>
+              <Text style={styles.badgeText}>{inboxCount}</Text>
+            </RNView>
+          )}
         </TouchableOpacity>
       </RNView>
     </RNView>
@@ -104,8 +109,31 @@ const styles = StyleSheet.create({
     fontSize: 15,
     letterSpacing: 0.5,
   },
+  inboxButton: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   inboxIllustration: {
     width: 26,
     height: 26,
+  },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#D9506B',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  badgeText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: '700',
   },
 });
