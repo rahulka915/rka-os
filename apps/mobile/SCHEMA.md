@@ -12,15 +12,14 @@ This file is the source of truth for the schema. Update it whenever `src/db/data
 flowchart RL
     Task -- project --> Project
     Project -- area --> Area
+    WorkoutBlock["Workout block"] -- workout-template --> WorkoutTemplate["Workout template"]
+    WorkoutBlock -- exercise --> Exercise["Exercise"]
     Habit
     Medication
-    WorkoutTemplate["Workout template"]
-    WorkoutBlock["Workout block (declared, not built)"]
-    Exercise["Exercise (declared, not built)"]
     Meal["Meal (declared, not built)"]
 ```
 
-Each arrow is one `itemRelations` edge, labeled with its `relationType` — read `Task -- project --> Project` as "a task relates to a project via relationType `'project'`". The unconnected nodes (Habit, Medication, Workout template, Workout block, Exercise, Meal) have no relations wired up yet — they're independent rows in `items` today.
+Each arrow is one `itemRelations` edge, labeled with its `relationType` — read `Task -- project --> Project` as "a task relates to a project via relationType `'project'`". The unconnected nodes (Habit, Medication, Meal) have no relations wired up yet — they're independent rows in `items` today.
 
 ## Tables
 
@@ -63,6 +62,8 @@ API (`src/db/database.ts`): `setRelation(sourceId, relationType, targetId \| nul
 Currently used relations:
 - `project -> area` (relationType `'area'`)
 - `task -> project` (relationType `'project'`)
+- `workout-block -> workout-template` (relationType `'workout-template'`)
+- `workout-block -> exercise` (relationType `'exercise'`)
 
 ### `itemInstances`, `activityLogs`, `appSettings`
 
@@ -78,8 +79,8 @@ Supporting tables, not part of the entity/relation model: `itemInstances` tracks
 | `habit` | built | `gtdContext` (set to `'habit'` on triage) |
 | `medication` | built | `dose`, `stockRemaining` (derived total, see Packaging below), `initialStock`, `refillThreshold`, `lastTakenAt`, `maxPerDay`, `minHoursBetweenDoses`, `frequency`, `containerLabel`, `containerSize`, `containersPerRestock`, `sheetsPerContainer`, `pillsPerSheet`, `packagingNote`, `containers[]` |
 | `workout-template` | built | none yet |
-| `workout-block` | declared, not built | — |
-| `exercise` | declared, not built | — |
+| `workout-block` | built | `sets`, `reps`, `weight`, `restSeconds`, `notes` |
+| `exercise` | built | `muscleGroup`, `equipment`, `notes` |
 | `meal` | declared, not built | — |
 
 ## Medication packaging & stock

@@ -123,6 +123,8 @@ Dark Mode:
 | `CalendarScreen.tsx` | Tamagui + custom timeline | Week strip, protocol-style instances |
 | `MenuScreen.tsx` | Tamagui | Navigation stubs |
 | `ProfileScreen.tsx` | Tamagui | Placeholder |
+| `ExerciseLibraryScreen.tsx` | RN primitives (StyleSheet) | Exercise catalog, grouped by muscle group |
+| `WorkoutTemplateDetailScreen.tsx` | RN primitives + ReorderableList | Drag-reorder exercises within a template |
 
 ### Components (`src/components/`)
 
@@ -132,6 +134,9 @@ Dark Mode:
 | `SwipeableItem.tsx` | RN Gesture Handler + Reanimated | Swipe left/right with haptics |
 | `ContextMenu.tsx` | RN long-press | 3D Touch-style menu |
 | `LogDoseSheet.tsx` | Tamagui + RN Modal | LogDose form with Things 3 toolbar |
+| `ExerciseEditSheet.tsx` | RN primitives + BottomSheet | Create/edit exercise (muscle group + equipment chips) |
+| `BlockEditSheet.tsx` | RN primitives + BottomSheet | Sets/reps/weight/rest for a template's exercise block |
+| `ExercisePickerSheet.tsx` | RN primitives + BottomSheet | Search/pick/create an exercise to add to a template |
 | `AvatarCompanion.tsx` | Tamagui | Placeholder avatar/initials |
 
 ### Database (`src/db/`)
