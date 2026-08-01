@@ -1,38 +1,18 @@
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Check, Flame, Plus } from 'lucide-react-native';
-import { getItemsByType, createItem, updateItemStatus, getCompletedOccurrenceDates, formatDate } from '../db/database';
-import { parseRepeatRule, dayMatchesRepeat } from '../utils/repeat';
-import { computeStreak } from '../utils/streak';
+import { getItemsByType, createItem, updateItemStatus, formatDate } from '../db/database';
+import { buildHabitRowData, type HabitRowData } from '../utils/habits';
 import { useDbRefresh } from '../hooks/useDb';
 import { DetailPanel } from './DetailPanel';
 import { ItemDetailForm } from './ItemDetailForm';
 import { webColors, webSpacing, webRadius, webFontSize } from '../theme/webTheme';
-import type { Item } from '../db/types';
-
-interface HabitRow {
-  item: Item;
-  streak: number;
-  isScheduledToday: boolean;
-  isCompletedToday: boolean;
-}
-
-function buildRow(item: Item, today: string): HabitRow {
-  const rule = parseRepeatRule(item.rrule);
-  const completedDates = getCompletedOccurrenceDates(item.id);
-  return {
-    item,
-    streak: computeStreak(item.rrule, completedDates, today),
-    isScheduledToday: rule ? dayMatchesRepeat(rule, today, item.scheduledDate ?? undefined) : false,
-    isCompletedToday: completedDates.has(today),
-  };
-}
 
 function useHabits() {
-  const [rows, setRows] = useState<HabitRow[]>([]);
+  const [rows, setRows] = useState<HabitRowData[]>([]);
   const refresh = useCallback(() => {
     const today = formatDate(new Date());
-    setRows(getItemsByType('habit').map((item) => buildRow(item, today)));
+    setRows(getItemsByType('habit').map((item) => buildHabitRowData(item, today)));
   }, []);
   useDbRefresh(refresh);
   return { rows, refresh };
@@ -52,7 +32,7 @@ export function HabitsScreen() {
     refresh();
   };
 
-  const checkIn = (row: HabitRow) => {
+  const checkIn = (row: HabitRowData) => {
     if (!row.isScheduledToday || row.isCompletedToday) return;
     updateItemStatus(row.item.id, 'completed');
     refresh();
