@@ -3,7 +3,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
-import { Settings, Moon, Sun } from '../icons';
+import { Moon, Sun } from '../icons';
+import { SettingsMedallionIcon } from './icons/SettingsMedallionIcon';
 
 // Same three illustration states InboxScrollCard uses on Home's Today
 // view — kept in sync here so the header button always matches whatever
@@ -35,12 +36,12 @@ export function AppHeader({ onSettingsPress, onInboxPress, inboxCount = 0 }: App
   return (
     <RNView style={[styles.row, { paddingTop: insets.top + 14 }]}>
       <TouchableOpacity
-        style={[styles.circleButton, { backgroundColor: palette.fill, borderColor: palette.separator }]}
+        style={styles.settingsButton}
         onPress={press(onSettingsPress)}
         accessibilityRole="button"
         accessibilityLabel="Settings"
       >
-        <Settings size={18} color={palette.textSecondary} strokeWidth={1.75} />
+        <SettingsMedallionIcon size={34} />
       </TouchableOpacity>
 
       <Text style={[styles.wordmark, { color: palette.textSecondary }]}>RKA</Text>
@@ -108,6 +109,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 15,
     letterSpacing: 0.5,
+  },
+  settingsButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   inboxButton: {
     width: 40,
