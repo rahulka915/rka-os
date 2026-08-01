@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { useExercises } from '../hooks/useDb';
 import { createItem, updateItemMetadata, updateItemTitle, deleteItem } from '../db/database';
@@ -8,13 +9,21 @@ import { getThemeColors } from '../theme';
 import { LensSurface } from '../components/LensSurface';
 import { ExerciseEditSheet, type ExerciseDraft } from '../components/ExerciseEditSheet';
 import { ExerciseThumbnail } from '../components/ExerciseThumbnail';
-import { groupExercisesByMuscle, filterExercisesByQuery, formatExerciseSubtitle, parseExerciseMeta } from '../utils/exerciseLibrary';
+import { MuscleGroupCard } from '../components/MuscleGroupCard';
+import {
+  groupExercisesByMuscle,
+  filterExercisesByQuery,
+  formatExerciseSubtitle,
+  parseExerciseMeta,
+  pickGroupThumbnailImageKey,
+} from '../utils/exerciseLibrary';
 import { STARTER_EXERCISES } from '../utils/starterExercises';
 import { showActionSheet } from '../utils/actionSheet';
 import { Plus } from '../icons';
 import type { Item } from '../db/types';
 
 export function ExerciseLibraryScreen() {
+  const navigation = useNavigation();
   const { exercises, refresh } = useExercises();
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
@@ -22,13 +31,8 @@ export function ExerciseLibraryScreen() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Item | null>(null);
 
-  const groups = useMemo(() => {
-    if (query.trim()) {
-      const filtered = filterExercisesByQuery(exercises, query);
-      return filtered.length ? [{ muscleGroup: 'full-body' as const, label: 'Results', exercises: filtered }] : [];
-    }
-    return groupExercisesByMuscle(exercises);
-  }, [exercises, query]);
+  const groups = useMemo(() => groupExercisesByMuscle(exercises), [exercises]);
+  const searchResults = useMemo(() => (query.trim() ? filterExercisesByQuery(exercises, query) : null), [exercises, query]);
 
   const openCreate = () => {
     setEditTarget(null);
@@ -108,15 +112,16 @@ export function ExerciseLibraryScreen() {
             onChangeText={setQuery}
             keyboardAppearance={isDark ? 'dark' : 'light'}
           />
-          {groups.map((group) => (
-            <View key={group.muscleGroup + group.label} style={styles.sectionRows}>
-              <Text style={[styles.sectionLabel, { color: palette.textTertiary }]}>{group.label.toUpperCase()}</Text>
-              {group.exercises.map((item) => (
+
+          {searchResults ? (
+            <View style={styles.sectionRows}>
+              <Text style={[styles.sectionLabel, { color: palette.textTertiary }]}>RESULTS</Text>
+              {searchResults.map((item) => (
                 <TouchableOpacity
                   key={item.id}
                   style={[styles.row, { backgroundColor: palette.surface }]}
                   activeOpacity={0.7}
-                  onPress={() => openEdit(item)}
+                  onPress={() => (navigation as any).navigate('ExerciseDetail', { exerciseId: item.id })}
                   onLongPress={() => handleLongPress(item)}
                   delayLongPress={400}
                 >
@@ -130,7 +135,19 @@ export function ExerciseLibraryScreen() {
                 </TouchableOpacity>
               ))}
             </View>
-          ))}
+          ) : (
+            <View style={styles.grid}>
+              {groups.map((group) => (
+                <MuscleGroupCard
+                  key={group.muscleGroup}
+                  label={group.label}
+                  count={group.exercises.length}
+                  imageKey={pickGroupThumbnailImageKey(group)}
+                  onPress={() => (navigation as any).navigate('ExerciseMuscleGroup', { muscleGroup: group.muscleGroup, label: group.label })}
+                />
+              ))}
+            </View>
+          )}
         </ScrollView>
       )}
 
@@ -154,6 +171,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     marginBottom: 12,
   },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   sectionRows: { gap: 8, marginBottom: 16 },
   sectionLabel: {
     fontSize: 11,
