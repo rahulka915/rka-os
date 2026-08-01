@@ -29,7 +29,10 @@ export async function askAssistant(question: string, priorTurns: AssistantTurn[]
   const context = buildAssistantContext();
   const ai = getAI(app, { backend: new GoogleAIBackend() });
   const model = getGenerativeModel(ai, {
-    model: 'gemini-2.5-flash',
+    // Stable alias (currently resolves to gemini-3.6-flash) rather than a
+    // pinned version — gemini-2.5-flash stopped being available to new
+    // Firebase AI Logic projects, which is what broke this before.
+    model: 'gemini-flash-latest',
     systemInstruction: SYSTEM_PROMPT_PREFIX + context,
   });
 
