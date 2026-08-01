@@ -2,6 +2,7 @@ import { useCallback, useState, useEffect } from 'react';
 import { Modal, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Alert, View as RNView, Text as RNText, StyleSheet, TextInput, SectionList, Switch } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useMedications } from '../hooks/useDb';
+import { computeMedicationEligibility } from '../utils/medicationState';
 import { createMedication, updateMedication, deleteItem, getLastTakenLog, getMedicationDoseHistory, getMedicationLogs, getTotalStock, getStockBreakdown, restockMedication, startTimerFromLoggedDose, getPersistentMedicationTimers, type MedicationMeta } from '../db/database';
 import { groupLogsByDay } from '../utils/medicationDoseHistory';
 import { LogDoseSheet } from '../components/LogDoseSheet';
@@ -42,21 +43,7 @@ function useTimeSince(timestamp: number | undefined): string {
 }
 
 function useMedState(item: Item) {
-  const meta: MedicationMeta = item.metadata ? JSON.parse(item.metadata) : {};
-  const lastLog = getLastTakenLog(item.id);
-  const isTrackingStock = meta.containers !== undefined || meta.stockRemaining !== undefined;
-  const stock = getTotalStock(meta);
-  const threshold = meta.refillThreshold ?? 5;
-  const isLowStock = isTrackingStock && stock <= threshold;
-  const hasPendingHalf = !!meta.pendingHalfDoseAt;
-  const canTake = (() => {
-    // Completing an already-started split dose is always allowed — that's the
-    // whole point of splitting (no required gap between the two halves).
-    if (hasPendingHalf) return true;
-    if (!meta.minHoursBetweenDoses || !lastLog) return true;
-    return (Date.now() - lastLog.timestamp) / 3600000 >= meta.minHoursBetweenDoses;
-  })();
-  return { meta, lastLog, stock, isTrackingStock, isLowStock, canTake, hasPendingHalf };
+  return computeMedicationEligibility(item);
 }
 
 interface NeedsAttentionRowProps {
