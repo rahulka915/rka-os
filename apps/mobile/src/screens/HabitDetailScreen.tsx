@@ -1,10 +1,11 @@
-import { useCallback, useMemo, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, ScrollView } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { StyleSheet, Text, TextInput, TouchableOpacity, View, ScrollView } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
-import { getItemWithMetadata, getCompletedOccurrenceDates, formatDate, toggleHabitOccurrence } from '../db/database';
+import { getItemWithMetadata, getCompletedOccurrenceDates, formatDate, toggleHabitOccurrence, updateItemMetadata } from '../db/database';
 import { computeStreak } from '../utils/streak';
 import { buildHabitCalendarMonth, type HabitCalendarDay } from '../utils/habitCalendar';
+import { POTENTIAL_STATS, POTENTIAL_STAT_LABELS, parseHabitPotentialMeta, type PotentialStat } from '../utils/potential';
 import { useItemComposer } from '../components/item-composer';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
@@ -30,6 +31,7 @@ export function HabitDetailScreen() {
   const [item, setItem] = useState<Item | null>(null);
   const [completedDates, setCompletedDates] = useState<Set<string>>(new Set());
   const [monthAnchor, setMonthAnchor] = useState(new Date());
+  const [targetDaysText, setTargetDaysText] = useState('');
 
   const today = formatDate(new Date());
 
@@ -55,6 +57,37 @@ export function HabitDetailScreen() {
     () => [...completedDates].sort((a, b) => b.localeCompare(a)),
     [completedDates],
   );
+
+  const potentialMeta = useMemo(() => parseHabitPotentialMeta(item?.metadata), [item]);
+
+  useEffect(() => {
+    setTargetDaysText(potentialMeta.potentialTargetDays ? String(potentialMeta.potentialTargetDays) : '');
+  }, [potentialMeta.potentialTargetDays]);
+
+  const savePotentialStat = (stat: PotentialStat | null) => {
+    if (!item) return;
+    const existing = item.metadata ? JSON.parse(item.metadata) : {};
+    if (stat === null) {
+      delete existing.potentialStat;
+      delete existing.potentialTargetDays;
+    } else {
+      existing.potentialStat = stat;
+      existing.potentialTargetDays = potentialMeta.potentialTargetDays ?? 100;
+    }
+    updateItemMetadata(item.id, existing);
+    Haptics.selectionAsync();
+    load();
+  };
+
+  const saveTargetDays = () => {
+    if (!item || !potentialMeta.potentialStat) return;
+    const parsed = parseInt(targetDaysText, 10);
+    const targetDays = Number.isFinite(parsed) && parsed > 0 ? parsed : 100;
+    const existing = item.metadata ? JSON.parse(item.metadata) : {};
+    existing.potentialTargetDays = targetDays;
+    updateItemMetadata(item.id, existing);
+    load();
+  };
 
   const handleToggleDay = (day: HabitCalendarDay) => {
     if (!day.isScheduled || day.isFuture) return;
@@ -96,6 +129,48 @@ export function HabitDetailScreen() {
           <Text style={[styles.streakText, { color: streak > 0 ? palette.red : palette.textTertiary }]}>
             {streak} day{streak === 1 ? '' : 's'}
           </Text>
+        </View>
+
+        <View style={styles.potentialSection}>
+          <Text style={[styles.potentialLabel, { color: palette.textTertiary }]}>POTENTIAL</Text>
+          <View style={styles.chipRow}>
+            <TouchableOpacity
+              style={[
+                styles.chip,
+                { borderColor: palette.separator },
+                !potentialMeta.potentialStat && { backgroundColor: palette.red, borderColor: palette.red },
+              ]}
+              onPress={() => savePotentialStat(null)}
+            >
+              <Text style={[styles.chipText, { color: !potentialMeta.potentialStat ? palette.surface : palette.text }]}>None</Text>
+            </TouchableOpacity>
+            {POTENTIAL_STATS.map((stat) => {
+              const selected = potentialMeta.potentialStat === stat;
+              return (
+                <TouchableOpacity
+                  key={stat}
+                  style={[styles.chip, { borderColor: palette.separator }, selected && { backgroundColor: palette.red, borderColor: palette.red }]}
+                  onPress={() => savePotentialStat(stat)}
+                >
+                  <Text style={[styles.chipText, { color: selected ? palette.surface : palette.text }]}>{POTENTIAL_STAT_LABELS[stat]}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          {potentialMeta.potentialStat && (
+            <View style={styles.targetDaysRow}>
+              <Text style={[styles.targetDaysLabel, { color: palette.textTertiary }]}>TARGET DAYS (100% AT)</Text>
+              <TextInput
+                style={[styles.targetDaysInput, { color: palette.text, borderColor: palette.separator }]}
+                value={targetDaysText}
+                onChangeText={setTargetDaysText}
+                onBlur={saveTargetDays}
+                placeholder="100"
+                placeholderTextColor={palette.textTertiary}
+                keyboardType="number-pad"
+              />
+            </View>
+          )}
         </View>
 
         <View style={styles.monthHeader}>
@@ -179,6 +254,47 @@ const styles = StyleSheet.create({
   streakText: {
     fontSize: 18,
     fontWeight: '700',
+  },
+  potentialSection: {
+    marginBottom: 20,
+  },
+  potentialLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    marginBottom: 8,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  chip: {
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  chipText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  targetDaysRow: {
+    marginTop: 12,
+    gap: 4,
+  },
+  targetDaysLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+  },
+  targetDaysInput: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 10,
+    fontSize: 15,
+    padding: 10,
+    width: 100,
   },
   monthHeader: {
     flexDirection: 'row',
