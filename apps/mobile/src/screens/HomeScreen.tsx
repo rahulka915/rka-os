@@ -4,6 +4,7 @@ import { ScrollViewContainer } from 'react-native-reorderable-list';
 import { YStack } from 'tamagui';
 import { AppHeader } from '../components/AppHeader';
 import { InboxScrollCard } from '../components/home/InboxScrollCard';
+import { MedicationQuickLogWidget } from '../components/home/MedicationQuickLogWidget';
 import { TodayCard } from '../components/home/TodayCard';
 import { HabitsWidget } from '../components/home/HabitsWidget';
 import { useHomeData, useUpcomingPreview, useTodayHabits } from '../hooks/useDb';
@@ -87,13 +88,18 @@ export function HomeScreen({ onInboxPress, inboxOpen, onHeroPress, onSettingsPre
       <ScrollViewContainer showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 16 }}>
         <View>
 
-        {/* Inbox preview */}
-        <View style={{ width: '50%', marginHorizontal: 12, marginTop: 8 }}>
-          <InboxScrollCard
-            inboxCount={inboxCount}
-            onPress={onInboxPress}
-            isDark={isDark}
-          />
+        {/* Quick actions: Inbox + Medication logging */}
+        <View style={{ flexDirection: 'row', marginHorizontal: 12, marginTop: 8, gap: 8 }}>
+          <View style={{ flex: 1 }}>
+            <InboxScrollCard
+              inboxCount={inboxCount}
+              onPress={onInboxPress}
+              isDark={isDark}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <MedicationQuickLogWidget isDark={isDark} />
+          </View>
         </View>
 
         {/* Habits */}
