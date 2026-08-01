@@ -67,9 +67,10 @@ export function MedicationQuickLogWidget({ isDark }: MedicationQuickLogWidgetPro
     <TouchableOpacity onPress={handlePress} activeOpacity={0.75} style={styles.touchWrap}>
       <RiverStoneSurface variant="card" mode={isDark ? 'dark' : 'light'} style={styles.squareCard} contentStyle={styles.fill}>
         <View style={styles.content}>
-          <MedicationBottleIcon size={40} />
-          <Text style={[styles.primaryText, { color: palette.text }]}>Log Medication</Text>
-          <Text style={[styles.secondaryText, { color: palette.textMuted }]}>Tap to record a dose</Text>
+          <MedicationBottleIcon size={26} />
+          <Text style={[styles.primaryText, { color: palette.text }]} numberOfLines={2}>
+            Log Medication
+          </Text>
         </View>
       </RiverStoneSurface>
     </TouchableOpacity>
@@ -85,21 +86,19 @@ const styles = StyleSheet.create({
   },
   squareCard: {
     aspectRatio: 1.16,
+    overflow: 'hidden',
   },
   content: {
     flex: 1,
-    padding: 12,
+    padding: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
   },
   primaryText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
     fontFamily: 'Inter_600SemiBold',
-  },
-  secondaryText: {
-    fontSize: 11,
     textAlign: 'center',
   },
 });
