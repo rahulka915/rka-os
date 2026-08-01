@@ -275,7 +275,16 @@ export function useTodayHabits() {
   const [habits, setHabits] = useState<HabitRowData[]>([]);
   const refresh = useCallback(() => {
     const today = formatDate(new Date());
-    setHabits(getItemsByType('habit').map((item) => buildHabitRowData(item, today)).filter((row) => row.isScheduledToday));
+    // Checking a habit in rolls its scheduledDate forward to the next
+    // occurrence (same recurring-task rollover updateItemStatus already
+    // does), which flips isScheduledToday to false immediately — keep
+    // showing it anyway via isCompletedToday so it reads as "done for
+    // today" instead of vanishing the instant it's checked off.
+    setHabits(
+      getItemsByType('habit')
+        .map((item) => buildHabitRowData(item, today))
+        .filter((row) => row.isScheduledToday || row.isCompletedToday),
+    );
   }, []);
   useDbRefresh(refresh);
   return { habits, refresh };
