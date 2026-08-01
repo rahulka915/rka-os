@@ -63,6 +63,13 @@
       ],
       "expo-background-task",
       [
+        "@kingstinct/react-native-healthkit",
+        {
+          "NSHealthShareUsageDescription": "RKA OS reads your health data (steps, workouts, sleep) to give you a complete picture of your day.",
+          "NSHealthUpdateUsageDescription": "RKA OS writes workout and medication data to Apple Health."
+        }
+      ],
+      [
         "expo-calendar",
         {
           "calendarPermission": "RKA OS reads your calendar so your day view can show real events alongside your tasks."
