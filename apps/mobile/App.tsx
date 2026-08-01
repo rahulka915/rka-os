@@ -49,7 +49,7 @@ import { ProfileScreen } from './src/screens/ProfileScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { InboxScreenV2 } from './src/screens/InboxScreenV2';
 import { ItemComposerProvider, useItemComposer } from './src/components/item-composer';
-import { OverlayHostProvider, useOverlayHost } from './src/hooks/useOverlayHost';
+import { OverlayHostProvider } from './src/hooks/useOverlayHost';
 import { AssistantOverlay } from './src/components/assistant/AssistantOverlay';
 import { navigationRef } from './src/navigation/rootNavigation';
 import { AreaDetailScreen } from './src/screens/AreaDetailScreen';
@@ -197,7 +197,7 @@ function NavigationLayer({
 }) {
   const { openCapture } = useItemComposer();
   const { isExperimentalHome } = useUIModeContext();
-  const { setOverlay } = useOverlayHost();
+  const [assistantOpen, setAssistantOpen] = useState(false);
 
   const openQuickCapture = () => {
     const route = navigationRef.getCurrentRoute();
@@ -221,11 +221,7 @@ function NavigationLayer({
   // Type/Speak choice.
   const handleFabPress = () => openQuickCapture();
 
-  const closeAssistantOverlay = () => setOverlay('assistant', null);
-
-  const openAssistantOverlay = () => {
-    setOverlay('assistant', <AssistantOverlay onClose={closeAssistantOverlay} />);
-  };
+  const openAssistantOverlay = () => setAssistantOpen(true);
 
   // Long-press runs the current screen's distinct create action if it
   // registered one (see useRegisterFabHoldAction); screens with no such
@@ -313,6 +309,7 @@ function NavigationLayer({
       </NavigationContainer>
 
       <InboxScreenV2 visible={inboxOpen} onClose={() => setInboxOpen(false)} />
+      {assistantOpen ? <AssistantOverlay onClose={() => setAssistantOpen(false)} /> : null}
       {/* Medication timers aren't ported to web yet — the banner mounts app-wide
           and reads timer state that database.web.ts doesn't implement. */}
       {Platform.OS !== 'web' ? <PersistentTimerBanner /> : null}
