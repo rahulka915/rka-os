@@ -197,6 +197,15 @@ export function useWorkouts() {
   return { workouts, refresh };
 }
 
+export function useExercises() {
+  const [exercises, setExercises] = useState<Item[]>([]);
+  const refresh = useCallback(() => {
+    setExercises(getItemsByType('exercise'));
+  }, []);
+  useDbRefresh(refresh);
+  return { exercises, refresh };
+}
+
 export function useProjects() {
   const [projects, setProjects] = useState<Item[]>([]);
   const refresh = useCallback(() => {

@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Alert, StyleSheet } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { useWorkouts } from '../hooks/useDb';
 import { createItem, updateItem, deleteItem } from '../db/database';
@@ -16,6 +17,7 @@ const STARTERS = ['Push starter', 'Pull starter'];
 // New Template instead (see useRegisterFabHoldAction / App.tsx's runFabHold).
 export function WorkoutsScreen() {
   const { workouts, refresh } = useWorkouts();
+  const navigation = useNavigation();
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
   const [createOpen, setCreateOpen] = useState(false);
@@ -55,7 +57,7 @@ export function WorkoutsScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     Alert.alert(item.title, undefined, [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Edit', onPress: () => openEdit(item) },
+      { text: 'Rename', onPress: () => openEdit(item) },
       {
         text: 'Delete',
         style: 'destructive',
@@ -79,6 +81,13 @@ export function WorkoutsScreen() {
   return (
     <LensSurface title="Workouts">
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('ExerciseLibrary' as never)}
+          hitSlop={8}
+          style={styles.libraryLink}
+        >
+          <Text style={[styles.linkText, { color: palette.deeperBlue }]}>Exercise Library →</Text>
+        </TouchableOpacity>
         {workouts.length === 0 ? (
           <>
             <Text style={[styles.heading, { color: palette.text }]}>Ready to train?</Text>
@@ -117,7 +126,7 @@ export function WorkoutsScreen() {
                 key={item.id}
                 style={[styles.row, { backgroundColor: palette.surface }]}
                 activeOpacity={0.7}
-                onPress={() => openEdit(item)}
+                onPress={() => (navigation as any).navigate('WorkoutTemplateDetail', { templateId: item.id, title: item.title })}
                 onLongPress={() => handleLongPress(item)}
                 delayLongPress={400}
               >
@@ -145,6 +154,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 40,
     gap: 12,
+  },
+  libraryLink: {
+    marginBottom: 4,
   },
   heading: {
     fontSize: 18,

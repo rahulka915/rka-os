@@ -98,3 +98,4 @@ Reuses the existing generic `itemOrder` primitive (`setManualOrder` / `applyManu
 - Exercise images/videos, 1RM tracking, progress charts.
 - Multi-relation blocks (e.g. supersets) — each block is one exercise.
 - Syncing exercise/block data to Firestore beyond whatever the generic `items`/`itemRelations` dual-write already covers automatically (no special-casing needed since these are just new `type` values on existing tables).
+- The desktop web shell (`src/webApp/WorkoutsScreen.web.tsx` and friends) — out of scope for this pass. It keeps working unchanged (title-only templates); it simply won't surface exercises/blocks yet.
