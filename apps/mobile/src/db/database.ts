@@ -317,6 +317,23 @@ export function getProjectsForArea(areaId: string): Item[] {
   return getRelatedItems(areaId, 'area');
 }
 
+// Rollup: templates that include this exercise, deduped across the (possibly
+// multiple) workout-blocks referencing it within the same template.
+export function getTemplatesForExercise(exerciseId: string): Item[] {
+  const blocks = getRelatedItems(exerciseId, 'exercise');
+  const seen = new Set<string>();
+  const templates: Item[] = [];
+  for (const block of blocks) {
+    const templateId = getRelation(block.id, 'workout-template');
+    if (templateId && !seen.has(templateId)) {
+      seen.add(templateId);
+      const template = getItemWithMetadata(templateId);
+      if (template) templates.push(template);
+    }
+  }
+  return templates;
+}
+
 export function updateItemMetadata(id: string, metadata: Record<string, any>): void {
   getDb().runSync(
     `UPDATE items SET metadata = ?, updatedAt = ? WHERE id = ?`,
