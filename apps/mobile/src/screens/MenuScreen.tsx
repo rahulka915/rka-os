@@ -1,19 +1,17 @@
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { RiverStoneSurface } from '../components/riverstone';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors, spacing } from '../theme';
-import { Dumbbell, ChevronRight, ShoppingBag, Archive, Flame } from '../icons';
+import { Dumbbell, ShoppingBag, Archive, Flame } from '../icons';
 import { MedicationBottleIcon } from '../components/icons/MedicationBottleIcon';
 import { TaskNoteIcon } from '../components/icons/TaskNoteIcon';
 import { AreaBonsaiIcon } from '../components/icons/AreaBonsaiIcon';
 import { ProjectPortfolioIcon } from '../components/icons/ProjectPortfolioIcon';
 
 const CALENDAR_GOLD = '#D4B078';
-const MENU_MOTIF = require('../../assets/icons/nav/enso-menu.png');
 
 export function MenuScreen() {
   const insets = useSafeAreaInsets();
@@ -97,42 +95,11 @@ export function MenuScreen() {
   ] as const;
 
   return (
-    <View style={[styles.container, { backgroundColor: palette.bg, paddingTop: Math.max(insets.top - 14, 0) }]}>
+    <View style={[styles.container, { backgroundColor: palette.bg, paddingTop: Math.max(insets.top, 16) }]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom, 16) + 120 }]}
       >
-        <RiverStoneSurface
-          variant="header"
-          mode={isDark ? 'dark' : 'light'}
-          shape="regular"
-          style={styles.headerStone}
-          contentStyle={styles.headerContent}
-          background={
-            <>
-              <LinearGradient
-                colors={['rgba(212,176,120,0.02)', 'rgba(212,176,120,0.13)']}
-                start={{ x: 0, y: 0.5 }}
-                end={{ x: 1, y: 0.5 }}
-                style={StyleSheet.absoluteFill}
-              />
-              <Image source={MENU_MOTIF} resizeMode="contain" style={styles.headerMotif} />
-            </>
-          }
-        >
-          <View style={styles.headerCopy}>
-            <View style={styles.eyebrowRow}>
-              <View style={styles.bambooMark}>
-                <View style={styles.bambooLine} />
-                <View style={styles.bambooLine} />
-              </View>
-              <Text style={[styles.eyebrow, { color: CALENDAR_GOLD }]}>YOUR SYSTEM</Text>
-            </View>
-            <Text style={[styles.headerTitle, { color: palette.text }]}>More</Text>
-            <Text style={[styles.headerSubtitle, { color: palette.textSecondary }]}>Libraries, routines and records</Text>
-          </View>
-        </RiverStoneSurface>
-
         <View style={styles.sectionHeading}>
           <View style={styles.sectionHeadingLeft}>
             <View style={styles.sectionRule} />
@@ -141,10 +108,11 @@ export function MenuScreen() {
           <Text style={[styles.sectionCount, { color: palette.textTertiary }]}>{menuItems.length} destinations</Text>
         </View>
 
-        <View style={styles.list}>
+        <View style={styles.grid}>
           {menuItems.map(({ route, label, sub, icon: Icon, accent, soft }) => (
             <TouchableOpacity
               key={route}
+              style={styles.cardWrap}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 navigation.navigate(route as never);
@@ -154,31 +122,22 @@ export function MenuScreen() {
               accessibilityLabel={`${label}. ${sub}`}
             >
               <RiverStoneSurface
-                variant="list"
+                variant="card"
                 mode={isDark ? 'dark' : 'light'}
                 shape="regular"
-                style={styles.rowStone}
-                contentStyle={styles.rowContent}
+                style={styles.card}
+                contentStyle={styles.cardContent}
               >
                 <View style={[styles.iconFrame, { backgroundColor: soft, borderColor: `${accent}38` }]}>
                   <Icon
-                    size={route === 'Areas' || route === 'Projects' || route === 'Tasks' ? 34 : 20}
+                    size={route === 'Areas' || route === 'Projects' || route === 'Tasks' ? 30 : 20}
                     color={accent}
                     strokeWidth={1.8}
                   />
                 </View>
-
-                <View style={styles.copy}>
-                  <Text style={[styles.label, { color: palette.text }]}>{label}</Text>
-                  <Text style={[styles.sub, { color: palette.textSecondary }]} numberOfLines={1}>
-                    {sub}
-                  </Text>
-                </View>
-
-                <View style={styles.trailing}>
-                  <View style={[styles.accentDot, { backgroundColor: accent }]} />
-                  <ChevronRight size={16} color={palette.textMuted} strokeWidth={1.7} />
-                </View>
+                <Text style={[styles.label, { color: palette.text }]} numberOfLines={2}>
+                  {label}
+                </Text>
               </RiverStoneSurface>
             </TouchableOpacity>
           ))}
@@ -195,62 +154,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: spacing[2],
     gap: spacing[3],
-  },
-  headerStone: {
-    minHeight: 94,
-  },
-  headerContent: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: spacing[4],
-    paddingVertical: spacing[3],
-  },
-  headerMotif: {
-    position: 'absolute',
-    width: 108,
-    height: 108,
-    right: 8,
-    top: -7,
-    opacity: 0.1,
-    tintColor: CALENDAR_GOLD,
-  },
-  headerCopy: {
-    maxWidth: '78%',
-  },
-  eyebrowRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 3,
-  },
-  bambooMark: {
-    flexDirection: 'row',
-    gap: 3,
-  },
-  bambooLine: {
-    width: 2,
-    height: 12,
-    borderRadius: 2,
-    backgroundColor: CALENDAR_GOLD,
-    opacity: 0.82,
-  },
-  eyebrow: {
-    fontSize: 9,
-    fontWeight: '800',
-    fontFamily: 'Inter_800ExtraBold',
-    letterSpacing: 1.2,
-  },
-  headerTitle: {
-    fontSize: 25,
-    fontWeight: '500',
-    fontFamily: 'Georgia',
-    fontStyle: 'italic',
-  },
-  headerSubtitle: {
-    marginTop: 3,
-    fontSize: 12,
-    fontWeight: '500',
-    fontFamily: 'Inter_500Medium',
   },
   sectionHeading: {
     minHeight: 24,
@@ -281,19 +184,24 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontFamily: 'Inter_600SemiBold',
   },
-  list: {
-    gap: spacing[2],
-  },
-  rowStone: {
-    minHeight: 68,
-  },
-  rowContent: {
-    flex: 1,
-    paddingHorizontal: spacing[3],
-    paddingVertical: 10,
+  grid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: spacing[2],
+  },
+  cardWrap: {
+    width: '31%',
+  },
+  card: {
+    aspectRatio: 1,
+  },
+  cardContent: {
+    flex: 1,
     alignItems: 'center',
-    gap: spacing[3],
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 6,
   },
   iconFrame: {
     width: 42,
@@ -303,33 +211,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  copy: {
-    flex: 1,
-    minWidth: 0,
-  },
   label: {
-    fontSize: 15,
+    fontSize: 12.5,
     fontWeight: '700',
     fontFamily: 'Inter_700Bold',
-    letterSpacing: -0.15,
-  },
-  sub: {
-    fontSize: 11.5,
-    fontWeight: '500',
-    fontFamily: 'Inter_500Medium',
-    marginTop: 3,
-  },
-  trailing: {
-    minWidth: 28,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: 8,
-  },
-  accentDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    opacity: 0.75,
+    letterSpacing: -0.1,
+    textAlign: 'center',
   },
 });
