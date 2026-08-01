@@ -7,7 +7,26 @@ import { useItemComposer } from '../components/item-composer';
 import { useOpenItem } from '../hooks/useOpenItem';
 import { getTimelineDurationMinutes } from '../utils/timelineItem';
 import { getTodayDeviceEvents, type DeviceCalendarEvent } from '../services/deviceCalendar';
+import { getUpcomingItems, getItemsByStatus, getCompletedItems, formatDate } from '../db/database';
+import { Settings, Moon, Sun, Inbox as InboxIcon } from '../icons';
 import type { Item, ItemType } from '../db/types';
+
+type ExperimentalView = 'today' | 'upcoming' | 'anytime' | 'someday' | 'logbook';
+
+const VIEW_CHIPS: Array<{ key: ExperimentalView; label: string }> = [
+  { key: 'today', label: 'Today' },
+  { key: 'upcoming', label: 'Upcoming' },
+  { key: 'anytime', label: 'Anytime' },
+  { key: 'someday', label: 'Someday' },
+  { key: 'logbook', label: 'Logbook' },
+];
+
+function formatRelativeDate(dateStr: string): string {
+  const today = formatDate(new Date());
+  if (dateStr === today) return 'Today';
+  const date = new Date(`${dateStr}T00:00:00`);
+  return date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+}
 
 const HOUR_HEIGHT = 60;
 const TIMELINE_START_HOUR = 6;
@@ -109,14 +128,27 @@ function computeGaps(rows: TimelineRow[]): GapLabel[] {
 interface HomeScreenExperimentalProps {
   onInboxPress: () => void;
   inboxOpen: boolean;
+  onHeroPress: () => void;
 }
 
-export function HomeScreenExperimental({ onInboxPress, inboxOpen }: HomeScreenExperimentalProps) {
+export function HomeScreenExperimental({ onInboxPress, inboxOpen, onHeroPress }: HomeScreenExperimentalProps) {
   const insets = useSafeAreaInsets();
-  const { isDark } = useThemeContext();
+  const { isDark, toggle: toggleDark } = useThemeContext();
   const { todayItems, inboxCount, refresh } = useHomeData();
   const { revision: composerRevision } = useItemComposer();
   const openItem = useOpenItem();
+  const [activeView, setActiveView] = useState<ExperimentalView>('today');
+  const [upcomingItems, setUpcomingItems] = useState<Item[]>([]);
+  const [anytimeItems, setAnytimeItems] = useState<Item[]>([]);
+  const [somedayItems, setSomedayItems] = useState<Item[]>([]);
+  const [logbookItems, setLogbookItems] = useState<Item[]>([]);
+
+  const refreshLists = () => {
+    setUpcomingItems(getUpcomingItems(formatDate(new Date())));
+    setAnytimeItems(getItemsByStatus('active').filter((item) => !item.scheduledDate));
+    setSomedayItems(getItemsByStatus('someday'));
+    setLogbookItems(getCompletedItems());
+  };
 
   // useHomeData only fetches on mount — Inbox lives in a sibling modal (App.tsx), not a
   // child of this screen, so triaging there never triggers a refetch here on its own.
@@ -124,12 +156,23 @@ export function HomeScreenExperimental({ onInboxPress, inboxOpen }: HomeScreenEx
   // refetch on any save anywhere in the app (composerRevision bumps on every save,
   // including a fresh FAB capture that never touches the Inbox modal at all).
   useEffect(() => {
-    if (!inboxOpen) refresh();
+    if (!inboxOpen) {
+      refresh();
+      refreshLists();
+    }
   }, [inboxOpen, refresh]);
 
   useEffect(() => {
     refresh();
+    refreshLists();
   }, [composerRevision, refresh]);
+
+  // Each of the 4 new lists is fetched once on mount via the effect above; refetch
+  // again whenever the switcher lands on one, so a tab you haven't visited since
+  // the last save/complete doesn't show stale data.
+  useEffect(() => {
+    refreshLists();
+  }, [activeView]);
   const [deviceEvents, setDeviceEvents] = useState<DeviceCalendarEvent[]>([]);
   const appStateRef = useRef(AppState.currentState);
 
@@ -200,9 +243,83 @@ export function HomeScreenExperimental({ onInboxPress, inboxOpen }: HomeScreenEx
   }
   const timelineHeight = hours.length * HOUR_HEIGHT;
 
+  const renderSimpleRow = (item: Item, subtitle: string) => (
+    <TouchableOpacity
+      key={item.id}
+      style={[styles.card, styles.needsCard, { backgroundColor: cardBg, borderColor: line }]}
+      onPress={() => handleOpenItem(item)}
+    >
+      <View style={[styles.accentBar, { backgroundColor: typeColor(item.type) }]} />
+      <View style={styles.cardBody}>
+        <Text style={[styles.needsTitle, { color: fg }]} numberOfLines={1}>
+          {item.title}
+        </Text>
+        <Text style={[styles.cardSub, { color: dim }]}>{subtitle}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+
+  const chipActiveBg = isDark ? '#2c2c2e' : '#e5e5ea';
+
   return (
     <View style={[styles.container, { backgroundColor: bg, paddingTop: insets.top }]}>
+      <View style={styles.headerRow}>
+        <TouchableOpacity
+          style={[styles.circleButton, { backgroundColor: cardBg, borderColor: line }]}
+          onPress={onHeroPress}
+          accessibilityLabel="Me"
+        >
+          <Settings size={18} color={dim} strokeWidth={1.75} />
+        </TouchableOpacity>
+
+        <Text style={[styles.wordmark, { color: dim }]}>RKA</Text>
+
+        <View style={styles.headerRight}>
+          <TouchableOpacity
+            style={[styles.circleButton, { backgroundColor: cardBg, borderColor: line }]}
+            onPress={toggleDark}
+            accessibilityLabel="Toggle dark mode"
+          >
+            {isDark ? (
+              <Moon size={18} color="#9DB4FF" strokeWidth={1.75} />
+            ) : (
+              <Sun size={18} color={dim} strokeWidth={1.75} />
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.circleButton, { backgroundColor: cardBg, borderColor: line }]}
+            onPress={onInboxPress}
+            accessibilityLabel="Inbox"
+          >
+            <InboxIcon size={18} color={dim} strokeWidth={1.75} />
+            {inboxCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{inboxCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow} contentContainerStyle={styles.chipRowContent}>
+        {VIEW_CHIPS.map((chip) => {
+          const isActive = activeView === chip.key;
+          return (
+            <TouchableOpacity
+              key={chip.key}
+              style={[styles.chip, { backgroundColor: isActive ? chipActiveBg : 'transparent' }]}
+              onPress={() => setActiveView(chip.key)}
+            >
+              <Text style={[styles.chipText, { color: isActive ? fg : dim }]}>{chip.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        {activeView === 'today' && (
+        <>
         <TouchableOpacity
           style={[styles.card, styles.inboxCard, { backgroundColor: cardBg, borderColor: line }]}
           onPress={onInboxPress}
@@ -304,6 +421,40 @@ export function HomeScreenExperimental({ onInboxPress, inboxOpen }: HomeScreenEx
             );
           })}
         </View>
+        </>
+        )}
+
+        {activeView === 'upcoming' && (
+          upcomingItems.length === 0 ? (
+            <Text style={[styles.emptyText, { color: dim }]}>Nothing upcoming.</Text>
+          ) : (
+            upcomingItems.map((item) => renderSimpleRow(item, item.scheduledDate ? formatRelativeDate(item.scheduledDate) : ''))
+          )
+        )}
+
+        {activeView === 'anytime' && (
+          anytimeItems.length === 0 ? (
+            <Text style={[styles.emptyText, { color: dim }]}>Nothing here.</Text>
+          ) : (
+            anytimeItems.map((item) => renderSimpleRow(item, item.type))
+          )
+        )}
+
+        {activeView === 'someday' && (
+          somedayItems.length === 0 ? (
+            <Text style={[styles.emptyText, { color: dim }]}>Nothing filed for someday.</Text>
+          ) : (
+            somedayItems.map((item) => renderSimpleRow(item, item.type))
+          )
+        )}
+
+        {activeView === 'logbook' && (
+          logbookItems.length === 0 ? (
+            <Text style={[styles.emptyText, { color: dim }]}>Nothing completed yet.</Text>
+          ) : (
+            logbookItems.map((item) => renderSimpleRow(item, item.completedAt ? new Date(item.completedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : ''))
+          )
+        )}
       </ScrollView>
     </View>
   );
@@ -392,5 +543,67 @@ const styles = StyleSheet.create({
   timelineItemText: {
     fontSize: 14,
     fontWeight: '500',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 14,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  circleButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  wordmark: {
+    fontFamily: 'Georgia',
+    fontStyle: 'italic',
+    fontWeight: '700',
+    fontSize: 15,
+    letterSpacing: 0.5,
+  },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#D9506B',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  badgeText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  chipRow: {
+    flexGrow: 0,
+  },
+  chipRowContent: {
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 6,
+  },
+  chip: {
+    flexShrink: 0,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  chipText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
 });
