@@ -1,12 +1,12 @@
+import { useEffect, useRef } from 'react';
 import { Text, View, Pressable, StyleSheet, Alert } from 'react-native';
-import {
+import Animated, {
   Easing,
   createAnimatedComponent,
   useAnimatedProps,
-  useAnimatedReaction,
+  useAnimatedStyle,
   useSharedValue,
   withTiming,
-  runOnJS,
 } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
@@ -21,7 +21,7 @@ const RADIUS = (SIZE - STROKE_WIDTH) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 const HOLD_DURATION = 1500;
 const CANCEL_DURATION = 150;
-const TICK_BUCKETS = 8;
+const TICK_INTERVAL = 80; // dense continuous buzz, not sparse discrete ticks
 
 interface HabitHoldButtonProps {
   title: string;
@@ -43,28 +43,33 @@ function confirmHaptic() {
   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 }
 
-// Two deliberate steps, not an instant tap — the ring fills over
-// HOLD_DURATION with a haptic tick at each eighth crossed; releasing early
-// interrupts the fill (withTiming reassignment makes the pending completion
-// callback fire with finished:false, so nothing happens) and springs back
-// with a light "cancelled" tick. Completing the hold opens a native confirm
-// dialog — only accepting it actually calls onConfirm.
+// Two deliberate steps, not an instant tap. The ring fill (progress, via
+// reanimated) is purely cosmetic — the actual HOLD_DURATION timing and the
+// haptic buzz run on plain JS timers (setTimeout/setInterval), not on the
+// reanimated completion callback, since that path proved unreliable in
+// practice (completed early, no haptics felt). Completing the hold opens a
+// native confirm dialog — only accepting it actually calls onConfirm.
 export function HabitHoldButton({ title, streak, isCompletedToday, isDark, onConfirm }: HabitHoldButtonProps) {
   const palette = getThemeColors(isDark);
   const progress = useSharedValue(isCompletedToday ? 1 : 0);
+  const pressScale = useSharedValue(1);
 
-  useAnimatedReaction(
-    () => Math.floor(progress.value * TICK_BUCKETS),
-    (bucket, previousBucket) => {
-      if (bucket > 0 && bucket !== previousBucket) {
-        runOnJS(tickHaptic)();
-      }
-    },
-  );
+  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tickTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // The hold itself isn't the last word — completing it opens a native
-  // confirm dialog before anything actually gets marked done. Cancelling
-  // springs the ring back to empty, same feedback as an early release.
+  const clearTimers = () => {
+    if (holdTimer.current) {
+      clearTimeout(holdTimer.current);
+      holdTimer.current = null;
+    }
+    if (tickTimer.current) {
+      clearInterval(tickTimer.current);
+      tickTimer.current = null;
+    }
+  };
+
+  useEffect(() => clearTimers, []);
+
   const handleConfirmed = () => {
     Alert.alert(
       'Check in?',
@@ -91,23 +96,34 @@ export function HabitHoldButton({ title, streak, isCompletedToday, isDark, onCon
 
   const handlePressIn = () => {
     if (isCompletedToday) return;
-    progress.value = withTiming(
-      1,
-      { duration: HOLD_DURATION, easing: Easing.linear },
-      (finished) => {
-        if (finished) runOnJS(handleConfirmed)();
-      },
-    );
+    clearTimers();
+    progress.value = withTiming(1, { duration: HOLD_DURATION, easing: Easing.linear });
+    pressScale.value = withTiming(0.92, { duration: 120 });
+    tickTimer.current = setInterval(tickHaptic, TICK_INTERVAL);
+    holdTimer.current = setTimeout(() => {
+      clearTimers();
+      handleConfirmed();
+    }, HOLD_DURATION);
   };
 
   const handlePressOut = () => {
-    if (isCompletedToday || progress.value >= 1) return;
-    progress.value = withTiming(0, { duration: CANCEL_DURATION });
-    runOnJS(cancelHaptic)();
+    if (isCompletedToday) return;
+    pressScale.value = withTiming(1, { duration: 150 });
+    // holdTimer is only still set if release happened before completion —
+    // once handleConfirmed has fired, clearTimers() already nulled it out.
+    if (holdTimer.current) {
+      clearTimers();
+      progress.value = withTiming(0, { duration: CANCEL_DURATION });
+      cancelHaptic();
+    }
   };
 
   const ringProps = useAnimatedProps(() => ({
     strokeDashoffset: CIRCUMFERENCE * (1 - progress.value),
+  }));
+
+  const pressStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pressScale.value }],
   }));
 
   const flameColor = isCompletedToday ? palette.red : palette.textTertiary;
@@ -121,7 +137,7 @@ export function HabitHoldButton({ title, streak, isCompletedToday, isDark, onCon
         accessibilityRole="button"
         accessibilityLabel={isCompletedToday ? `${title}, already checked in today` : `Hold to check in ${title}`}
       >
-        <View style={{ width: SIZE, height: SIZE }}>
+        <Animated.View style={[{ width: SIZE, height: SIZE }, pressStyle]}>
           <Svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`}>
             <Circle
               cx={SIZE / 2}
@@ -148,7 +164,7 @@ export function HabitHoldButton({ title, streak, isCompletedToday, isDark, onCon
           <View style={styles.iconOverlay} pointerEvents="none">
             <Flame size={24} color={flameColor} />
           </View>
-        </View>
+        </Animated.View>
       </Pressable>
       <Text style={[styles.title, { color: palette.text }]} numberOfLines={1}>{title}</Text>
       {streak > 0 && (
