@@ -80,6 +80,14 @@ export function groupExercisesByMuscle(exercises: Item[]): ExerciseGroup[] {
     .filter((group) => group.exercises.length > 0);
 }
 
+export function pickGroupThumbnailImageKey(group: ExerciseGroup): string | undefined {
+  for (const exercise of group.exercises) {
+    const imageKey = parseExerciseMeta(exercise.metadata).imageKey;
+    if (imageKey) return imageKey;
+  }
+  return undefined;
+}
+
 export function filterExercisesByQuery(exercises: Item[], query: string): Item[] {
   const q = query.trim().toLowerCase();
   if (!q) return exercises;

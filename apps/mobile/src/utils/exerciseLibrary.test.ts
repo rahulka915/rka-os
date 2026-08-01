@@ -6,6 +6,7 @@ import {
   formatExerciseSubtitle,
   groupExercisesByMuscle,
   filterExercisesByQuery,
+  pickGroupThumbnailImageKey,
   MUSCLE_GROUPS,
 } from './exerciseLibrary.ts';
 
@@ -63,4 +64,26 @@ test('filterExercisesByQuery is case-insensitive and substring-based', () => {
   assert.deepEqual(filterExercisesByQuery(exercises, 'bench').map((e) => e.id), ['1']);
   assert.deepEqual(filterExercisesByQuery(exercises, '').map((e) => e.id), ['1', '2']);
   assert.deepEqual(filterExercisesByQuery(exercises, 'zzz'), []);
+});
+
+test('pickGroupThumbnailImageKey returns the first alphabetical exercise with an imageKey', () => {
+  const group = {
+    muscleGroup: 'chest',
+    label: 'Chest',
+    exercises: [
+      makeExercise('1', 'Bench Press', { muscleGroup: 'chest' }),
+      makeExercise('2', 'Cable Fly', { muscleGroup: 'chest', imageKey: 'CableFly' }),
+      makeExercise('3', 'Push-Up', { muscleGroup: 'chest', imageKey: 'PushUp' }),
+    ],
+  };
+  assert.equal(pickGroupThumbnailImageKey(group), 'CableFly');
+});
+
+test('pickGroupThumbnailImageKey returns undefined when no exercise in the group has an imageKey', () => {
+  const group = {
+    muscleGroup: 'legs',
+    label: 'Legs',
+    exercises: [makeExercise('1', 'Squat', { muscleGroup: 'legs' })],
+  };
+  assert.equal(pickGroupThumbnailImageKey(group), undefined);
 });
