@@ -6,7 +6,7 @@ import * as Haptics from 'expo-haptics';
 import { RiverStoneSurface } from '../components/riverstone';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors, spacing } from '../theme';
-import { Dumbbell, ChevronRight, ShoppingBag, Archive } from '../icons';
+import { Dumbbell, ChevronRight, ShoppingBag, Archive, Flame } from '../icons';
 import { MedicationBottleIcon } from '../components/icons/MedicationBottleIcon';
 import { TaskNoteIcon } from '../components/icons/TaskNoteIcon';
 import { AreaBonsaiIcon } from '../components/icons/AreaBonsaiIcon';
@@ -45,6 +45,14 @@ export function MenuScreen() {
       icon: TaskNoteIcon,
       accent: palette.blue,
       soft: palette.blueSoft,
+    },
+    {
+      route: 'Habits',
+      label: 'Habits',
+      sub: 'Daily routines and streaks',
+      icon: Flame,
+      accent: palette.red,
+      soft: palette.redSoft,
     },
     {
       route: 'Upcoming',
