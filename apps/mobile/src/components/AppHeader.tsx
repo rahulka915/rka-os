@@ -3,7 +3,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
-import { Settings, Moon, Sun, Inbox as InboxIcon } from '../icons';
+import { Settings, Moon, Sun } from '../icons';
+import { ScrollIcon } from './icons/ScrollIcon';
 
 interface AppHeaderProps {
   onSettingsPress?: () => void;
@@ -56,7 +57,7 @@ export function AppHeader({ onSettingsPress, onInboxPress, inboxCount = 0 }: App
           accessibilityRole="button"
           accessibilityLabel="Inbox"
         >
-          <InboxIcon size={18} color={palette.textSecondary} strokeWidth={1.75} />
+          <ScrollIcon size={18} color={palette.textSecondary} strokeWidth={1.75} />
           {inboxCount > 0 && (
             <RNView style={styles.badge}>
               <Text style={styles.badgeText}>{inboxCount}</Text>

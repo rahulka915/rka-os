@@ -4,7 +4,6 @@ import { useFocusEffect } from '@react-navigation/native';
 import { ScrollViewContainer } from 'react-native-reorderable-list';
 import { YStack } from 'tamagui';
 import { AppHeader } from '../components/AppHeader';
-import { InboxScrollCard } from '../components/home/InboxScrollCard';
 import { MedicationQuickLogWidget } from '../components/home/MedicationQuickLogWidget';
 import { TodayCard } from '../components/home/TodayCard';
 import { HabitsWidget } from '../components/home/HabitsWidget';
@@ -198,18 +197,9 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
 
         {activeView === 'today' && (
         <>
-        {/* Quick actions: Inbox + Medication logging */}
-        <View style={{ flexDirection: 'row', marginHorizontal: 12, marginTop: 8, gap: 8 }}>
-          <View style={{ flex: 1 }}>
-            <InboxScrollCard
-              inboxCount={inboxCount}
-              onPress={onInboxPress}
-              isDark={isDark}
-            />
-          </View>
-          <View style={{ flex: 1 }}>
-            <MedicationQuickLogWidget isDark={isDark} />
-          </View>
+        {/* Quick actions: Medication logging (Inbox now lives in the header) */}
+        <View style={{ marginHorizontal: 12, marginTop: 8 }}>
+          <MedicationQuickLogWidget isDark={isDark} />
         </View>
 
         {/* Habits */}
