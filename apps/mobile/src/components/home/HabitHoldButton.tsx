@@ -1,4 +1,4 @@
-import { Text, View, Pressable, StyleSheet } from 'react-native';
+import { Text, View, Pressable, StyleSheet, Alert } from 'react-native';
 import {
   Easing,
   createAnimatedComponent,
@@ -19,8 +19,9 @@ const SIZE = 64;
 const STROKE_WIDTH = 4;
 const RADIUS = (SIZE - STROKE_WIDTH) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
-const HOLD_DURATION = 600;
+const HOLD_DURATION = 1500;
 const CANCEL_DURATION = 150;
+const TICK_BUCKETS = 8;
 
 interface HabitHoldButtonProps {
   title: string;
@@ -42,17 +43,18 @@ function confirmHaptic() {
   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 }
 
-// Press-and-hold confirmation, not an instant tap — the ring fills over
-// HOLD_DURATION with a haptic tick at each fifth crossed; releasing early
+// Two deliberate steps, not an instant tap — the ring fills over
+// HOLD_DURATION with a haptic tick at each eighth crossed; releasing early
 // interrupts the fill (withTiming reassignment makes the pending completion
-// callback fire with finished:false, so onConfirm never runs) and springs
-// back with a light "cancelled" tick instead of failing silently.
+// callback fire with finished:false, so nothing happens) and springs back
+// with a light "cancelled" tick. Completing the hold opens a native confirm
+// dialog — only accepting it actually calls onConfirm.
 export function HabitHoldButton({ title, streak, isCompletedToday, isDark, onConfirm }: HabitHoldButtonProps) {
   const palette = getThemeColors(isDark);
   const progress = useSharedValue(isCompletedToday ? 1 : 0);
 
   useAnimatedReaction(
-    () => Math.floor(progress.value * 5),
+    () => Math.floor(progress.value * TICK_BUCKETS),
     (bucket, previousBucket) => {
       if (bucket > 0 && bucket !== previousBucket) {
         runOnJS(tickHaptic)();
@@ -60,9 +62,31 @@ export function HabitHoldButton({ title, streak, isCompletedToday, isDark, onCon
     },
   );
 
+  // The hold itself isn't the last word — completing it opens a native
+  // confirm dialog before anything actually gets marked done. Cancelling
+  // springs the ring back to empty, same feedback as an early release.
   const handleConfirmed = () => {
-    confirmHaptic();
-    onConfirm();
+    Alert.alert(
+      'Check in?',
+      `Mark "${title}" complete for today?`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+          onPress: () => {
+            cancelHaptic();
+            progress.value = withTiming(0, { duration: CANCEL_DURATION });
+          },
+        },
+        {
+          text: 'Confirm',
+          onPress: () => {
+            confirmHaptic();
+            onConfirm();
+          },
+        },
+      ],
+    );
   };
 
   const handlePressIn = () => {
