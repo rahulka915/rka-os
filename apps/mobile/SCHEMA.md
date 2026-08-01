@@ -14,6 +14,7 @@ flowchart RL
     Project -- area --> Area
     WorkoutBlock["Workout block"] -- workout-template --> WorkoutTemplate["Workout template"]
     WorkoutBlock -- exercise --> Exercise["Exercise"]
+    WorkoutSession["Workout session"] -. workout-template (optional) .-> WorkoutTemplate
     Habit
     Medication
     Meal["Meal (declared, not built)"]
@@ -25,7 +26,7 @@ Each arrow is one `itemRelations` edge, labeled with its `relationType` — read
 
 ### `items` — the master table
 
-Every entity type (`area`, `project`, `task`, `habit`, `medication`, `workout-template`, `workout-block`, `exercise`, `meal`) is a row here, discriminated by `type`.
+Every entity type (`area`, `project`, `task`, `habit`, `medication`, `workout-template`, `workout-block`, `exercise`, `workout-session`, `meal`) is a row here, discriminated by `type`.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -64,6 +65,7 @@ Currently used relations:
 - `task -> project` (relationType `'project'`)
 - `workout-block -> workout-template` (relationType `'workout-template'`)
 - `workout-block -> exercise` (relationType `'exercise'`)
+- `workout-session -> workout-template` (relationType `'workout-template'`, optional — only set for template-started sessions)
 
 ### `itemInstances`, `activityLogs`, `appSettings`
 
@@ -81,6 +83,7 @@ Supporting tables, not part of the entity/relation model: `itemInstances` tracks
 | `workout-template` | built | none yet |
 | `workout-block` | built | `sets`, `reps`, `weight`, `restSeconds`, `notes` |
 | `exercise` | built | `muscleGroup`, `equipment`, `notes`, `imageKey` |
+| `workout-session` | built | none (sets are logged as `activityLogs` rows, `actionType: 'workout-set-logged'`, `entityId` = exercise id, `details`: `{sessionId, setNumber, reps, weight, weightUnit}`) |
 | `meal` | declared, not built | — |
 
 ## Medication packaging & stock
@@ -102,4 +105,3 @@ Display is projected against the *configured* full-restock shape, not just whate
 - No cascade delete on `itemRelations` when an item is soft-deleted — orphaned relation rows are harmless (rollup queries filter deleted items) but accumulate.
 - Relations are single-select only; a multi-relation (e.g. a task in two projects) would need dropping the `UNIQUE(sourceId, relationType)` constraint.
 - No per-day medication dose-schedule model (so medication history can only show two states: taken / not taken, not a third "not scheduled" state).
-- No workout-session model (so "start workout" / "continue workout" have no data to attach to yet).

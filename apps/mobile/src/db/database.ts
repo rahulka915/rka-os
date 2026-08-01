@@ -7,6 +7,8 @@ import { resolveAutoStopAfterMs } from '../domain/medicationTimer/timerMath';
 import { nextOccurrenceDate, parseRepeatRule, dayMatchesRepeat } from '../utils/repeat';
 import { countDosesByDay } from '../utils/medicationDoseHistory';
 import { buildTimelineEntries, type TimelineEntry } from './timelineEntry';
+import type { WorkoutSetDetails } from '../utils/workoutSet';
+import { getMostRecentSessionSets } from '../utils/workoutSet';
 
 // Re-exported so `import type { TimelineEntry } from '../db/database'` keeps
 // working for CalendarScreen and useDb.
@@ -1517,4 +1519,51 @@ export function getTodayLogs(): ActivityLog[] {
     `SELECT * FROM activityLogs WHERE timestamp BETWEEN ? AND ? ORDER BY timestamp DESC`,
     [start.getTime(), end.getTime()]
   );
+}
+
+// A logged workout occurrence. Optionally related to a workout-template
+// (relationType 'workout-template') when started from one; freeform sessions
+// have no such relation row. Status flows 'active' -> 'completed'.
+export function startWorkoutSession(templateId?: string | null): string {
+  const title = templateId ? (getItemWithMetadata(templateId)?.title ?? 'Workout') : 'Freeform Workout';
+  const sessionId = createItem('workout-session', title, 'active', formatDate(new Date()));
+  if (templateId) setRelation(sessionId, 'workout-template', templateId);
+  return sessionId;
+}
+
+export interface LogWorkoutSetInput {
+  sessionId: string;
+  exerciseId: string;
+  setNumber: number;
+  reps: number;
+  weight: number;
+  weightUnit?: string;
+}
+
+// entityId = exerciseId (not sessionId) so "what did I do last time for this
+// exercise" is a direct, single-column lookup across every session ever logged.
+export function logWorkoutSet(input: LogWorkoutSetInput): string {
+  return logActivity(
+    input.exerciseId,
+    'workout-set-logged',
+    JSON.stringify({
+      sessionId: input.sessionId,
+      setNumber: input.setNumber,
+      reps: input.reps,
+      weight: input.weight,
+      weightUnit: input.weightUnit ?? 'kg',
+    })
+  );
+}
+
+export function finishWorkoutSession(sessionId: string): void {
+  updateItemStatus(sessionId, 'completed');
+}
+
+export function getLastSessionSetsForExercise(exerciseId: string, excludeSessionId?: string): WorkoutSetDetails[] {
+  const logs = getDb().getAllSync<ActivityLog>(
+    `SELECT * FROM activityLogs WHERE entityId = ? AND actionType = 'workout-set-logged' ORDER BY timestamp DESC LIMIT 200`,
+    [exerciseId]
+  );
+  return getMostRecentSessionSets(logs, excludeSessionId);
 }

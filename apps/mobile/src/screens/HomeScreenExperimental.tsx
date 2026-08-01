@@ -46,6 +46,7 @@ const TYPE_COLORS: Record<ItemType, string> = {
   'workout-template': '#EF4444',
   'workout-block': '#EF4444',
   exercise: '#EF4444',
+  'workout-session': '#EF4444',
   meal: '#EAB308',
   object: '#EC4899',
 };

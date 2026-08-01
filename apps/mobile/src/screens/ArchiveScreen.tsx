@@ -19,6 +19,7 @@ const TYPE_LABELS: Record<ItemType, string> = {
   'workout-template': 'Workout',
   'workout-block': 'Workout',
   exercise: 'Exercise',
+  'workout-session': 'Workout',
   meal: 'Meal',
   object: 'To Get',
 };
