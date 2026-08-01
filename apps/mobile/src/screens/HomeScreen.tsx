@@ -5,7 +5,8 @@ import { YStack } from 'tamagui';
 import { AppHeader } from '../components/AppHeader';
 import { InboxScrollCard } from '../components/home/InboxScrollCard';
 import { TodayCard } from '../components/home/TodayCard';
-import { useHomeData, useUpcomingPreview } from '../hooks/useDb';
+import { HabitsWidget } from '../components/home/HabitsWidget';
+import { useHomeData, useUpcomingPreview, useTodayHabits } from '../hooks/useDb';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { useItemComposer } from '../components/item-composer';
 import { useOpenItem } from '../hooks/useOpenItem';
@@ -27,6 +28,7 @@ export function HomeScreen({ onInboxPress, inboxOpen, onHeroPress, onSettingsPre
   const openItem = useOpenItem();
   const { inboxCount, todayItems, refresh } = useHomeData();
   const { groups: upcomingGroups, refresh: refreshUpcoming } = useUpcomingPreview();
+  const { habits: todayHabits, refresh: refreshHabits } = useTodayHabits();
   const [completingIds, setCompletingIds] = useState<Set<string>>(new Set());
 
   // useHomeData only fetches on mount — Inbox lives in a sibling modal (App.tsx), not a child
@@ -37,13 +39,15 @@ export function HomeScreen({ onInboxPress, inboxOpen, onHeroPress, onSettingsPre
     if (!inboxOpen) {
       refresh();
       refreshUpcoming();
+      refreshHabits();
     }
-  }, [inboxOpen, refresh, refreshUpcoming]);
+  }, [inboxOpen, refresh, refreshUpcoming, refreshHabits]);
 
   useEffect(() => {
     refresh();
     refreshUpcoming();
-  }, [composerRevision, refresh, refreshUpcoming]);
+    refreshHabits();
+  }, [composerRevision, refresh, refreshUpcoming, refreshHabits]);
 
   const handleItemComplete = useCallback((item: Item) => {
     if (completingIds.has(item.id)) return;
@@ -91,6 +95,9 @@ export function HomeScreen({ onInboxPress, inboxOpen, onHeroPress, onSettingsPre
             isDark={isDark}
           />
         </View>
+
+        {/* Habits */}
+        <HabitsWidget habits={todayHabits} refresh={refreshHabits} isDark={isDark} />
 
         {/* Today */}
         <TodayCard
