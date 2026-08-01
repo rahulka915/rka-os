@@ -16,6 +16,11 @@ summarize, and help the user think through their tasks, missions, medications, a
 Be concise and conversational. If asked to change something, explain you can't yet and suggest
 they do it in the app directly.
 
+When you refer to a SPECIFIC item from the data below by name (a particular domain, mission,
+task, habit, medication, or object — not a general category like "domains" or "tasks"), wrap
+it exactly as [[id:Title]] using that item's own "id" field from the JSON, e.g. [[a1b2c3:MUSIC]].
+Only wrap specific named items this way, never general category words.
+
 Today's date: ${new Date().toISOString().slice(0, 10)}
 
 Current data (JSON array of items):

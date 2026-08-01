@@ -19,6 +19,7 @@ export function buildAssistantContext(): string {
     }
 
     const entry: Record<string, unknown> = {
+      id: item.id,
       type: item.type,
       title: item.title,
       status: item.status,
