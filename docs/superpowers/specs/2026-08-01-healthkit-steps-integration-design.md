@@ -13,7 +13,7 @@
 
 - **Metric:** step count only (not workouts or sleep, despite the Info.plist strings already covering those — deferred to a future pass using the same pattern once this is proven).
 - **Persistence:** none. Step data is queried live from HealthKit on demand; nothing is written to the app's SQLite database.
-- **Verification surface:** a `__DEV__`-only section on `ProfileScreen.tsx`, following the same pattern as its existing `Ronin3DBench` dev-only block — shows permission status and today's step count. Not a real feature surface; exists purely to prove the pipe works.
+- **Verification surface:** a `__DEV__`-only block inside `SettingsScreen.tsx`'s existing `DevToolsSection` (which already hosts `Ronin3DBench`) — shows permission status and today's step count. Not a real feature surface; exists purely to prove the pipe works.
 
 ## Architecture
 
@@ -22,7 +22,7 @@
   - `requestHealthPermissions(): Promise<boolean>` — checks `isHealthDataAvailable()`, then calls the library's `requestAuthorization({ toRead: ['HKQuantityTypeIdentifierStepCount'] })`, resolving `true`/`false` based on whether the user granted access.
   - `getTodayStepCount(): Promise<number>` — calls `queryStatisticsForQuantity('HKQuantityTypeIdentifierStepCount', ['cumulativeSum'], { filter: { date: { startDate: <midnight today>, endDate: <now> } } })` and reads `result.sumQuantity?.quantity ?? 0` — this is HealthKit's proper cumulative-sum statistics query (not manually summing raw samples, which risks double-counting across multiple data sources like a paired Apple Watch).
   - Both guarded for non-iOS platforms (`Platform.OS !== 'ios'` short-circuits to `false`/`0`) since HealthKit is iOS-only — matches the existing guarded-import pattern already used for `expo-background-task` in `src/services/backgroundSync.ts`.
-- `ProfileScreen.tsx`: a new `__DEV__`-only block (sibling to the existing `Ronin3DBench` section) with a button to call `requestHealthPermissions()` and, once granted, a display of `getTodayStepCount()`'s result with a manual refresh button.
+- `SettingsScreen.tsx`: a new block inside its existing `DevToolsSection` (the `__DEV__`-only section that already hosts `Ronin3DBench` — note this moved here from `ProfileScreen.tsx` at some point; `apps/mobile/CLAUDE.md`'s "Ronin 3D Companion" section is stale on this point) with a button to call `requestHealthPermissions()` and, once granted, a display of `getTodayStepCount()`'s result with a manual refresh button.
 
 ## Native Build Requirement
 
