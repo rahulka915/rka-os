@@ -32,6 +32,7 @@ import type { Item, ItemInstance } from '../db/types';
 import type { TimelineEntry } from '../db/database';
 import { resolveTimeBucket, type TimeOfDay } from '../utils/time';
 import { groupByScheduledDate, type UpcomingGroup } from '../utils/upcomingGrouping';
+import { buildHabitRowData, type HabitRowData } from '../utils/habits';
 import { startMedicationLiveActivity } from '../services/medicationLiveActivity';
 import { ensureMedicationTimerAutoStop } from '../services/medicationTimerController';
 import { presentMedicationTimer } from '../utils/timerPresentation';
@@ -268,6 +269,16 @@ export function useUpcomingPreview() {
   }, []);
   useDbRefresh(refresh);
   return { groups, refresh };
+}
+
+export function useTodayHabits() {
+  const [habits, setHabits] = useState<HabitRowData[]>([]);
+  const refresh = useCallback(() => {
+    const today = formatDate(new Date());
+    setHabits(getItemsByType('habit').map((item) => buildHabitRowData(item, today)).filter((row) => row.isScheduledToday));
+  }, []);
+  useDbRefresh(refresh);
+  return { habits, refresh };
 }
 
 export function completeAllInTimeBlock(bucket: 'anytime' | 'morning' | 'afternoon' | 'evening'): void {
