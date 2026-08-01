@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { ScrollViewContainer } from 'react-native-reorderable-list';
 import { YStack } from 'tamagui';
 import { AppHeader } from '../components/AppHeader';
@@ -49,6 +50,18 @@ export function HomeScreen({ onInboxPress, inboxOpen, onHeroPress, onSettingsPre
     refreshUpcoming();
     refreshHabits();
   }, [composerRevision, refresh, refreshUpcoming, refreshHabits]);
+
+  // Belt-and-suspenders: some write paths (e.g. HabitsScreen's own
+  // quick-create) don't go through the shared item-composer flow, so they
+  // never bump composerRevision — refreshing on every return to this tab
+  // catches those instead of leaving Home showing stale data.
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+      refreshUpcoming();
+      refreshHabits();
+    }, [refresh, refreshUpcoming, refreshHabits]),
+  );
 
   const handleItemComplete = useCallback((item: Item) => {
     if (completingIds.has(item.id)) return;
