@@ -2,8 +2,9 @@ import { useCallback, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
-import { getItemWithMetadata, getTemplatesForExercise, updateItemMetadata, updateItemTitle } from '../db/database';
+import { getItemWithMetadata, getLastSessionSetsForExercise, getTemplatesForExercise, updateItemMetadata, updateItemTitle } from '../db/database';
 import { parseExerciseMeta, formatExerciseSubtitle, MUSCLE_GROUP_LABELS, EQUIPMENT_LABELS } from '../utils/exerciseLibrary';
+import { formatSetSummary, type WorkoutSetDetails } from '../utils/workoutSet';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
 import { LensSurface } from '../components/LensSurface';
@@ -25,11 +26,13 @@ export function ExerciseDetailScreen() {
 
   const [item, setItem] = useState<Item | null>(null);
   const [templates, setTemplates] = useState<Item[]>([]);
+  const [lastSets, setLastSets] = useState<WorkoutSetDetails[]>([]);
   const [sheetOpen, setSheetOpen] = useState(false);
 
   const load = useCallback(() => {
     setItem(getItemWithMetadata(exerciseId));
     setTemplates(getTemplatesForExercise(exerciseId));
+    setLastSets(getLastSessionSetsForExercise(exerciseId));
   }, [exerciseId]);
 
   useFocusEffect(load);
@@ -101,11 +104,17 @@ export function ExerciseDetailScreen() {
 
         <View style={styles.section}>
           <Text style={[styles.sectionLabel, { color: palette.textTertiary }]}>PROGRESS</Text>
-          <View style={[styles.progressEmpty, { backgroundColor: palette.fill }]}>
-            <Text style={[styles.progressEmptyText, { color: palette.textTertiary }]}>
-              Log a workout to see stats and history here
+          {lastSets.length === 0 ? (
+            <View style={[styles.progressEmpty, { backgroundColor: palette.fill }]}>
+              <Text style={[styles.progressEmptyText, { color: palette.textTertiary }]}>
+                Log a workout to see stats and history here
+              </Text>
+            </View>
+          ) : (
+            <Text style={[styles.tipsText, { color: palette.text }]}>
+              Last time: {lastSets.map(formatSetSummary).join(', ')}
             </Text>
-          </View>
+          )}
         </View>
       </ScrollView>
 
