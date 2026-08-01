@@ -110,14 +110,14 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   inboxButton: {
-    width: 36,
-    height: 36,
+    width: 40,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
   },
   inboxIllustration: {
-    width: 26,
-    height: 26,
+    width: 34,
+    height: 34,
   },
   badge: {
     position: 'absolute',
