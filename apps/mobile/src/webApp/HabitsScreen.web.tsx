@@ -6,6 +6,7 @@ import { buildHabitRowData, type HabitRowData } from '../utils/habits';
 import { useDbRefresh } from '../hooks/useDb';
 import { DetailPanel } from './DetailPanel';
 import { ItemDetailForm } from './ItemDetailForm';
+import { HabitDetailPanel } from './HabitDetailPanel';
 import { webColors, webSpacing, webRadius, webFontSize } from '../theme/webTheme';
 
 function useHabits() {
@@ -22,6 +23,7 @@ export function HabitsScreen() {
   const { rows, refresh } = useHabits();
   const [captureText, setCaptureText] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [mode, setMode] = useState<'detail' | 'edit'>('detail');
   const selectedItem = rows.find((r) => r.item.id === selectedId)?.item ?? null;
 
   const submit = () => {
@@ -63,7 +65,7 @@ export function HabitsScreen() {
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={<Text style={styles.empty}>No habits yet.</Text>}
         renderItem={({ item: row }) => (
-          <Pressable style={styles.row} onPress={() => setSelectedId(row.item.id)}>
+          <Pressable style={styles.row} onPress={() => { setSelectedId(row.item.id); setMode('detail'); }}>
             <Pressable
               onPress={(event) => {
                 event.stopPropagation();
@@ -87,16 +89,20 @@ export function HabitsScreen() {
         )}
       />
 
-      <DetailPanel visible={!!selectedItem} onClose={() => setSelectedId(null)} title="Habit">
+      <DetailPanel visible={!!selectedItem} onClose={() => setSelectedId(null)} title={mode === 'edit' ? 'Edit Habit' : 'Habit'}>
         {selectedItem ? (
-          <ItemDetailForm
-            item={selectedItem}
-            onChanged={refresh}
-            onDeleted={() => {
-              setSelectedId(null);
-              refresh();
-            }}
-          />
+          mode === 'edit' ? (
+            <ItemDetailForm
+              item={selectedItem}
+              onChanged={() => { refresh(); setMode('detail'); }}
+              onDeleted={() => {
+                setSelectedId(null);
+                refresh();
+              }}
+            />
+          ) : (
+            <HabitDetailPanel item={selectedItem} onEdit={() => setMode('edit')} />
+          )
         ) : null}
       </DetailPanel>
     </View>
