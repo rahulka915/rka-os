@@ -125,6 +125,7 @@ Dark Mode:
 | `ProfileScreen.tsx` | Tamagui | Placeholder |
 | `ExerciseLibraryScreen.tsx` | RN primitives (StyleSheet) | Exercise catalog, grouped by muscle group |
 | `WorkoutTemplateDetailScreen.tsx` | RN primitives + ReorderableList | Drag-reorder exercises within a template |
+| `WorkoutSessionScreen.tsx` | RN primitives (StyleSheet) | Live set logging: reps/weight capture per exercise, shows last-session reference |
 
 ### Components (`src/components/`)
 
@@ -137,8 +138,14 @@ Dark Mode:
 | `ExerciseEditSheet.tsx` | RN primitives + BottomSheet | Create/edit exercise (muscle group + equipment chips) |
 | `BlockEditSheet.tsx` | RN primitives + BottomSheet | Sets/reps/weight/rest for a template's exercise block |
 | `ExercisePickerSheet.tsx` | RN primitives + BottomSheet | Search/pick/create an exercise to add to a template |
+| `SetLogRow.tsx` | RN primitives | One reps/weight input row + log button, used by WorkoutSessionScreen |
 | `ExerciseThumbnail.tsx` | RN primitives (Image) | Exercise image or placeholder, used in library/picker/template rows |
 | `AvatarCompanion.tsx` | Tamagui | Placeholder avatar/initials |
+| `fab/FabControl.tsx` | SVG + Reanimated | Shared layered-vector calligraphy FAB; independent lacquer, washi, ink and brush motion; used by the dock and capture surfaces |
+| `icons/CollectionIcons.tsx` | RN Image wrappers | High-detail transparent 3D collection artwork: Workout kettlebell, Habit prayer beads, To Get furoshiki parcel and Archive scroll chest |
+| `home/RoninJourneyPrototype.tsx` | River Stone + SVG + Reanimated | Compact Home progress path; moves a purpose-built transparent Ronin walker from the real Today completion ratio |
+
+`@rive-app/react-native` and `react-native-nitro-modules` are installed for the in-progress Ronin journey migration. Rive contains native code: after a local `.riv` character state machine is added and wired in, regenerate/install the development build; Expo Go cannot run it. Until that asset exists, `RoninJourneyPrototype.tsx` continues to use its Reanimated PNG fallback.
 
 ### Exercise Images
 

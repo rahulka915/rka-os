@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { useFocusEffect, useRoute } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import ReorderableList from 'react-native-reorderable-list';
 import {
@@ -24,7 +24,7 @@ import { parseBlockMeta, formatBlockSummary } from '../utils/workoutBlock';
 import { parseExerciseMeta } from '../utils/exerciseLibrary';
 import { ExerciseThumbnail } from '../components/ExerciseThumbnail';
 import { showActionSheet } from '../utils/actionSheet';
-import { Plus } from '../icons';
+import { Play, Plus } from '../icons';
 import type { Item } from '../db/types';
 
 interface WorkoutTemplateDetailRouteParams {
@@ -43,6 +43,7 @@ export function WorkoutTemplateDetailScreen() {
   const { templateId, title } = route.params as WorkoutTemplateDetailRouteParams;
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
+  const navigation = useNavigation();
   const [rows, setRows] = useState<BlockRow[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [editingBlock, setEditingBlock] = useState<BlockRow | null>(null);
@@ -135,9 +136,18 @@ export function WorkoutTemplateDetailScreen() {
     <LensSurface
       title={title}
       headerRight={
-        <TouchableOpacity onPress={() => setPickerOpen(true)} hitSlop={12} accessibilityLabel="Add exercise to template">
-          <Plus size={22} color={palette.text} strokeWidth={2} />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            onPress={() => (navigation as any).navigate('WorkoutSession', { templateId })}
+            hitSlop={12}
+            accessibilityLabel="Start workout"
+          >
+            <Play size={22} color={palette.text} strokeWidth={2} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setPickerOpen(true)} hitSlop={12} accessibilityLabel="Add exercise to template">
+            <Plus size={22} color={palette.text} strokeWidth={2} />
+          </TouchableOpacity>
+        </View>
       }
     >
       {rows.length === 0 ? (
@@ -172,6 +182,7 @@ export function WorkoutTemplateDetailScreen() {
 }
 
 const styles = StyleSheet.create({
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   listContent: { paddingHorizontal: 16, paddingBottom: 24 },
   cell: { marginBottom: 8 },
   row: {

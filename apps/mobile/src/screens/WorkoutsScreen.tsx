@@ -49,14 +49,14 @@ export function WorkoutsScreen() {
   };
 
   const handleStartEmpty = () => {
-    // No workout-session model exists yet — this is a placeholder until one is built.
-    Alert.alert('Coming soon', 'Live workout tracking is not wired up yet.');
+    (navigation as any).navigate('WorkoutSession', {});
   };
 
   const handleLongPress = (item: Item) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     Alert.alert(item.title, undefined, [
       { text: 'Cancel', style: 'cancel' },
+      { text: 'Start Workout', onPress: () => (navigation as any).navigate('WorkoutSession', { templateId: item.id }) },
       { text: 'Rename', onPress: () => openEdit(item) },
       {
         text: 'Delete',
