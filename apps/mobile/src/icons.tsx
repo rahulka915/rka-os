@@ -33,6 +33,7 @@ export { default as ShoppingBag } from 'react-native-heroicons/outline/ShoppingB
 export { default as Flag } from 'react-native-heroicons/outline/FlagIcon';
 export { default as FolderKanban } from 'react-native-heroicons/outline/FolderIcon';
 export { default as Dumbbell } from 'react-native-heroicons/outline/FireIcon';
+export { default as Flame } from 'react-native-heroicons/solid/FireIcon';
 export { default as Archive } from 'react-native-heroicons/outline/ArchiveBoxIcon';
 export { default as ArrowUpRight } from 'react-native-heroicons/outline/ArrowUpRightIcon';
 export { default as AlertTriangle } from 'react-native-heroicons/outline/ExclamationTriangleIcon';
