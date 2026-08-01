@@ -80,7 +80,7 @@ Supporting tables, not part of the entity/relation model: `itemInstances` tracks
 | `medication` | built | `dose`, `stockRemaining` (derived total, see Packaging below), `initialStock`, `refillThreshold`, `lastTakenAt`, `maxPerDay`, `minHoursBetweenDoses`, `frequency`, `containerLabel`, `containerSize`, `containersPerRestock`, `sheetsPerContainer`, `pillsPerSheet`, `packagingNote`, `containers[]` |
 | `workout-template` | built | none yet |
 | `workout-block` | built | `sets`, `reps`, `weight`, `restSeconds`, `notes` |
-| `exercise` | built | `muscleGroup`, `equipment`, `notes` |
+| `exercise` | built | `muscleGroup`, `equipment`, `notes`, `imageKey` |
 | `meal` | declared, not built | — |
 
 ## Medication packaging & stock

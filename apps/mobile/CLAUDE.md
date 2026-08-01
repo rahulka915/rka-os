@@ -137,7 +137,12 @@ Dark Mode:
 | `ExerciseEditSheet.tsx` | RN primitives + BottomSheet | Create/edit exercise (muscle group + equipment chips) |
 | `BlockEditSheet.tsx` | RN primitives + BottomSheet | Sets/reps/weight/rest for a template's exercise block |
 | `ExercisePickerSheet.tsx` | RN primitives + BottomSheet | Search/pick/create an exercise to add to a template |
+| `ExerciseThumbnail.tsx` | RN primitives (Image) | Exercise image or placeholder, used in library/picker/template rows |
 | `AvatarCompanion.tsx` | Tamagui | Placeholder avatar/initials |
+
+### Exercise Images
+
+`assets/exercises/*.png` (183 images) + `src/utils/exerciseImages.ts` (generated static `require()` registry) + `src/utils/starterExercises.ts` (generated full starter catalog). Regenerate both via `node scripts/generateExerciseAssets.cjs` from `apps/mobile/` after adding new PNGs to `assets/exercises/` — do not hand-edit the two generated files.
 
 ### Database (`src/db/`)
 
