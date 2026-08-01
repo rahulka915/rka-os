@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { Home, Inbox, ListTodo, CalendarDays, CalendarRange, Archive, Settings, ShoppingBag, Pill, Dumbbell, Folder, Target, Plus } from 'lucide-react-native';
+import { Home, Inbox, ListTodo, CalendarDays, CalendarRange, Archive, Settings, ShoppingBag, Pill, Dumbbell, Flame, Folder, Target, Plus } from 'lucide-react-native';
 import { useAreas, useProjects } from '../hooks/useDb';
 import { getAreaProjectCount, getProjectItemCount, getRelation, createItem } from '../db/database';
 import { webColors, webSpacing, webRadius, webFontSize } from '../theme/webTheme';
 
-export type SidebarView = 'home' | 'inbox' | 'tasks' | 'upcoming' | 'areas' | 'calendar' | 'archive' | 'objects' | 'medications' | 'workouts' | 'settings';
+export type SidebarView = 'home' | 'inbox' | 'tasks' | 'upcoming' | 'areas' | 'calendar' | 'archive' | 'objects' | 'medications' | 'workouts' | 'habits' | 'settings';
 
 export interface SidebarProps {
   activeView: SidebarView;
@@ -28,6 +28,7 @@ const NAV_ITEMS: Array<{ view: SidebarView; label: string; Icon: typeof Inbox }>
   { view: 'objects', label: 'To Get', Icon: ShoppingBag },
   { view: 'medications', label: 'Medications', Icon: Pill },
   { view: 'workouts', label: 'Workouts', Icon: Dumbbell },
+  { view: 'habits', label: 'Habits', Icon: Flame },
 ];
 
 export function Sidebar({
