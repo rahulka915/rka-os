@@ -1526,7 +1526,7 @@ export function getTodayLogs(): ActivityLog[] {
 // have no such relation row. Status flows 'active' -> 'completed'.
 export function startWorkoutSession(templateId?: string | null): string {
   const title = templateId ? (getItemWithMetadata(templateId)?.title ?? 'Workout') : 'Freeform Workout';
-  const sessionId = createItem('workout-session', title, 'active', formatDate(new Date()));
+  const sessionId = createItem('workout-session', title, 'active');
   if (templateId) setRelation(sessionId, 'workout-template', templateId);
   return sessionId;
 }

@@ -77,14 +77,13 @@ export function WorkoutSessionScreen() {
   };
 
   const handleLogSet = (exerciseId: string, reps: number, weight: number) => {
+    const row = rows.find((r) => r.exerciseId === exerciseId);
+    if (!row) return;
+    const setNumber = row.loggedSets.length + 1;
+    logWorkoutSet({ sessionId, exerciseId, setNumber, reps, weight });
+    const newSet: WorkoutSetDetails = { sessionId, setNumber, reps, weight, weightUnit: 'kg' };
     setRows((prev) =>
-      prev.map((row) => {
-        if (row.exerciseId !== exerciseId) return row;
-        const setNumber = row.loggedSets.length + 1;
-        logWorkoutSet({ sessionId, exerciseId, setNumber, reps, weight });
-        const newSet: WorkoutSetDetails = { sessionId, setNumber, reps, weight, weightUnit: 'kg' };
-        return { ...row, loggedSets: [...row.loggedSets, newSet] };
-      })
+      prev.map((r) => (r.exerciseId === exerciseId ? { ...r, loggedSets: [...r.loggedSets, newSet] } : r))
     );
   };
 
