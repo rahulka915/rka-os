@@ -5,11 +5,17 @@ import * as Haptics from 'expo-haptics';
 import { RiverStoneSurface } from '../components/riverstone';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors, spacing } from '../theme';
-import { Dumbbell, ShoppingBag, Archive, Flame } from '../icons';
 import { MedicationBottleIcon } from '../components/icons/MedicationBottleIcon';
 import { TaskNoteIcon } from '../components/icons/TaskNoteIcon';
 import { AreaBonsaiIcon } from '../components/icons/AreaBonsaiIcon';
 import { ProjectPortfolioIcon } from '../components/icons/ProjectPortfolioIcon';
+import {
+  ArchiveScrollChestIcon,
+  HabitRitualIcon,
+  ToGetParcelIcon,
+  WorkoutTrainingIcon,
+} from '../components/icons/CollectionIcons';
+import { Sparkles } from '../icons';
 
 const CALENDAR_GOLD = '#D4B078';
 
@@ -25,72 +31,80 @@ export function MenuScreen() {
       label: 'Domains',
       sub: 'Ongoing domains of responsibility',
       icon: AreaBonsaiIcon,
+      iconSize: 42,
       accent: CALENDAR_GOLD,
-      soft: 'rgba(212,176,120,0.12)',
     },
     {
       route: 'Projects',
       label: 'Missions',
       sub: 'Manage your missions and tasks',
       icon: ProjectPortfolioIcon,
+      iconSize: 42,
       accent: palette.purple,
-      soft: palette.purpleSoft,
     },
     {
       route: 'Tasks',
       label: 'Tasks',
       sub: 'All active and someday tasks',
       icon: TaskNoteIcon,
+      iconSize: 42,
       accent: palette.blue,
-      soft: palette.blueSoft,
     },
     {
       route: 'Habits',
       label: 'Habits',
       sub: 'Daily routines and streaks',
-      icon: Flame,
+      icon: HabitRitualIcon,
+      iconSize: 42,
       accent: palette.red,
-      soft: palette.redSoft,
+    },
+    {
+      route: 'Potential',
+      label: 'Potential',
+      sub: 'Character stats from your habits',
+      icon: Sparkles,
+      iconSize: 34,
+      accent: palette.purple,
     },
     {
       route: 'Upcoming',
       label: 'Upcoming',
       sub: 'Everything scheduled ahead',
       icon: TaskNoteIcon,
+      iconSize: 42,
       accent: CALENDAR_GOLD,
-      soft: 'rgba(212,176,120,0.12)',
     },
     {
       route: 'Workouts',
       label: 'Workouts',
       sub: 'Templates and exercise library',
-      icon: Dumbbell,
+      icon: WorkoutTrainingIcon,
+      iconSize: 42,
       accent: palette.orange,
-      soft: palette.orangeSoft,
     },
     {
       route: 'Medications',
       label: 'Medications',
       sub: 'Inventory and schedules',
       icon: MedicationBottleIcon,
+      iconSize: 42,
       accent: palette.green,
-      soft: palette.greenSoft,
     },
     {
       route: 'ToGet',
       label: 'To Get',
       sub: 'Things you want to own',
-      icon: ShoppingBag,
+      icon: ToGetParcelIcon,
+      iconSize: 42,
       accent: palette.pink,
-      soft: palette.pinkSoft,
     },
     {
       route: 'Archive',
       label: 'Archive',
       sub: 'Everything you’ve tucked away',
-      icon: Archive,
+      icon: ArchiveScrollChestIcon,
+      iconSize: 42,
       accent: palette.silver,
-      soft: palette.silverSoft,
     },
   ] as const;
 
@@ -109,7 +123,7 @@ export function MenuScreen() {
         </View>
 
         <View style={styles.grid}>
-          {menuItems.map(({ route, label, sub, icon: Icon, accent, soft }) => (
+          {menuItems.map(({ route, label, sub, icon: Icon, iconSize, accent }) => (
             <TouchableOpacity
               key={route}
               style={styles.cardWrap}
@@ -128,13 +142,7 @@ export function MenuScreen() {
                 style={styles.card}
                 contentStyle={styles.cardContent}
               >
-                <View style={[styles.iconFrame, { backgroundColor: soft, borderColor: `${accent}38` }]}>
-                  <Icon
-                    size={route === 'Areas' || route === 'Projects' || route === 'Tasks' ? 30 : 20}
-                    color={accent}
-                    strokeWidth={1.8}
-                  />
-                </View>
+                <Icon size={iconSize} color={accent} strokeWidth={1.8} />
                 <Text style={[styles.label, { color: palette.text }]} numberOfLines={2}>
                   {label}
                 </Text>
@@ -202,14 +210,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     paddingHorizontal: 6,
-  },
-  iconFrame: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   label: {
     fontSize: 12.5,

@@ -4,6 +4,7 @@ import { AreasScreen } from '../screens/AreasScreen';
 import { ProjectsScreen } from '../screens/ProjectsScreen';
 import { TasksScreen } from '../screens/TasksScreen';
 import { HabitsScreen } from '../screens/HabitsScreen';
+import { PotentialScreen } from '../screens/PotentialScreen';
 import { UpcomingScreen } from '../screens/UpcomingScreen';
 import { WorkoutsScreen } from '../screens/WorkoutsScreen';
 import { ExerciseLibraryScreen } from '../screens/ExerciseLibraryScreen';
@@ -30,6 +31,7 @@ export function MenuStack() {
       <Stack.Screen name="Projects" component={ProjectsScreen} />
       <Stack.Screen name="Tasks" component={TasksScreen} />
       <Stack.Screen name="Habits" component={HabitsScreen} />
+      <Stack.Screen name="Potential" component={PotentialScreen} />
       <Stack.Screen name="Upcoming" component={UpcomingScreen} />
       <Stack.Screen name="Workouts" component={WorkoutsScreen} />
       <Stack.Screen name="ExerciseLibrary" component={ExerciseLibraryScreen} />
