@@ -268,7 +268,6 @@ function NavigationLayer({
                       <HomeScreen
                         onInboxPress={() => setInboxOpen(true)}
                         inboxOpen={inboxOpen}
-                        onHeroPress={() => navigation.navigate('Profile')}
                         onSettingsPress={() => (navigation.getParent() as any)?.navigate('Settings')}
                         onViewUpcoming={() => (navigation as any).navigate('Menu', { screen: 'Upcoming' })}
                       />

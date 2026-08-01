@@ -1,108 +1,115 @@
-import { ActivityIndicator, Image, StyleSheet, TouchableOpacity, View as RNView } from 'react-native';
+import { View as RNView, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { XStack, Text } from 'tamagui';
 import * as Haptics from 'expo-haptics';
 import { useThemeContext } from '../hooks/useThemeContext';
-import { CheckCircle2, AlertTriangle } from '../icons';
-import { SettingsMedallionIcon } from './icons/SettingsMedallionIcon';
-import { HeaderTray } from './ui/HeaderTray';
-import { riverStoneMaterial, HEADER_TOP_PADDING } from '../theme';
-import { ThemeStoneButton } from './header/ThemeStoneButton';
-import { HeaderStoneButton } from './header/HeaderStoneButton';
-import { useBackup } from '../hooks/useBackup';
 import { getThemeColors } from '../theme';
+import { Settings, Moon, Sun, Inbox as InboxIcon } from '../icons';
 
 interface AppHeaderProps {
-  onProfilePress?: () => void;
   onSettingsPress?: () => void;
+  onInboxPress?: () => void;
+  inboxCount?: number;
 }
 
-export function AppHeader({ onProfilePress, onSettingsPress }: AppHeaderProps) {
+function press(fn?: () => void) {
+  return () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    fn?.();
+  };
+}
+
+export function AppHeader({ onSettingsPress, onInboxPress, inboxCount = 0 }: AppHeaderProps) {
   const insets = useSafeAreaInsets();
   const { isDark, toggle } = useThemeContext();
   const palette = getThemeColors(isDark);
-  const bgColor = isDark ? riverStoneMaterial.dark.base : riverStoneMaterial.light.base;
-  const backup = useBackup();
-  const syncLabel = !backup.isSignedIn ? 'Sign in' : backup.busy ? 'Syncing…' : backup.error ? 'Retry' : backup.lastBackupAt ? 'Synced' : 'Back up';
 
   return (
-    // Flush, edge-to-edge header — no side margins or top gap, so it reads
-    // as a regular attached bar blending seamlessly into the status bar /
-    // Dynamic Island instead of a floating carved ledge with its own notch.
-    <RNView>
-      <HeaderTray isDark={isDark} backgroundColor={bgColor}>
-        <XStack
-          paddingTop={insets.top + HEADER_TOP_PADDING}
-          paddingBottom="$1"
-          paddingHorizontal="$4"
-          alignItems="center"
-          justifyContent="space-between"
+    <RNView style={[styles.row, { paddingTop: insets.top + 14 }]}>
+      <TouchableOpacity
+        style={[styles.circleButton, { backgroundColor: palette.fill, borderColor: palette.separator }]}
+        onPress={press(onSettingsPress)}
+        accessibilityRole="button"
+        accessibilityLabel="Settings"
+      >
+        <Settings size={18} color={palette.textSecondary} strokeWidth={1.75} />
+      </TouchableOpacity>
+
+      <Text style={[styles.wordmark, { color: palette.textSecondary }]}>RKA</Text>
+
+      <RNView style={styles.right}>
+        <TouchableOpacity
+          style={[styles.circleButton, { backgroundColor: palette.fill, borderColor: palette.separator }]}
+          onPress={press(toggle)}
+          accessibilityRole="button"
+          accessibilityLabel="Toggle dark mode"
         >
-          <HeaderStoneButton
-            isDark={isDark}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-              onSettingsPress?.();
-            }}
-            accessibilityLabel="Settings"
-            accessibilityHint="Open settings"
-          >
-            <SettingsMedallionIcon />
-          </HeaderStoneButton>
+          {isDark ? (
+            <Moon size={18} color="#9DB4FF" strokeWidth={1.75} />
+          ) : (
+            <Sun size={18} color={palette.textSecondary} strokeWidth={1.75} />
+          )}
+        </TouchableOpacity>
 
-          {/* Absolute overlay keeps the enlarged brand mark optically centred
-              even though the sync cluster is wider than the settings control. */}
-          <RNView pointerEvents="none" style={styles.logoCenter}>
-            <Image
-              source={require('../../assets/notification-icon.png')}
-              style={[styles.logo, { tintColor: palette.textSecondary }]}
-              resizeMode="contain"
-              accessibilityIgnoresInvertColors
-            />
-          </RNView>
-
-          {/* Right: one tactile appearance button + sync. */}
-          <XStack alignItems="center" gap="$2">
-            <ThemeStoneButton isDark={isDark} onToggle={toggle} />
-            <TouchableOpacity
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-                if (!backup.isSignedIn) onProfilePress?.();
-                else backup.backUpNow();
-              }}
-              disabled={backup.busy}
-              accessibilityRole="button"
-              accessibilityLabel={syncLabel}
-            >
-              <XStack alignItems="center" gap={4} minHeight={44}>
-                {backup.busy
-                  ? <ActivityIndicator size="small" color={isDark ? '#c5c5c5' : '#808080'} />
-                  : backup.error
-                    ? <AlertTriangle size={12} color="#ff5147" strokeWidth={2.2} />
-                    : <CheckCircle2 size={12} color={backup.lastBackupAt ? '#34a853' : (isDark ? '#c5c5c5' : '#808080')} strokeWidth={2.5} />}
-                <Text fontSize={11} fontWeight="600" color="$textTertiary">{syncLabel}</Text>
-              </XStack>
-            </TouchableOpacity>
-          </XStack>
-        </XStack>
-      </HeaderTray>
+        <TouchableOpacity
+          style={[styles.circleButton, { backgroundColor: palette.fill, borderColor: palette.separator }]}
+          onPress={press(onInboxPress)}
+          accessibilityRole="button"
+          accessibilityLabel="Inbox"
+        >
+          <InboxIcon size={18} color={palette.textSecondary} strokeWidth={1.75} />
+          {inboxCount > 0 && (
+            <RNView style={styles.badge}>
+              <Text style={styles.badgeText}>{inboxCount}</Text>
+            </RNView>
+          )}
+        </TouchableOpacity>
+      </RNView>
     </RNView>
   );
 }
 
 const styles = StyleSheet.create({
-  logoCenter: {
-    position: 'absolute',
-    left: '50%',
-    marginLeft: -26,
-    bottom: 0,
-    width: 52,
-    height: 52,
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 8,
+  },
+  right: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  circleButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logo: {
-    width: 44,
-    height: 44,
+  wordmark: {
+    fontFamily: 'Georgia',
+    fontStyle: 'italic',
+    fontWeight: '700',
+    fontSize: 15,
+    letterSpacing: 0.5,
+  },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#D9506B',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  badgeText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: '700',
   },
 });
