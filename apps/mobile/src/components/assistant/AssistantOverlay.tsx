@@ -15,6 +15,9 @@ import * as Haptics from 'expo-haptics';
 import { itemComposerMaterial } from '../../theme/itemComposer';
 import { fontSize, spacing, radius } from '../../theme/spacing';
 import { askAssistant, hasAssistant, type AssistantTurn } from '../../services/ai/assistant';
+import { parseAssistantMessage } from './parseAssistantMessage';
+import { getItemWithMetadata } from '../../db/database';
+import { useOpenItem } from '../../hooks/useOpenItem';
 import { X, Sparkles } from '../../icons';
 import PaperAirplaneIcon from 'react-native-heroicons/solid/PaperAirplaneIcon';
 
@@ -27,6 +30,7 @@ export function AssistantOverlay({ onClose }: AssistantOverlayProps) {
   const insets = useSafeAreaInsets();
   const reducedMotion = useReducedMotion();
   const scrollRef = useRef<ScrollView>(null);
+  const openItem = useOpenItem();
 
   const [turns, setTurns] = useState<AssistantTurn[]>([]);
   const [input, setInput] = useState('');
@@ -42,6 +46,14 @@ export function AssistantOverlay({ onClose }: AssistantOverlayProps) {
   const handleClose = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     onClose();
+  };
+
+  const handleLinkPress = (id: string) => {
+    const item = getItemWithMetadata(id);
+    if (!item) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    onClose();
+    openItem({ item });
   };
 
   const handleSend = async () => {
@@ -116,7 +128,33 @@ export function AssistantOverlay({ onClose }: AssistantOverlayProps) {
                   : { alignSelf: 'flex-start', backgroundColor: mat.surfaceRaised, borderColor: mat.rim, borderWidth: 1 },
               ]}
             >
-              <Text style={[styles.bubbleText, { color: mat.platinum }]}>{turn.text}</Text>
+              {turn.role === 'model' ? (
+                <Text style={[styles.bubbleText, { color: mat.platinum }]}>
+                  {parseAssistantMessage(turn.text).map((segment, segIndex) => {
+                    if (segment.kind === 'bold') {
+                      return (
+                        <Text key={segIndex} style={styles.bold}>
+                          {segment.text}
+                        </Text>
+                      );
+                    }
+                    if (segment.kind === 'link') {
+                      return (
+                        <Text
+                          key={segIndex}
+                          style={[styles.link, { color: mat.accent }]}
+                          onPress={() => handleLinkPress(segment.id)}
+                        >
+                          {segment.text}
+                        </Text>
+                      );
+                    }
+                    return <Text key={segIndex}>{segment.text}</Text>;
+                  })}
+                </Text>
+              ) : (
+                <Text style={[styles.bubbleText, { color: mat.platinum }]}>{turn.text}</Text>
+              )}
             </View>
           ))}
           {busy ? (
@@ -170,6 +208,8 @@ const styles = StyleSheet.create({
   empty: { fontSize: fontSize.base, lineHeight: 22, paddingTop: spacing[8] },
   bubble: { maxWidth: '85%', borderRadius: radius.card, paddingHorizontal: spacing[4], paddingVertical: spacing[3] },
   bubbleText: { fontSize: fontSize.base, lineHeight: 21 },
+  bold: { fontWeight: '700' },
+  link: { fontWeight: '600', textDecorationLine: 'underline' },
   errorText: { fontSize: fontSize.sm, paddingTop: spacing[2] },
   inputRow: {
     flexDirection: 'row',
