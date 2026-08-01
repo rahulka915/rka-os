@@ -295,6 +295,24 @@ export function getCompletedOccurrenceDates(itemId: string): Set<string> {
   return dates;
 }
 
+// Web mirror of database.ts's toggleHabitOccurrence — same log-only
+// semantics, Firestore instead of SQL.
+export function toggleHabitOccurrence(itemId: string, date: string): void {
+  const existing = getActivityLogsSnapshot().find((log) => {
+    if (log.entityId !== itemId || log.actionType !== 'completed-occurrence' || !log.details) return false;
+    try {
+      return (JSON.parse(log.details) as { occurrence?: string }).occurrence === date;
+    } catch {
+      return false;
+    }
+  });
+  if (existing) {
+    write(deleteActivityLogDoc(existing.id), 'toggleHabitOccurrence');
+  } else {
+    logActivity(itemId, 'completed-occurrence', JSON.stringify({ occurrence: date }));
+  }
+}
+
 export function isPlannedForToday(item: Item): boolean {
   if (!item.metadata) return false;
   try {

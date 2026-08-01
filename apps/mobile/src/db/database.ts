@@ -411,6 +411,33 @@ export function getCompletedOccurrenceDates(itemId: string): Set<string> {
   return dates;
 }
 
+// Adds or removes a single 'completed-occurrence' log entry for an arbitrary
+// date — used by the habit detail page's calendar to backfill a forgotten
+// check-in or undo a mistaken one. Deliberately does NOT touch
+// item.scheduledDate or run the rrule roll-forward updateItemStatus performs
+// for "check in today" — streak/isCompletedToday are derived purely from
+// these log entries, so this stays fully consistent with the existing
+// check-in controls without needing to replicate their roll-forward logic.
+export function toggleHabitOccurrence(itemId: string, date: string): void {
+  const rows = getDb().getAllSync<{ id: string; details: string | null }>(
+    `SELECT id, details FROM activityLogs WHERE entityId = ? AND actionType = 'completed-occurrence'`,
+    [itemId]
+  );
+  const existing = rows.find((row) => {
+    if (!row.details) return false;
+    try {
+      return (JSON.parse(row.details) as { occurrence?: string }).occurrence === date;
+    } catch {
+      return false;
+    }
+  });
+  if (existing) {
+    getDb().runSync(`DELETE FROM activityLogs WHERE id = ?`, [existing.id]);
+  } else {
+    logActivity(itemId, 'completed-occurrence', JSON.stringify({ occurrence: date }));
+  }
+}
+
 export function isPlannedForToday(item: Item): boolean {
   if (!item.metadata) return false;
   try {
