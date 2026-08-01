@@ -55,6 +55,7 @@ import { navigationRef } from './src/navigation/rootNavigation';
 import { AreaDetailScreen } from './src/screens/AreaDetailScreen';
 import { ProjectDetailScreen } from './src/screens/ProjectDetailScreen';
 import { ObjectDetailScreen } from './src/screens/ObjectDetailScreen';
+import { HabitDetailScreen } from './src/screens/HabitDetailScreen';
 import { PersistentTimerBanner } from './src/components/PersistentTimerBanner';
 import { AppLoadingScreen } from './src/components/AppLoadingScreen';
 import { requestNotificationPermission, setBadgeCount } from './src/hooks/useNotifications';
@@ -298,6 +299,11 @@ function NavigationLayer({
           <RootStack.Screen
             name="ObjectDetail"
             component={ObjectDetailScreen}
+            options={{ animation: 'slide_from_right' }}
+          />
+          <RootStack.Screen
+            name="HabitDetail"
+            component={HabitDetailScreen}
             options={{ animation: 'slide_from_right' }}
           />
         </RootStack.Navigator>
