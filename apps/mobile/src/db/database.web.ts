@@ -296,7 +296,11 @@ export function getCompletedOccurrenceDates(itemId: string): Set<string> {
 }
 
 // Web mirror of database.ts's toggleHabitOccurrence — same log-only
-// semantics, Firestore instead of SQL.
+// semantics on add, Firestore instead of SQL. Removing also rolls
+// item.scheduledDate back to `date` when it's ahead of it, undoing the
+// advance updateItemStatus makes on check-in — otherwise dayMatchesRepeat's
+// scheduledDate floor check would hide the habit from "scheduled today"
+// until real time caught back up.
 export function toggleHabitOccurrence(itemId: string, date: string): void {
   const existing = getActivityLogsSnapshot().find((log) => {
     if (log.entityId !== itemId || log.actionType !== 'completed-occurrence' || !log.details) return false;
@@ -308,6 +312,10 @@ export function toggleHabitOccurrence(itemId: string, date: string): void {
   });
   if (existing) {
     write(deleteActivityLogDoc(existing.id), 'toggleHabitOccurrence');
+    const item = getItemWithMetadata(itemId);
+    if (item?.scheduledDate && item.scheduledDate > date) {
+      write(patchItem(itemId, { scheduledDate: date, updatedAt: Date.now() }), 'toggleHabitOccurrence');
+    }
   } else {
     logActivity(itemId, 'completed-occurrence', JSON.stringify({ occurrence: date }));
   }

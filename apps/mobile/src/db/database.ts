@@ -413,11 +413,16 @@ export function getCompletedOccurrenceDates(itemId: string): Set<string> {
 
 // Adds or removes a single 'completed-occurrence' log entry for an arbitrary
 // date — used by the habit detail page's calendar to backfill a forgotten
-// check-in or undo a mistaken one. Deliberately does NOT touch
-// item.scheduledDate or run the rrule roll-forward updateItemStatus performs
-// for "check in today" — streak/isCompletedToday are derived purely from
-// these log entries, so this stays fully consistent with the existing
-// check-in controls without needing to replicate their roll-forward logic.
+// check-in or undo a mistaken one. Adding never touches item.scheduledDate
+// (a pure historical backfill shouldn't move the habit's current pointer).
+// Removing DOES roll item.scheduledDate back to `date` when it's currently
+// ahead of it — undoing an accidental check-in via the Home widget/Habits
+// list (which calls updateItemStatus, advancing scheduledDate to the next
+// occurrence) must also undo that advance, or the habit would incorrectly
+// stop matching "scheduled today" everywhere: dayMatchesRepeat treats
+// scheduledDate as a floor (date < startDate → false), so a scheduledDate
+// left stuck in the future would hide today's occurrence until real time
+// caught up to it.
 export function toggleHabitOccurrence(itemId: string, date: string): void {
   const rows = getDb().getAllSync<{ id: string; details: string | null }>(
     `SELECT id, details FROM activityLogs WHERE entityId = ? AND actionType = 'completed-occurrence'`,
@@ -433,6 +438,10 @@ export function toggleHabitOccurrence(itemId: string, date: string): void {
   });
   if (existing) {
     getDb().runSync(`DELETE FROM activityLogs WHERE id = ?`, [existing.id]);
+    const item = getItemWithMetadata(itemId);
+    if (item?.scheduledDate && item.scheduledDate > date) {
+      getDb().runSync(`UPDATE items SET scheduledDate = ?, updatedAt = ? WHERE id = ?`, [date, Date.now(), itemId]);
+    }
   } else {
     logActivity(itemId, 'completed-occurrence', JSON.stringify({ occurrence: date }));
   }
