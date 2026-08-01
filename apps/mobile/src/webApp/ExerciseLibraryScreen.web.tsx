@@ -157,7 +157,7 @@ export function ExerciseLibraryScreen({ onOpenTemplate }: ExerciseLibraryScreenP
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, paddingHorizontal: webSpacing[6] },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

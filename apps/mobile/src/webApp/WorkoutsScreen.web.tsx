@@ -5,12 +5,18 @@ import { useWorkouts } from '../hooks/useDb';
 import { createItem } from '../db/database';
 import { DetailPanel } from './DetailPanel';
 import { ItemDetailForm } from './ItemDetailForm';
+import { WorkoutTemplateDetailPanel } from './WorkoutTemplateDetailPanel.web';
+import { ExerciseLibraryScreen } from './ExerciseLibraryScreen.web';
 import { webColors, webSpacing, webRadius, webFontSize } from '../theme/webTheme';
+
+type WorkoutsTab = 'templates' | 'exercises';
 
 export function WorkoutsScreen() {
   const { workouts, refresh } = useWorkouts();
+  const [activeTab, setActiveTab] = useState<WorkoutsTab>('templates');
   const [captureText, setCaptureText] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [mode, setMode] = useState<'detail' | 'edit'>('detail');
   const selectedItem = workouts.find((i) => i.id === selectedId) ?? null;
 
   const submit = () => {
@@ -21,49 +27,74 @@ export function WorkoutsScreen() {
     refresh();
   };
 
+  const openTemplate = (templateId: string, _title: string) => {
+    setActiveTab('templates');
+    setSelectedId(templateId);
+    setMode('detail');
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Workouts</Text>
-        <Text style={styles.count}>{workouts.length}</Text>
+        {activeTab === 'templates' ? <Text style={styles.count}>{workouts.length}</Text> : null}
       </View>
 
-      <View style={styles.captureRow}>
-        <Plus size={16} color={webColors.mutedForeground} strokeWidth={2} />
-        <TextInput
-          value={captureText}
-          onChangeText={setCaptureText}
-          onSubmitEditing={submit}
-          placeholder="New workout template..."
-          placeholderTextColor={webColors.mutedForeground}
-          style={styles.captureInput}
-        />
+      <View style={styles.tabRow}>
+        <Pressable onPress={() => setActiveTab('templates')} style={[styles.tab, activeTab === 'templates' && styles.tabActive]}>
+          <Text style={[styles.tabText, activeTab === 'templates' && styles.tabTextActive]}>Templates</Text>
+        </Pressable>
+        <Pressable onPress={() => setActiveTab('exercises')} style={[styles.tab, activeTab === 'exercises' && styles.tabActive]}>
+          <Text style={[styles.tabText, activeTab === 'exercises' && styles.tabTextActive]}>Exercises</Text>
+        </Pressable>
       </View>
 
-      <FlatList
-        data={workouts}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
-        ListEmptyComponent={<Text style={styles.empty}>No workout templates yet.</Text>}
-        renderItem={({ item }) => (
-          <Pressable style={styles.row} onPress={() => setSelectedId(item.id)}>
-            <Text style={styles.rowTitle} numberOfLines={1}>{item.title}</Text>
-          </Pressable>
-        )}
-      />
+      {activeTab === 'templates' ? (
+        <>
+          <View style={styles.captureRow}>
+            <Plus size={16} color={webColors.mutedForeground} strokeWidth={2} />
+            <TextInput
+              value={captureText}
+              onChangeText={setCaptureText}
+              onSubmitEditing={submit}
+              placeholder="New workout template..."
+              placeholderTextColor={webColors.mutedForeground}
+              style={styles.captureInput}
+            />
+          </View>
 
-      <DetailPanel visible={!!selectedItem} onClose={() => setSelectedId(null)} title="Workout">
-        {selectedItem ? (
-          <ItemDetailForm
-            item={selectedItem}
-            onChanged={refresh}
-            onDeleted={() => {
-              setSelectedId(null);
-              refresh();
-            }}
+          <FlatList
+            data={workouts}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContent}
+            ListEmptyComponent={<Text style={styles.empty}>No workout templates yet.</Text>}
+            renderItem={({ item }) => (
+              <Pressable style={styles.row} onPress={() => { setSelectedId(item.id); setMode('detail'); }}>
+                <Text style={styles.rowTitle} numberOfLines={1}>{item.title}</Text>
+              </Pressable>
+            )}
           />
-        ) : null}
-      </DetailPanel>
+
+          <DetailPanel visible={!!selectedItem} onClose={() => setSelectedId(null)} title={mode === 'edit' ? 'Edit Details' : 'Workout Template'}>
+            {selectedItem ? (
+              mode === 'edit' ? (
+                <ItemDetailForm
+                  item={selectedItem}
+                  onChanged={() => { refresh(); setMode('detail'); }}
+                  onDeleted={() => {
+                    setSelectedId(null);
+                    refresh();
+                  }}
+                />
+              ) : (
+                <WorkoutTemplateDetailPanel item={selectedItem} onEditDetails={() => setMode('edit')} />
+              )
+            ) : null}
+          </DetailPanel>
+        </>
+      ) : (
+        <ExerciseLibraryScreen onOpenTemplate={openTemplate} />
+      )}
     </View>
   );
 }
@@ -89,6 +120,29 @@ const styles = StyleSheet.create({
   count: {
     fontSize: webFontSize.sm,
     color: webColors.mutedForeground,
+  },
+  tabRow: {
+    flexDirection: 'row',
+    gap: webSpacing[2],
+    marginHorizontal: webSpacing[6],
+    marginBottom: webSpacing[4],
+  },
+  tab: {
+    paddingHorizontal: webSpacing[4],
+    paddingVertical: webSpacing[2],
+    borderRadius: webRadius.pill,
+    backgroundColor: webColors.muted,
+  },
+  tabActive: {
+    backgroundColor: webColors.accent,
+  },
+  tabText: {
+    fontSize: webFontSize.sm,
+    fontWeight: '600',
+    color: webColors.mutedForeground,
+  },
+  tabTextActive: {
+    color: webColors.card,
   },
   captureRow: {
     flexDirection: 'row',
