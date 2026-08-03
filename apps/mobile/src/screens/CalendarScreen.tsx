@@ -46,13 +46,12 @@ import {
   ChevronRight,
   ClipboardList,
   Clock,
-  Dumbbell,
   Plus,
-  Sparkles,
 } from '../icons';
 import { MedicationBottleIcon } from '../components/icons/MedicationBottleIcon';
 import { AreaBonsaiIcon } from '../components/icons/AreaBonsaiIcon';
 import { ProjectPortfolioIcon } from '../components/icons/ProjectPortfolioIcon';
+import { HabitRitualIcon, WorkoutTrainingIcon } from '../components/icons/CollectionIcons';
 import {
   formatHourLabel,
   formatTimeLabel,
@@ -257,11 +256,11 @@ function renderTypeIcon(type: ItemType, color: string, size = 14) {
     case 'area':
       return <AreaBonsaiIcon size={Math.max(size + 8, 22)} />;
     case 'habit':
-      return <Sparkles size={size} color={color} strokeWidth={1.8} />;
+      return <HabitRitualIcon size={size + 5} color={color} />;
     case 'medication':
       return <MedicationBottleIcon size={size} color={color} />;
     case 'workout-template':
-      return <Dumbbell size={size} color={color} strokeWidth={1.8} />;
+      return <WorkoutTrainingIcon size={size + 5} color={color} />;
     case 'meal':
       return <Clock size={size} color={color} strokeWidth={1.8} />;
     case 'task':
@@ -279,7 +278,7 @@ function renderLaneIcon(lane: TimelineLaneId, color: string, size = 13) {
     case 'study':
       return <AreaBonsaiIcon size={size + 7} />;
     case 'habits':
-      return <Sparkles size={size} color={color} strokeWidth={1.8} />;
+      return <HabitRitualIcon size={size + 5} color={color} />;
     case 'other':
       return <Clock size={size} color={color} strokeWidth={1.8} />;
     case 'personal':
@@ -594,6 +593,37 @@ function TimelineEntryCard({
         </RNView>
       </Animated.View>
     </GestureDetector>
+  );
+}
+
+interface TrayCardProps {
+  id: string;
+  title: string;
+  type: ItemType;
+  timeLabel: string;
+  palette: ReturnType<typeof getThemeColors>;
+  onPress: () => void;
+}
+
+function TrayCard({ title, type, timeLabel, palette, onPress }: TrayCardProps) {
+  const typeMeta = getTypeMeta(type);
+  const accentColor = getAccentColor(palette, typeMeta.accent);
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.75}
+      style={[s.trayCard, { backgroundColor: palette.surface, borderColor: palette.separator }]}
+    >
+      <RNView style={[s.trayCardAccent, { backgroundColor: accentColor }]} />
+      {renderTypeIcon(type, palette.textSecondary, 13)}
+      <RNText style={[s.trayCardTitle, { color: palette.text }]} numberOfLines={1}>
+        {title}
+      </RNText>
+      <RNText style={[s.trayCardTime, { color: palette.textTertiary }]} numberOfLines={1}>
+        {timeLabel}
+      </RNText>
+    </TouchableOpacity>
   );
 }
 
@@ -1501,6 +1531,30 @@ export function CalendarScreen() {
 const s = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  trayCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 8,
+  },
+  trayCardAccent: {
+    width: 3,
+    alignSelf: 'stretch',
+    borderRadius: 2,
+  },
+  trayCardTitle: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  trayCardTime: {
+    fontSize: 12,
+    fontWeight: '500',
   },
   topShell: {
     gap: spacing[1],
