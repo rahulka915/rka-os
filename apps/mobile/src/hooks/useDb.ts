@@ -27,6 +27,7 @@ import {
   getRepeatingItemsForToday,
   getUpcomingItems,
   formatDate,
+  getUnscheduledItems,
 } from '../db/database';
 import type { Item, ItemInstance } from '../db/types';
 import type { TimelineEntry } from '../db/database';
@@ -204,6 +205,15 @@ export function useExercises() {
   }, []);
   useDbRefresh(refresh);
   return { exercises, refresh };
+}
+
+export function useUnscheduledItems() {
+  const [unscheduledItems, setUnscheduledItems] = useState<Item[]>([]);
+  const refresh = useCallback(() => {
+    setUnscheduledItems(getUnscheduledItems());
+  }, []);
+  useDbRefresh(refresh);
+  return { unscheduledItems, refresh };
 }
 
 export function useProjects() {
