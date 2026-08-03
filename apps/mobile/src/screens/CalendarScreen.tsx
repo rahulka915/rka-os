@@ -34,9 +34,11 @@ import {
   formatDate,
   updateItemStatus,
   updateTimelineItemTime,
+  updateTimelineItemSchedule,
 } from '../db/database';
 import type { ItemType } from '../db/types';
 import type { TimelineEntry } from '../db/database';
+import { findDayForContentY, computeDropTarget } from '../utils/timelineDayLookup';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors, radius, spacing } from '../theme';
 import {
@@ -601,27 +603,74 @@ interface TrayCardProps {
   timeLabel: string;
   palette: ReturnType<typeof getThemeColors>;
   onPress: () => void;
+  onDragUpdate: (absoluteY: number) => void;
+  onDragEnd: (absoluteY: number, committed: boolean) => void;
 }
 
-function TrayCard({ title, type, timeLabel, palette, onPress }: TrayCardProps) {
+function TrayCard({ title, type, timeLabel, palette, onPress, onDragUpdate, onDragEnd }: TrayCardProps) {
   const typeMeta = getTypeMeta(type);
   const accentColor = getAccentColor(palette, typeMeta.accent);
+  const [isDragging, setIsDragging] = useState(false);
+  const translateY = useRef(new Animated.Value(0)).current;
+
+  const cardGesture = useMemo(() => {
+    const tap = Gesture.Tap()
+      .runOnJS(true)
+      .maxDuration(280)
+      .onEnd((_, success) => {
+        if (success) onPress();
+      });
+
+    const drag = Gesture.Pan()
+      .runOnJS(true)
+      .activateAfterLongPress(300)
+      .onStart(() => {
+        setIsDragging(true);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      })
+      .onUpdate((event) => {
+        translateY.setValue(event.translationY);
+        onDragUpdate(event.absoluteY);
+      })
+      .onEnd((event, success) => {
+        setIsDragging(false);
+        Animated.timing(translateY, { toValue: 0, duration: 160, useNativeDriver: true }).start();
+        onDragEnd(event.absoluteY, success);
+      })
+      .onFinalize((event, success) => {
+        if (!success) {
+          setIsDragging(false);
+          Animated.timing(translateY, { toValue: 0, duration: 160, useNativeDriver: true }).start();
+        }
+      });
+
+    return Gesture.Exclusive(drag, tap);
+  }, [onDragEnd, onDragUpdate, onPress, translateY]);
 
   return (
-    <TouchableOpacity
-      onPress={onPress}
-      activeOpacity={0.75}
-      style={[s.trayCard, { backgroundColor: palette.surface, borderColor: palette.separator }]}
-    >
-      <RNView style={[s.trayCardAccent, { backgroundColor: accentColor }]} />
-      {renderTypeIcon(type, palette.textSecondary, 13)}
-      <RNText style={[s.trayCardTitle, { color: palette.text }]} numberOfLines={1}>
-        {title}
-      </RNText>
-      <RNText style={[s.trayCardTime, { color: palette.textTertiary }]} numberOfLines={1}>
-        {timeLabel}
-      </RNText>
-    </TouchableOpacity>
+    <GestureDetector gesture={cardGesture}>
+      <Animated.View
+        style={[
+          s.trayCard,
+          {
+            backgroundColor: palette.surface,
+            borderColor: palette.separator,
+            transform: [{ translateY }, { scale: isDragging ? 1.03 : 1 }],
+            zIndex: isDragging ? 20 : 1,
+            elevation: isDragging ? 6 : 0,
+          },
+        ]}
+      >
+        <RNView style={[s.trayCardAccent, { backgroundColor: accentColor }]} />
+        {renderTypeIcon(type, palette.textSecondary, 13)}
+        <RNText style={[s.trayCardTitle, { color: palette.text }]} numberOfLines={1}>
+          {title}
+        </RNText>
+        <RNText style={[s.trayCardTime, { color: palette.textTertiary }]} numberOfLines={1}>
+          {timeLabel}
+        </RNText>
+      </Animated.View>
+    </GestureDetector>
   );
 }
 
@@ -639,6 +688,7 @@ interface DayTimelineProps {
   onOpenCreate: (time?: string, durationMinutes?: number) => void;
   onOpenPreview: (entry: TimelineEntry) => void;
   onOpenEdit: (entry: TimelineEntry) => void;
+  dragHighlightMinutes: number | null | undefined;
 }
 
 function DayTimeline({
@@ -655,6 +705,7 @@ function DayTimeline({
   onOpenCreate,
   onOpenPreview,
   onOpenEdit,
+  dragHighlightMinutes,
 }: DayTimelineProps) {
   const currentLineTop = isThisDayToday
     ? timelineOffsetForMinutes(currentHour * 60 + currentMinute)
@@ -796,6 +847,9 @@ function DayTimeline({
             <RNText style={[s.sectionAction, { color: transitionInk }]}>Block now</RNText>
           </TouchableOpacity>
         </RNView>
+        {dragHighlightMinutes === null && (
+          <RNView pointerEvents="none" style={[s.dropHighlightBanner, { borderColor: CALENDAR_GOLD }]} />
+        )}
       </RNView>
 
       <RNView style={[s.laneHeader, { borderBottomColor: paper.ruleStrong, backgroundColor: paper.base }]}>
@@ -821,6 +875,15 @@ function DayTimeline({
       <RNView style={s.timelineWrap}>
         <GestureDetector gesture={createGesture}>
         <RNView style={[s.timelineContent, { height: TIMELINE_METRICS.hourHeight * 24 }]}>
+          {typeof dragHighlightMinutes === 'number' && (
+            <RNView
+              pointerEvents="none"
+              style={[
+                s.dropHighlightRow,
+                { top: timelineOffsetForMinutes(dragHighlightMinutes), borderColor: CALENDAR_GOLD },
+              ]}
+            />
+          )}
           <ExpoLinearGradient
             pointerEvents="none"
             colors={atmosphereColors}
@@ -1006,6 +1069,9 @@ export function CalendarScreen() {
   const autoScrollRef = useRef<string | null>(null);
   const lastHourTickRef = useRef<number | null>(null);
   const lastDaySectionRef = useRef<string | null>(null);
+  const scrollYRef = useRef(0);
+  const scrollViewAbsoluteYRef = useRef(0);
+  const [dragTarget, setDragTarget] = useState<{ dateStr: string; minutes: number | null } | null>(null);
 
   const dateStr = formatDate(selected);
   const todayStr = formatDate(new Date());
@@ -1097,6 +1163,7 @@ export function CalendarScreen() {
 
   const handleVerticalScroll = (event: { nativeEvent: { contentOffset: { y: number } } }) => {
     const y = event.nativeEvent.contentOffset.y;
+    scrollYRef.current = y;
     const nowTargetY = getNowTargetY();
     setShowJumpToNow(nowTargetY != null && Math.abs(y - nowTargetY) > TIMELINE_METRICS.hourHeight * 1.5);
 
@@ -1116,11 +1183,7 @@ export function CalendarScreen() {
 
     // Heavier thump when the scroll position crosses from one loaded day's
     // section into another (yesterday -> today -> tomorrow).
-    const boundaries = Object.entries(daySectionLayouts).sort((a, b) => a[1].y - b[1].y);
-    let activeDay: string | null = null;
-    for (const [day, layout] of boundaries) {
-      if (y >= layout.y - TIMELINE_METRICS.hourHeight / 2) activeDay = day;
-    }
+    const activeDay = findDayForContentY(daySectionLayouts, y, TIMELINE_METRICS.hourHeight);
     if (activeDay && lastDaySectionRef.current !== activeDay) {
       if (lastDaySectionRef.current !== null) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -1197,6 +1260,38 @@ export function CalendarScreen() {
     const snapped = formatTimeLabel(nextMinutes);
     updateTimelineItemTime(entry.item.id, snapped, getTimeOfDayFromHour(Math.floor(nextMinutes / 60)));
     refreshAll();
+  };
+
+  const handleTrayDrop = (itemId: string, target: { dateStr: string; minutes: number | null }) => {
+    updateTimelineItemSchedule(itemId, target.dateStr, target.minutes != null ? formatTimeLabel(target.minutes) : undefined);
+    refreshAll();
+    refreshUnscheduled();
+  };
+
+  const handleTrayDragUpdate = (absoluteY: number) => {
+    const contentY = absoluteY - scrollViewAbsoluteYRef.current + scrollYRef.current;
+    const target = computeDropTarget(daySectionLayouts, contentY, {
+      hourHeight: TIMELINE_METRICS.hourHeight,
+      dayTransitionHeight: TIMELINE_METRICS.dayTransitionHeight,
+      laneHeaderHeight: TIMELINE_METRICS.laneHeaderHeight,
+      snapMinutes: TIMELINE_METRICS.snapMinutes,
+    });
+    setDragTarget(target);
+  };
+
+  const handleTrayDragEnd = (itemId: string, absoluteY: number, committed: boolean) => {
+    const contentY = absoluteY - scrollViewAbsoluteYRef.current + scrollYRef.current;
+    const target = computeDropTarget(daySectionLayouts, contentY, {
+      hourHeight: TIMELINE_METRICS.hourHeight,
+      dayTransitionHeight: TIMELINE_METRICS.dayTransitionHeight,
+      laneHeaderHeight: TIMELINE_METRICS.laneHeaderHeight,
+      snapMinutes: TIMELINE_METRICS.snapMinutes,
+    });
+    setDragTarget(null);
+    if (committed && target) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      handleTrayDrop(itemId, target);
+    }
   };
 
   const handleMoveToNow = (entry: TimelineEntry) => {
@@ -1370,6 +1465,8 @@ export function CalendarScreen() {
                       timeLabel="No date"
                       palette={palette}
                       onPress={() => openItem({ item })}
+                      onDragUpdate={handleTrayDragUpdate}
+                      onDragEnd={(absoluteY, committed) => handleTrayDragEnd(item.id, absoluteY, committed)}
                     />
                   ))
                 )}
@@ -1387,6 +1484,8 @@ export function CalendarScreen() {
                       timeLabel="Anytime today"
                       palette={palette}
                       onPress={() => openEdit(entry, dateStr)}
+                      onDragUpdate={handleTrayDragUpdate}
+                      onDragEnd={(absoluteY, committed) => handleTrayDragEnd(entry.item.id, absoluteY, committed)}
                     />
                   ))
                 )}
@@ -1411,7 +1510,12 @@ export function CalendarScreen() {
       <ScrollView
         ref={scrollRef}
         showsVerticalScrollIndicator={false}
-        onLayout={(event) => setScrollViewportHeight(event.nativeEvent.layout.height)}
+        onLayout={(event) => {
+          setScrollViewportHeight(event.nativeEvent.layout.height);
+          event.target.measureInWindow((_x, y) => {
+            scrollViewAbsoluteYRef.current = y;
+          });
+        }}
         onScroll={handleVerticalScroll}
         scrollEventThrottle={16}
         decelerationRate={0.7}
@@ -1440,6 +1544,7 @@ export function CalendarScreen() {
           onOpenCreate={(time, durationMinutes) => openCreate(prevDateStr, time, durationMinutes)}
           onOpenPreview={(entry) => openPreview(entry, prevDateStr)}
           onOpenEdit={(entry) => openEdit(entry, prevDateStr)}
+          dragHighlightMinutes={dragTarget?.dateStr === prevDateStr ? dragTarget.minutes : undefined}
         />
 
         <DayTimeline
@@ -1456,6 +1561,7 @@ export function CalendarScreen() {
           onOpenCreate={(time, durationMinutes) => openCreate(dateStr, time, durationMinutes)}
           onOpenPreview={(entry) => openPreview(entry, dateStr)}
           onOpenEdit={(entry) => openEdit(entry, dateStr)}
+          dragHighlightMinutes={dragTarget?.dateStr === dateStr ? dragTarget.minutes : undefined}
         />
 
         <DayTimeline
@@ -1472,6 +1578,7 @@ export function CalendarScreen() {
           onOpenCreate={(time, durationMinutes) => openCreate(nextDateStr, time, durationMinutes)}
           onOpenPreview={(entry) => openPreview(entry, nextDateStr)}
           onOpenEdit={(entry) => openEdit(entry, nextDateStr)}
+          dragHighlightMinutes={dragTarget?.dateStr === nextDateStr ? dragTarget.minutes : undefined}
         />
       </ScrollView>
 
@@ -1552,6 +1659,23 @@ const s = StyleSheet.create({
     fontSize: 13,
     fontWeight: '400',
     marginBottom: 8,
+  },
+  dropHighlightBanner: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: TIMELINE_METRICS.dayTransitionHeight,
+    borderWidth: 2,
+    borderRadius: 8,
+  },
+  dropHighlightRow: {
+    position: 'absolute',
+    left: TIMELINE_METRICS.gutterWidth,
+    right: 0,
+    height: TIMELINE_METRICS.hourHeight / 4,
+    borderWidth: 2,
+    borderRadius: 6,
   },
   topShell: {
     gap: spacing[1],
