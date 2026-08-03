@@ -13,7 +13,7 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Stop } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useCalendar } from '../hooks/useDb';
+import { useCalendar, useUnscheduledItems } from '../hooks/useDb';
 import {
   CalendarDayBadge,
   CalendarPill,
@@ -40,8 +40,6 @@ import type { TimelineEntry } from '../db/database';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors, radius, spacing } from '../theme';
 import {
-  Calendar,
-  Check,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
@@ -1136,10 +1134,8 @@ export function CalendarScreen() {
     [timelineEntries],
   );
 
-  const doneCount = useMemo(
-    () => timelineEntries.filter((entry) => entry.instance?.status === 'completed' || entry.item.status === 'completed').length,
-    [timelineEntries],
-  );
+  const [trayExpanded, setTrayExpanded] = useState(false);
+  const { unscheduledItems, refresh: refreshUnscheduled } = useUnscheduledItems();
 
   const openCreate = (targetDateStr: string, time?: string, durationMinutes?: number) => {
     openCapture({
@@ -1231,8 +1227,6 @@ export function CalendarScreen() {
       ],
     );
   };
-
-  const blocksCount = timelineEntries.length;
 
   const jumpToToday = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -1328,54 +1322,77 @@ export function CalendarScreen() {
           style={s.sectionBarStone}
           contentStyle={s.sectionBar}
         >
-          <RNView style={s.sectionBarHeader}>
-            <RNView style={s.sectionBarCopy}>
-              <RNText style={[s.sectionBarLabel, { color: palette.text }]}>Timeblocking</RNText>
-              <RNText style={[s.sectionBarHint, { color: palette.textTertiary }]} numberOfLines={1}>
-                Tap to preview · hold to edit
-              </RNText>
-            </RNView>
-            <RNView style={s.sectionBarActions}>
-              <TouchableOpacity
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  openCreate(dateStr);
-                }}
-                style={[s.fabButton, { borderColor: CALENDAR_GOLD }]}
-                hitSlop={10}
-                accessibilityRole="button"
-                accessibilityLabel="Add time block"
-              >
-                <Plus size={16} color={CALENDAR_GOLD} strokeWidth={2.4} />
-              </TouchableOpacity>
-            </RNView>
-          </RNView>
-          <RNView style={[s.sectionCardDivider, { backgroundColor: palette.separatorStrong }]} />
-          <RNView style={s.statsRow}>
-            <RNView style={s.statItem}>
-              <RNView style={s.statValueRow}>
-                <Calendar size={13} color={palette.blue} strokeWidth={1.8} />
-                <RNText style={[s.statsRowValue, { color: palette.blue }]}>{blocksCount}</RNText>
+          <TouchableOpacity
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setTrayExpanded((v) => !v);
+            }}
+            activeOpacity={0.75}
+          >
+            <RNView style={s.sectionBarHeader}>
+              <RNView style={s.sectionBarCopy}>
+                <RNText style={[s.sectionBarLabel, { color: palette.text }]}>Timeblocking</RNText>
+                <RNText style={[s.sectionBarHint, { color: palette.textTertiary }]} numberOfLines={1}>
+                  {trayExpanded ? 'Tap to collapse' : `${unscheduledItems.length + unscheduledEntries.length} to schedule · tap to expand`}
+                </RNText>
               </RNView>
-              <RNText style={[s.statsRowText, { color: palette.blue }]}>Blocks</RNText>
-            </RNView>
-            <RNView style={[s.statDivider, { backgroundColor: palette.separatorStrong }]} />
-            <RNView style={s.statItem}>
-              <RNView style={s.statValueRow}>
-                <Check size={13} color={palette.green} strokeWidth={2} />
-                <RNText style={[s.statsRowValue, { color: palette.green }]}>{doneCount}</RNText>
+              <RNView style={s.sectionBarActions}>
+                <TouchableOpacity
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    openCreate(dateStr);
+                  }}
+                  style={[s.fabButton, { borderColor: CALENDAR_GOLD }]}
+                  hitSlop={10}
+                  accessibilityRole="button"
+                  accessibilityLabel="Add time block"
+                >
+                  <Plus size={16} color={CALENDAR_GOLD} strokeWidth={2.4} />
+                </TouchableOpacity>
               </RNView>
-              <RNText style={[s.statsRowText, { color: palette.green }]}>Done</RNText>
             </RNView>
-            <RNView style={[s.statDivider, { backgroundColor: palette.separatorStrong }]} />
-            <RNView style={s.statItem}>
-              <RNView style={s.statValueRow}>
-                <Clock size={13} color={CALENDAR_GOLD} strokeWidth={1.8} />
-                <RNText style={[s.statsRowValue, { color: CALENDAR_GOLD }]}>{unscheduledEntries.length}</RNText>
-              </RNView>
-              <RNText style={[s.statsRowText, { color: CALENDAR_GOLD }]}>Flexible</RNText>
-            </RNView>
-          </RNView>
+          </TouchableOpacity>
+
+          {trayExpanded && (
+            <>
+              <RNView style={[s.sectionCardDivider, { backgroundColor: palette.separatorStrong }]} />
+              <ScrollView style={s.trayScroll} nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                <RNText style={[s.traySectionLabel, { color: palette.textTertiary }]}>UNSCHEDULED</RNText>
+                {unscheduledItems.length === 0 ? (
+                  <RNText style={[s.trayEmptyText, { color: palette.textTertiary }]}>Nothing unscheduled.</RNText>
+                ) : (
+                  unscheduledItems.map((item) => (
+                    <TrayCard
+                      key={item.id}
+                      id={item.id}
+                      title={item.title}
+                      type={item.type}
+                      timeLabel="No date"
+                      palette={palette}
+                      onPress={() => openItem({ item })}
+                    />
+                  ))
+                )}
+
+                <RNText style={[s.traySectionLabel, { color: palette.textTertiary, marginTop: 12 }]}>TODAY</RNText>
+                {unscheduledEntries.length === 0 ? (
+                  <RNText style={[s.trayEmptyText, { color: palette.textTertiary }]}>Nothing flexible today.</RNText>
+                ) : (
+                  unscheduledEntries.map((entry) => (
+                    <TrayCard
+                      key={entry.instance?.id ?? entry.item.id}
+                      id={entry.item.id}
+                      title={entry.item.title}
+                      type={entry.item.type}
+                      timeLabel="Anytime today"
+                      palette={palette}
+                      onPress={() => openEdit(entry, dateStr)}
+                    />
+                  ))
+                )}
+              </ScrollView>
+            </>
+          )}
         </RiverStoneSurface>
       </RNView>
 
@@ -1408,42 +1425,6 @@ export function CalendarScreen() {
           mode={isDark ? 'dark' : 'light'}
           seed={`${prevDateStr}-${nextDateStr}`}
         />
-
-        {unscheduledEntries.length > 0 ? (
-          <RNView style={s.section}>
-            <RNView style={s.sectionHeader}>
-              <RNView style={s.sectionHeaderLeft}>
-                <Calendar size={14} color={palette.textMuted} strokeWidth={1.8} />
-                <RNText style={[s.sectionTitle, { color: palette.textSecondary }]}>
-                  FLEXIBLE ({unscheduledEntries.length})
-                </RNText>
-              </RNView>
-              <TouchableOpacity onPress={() => openCreate(dateStr)} hitSlop={8}>
-                <RNText style={[s.sectionAction, { color: palette.blue }]}>Add</RNText>
-              </TouchableOpacity>
-            </RNView>
-
-            <RNView style={[s.flexList, { backgroundColor: palette.surface, borderColor: palette.separator }]}>
-              {unscheduledEntries.map((entry, index) => (
-                <RNView key={entry.instance?.id ?? entry.item.id}>
-                  <TimelineEntryCard
-                    entry={entry}
-                    palette={palette}
-                    isDark={isDark}
-                    isToday={isToday}
-                    onOpen={(e) => openEdit(e, dateStr)}
-                    onComplete={handleComplete}
-                    onMove={handleMove}
-                    onMoveToNow={handleMoveToNow}
-                    onDelete={handleDelete}
-                    onReschedule={handleReschedule}
-                  />
-                  {index < unscheduledEntries.length - 1 ? <RNView style={[s.itemDivider, { backgroundColor: palette.separator }]} /> : null}
-                </RNView>
-              ))}
-            </RNView>
-          </RNView>
-        ) : null}
 
         <DayTimeline
           dayDate={prevDate}
@@ -1555,6 +1536,22 @@ const s = StyleSheet.create({
   trayCardTime: {
     fontSize: 12,
     fontWeight: '500',
+  },
+  trayScroll: {
+    maxHeight: 320,
+    paddingTop: 8,
+  },
+  traySectionLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    marginBottom: 6,
+  },
+  trayEmptyText: {
+    fontSize: 13,
+    fontWeight: '400',
+    marginBottom: 8,
   },
   topShell: {
     gap: spacing[1],
