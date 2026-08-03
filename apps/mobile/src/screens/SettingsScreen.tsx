@@ -17,7 +17,6 @@ import DomProbe from '../components/home/DomProbe';
 import Ronin3DDom from '../components/home/Ronin3DDom';
 import { RoninPreview } from '../components/home/RoninPreview';
 import { HeroEnvironmentWorkbench } from '../components/hero/environment';
-import { requestHealthPermissions, getTodayStepCount } from '../services/health';
 
 const SETTINGS_GOLD = '#D4B078';
 
@@ -101,53 +100,6 @@ function Ronin3DBench({ mood, onMoodChange }: Ronin3DBenchProps) {
   );
 }
 
-function HealthKitDebugBlock() {
-  const { isDark } = useThemeContext();
-  const palette = getThemeColors(isDark);
-  const [status, setStatus] = useState<'idle' | 'requesting' | 'granted' | 'denied'>('idle');
-  const [stepCount, setStepCount] = useState<number | null>(null);
-
-  const handleRequestPermissions = async () => {
-    setStatus('requesting');
-    const granted = await requestHealthPermissions();
-    setStatus(granted ? 'granted' : 'denied');
-    if (granted) {
-      const steps = await getTodayStepCount();
-      setStepCount(steps);
-    }
-  };
-
-  const handleRefresh = async () => {
-    const steps = await getTodayStepCount();
-    setStepCount(steps);
-  };
-
-  return (
-    <View style={devStyles.healthBlock}>
-      <Text style={[devStyles.benchTitle, { color: palette.textSecondary }]}>HealthKit steps (dev only)</Text>
-      <Text style={[devStyles.benchStatus, { color: palette.textSecondary }]}>
-        status: {status}{stepCount !== null ? ` · today: ${stepCount} steps` : ''}
-      </Text>
-      <View style={devStyles.healthButtonRow}>
-        <Pressable
-          onPress={handleRequestPermissions}
-          style={[devStyles.moodChip, { backgroundColor: palette.fill }]}
-        >
-          <Text style={[devStyles.moodChipLabel, { color: palette.textSecondary }]}>Request permissions</Text>
-        </Pressable>
-        {status === 'granted' && (
-          <Pressable
-            onPress={handleRefresh}
-            style={[devStyles.moodChip, { backgroundColor: palette.fill }]}
-          >
-            <Text style={[devStyles.moodChipLabel, { color: palette.textSecondary }]}>Refresh</Text>
-          </Pressable>
-        )}
-      </View>
-    </View>
-  );
-}
-
 function DevToolsSection() {
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
@@ -172,7 +124,6 @@ function DevToolsSection() {
         {heroWorkbenchOpen && <HeroEnvironmentWorkbench />}
       </View>
       <Ronin3DBench mood={mood} onMoodChange={setMood} />
-      <HealthKitDebugBlock />
       <View style={devStyles.previewSection}>
         <RoninPreview mood={mood} style={devStyles.preview} />
       </View>
@@ -401,16 +352,6 @@ const devStyles = StyleSheet.create({
     width: '100%',
     marginTop: 8,
     gap: 10,
-  },
-  healthBlock: {
-    width: '100%',
-    marginTop: 8,
-    gap: 10,
-  },
-  healthButtonRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 8,
   },
   benchTitle: {
     fontSize: 13,
