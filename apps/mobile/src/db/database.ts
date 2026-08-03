@@ -177,6 +177,17 @@ export function getItemsByType(type: string): Item[] {
   );
 }
 
+// Rollup for the Calendar tray: every task-like item with no scheduledDate at
+// all (Inbox + undated Tasks), matching the scope of the web app's
+// UnscheduledPane — not date-scoped, unlike the timeline's existing
+// "Flexible" concept (which only covers items already assigned to the
+// viewed day but missing a time).
+export function getUnscheduledItems(): Item[] {
+  return getDb().getAllSync<Item>(
+    `SELECT * FROM items WHERE scheduledDate IS NULL AND deletedAt IS NULL AND status NOT IN ('completed', 'archived') ORDER BY createdAt DESC`
+  );
+}
+
 // --- Generic relations (Notion-style single-select relation property) -------------------
 // One source item points at one target item per relationType (e.g. a task's 'project'
 // relation, a project's 'area' relation). Rollups (counts, related-item lists) are just
