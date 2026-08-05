@@ -2,11 +2,12 @@ import { useCallback, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
-import { getItemsByType, createRoutine, deleteItem } from '../db/database';
+import { getItemsByType, createRoutine, deleteItem, hasSeenRoutinesIntro, markRoutinesIntroSeen } from '../db/database';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
 import { LensSurface } from '../components/LensSurface';
 import { QuickCreateSheet } from '../components/QuickCreateSheet';
+import { RoutinesIntroOverlay } from '../components/RoutinesIntroOverlay';
 import { useRegisterFabHoldAction } from '../hooks/useFabHoldAction';
 import { showActionSheet } from '../utils/actionSheet';
 import { ListChecks } from '../icons';
@@ -21,12 +22,19 @@ export function RoutinesScreen() {
   const palette = getThemeColors(isDark);
   const [routines, setRoutines] = useState<Item[]>([]);
   const [createOpen, setCreateOpen] = useState(false);
+  const [introVisible, setIntroVisible] = useState(false);
 
   const refresh = useCallback(() => {
     setRoutines(getItemsByType('routine'));
   }, []);
 
   useFocusEffect(refresh);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!hasSeenRoutinesIntro()) setIntroVisible(true);
+    }, []),
+  );
 
   useRegisterFabHoldAction(useCallback(() => setCreateOpen(true), []));
 
@@ -88,6 +96,15 @@ export function RoutinesScreen() {
         icon={<ListChecks size={38} color={palette.red} />}
         onClose={() => setCreateOpen(false)}
         onSubmit={handleCreate}
+      />
+
+      <RoutinesIntroOverlay
+        visible={introVisible}
+        onDone={() => {
+          setIntroVisible(false);
+          markRoutinesIntroSeen();
+        }}
+        onCreateFirstRoutine={() => setCreateOpen(true)}
       />
     </LensSurface>
   );

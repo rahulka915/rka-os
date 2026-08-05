@@ -626,6 +626,14 @@ export function finishRoutineSession(sessionId: string): void {
   updateItemStatus(sessionId, 'completed');
 }
 
+export function hasSeenRoutinesIntro(): boolean {
+  return getAppSetting<boolean>('hasSeenRoutinesIntro', false);
+}
+
+export function markRoutinesIntroSeen(): void {
+  setAppSetting('hasSeenRoutinesIntro', true);
+}
+
 export function isPlannedForToday(item: Item): boolean {
   if (!item.metadata) return false;
   try {

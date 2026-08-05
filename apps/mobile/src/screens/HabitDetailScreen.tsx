@@ -202,6 +202,10 @@ export function HabitDetailScreen() {
             </TouchableOpacity>
             {measurementExpanded && (
               <>
+                <Text style={[styles.measurementHint, { color: palette.textTertiary }]}>
+                  Track more than done/not done — log a count or duration each time, against a target
+                  for the day, week or month.
+                </Text>
                 <View style={styles.chipRow}>
                   {(['binary', 'count', 'duration'] as HabitMeasurement[]).map((m) => {
                     const selected = habitMeta.measurement === m;
@@ -358,6 +362,13 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
     textTransform: 'uppercase',
     marginBottom: 8,
+  },
+  measurementHint: {
+    fontSize: 12,
+    fontFamily: 'Inter_400Regular',
+    fontWeight: '400',
+    lineHeight: 17,
+    marginBottom: 10,
   },
   chipRow: {
     flexDirection: 'row',
