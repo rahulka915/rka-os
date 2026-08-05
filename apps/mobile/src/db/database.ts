@@ -540,16 +540,11 @@ export function updateRoutineStep(stepId: string, meta: RoutineStepMeta): void {
   updateItemMetadata(stepId, meta as unknown as Record<string, any>);
 }
 
+// Ordering reuses the app's existing manual-order table (itemOrder), same as
+// WorkoutTemplateDetailScreen's blocks — not a metadata field — so the
+// existing useHapticReorder drag gesture hook (which calls setManualOrder
+// directly) works here unmodified.
 export function getRoutineSteps(routineId: string): Item[] {
-  const steps = getRelatedItems(routineId, 'routine');
-  return steps.sort((a, b) => parseRoutineStepMeta(a.metadata).order - parseRoutineStepMeta(b.metadata).order);
-}
-
-export function reorderRoutineSteps(routineId: string, orderedStepIds: string[]): void {
-  const steps = getRoutineSteps(routineId);
-  const byId = new Map(steps.map((s) => [s.id, s]));
-  orderedStepIds.forEach((stepId, index) => {
-    const step = byId.get(stepId);
     if (!step) return;
     const meta = parseRoutineStepMeta(step.metadata);
     updateItemMetadata(stepId, { ...meta, order: index } as unknown as Record<string, any>);

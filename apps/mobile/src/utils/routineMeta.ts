@@ -1,5 +1,4 @@
 export interface RoutineStepMeta {
-  order: number;
   durationSeconds?: number;
   autoAdvance: boolean;
   instructions?: string;
@@ -18,17 +17,16 @@ export interface RoutineSessionMeta {
 }
 
 export function parseRoutineStepMeta(metadata?: string): RoutineStepMeta {
-  if (!metadata) return { order: 0, autoAdvance: false };
+  if (!metadata) return { autoAdvance: false };
   try {
     const parsed = JSON.parse(metadata);
     return {
-      order: typeof parsed.order === 'number' ? parsed.order : 0,
       durationSeconds: typeof parsed.durationSeconds === 'number' ? parsed.durationSeconds : undefined,
       autoAdvance: parsed.autoAdvance === true,
       instructions: typeof parsed.instructions === 'string' ? parsed.instructions : undefined,
     };
   } catch {
-    return { order: 0, autoAdvance: false };
+    return { autoAdvance: false };
   }
 }
 

@@ -3,9 +3,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { computeStepRemainingSeconds, parseRoutineSessionMeta, parseRoutineStepMeta } from './routineMeta.ts';
 
-test('parseRoutineStepMeta: defaults to order 0, no duration, no auto-advance', () => {
+test('parseRoutineStepMeta: defaults to no duration, no auto-advance', () => {
   const meta = parseRoutineStepMeta(undefined);
-  assert.equal(meta.order, 0);
   assert.equal(meta.durationSeconds, undefined);
   assert.equal(meta.autoAdvance, false);
 });
