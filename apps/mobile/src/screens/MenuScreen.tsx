@@ -15,7 +15,7 @@ import {
   ToGetParcelIcon,
   WorkoutTrainingIcon,
 } from '../components/icons/CollectionIcons';
-import { Sparkles } from '../icons';
+import { Sparkles, ListChecks } from '../icons';
 
 const CALENDAR_GOLD = '#D4B078';
 
@@ -57,6 +57,14 @@ export function MenuScreen() {
       icon: HabitRitualIcon,
       iconSize: 42,
       accent: palette.red,
+    },
+    {
+      route: 'Routines',
+      label: 'Routines',
+      sub: 'Ordered, timed step sequences',
+      icon: ListChecks,
+      iconSize: 38,
+      accent: palette.purple,
     },
     {
       route: 'Potential',

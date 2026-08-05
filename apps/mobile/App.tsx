@@ -57,6 +57,7 @@ import { ProjectDetailScreen } from './src/screens/ProjectDetailScreen';
 import { ObjectDetailScreen } from './src/screens/ObjectDetailScreen';
 import { HabitDetailScreen } from './src/screens/HabitDetailScreen';
 import { PersistentTimerBanner } from './src/components/PersistentTimerBanner';
+import { RoutineResumeBanner } from './src/components/RoutineResumeBanner';
 import { AppLoadingScreen } from './src/components/AppLoadingScreen';
 import { requestNotificationPermission, setBadgeCount } from './src/hooks/useNotifications';
 import { getInboxItems, getDb } from './src/db/database';
@@ -313,6 +314,7 @@ function NavigationLayer({
       {/* Medication timers aren't ported to web yet — the banner mounts app-wide
           and reads timer state that database.web.ts doesn't implement. */}
       {Platform.OS !== 'web' ? <PersistentTimerBanner /> : null}
+      {Platform.OS !== 'web' ? <RoutineResumeBanner /> : null}
     </>
   );
 }
