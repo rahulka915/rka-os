@@ -477,6 +477,36 @@ export function toggleHabitOccurrence(itemId: string, date: string): void {
   }
 }
 
+// Quantified habit sample: one manual log entry (count/duration value +
+// optional note) for a non-binary habit. Stored as 'habit-sample'
+// activityLogs rows rather than a running total column, so period progress
+// (utils/habitMeta.ts computeHabitPeriodProgress) is always recomputed from
+// the actual events — no stale/duplicated counter to keep in sync.
+export function logHabitSample(habitId: string, value: number, note?: string): void {
+  logActivity(habitId, 'habit-sample', JSON.stringify({ value, note }));
+}
+
+export function getHabitSamples(habitId: string, sinceMs?: number): ActivityLog[] {
+  const rows = sinceMs
+    ? getDb().getAllSync<ActivityLog>(
+        `SELECT * FROM activityLogs WHERE entityId = ? AND actionType = 'habit-sample' AND timestamp >= ? ORDER BY timestamp DESC`,
+        [habitId, sinceMs]
+      )
+    : getDb().getAllSync<ActivityLog>(
+        `SELECT * FROM activityLogs WHERE entityId = ? AND actionType = 'habit-sample' ORDER BY timestamp DESC`,
+        [habitId]
+      );
+  return rows;
+}
+
+export function undoLastHabitSample(habitId: string): void {
+  const last = getDb().getAllSync<ActivityLog>(
+    `SELECT * FROM activityLogs WHERE entityId = ? AND actionType = 'habit-sample' ORDER BY timestamp DESC LIMIT 1`,
+    [habitId]
+  )[0];
+  if (last) getDb().runSync(`DELETE FROM activityLogs WHERE id = ?`, [last.id]);
+}
+
 export function isPlannedForToday(item: Item): boolean {
   if (!item.metadata) return false;
   try {
