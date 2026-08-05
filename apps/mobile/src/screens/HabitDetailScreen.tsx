@@ -6,6 +6,7 @@ import { getItemWithMetadata, getCompletedOccurrenceDates, formatDate, toggleHab
 import { computeStreak } from '../utils/streak';
 import { buildHabitCalendarMonth, type HabitCalendarDay } from '../utils/habitCalendar';
 import { POTENTIAL_STATS, POTENTIAL_STAT_LABELS, parseHabitPotentialMeta, type PotentialStat } from '../utils/potential';
+import { parseHabitMeta, type HabitMeasurement, type HabitTargetPeriod } from '../utils/habitMeta';
 import { useItemComposer } from '../components/item-composer';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
@@ -32,6 +33,9 @@ export function HabitDetailScreen() {
   const [completedDates, setCompletedDates] = useState<Set<string>>(new Set());
   const [monthAnchor, setMonthAnchor] = useState(new Date());
   const [targetDaysText, setTargetDaysText] = useState('');
+  const [measurementExpanded, setMeasurementExpanded] = useState(false);
+  const [targetValueText, setTargetValueText] = useState('');
+  const [targetUnitText, setTargetUnitText] = useState('');
 
   const today = formatDate(new Date());
 
@@ -59,6 +63,22 @@ export function HabitDetailScreen() {
   );
 
   const potentialMeta = useMemo(() => parseHabitPotentialMeta(item?.metadata), [item]);
+
+  const habitMeta = useMemo(() => (item ? parseHabitMeta(item) : null), [item]);
+
+  useEffect(() => {
+    if (!habitMeta) return;
+    setTargetValueText(habitMeta.measurement === 'binary' ? '' : String(habitMeta.targetValue));
+    setTargetUnitText(habitMeta.targetUnit ?? '');
+  }, [habitMeta?.measurement, habitMeta?.targetValue, habitMeta?.targetUnit]);
+
+  const saveMeasurement = (patch: Partial<{ measurement: HabitMeasurement; targetPeriod: HabitTargetPeriod; targetValue: number; targetUnit: string }>) => {
+    if (!item || !habitMeta) return;
+    const existing = item.metadata ? JSON.parse(item.metadata) : {};
+    updateItemMetadata(item.id, { ...existing, ...habitMeta, ...patch });
+    Haptics.selectionAsync();
+    load();
+  };
 
   useEffect(() => {
     setTargetDaysText(potentialMeta.potentialTargetDays ? String(potentialMeta.potentialTargetDays) : '');
@@ -172,6 +192,80 @@ export function HabitDetailScreen() {
             </View>
           )}
         </View>
+
+        {habitMeta && (
+          <View style={styles.potentialSection}>
+            <TouchableOpacity onPress={() => setMeasurementExpanded((v) => !v)}>
+              <Text style={[styles.potentialLabel, { color: palette.textTertiary }]}>
+                MEASUREMENT {measurementExpanded ? '▾' : '▸'}
+              </Text>
+            </TouchableOpacity>
+            {measurementExpanded && (
+              <>
+                <View style={styles.chipRow}>
+                  {(['binary', 'count', 'duration'] as HabitMeasurement[]).map((m) => {
+                    const selected = habitMeta.measurement === m;
+                    return (
+                      <TouchableOpacity
+                        key={m}
+                        style={[styles.chip, { borderColor: palette.separator }, selected && { backgroundColor: palette.red, borderColor: palette.red }]}
+                        onPress={() => saveMeasurement({ measurement: m })}
+                      >
+                        <Text style={[styles.chipText, { color: selected ? palette.surface : palette.text }]}>
+                          {m === 'binary' ? 'Done/not done' : m === 'count' ? 'Count' : 'Duration'}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                {habitMeta.measurement !== 'binary' && (
+                  <>
+                    <View style={styles.targetDaysRow}>
+                      <Text style={[styles.targetDaysLabel, { color: palette.textTertiary }]}>TARGET VALUE</Text>
+                      <TextInput
+                        style={[styles.targetDaysInput, { color: palette.text, borderColor: palette.separator }]}
+                        value={targetValueText}
+                        onChangeText={setTargetValueText}
+                        onBlur={() => {
+                          const n = parseInt(targetValueText, 10);
+                          saveMeasurement({ targetValue: Number.isFinite(n) && n > 0 ? n : 1 });
+                        }}
+                        placeholder="8"
+                        placeholderTextColor={palette.textTertiary}
+                        keyboardType="number-pad"
+                      />
+                    </View>
+                    <View style={styles.targetDaysRow}>
+                      <Text style={[styles.targetDaysLabel, { color: palette.textTertiary }]}>UNIT</Text>
+                      <TextInput
+                        style={[styles.targetDaysInput, { color: palette.text, borderColor: palette.separator }]}
+                        value={targetUnitText}
+                        onChangeText={setTargetUnitText}
+                        onBlur={() => saveMeasurement({ targetUnit: targetUnitText.trim() || undefined })}
+                        placeholder="glasses, min..."
+                        placeholderTextColor={palette.textTertiary}
+                      />
+                    </View>
+                    <View style={styles.chipRow}>
+                      {(['daily', 'weekly', 'monthly'] as HabitTargetPeriod[]).map((p) => {
+                        const selected = habitMeta.targetPeriod === p;
+                        return (
+                          <TouchableOpacity
+                            key={p}
+                            style={[styles.chip, { borderColor: palette.separator }, selected && { backgroundColor: palette.red, borderColor: palette.red }]}
+                            onPress={() => saveMeasurement({ targetPeriod: p })}
+                          >
+                            <Text style={[styles.chipText, { color: selected ? palette.surface : palette.text }]}>{p}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </>
+                )}
+              </>
+            )}
+          </View>
+        )}
 
         <View style={styles.monthHeader}>
           <TouchableOpacity onPress={() => setMonthAnchor(new Date(calendar.year, calendar.month - 1, 1))} hitSlop={10}>
