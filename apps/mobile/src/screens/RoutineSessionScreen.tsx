@@ -12,12 +12,14 @@ import {
   resumeRoutineSession,
   addRoutineSessionStepTime,
   finishRoutineSession,
+  cancelRoutineSession,
 } from '../db/database';
 import { parseRoutineStepMeta, parseRoutineSessionMeta, computeStepRemainingSeconds } from '../utils/routineMeta';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
 import { LensSurface } from '../components/LensSurface';
-import { Pause, PlayCircle, SkipForward } from '../icons';
+import { showActionSheet } from '../utils/actionSheet';
+import { Pause, PlayCircle, SkipForward, X } from '../icons';
 import type { Item } from '../db/types';
 
 interface RoutineSessionRouteParams {
@@ -65,11 +67,20 @@ export function RoutineSessionScreen() {
   }, []);
 
   useEffect(() => {
-    if (!currentStep && steps.length > 0 && meta) {
+    if (currentStep || !meta) return;
+    if (steps.length > 0) {
+      // Ran past the last step — the routine is done.
       finishRoutineSession(sessionId);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      navigation.goBack();
+    } else {
+      // Routine has no steps (started before any were added, or every step
+      // was deleted mid-session) — nothing to play, so there's nothing to
+      // finish. Cancel rather than leaving an unresolvable 'active' session
+      // behind that would otherwise stick around forever with a blank
+      // screen and no way to complete it.
+      cancelRoutineSession(sessionId);
     }
+    navigation.goBack();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStep, steps.length]);
 
@@ -108,6 +119,20 @@ export function RoutineSessionScreen() {
     refreshSession();
   };
 
+  const handleCancel = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    showActionSheet('End this routine?', [
+      {
+        label: 'End Routine',
+        destructive: true,
+        onPress: () => {
+          cancelRoutineSession(sessionId);
+          navigation.goBack();
+        },
+      },
+    ]);
+  };
+
   const handleAddTime = () => {
     addRoutineSessionStepTime(sessionId, 30);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -115,7 +140,14 @@ export function RoutineSessionScreen() {
   };
 
   return (
-    <LensSurface title={`Step ${meta.currentStepIndex + 1} of ${steps.length}`}>
+    <LensSurface
+      title={`Step ${meta.currentStepIndex + 1} of ${steps.length}`}
+      headerRight={
+        <TouchableOpacity onPress={handleCancel} hitSlop={12} accessibilityLabel="End routine">
+          <X size={22} color={palette.textMuted} strokeWidth={2} />
+        </TouchableOpacity>
+      }
+    >
       <View style={styles.content}>
         <Text style={[styles.stepTitle, { color: palette.text }]}>{currentStep.title}</Text>
         {stepMeta?.instructions ? (

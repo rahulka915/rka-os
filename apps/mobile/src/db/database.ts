@@ -626,6 +626,15 @@ export function finishRoutineSession(sessionId: string): void {
   updateItemStatus(sessionId, 'completed');
 }
 
+// Abandons an in-progress session without completing it — the escape hatch
+// for a session that was started by mistake (e.g. a routine with no steps
+// yet) or one the user simply no longer wants to resume. 'cancelled' status
+// removes it from getActiveRoutineSession's 'active'-only query, same as
+// 'completed' does, so it stops surfacing in the resume banner.
+export function cancelRoutineSession(sessionId: string): void {
+  updateItemStatus(sessionId, 'cancelled');
+}
+
 export function hasSeenRoutinesIntro(): boolean {
   return getAppSetting<boolean>('hasSeenRoutinesIntro', false);
 }

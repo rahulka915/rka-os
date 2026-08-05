@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { getActiveRoutineSession, getRoutineForSession, getItemWithMetadata } from '../db/database';
+import { getActiveRoutineSession, getRoutineForSession, getItemWithMetadata, cancelRoutineSession } from '../db/database';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
 import { navigateTo } from '../navigation/rootNavigation';
-import { PlayCircle } from '../icons';
+import { PlayCircle, X } from '../icons';
 
 // Closes the same relaunch-recovery gap that exists for workout sessions
 // today (see WorkoutSessionScreen — no equivalent banner there yet): if the
@@ -38,18 +38,25 @@ export function RoutineResumeBanner() {
     setSession(null);
   };
 
+  const handleDismiss = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    cancelRoutineSession(session.sessionId);
+    setSession(null);
+  };
+
   return (
     <View pointerEvents="box-none" style={[styles.anchor, { top: insets.top + 52 }]}>
-      <TouchableOpacity
-        style={[styles.capsule, { backgroundColor: isDark ? palette.fillStrong : palette.surface, borderColor: palette.separator }]}
-        onPress={handlePress}
-        activeOpacity={0.85}
-      >
-        <PlayCircle size={18} color={palette.red} strokeWidth={2} />
-        <Text style={[styles.text, { color: palette.text }]} numberOfLines={1}>
-          {session.title} — Resume
-        </Text>
-      </TouchableOpacity>
+      <View style={[styles.capsule, { backgroundColor: isDark ? palette.fillStrong : palette.surface, borderColor: palette.separator }]}>
+        <TouchableOpacity style={styles.capsuleMain} onPress={handlePress} activeOpacity={0.85}>
+          <PlayCircle size={18} color={palette.red} strokeWidth={2} />
+          <Text style={[styles.text, { color: palette.text }]} numberOfLines={1}>
+            {session.title} — Resume
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={handleDismiss} hitSlop={10} accessibilityLabel="End routine">
+          <X size={16} color={palette.textMuted} strokeWidth={2.2} />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -59,11 +66,17 @@ const styles = StyleSheet.create({
   capsule: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
     borderRadius: 20,
     borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 14,
+    paddingLeft: 14,
+    paddingRight: 12,
     paddingVertical: 8,
+  },
+  capsuleMain: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   text: {
     fontSize: 13,

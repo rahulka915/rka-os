@@ -106,9 +106,11 @@ export function RoutineTemplateDetailScreen() {
       title={title}
       headerRight={
         <View style={styles.headerActions}>
-          <TouchableOpacity onPress={handleStart} hitSlop={12} accessibilityLabel="Start routine">
-            <PlayCircle size={22} color={palette.text} strokeWidth={2} />
-          </TouchableOpacity>
+          {steps.length > 0 && (
+            <TouchableOpacity onPress={handleStart} hitSlop={12} accessibilityLabel="Start routine">
+              <PlayCircle size={22} color={palette.text} strokeWidth={2} />
+            </TouchableOpacity>
+          )}
           <TouchableOpacity onPress={() => setCreating(true)} hitSlop={12} accessibilityLabel="Add step">
             <Plus size={22} color={palette.text} strokeWidth={2} />
           </TouchableOpacity>
