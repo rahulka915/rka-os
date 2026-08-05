@@ -12,23 +12,33 @@
 
 ---
 
-## Session — Routines and Quantified Habits, Phase 1 (2026-08-05)
+## Session — Routines and Quantified Habits (2026-08-05)
 
 ### What Was Done
-Quantified habit measurement shipped (Phase 1 of `docs/superpowers/plans/2026-08-05-routines-quantified-habits.md`). Binary habits are unaffected — the existing fast tap-to-complete flow is unchanged.
+Both phases of `docs/superpowers/plans/2026-08-05-routines-quantified-habits.md` shipped.
 
+**Phase 1 — Quantified habits.** Binary habits are unaffected — the existing fast tap-to-complete flow is unchanged.
 1. `apps/mobile/src/utils/habitMeta.ts` (new) — `HabitMeta` type, `parseHabitMeta`, `computeHabitPeriodProgress`; pure, unit-tested (`habitMeta.test.ts`, 6 passing via `node --test`).
 2. `apps/mobile/src/db/database.ts` — `logHabitSample`/`getHabitSamples`/`undoLastHabitSample`, following the existing `activityLogs` event-sourcing pattern (`'habit-sample'` action type) rather than a stored counter.
 3. `apps/mobile/src/components/home/HabitQuantifiedSheet.tsx` (new) + `apps/mobile/src/screens/HabitsScreen.tsx` — contextual completion control branching on measurement type (mark-done / add-one / enter-value sheet), undo via the existing long-press action sheet.
 4. `apps/mobile/src/screens/HabitDetailScreen.tsx` — collapsed "Measurement" disclosure for intent/measurement/target value/unit/period; `QuickCreateSheet` stays single-field fast capture.
 
+**Phase 2 — Routines.** A separate `routine`/`routine-step`/`routine-session` item domain — never Missions, no Harada/Potential semantics.
+5. `apps/mobile/src/db/types.ts` — `ItemType` gains `'routine' | 'routine-step' | 'routine-session'`.
+6. `apps/mobile/src/utils/routineMeta.ts` (new) — `RoutineStepMeta`/`RoutineSessionMeta` types and `computeStepRemainingSeconds`, pure and unit-tested (`routineMeta.test.ts`, 8 passing, including a simulated-relaunch scenario).
+7. `apps/mobile/src/db/database.ts` — routine/step/session lifecycle functions (`createRoutine`, `addRoutineStep`, `getRoutineSteps`, `startRoutineSession`, `getActiveRoutineSession`, `advanceRoutineSession`, `pauseRoutineSession`/`resumeRoutineSession`, `addRoutineSessionStepTime`, `finishRoutineSession`). Step ordering reuses the existing manual-order table (`applyManualOrder`/`setManualOrder`), same as `WorkoutTemplateDetailScreen`'s blocks.
+8. `apps/mobile/src/screens/RoutinesScreen.tsx`, `RoutineTemplateDetailScreen.tsx`, `RoutineSessionScreen.tsx` (new) + `apps/mobile/src/components/RoutineStepEditSheet.tsx`, `RoutineResumeBanner.tsx` (new) — template list/editor, and a durable session player whose remaining-time math is derived entirely from persisted timestamps (never a local counter), plus an `App.tsx`-mounted resume banner closing the relaunch-recovery gap that exists even for the app's existing WorkoutSession precedent.
+9. Routes registered in `apps/mobile/src/navigation/MenuStack.tsx`; nav tile added in `apps/mobile/src/screens/MenuScreen.tsx`.
+
+**Guardrail enforced throughout:** routine sessions never write to `domainContributions` and never touch `potentialStat` — only a linked habit's own maintenance math (streak-based) may affect Potential, so finishing a routine never double-counts alongside a habit it happens to reference. No Apple Health/HealthKit packages, permissions, sync, or UI were added anywhere in this work.
+
 ### Verified
-- `node --test` on `habitMeta.test.ts`: 6/6 pass.
-- `npx tsc --noEmit`: no errors introduced in any touched file.
-- Manual review of each diff against HEAD to confirm no unrelated concurrent-agent changes were bundled into these commits.
+- `node --test` on `habitMeta.test.ts` (6/6) and `routineMeta.test.ts` (8/8).
+- `npx tsc --noEmit`: no errors introduced in any touched file (verified per-task throughout, plus a final full-project pass).
+- Every commit on `feature/routines-quantified-habits` was manually diffed against HEAD to confirm it contains only this work's own changes, not concurrent unrelated in-flight edits already present in the working tree from another agent's session.
 
 ### Next Steps
-Phase 2 (routines: templates, ordered timed steps, durable session player) is next in the same plan — not started as of this entry. Apple Health remains explicitly out of scope.
+Phase 3 (reminders, iOS Live Activity for the current routine step, more polished review views) is explicitly deferred, per the product brief's suggested order — not started. Apple Health/HealthKit remains explicitly out of scope for all of this work.
 
 ## Session 1 — PWA Fixes & Layout (2026-06-24)
 

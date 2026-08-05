@@ -144,7 +144,7 @@ Multiple AI agents (Claude, Codex, Antigravity, etc.) and developers work on thi
 - `apps/mobile/THINGS_3_DESIGN.md` — Interaction pattern reference
 - `apps/mobile/FLOWS.md` — Audit of what every tappable element actually does
 - `apps/mobile/SCHEMA.md` — Data model reference
-- `docs/superpowers/plans/2026-08-05-routines-quantified-habits.md` — Routines/quantified-habits implementation plan; quantified habits (Phase 1) shipped, routines (Phase 2) in progress
+- `docs/superpowers/plans/2026-08-05-routines-quantified-habits.md` — Routines/quantified-habits implementation plan; both phases (quantified habits, routines) shipped
 - `docs/migration/REACT_NATIVE_SETUP.md` — Full RN/Expo setup guide, architecture, file map
 
 **Shared backend:**
