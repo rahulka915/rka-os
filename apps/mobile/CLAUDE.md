@@ -6,6 +6,8 @@
 **Status:** Ready for Expo development build; features requiring native code (HealthKit, true background fetch) need a dev client and Apple Developer signing  
 **Multi-Agent Rule:** Any changes to database schema, components, theme, or backend services MUST be documented immediately in `CLAUDE.md`, `AGENTS.md`, and `HANDOVER_SUMMARY.md`. See `../../AGENTS.md` for full protocol.
 
+**Quantified habits (shipped):** Binary habits keep their original tap-to-complete flow unchanged. Count/duration habits store a `HabitMeta` blob in `item.metadata` (see `src/utils/habitMeta.ts`) and log manual samples as `'habit-sample'` `activityLogs` rows (`src/db/database.ts`'s `logHabitSample`/`getHabitSamples`/`undoLastHabitSample`); period progress is always recomputed from those events, never a stored counter. UI: `HabitsScreen.tsx` branches the fast-completion control on measurement type (mark-done/add-one/`HabitQuantifiedSheet.tsx` value entry); `HabitDetailScreen.tsx` exposes measurement/target/period settings behind a collapsed "Measurement" disclosure. See `docs/superpowers/plans/2026-08-05-routines-quantified-habits.md` for the full plan (routines are a separate, later phase of that same plan).
+
 ---
 
 ## Design Patterns

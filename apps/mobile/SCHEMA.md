@@ -78,7 +78,7 @@ Supporting tables, not part of the entity/relation model: `itemInstances` tracks
 | `area` (user-facing: **Domain**) | built | none yet |
 | `project` (user-facing: **Mission**) | built | none yet (area link lives in `itemRelations`, not metadata) |
 | `task` | built | `gtdContext` (`today`\|`morning`\|`evening`\|`someday`\|`project`\|`area`\|`habit`\|`medication`\|`reference`), `timeOfDay` (`morning`\|`evening`) |
-| `habit` | built | `gtdContext` (set to `'habit'` on triage) |
+| `habit` | built | `gtdContext` (set to `'habit'` on triage) | Quantified habits additionally store a `HabitMeta` blob in `metadata` (see `src/utils/habitMeta.ts`): `{ intent: 'build'\|'quit', measurement: 'binary'\|'count'\|'duration', targetValue, targetUnit?, targetPeriod: 'daily'\|'weekly'\|'monthly'\|'custom', customPeriodDays?, contextualAction: 'mark-done'\|'add-one'\|'enter-value', potentialStat?, potentialTargetDays? }`. Missing/malformed metadata defaults to binary/daily/mark-done, so every pre-existing habit is unaffected. Manual samples for count/duration habits are `'habit-sample'` `activityLogs` rows (`entityId` = habit id, `details: {value, note?}`); period progress is always recomputed from these events, never a stored running total. Undo removes the most recent sample.
 | `medication` | built | `dose`, `stockRemaining` (derived total, see Packaging below), `initialStock`, `refillThreshold`, `lastTakenAt`, `maxPerDay`, `minHoursBetweenDoses`, `frequency`, `containerLabel`, `containerSize`, `containersPerRestock`, `sheetsPerContainer`, `pillsPerSheet`, `packagingNote`, `containers[]` |
 | `workout-template` | built | none yet |
 | `workout-block` | built | `sets`, `reps`, `weight`, `restSeconds`, `notes` |

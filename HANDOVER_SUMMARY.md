@@ -12,6 +12,24 @@
 
 ---
 
+## Session — Routines and Quantified Habits, Phase 1 (2026-08-05)
+
+### What Was Done
+Quantified habit measurement shipped (Phase 1 of `docs/superpowers/plans/2026-08-05-routines-quantified-habits.md`). Binary habits are unaffected — the existing fast tap-to-complete flow is unchanged.
+
+1. `apps/mobile/src/utils/habitMeta.ts` (new) — `HabitMeta` type, `parseHabitMeta`, `computeHabitPeriodProgress`; pure, unit-tested (`habitMeta.test.ts`, 6 passing via `node --test`).
+2. `apps/mobile/src/db/database.ts` — `logHabitSample`/`getHabitSamples`/`undoLastHabitSample`, following the existing `activityLogs` event-sourcing pattern (`'habit-sample'` action type) rather than a stored counter.
+3. `apps/mobile/src/components/home/HabitQuantifiedSheet.tsx` (new) + `apps/mobile/src/screens/HabitsScreen.tsx` — contextual completion control branching on measurement type (mark-done / add-one / enter-value sheet), undo via the existing long-press action sheet.
+4. `apps/mobile/src/screens/HabitDetailScreen.tsx` — collapsed "Measurement" disclosure for intent/measurement/target value/unit/period; `QuickCreateSheet` stays single-field fast capture.
+
+### Verified
+- `node --test` on `habitMeta.test.ts`: 6/6 pass.
+- `npx tsc --noEmit`: no errors introduced in any touched file.
+- Manual review of each diff against HEAD to confirm no unrelated concurrent-agent changes were bundled into these commits.
+
+### Next Steps
+Phase 2 (routines: templates, ordered timed steps, durable session player) is next in the same plan — not started as of this entry. Apple Health remains explicitly out of scope.
+
 ## Session 1 — PWA Fixes & Layout (2026-06-24)
 
 ### What Was Done
