@@ -2,17 +2,20 @@ import { useCallback, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
-import { getItemsByType, createItem, updateItemStatus, deleteItem, formatDate } from '../db/database';
+import { getItemsByType, createItem, updateItemStatus, deleteItem, formatDate, logHabitSample, undoLastHabitSample, getHabitSamples } from '../db/database';
 import { buildHabitRowData, type HabitRowData } from '../utils/habits';
+import { parseHabitMeta, computeHabitPeriodProgress } from '../utils/habitMeta';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
 import { LensSurface } from '../components/LensSurface';
 import { QuickCreateSheet } from '../components/QuickCreateSheet';
 import { useRegisterFabHoldAction } from '../hooks/useFabHoldAction';
 import { LacquerDiscControl, LACQUER_DISC_COMPLETION_DURATION } from '../components/ui/LacquerDiscControl';
+import { HabitQuantifiedSheet } from '../components/home/HabitQuantifiedSheet';
 import { useOpenItem } from '../hooks/useOpenItem';
 import { showActionSheet } from '../utils/actionSheet';
 import { Flame } from '../icons';
+import type { Item } from '../db/types';
 
 // No header "+" — holding the dock FAB while this screen is focused opens
 // New Habit instead (see useRegisterFabHoldAction / App.tsx's runFabHold),
@@ -24,6 +27,7 @@ export function HabitsScreen() {
   const [rows, setRows] = useState<HabitRowData[]>([]);
   const [completingIds, setCompletingIds] = useState<Set<string>>(new Set());
   const [createOpen, setCreateOpen] = useState(false);
+  const [quantifiedHabit, setQuantifiedHabit] = useState<Item | null>(null);
 
   const refresh = useCallback(() => {
     const today = formatDate(new Date());
@@ -54,10 +58,28 @@ export function HabitsScreen() {
     }, LACQUER_DISC_COMPLETION_DURATION);
   };
 
+  const handleRowPress = (row: HabitRowData) => {
+    const meta = parseHabitMeta(row.item);
+    if (meta.measurement === 'binary') {
+      handleCheckIn(row);
+    } else if (meta.contextualAction === 'add-one') {
+      logHabitSample(row.item.id, 1);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      refresh();
+    } else {
+      setQuantifiedHabit(row.item);
+    }
+  };
+
   const handleLongPress = (row: HabitRowData) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    const meta = parseHabitMeta(row.item);
+    const progress = meta.measurement === 'binary' ? null : computeHabitPeriodProgress(row.item, getHabitSamples(row.item.id), new Date());
     showActionSheet(row.item.title, [
       { label: 'Edit', onPress: () => openItem({ item: row.item, onComplete: ({ action }) => { if (action !== 'cancelled') refresh(); } }) },
+      ...(progress && progress.current > 0
+        ? [{ label: 'Undo last log', onPress: () => { undoLastHabitSample(row.item.id); refresh(); } }]
+        : []),
       {
         label: 'Delete',
         onPress: () => {
@@ -82,7 +104,7 @@ export function HabitsScreen() {
         isCompleted={completingIds.has(row.item.id) || row.isCompletedToday}
         isEnabled={row.isScheduledToday && !row.isCompletedToday}
         accessibilityLabel={row.isScheduledToday ? `Check in ${row.item.title}` : `${row.item.title}, not scheduled today`}
-        onToggle={() => handleCheckIn(row)}
+        onToggle={() => handleRowPress(row)}
       />
       <View style={styles.rowContent}>
         <Text style={[styles.rowTitle, { color: palette.text }]} numberOfLines={1}>{row.item.title}</Text>
@@ -114,6 +136,16 @@ export function HabitsScreen() {
         icon={<Flame size={38} color={palette.red} />}
         onClose={() => setCreateOpen(false)}
         onSubmit={handleCreate}
+      />
+
+      <HabitQuantifiedSheet
+        visible={quantifiedHabit !== null}
+        habit={quantifiedHabit}
+        onClose={() => setQuantifiedHabit(null)}
+        onLogged={(value) => {
+          if (quantifiedHabit) logHabitSample(quantifiedHabit.id, value);
+          refresh();
+        }}
       />
     </LensSurface>
   );
