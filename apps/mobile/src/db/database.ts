@@ -9,6 +9,12 @@ import { countDosesByDay } from '../utils/medicationDoseHistory';
 import { buildTimelineEntries, type TimelineEntry } from './timelineEntry';
 import type { WorkoutSetDetails } from '../utils/workoutSet';
 import { getMostRecentSessionSets } from '../utils/workoutSet';
+import {
+  parseRoutineStepMeta,
+  parseRoutineSessionMeta,
+  type RoutineStepMeta,
+  type RoutineSessionMeta,
+} from '../utils/routineMeta';
 
 // Re-exported so `import type { TimelineEntry } from '../db/database'` keeps
 // working for CalendarScreen and useDb.
@@ -505,6 +511,124 @@ export function undoLastHabitSample(habitId: string): void {
     [habitId]
   )[0];
   if (last) getDb().runSync(`DELETE FROM activityLogs WHERE id = ?`, [last.id]);
+}
+
+// --- Routines -----------------------------------------------------------
+// A routine is an 'items' row (type='routine') with ordered 'routine-step'
+// items linked via itemRelations (relationType='routine', sourceId=step,
+// targetId=routine — same pattern as workout-template/workout-block). A
+// live play-through is a 'routine-session' item, linked to its routine via
+// relationType='routine-template'. Session progress (currentStepIndex,
+// timing) lives in the session's metadata as RoutineSessionMeta — see
+// utils/routineMeta.ts for the pure parsing/timing math. Routine sessions
+// deliberately never write to domainContributions or potentialStat: only a
+// linked habit's own maintenance math may affect Potential, so completing a
+// routine never double-counts alongside a habit it happens to reference.
+
+export function createRoutine(title: string, notes?: string): string {
+  return createItem('routine', title, 'active', undefined, notes);
+}
+
+export function addRoutineStep(routineId: string, title: string, meta: RoutineStepMeta): string {
+  const stepId = createItem('routine-step', title, 'active');
+  updateItemMetadata(stepId, meta as unknown as Record<string, any>);
+  setRelation(stepId, 'routine', routineId);
+  return stepId;
+}
+
+export function updateRoutineStep(stepId: string, meta: RoutineStepMeta): void {
+  updateItemMetadata(stepId, meta as unknown as Record<string, any>);
+}
+
+export function getRoutineSteps(routineId: string): Item[] {
+  const steps = getRelatedItems(routineId, 'routine');
+  return steps.sort((a, b) => parseRoutineStepMeta(a.metadata).order - parseRoutineStepMeta(b.metadata).order);
+}
+
+export function reorderRoutineSteps(routineId: string, orderedStepIds: string[]): void {
+  const steps = getRoutineSteps(routineId);
+  const byId = new Map(steps.map((s) => [s.id, s]));
+  orderedStepIds.forEach((stepId, index) => {
+    const step = byId.get(stepId);
+    if (!step) return;
+    const meta = parseRoutineStepMeta(step.metadata);
+    updateItemMetadata(stepId, { ...meta, order: index } as unknown as Record<string, any>);
+  });
+}
+
+export function startRoutineSession(routineId: string): string {
+  const routine = getItemWithMetadata(routineId);
+  const sessionId = createItem('routine-session', routine?.title ?? 'Routine', 'active');
+  setRelation(sessionId, 'routine-template', routineId);
+  const meta: RoutineSessionMeta = { currentStepIndex: 0, stepStartedAt: Date.now(), elapsedBeforePauseMs: 0, status: 'running' };
+  updateItemMetadata(sessionId, meta as unknown as Record<string, any>);
+  return sessionId;
+}
+
+// Looks up an in-progress ('active' status) routine-session, optionally
+// scoped to one routine. With no routineId, returns the most recent active
+// session across all routines — used for app-launch/foreground recovery.
+export function getActiveRoutineSession(routineId?: string): Item | null {
+  const sessions = getDb().getAllSync<Item>(
+    `SELECT * FROM items WHERE type = 'routine-session' AND status = 'active' AND deletedAt IS NULL ORDER BY createdAt DESC`
+  );
+  if (!routineId) return sessions[0] ?? null;
+  for (const session of sessions) {
+    if (getRelation(session.id, 'routine-template') === routineId) return session;
+  }
+  return null;
+}
+
+export function getRoutineForSession(sessionId: string): string | null {
+  return getRelation(sessionId, 'routine-template');
+}
+
+export function advanceRoutineSession(sessionId: string, opts?: { skipped?: boolean }): void {
+  const session = getItemWithMetadata(sessionId);
+  if (!session) return;
+  const meta = parseRoutineSessionMeta(session.metadata);
+  logActivity(sessionId, opts?.skipped ? 'routine-step-skipped' : 'routine-step-completed', JSON.stringify({ stepIndex: meta.currentStepIndex }));
+  const nextMeta: RoutineSessionMeta = {
+    ...meta,
+    currentStepIndex: meta.currentStepIndex + 1,
+    stepStartedAt: Date.now(),
+    elapsedBeforePauseMs: 0,
+  };
+  updateItemMetadata(sessionId, nextMeta as unknown as Record<string, any>);
+}
+
+export function pauseRoutineSession(sessionId: string): void {
+  const session = getItemWithMetadata(sessionId);
+  if (!session) return;
+  const meta = parseRoutineSessionMeta(session.metadata);
+  if (meta.status === 'paused') return;
+  const elapsed = meta.elapsedBeforePauseMs + Math.max(Date.now() - meta.stepStartedAt, 0);
+  updateItemMetadata(sessionId, { ...meta, status: 'paused', elapsedBeforePauseMs: elapsed } as unknown as Record<string, any>);
+}
+
+export function resumeRoutineSession(sessionId: string): void {
+  const session = getItemWithMetadata(sessionId);
+  if (!session) return;
+  const meta = parseRoutineSessionMeta(session.metadata);
+  if (meta.status === 'running') return;
+  updateItemMetadata(sessionId, { ...meta, status: 'running', stepStartedAt: Date.now() } as unknown as Record<string, any>);
+}
+
+export function addRoutineSessionStepTime(sessionId: string, extraSeconds: number): void {
+  const session = getItemWithMetadata(sessionId);
+  if (!session) return;
+  const meta = parseRoutineSessionMeta(session.metadata);
+  const existing = meta.stepOverrides?.[meta.currentStepIndex]?.extraSeconds ?? 0;
+  const stepOverrides = { ...(meta.stepOverrides ?? {}), [meta.currentStepIndex]: { extraSeconds: existing + extraSeconds } };
+  updateItemMetadata(sessionId, { ...meta, stepOverrides } as unknown as Record<string, any>);
+}
+
+// Does NOT write to domainContributions or touch any potentialStat linkage
+// — routine completion is deliberately invisible to Potential, per the
+// product brief's double-counting guardrail. Only a linked habit's own
+// maintenance math (streak-based) may affect Potential.
+export function finishRoutineSession(sessionId: string): void {
+  updateItemStatus(sessionId, 'completed');
 }
 
 export function isPlannedForToday(item: Item): boolean {
