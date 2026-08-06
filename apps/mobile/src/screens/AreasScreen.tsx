@@ -3,13 +3,14 @@ import { View, Text, TouchableOpacity, ScrollView, Alert, StyleSheet } from 'rea
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { useAreas } from '../hooks/useDb';
-import { createItem, updateItem, deleteItem, getAreaProjectCount, computeDomainScore } from '../db/database';
+import { createItem, updateItem, deleteItem, getAreaProjectCount, computeDomainScore, convertAreaToSkill } from '../db/database';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
 import { LensSurface } from '../components/LensSurface';
 import { QuickCreateSheet } from '../components/QuickCreateSheet';
 import { RiverStoneSurface } from '../components/ui/RiverStoneSurface';
 import { useRegisterFabHoldAction } from '../hooks/useFabHoldAction';
+import { showActionSheet } from '../utils/actionSheet';
 import type { Item } from '../db/types';
 import { AreaBonsaiIcon } from '../components/icons/AreaBonsaiIcon';
 import { getDomainIcon } from '../utils/domainIcons';
@@ -47,11 +48,31 @@ export function AreasScreen() {
     refresh();
   };
 
+  const promptConvertToSkill = (item: Item) => {
+    const otherAreas = areas.filter((a) => a.id !== item.id);
+    if (otherAreas.length === 0) {
+      Alert.alert('No other Domain to move into', 'Convert to Skill re-homes this Domain’s Missions and Potential Stats onto another real Domain — create one first.');
+      return;
+    }
+    showActionSheet(`Convert "${item.title}" to a Skill — pick its primary Domain`, [
+      ...otherAreas.map((area) => ({
+        label: area.title,
+        onPress: () => {
+          const skillId = convertAreaToSkill(item.id, area.id);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          refresh();
+          (navigation as any).navigate('SkillDetail', { skillId, title: item.title });
+        },
+      })),
+    ]);
+  };
+
   const handleLongPress = (item: Item) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     Alert.alert(item.title, undefined, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Edit', onPress: () => { setEditTarget(item); setCreateOpen(true); } },
+      { text: 'Convert to Skill...', onPress: () => promptConvertToSkill(item) },
       {
         text: 'Delete',
         style: 'destructive',

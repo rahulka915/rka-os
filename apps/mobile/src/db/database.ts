@@ -792,6 +792,38 @@ export function computeSkillPracticeSummary(skillId: string): SkillPracticeSumma
   return { habitCompletions30d, routineSessionsCompleted };
 }
 
+// One-time migration for a Domain that was really always a capability (e.g.
+// "Music Production", "App Development" created before the app had a Skills
+// layer) — creates a real Skill in its place, re-homes its Missions and
+// Potential Stats onto a real Domain (`primaryAreaId`, required — Missions/
+// Potential Stats need an actual Domain to keep contributing to Potential;
+// a Skill itself never accepts either), moves its Achievements onto the new
+// Skill as milestones (achievementArea -> achievementSkill), and retires the
+// old Domain. Does not touch any domainContributions rows already recorded
+// against the old areaId — those simply stop being read once the Domain
+// item is gone from getItemsByType('area'), harmless orphans, not reused.
+export function convertAreaToSkill(areaId: string, primaryAreaId: string): string {
+  const area = getItemWithMetadata(areaId);
+  const skillId = createSkill(area?.title ?? 'Skill', primaryAreaId);
+
+  for (const mission of getProjectsForArea(areaId)) {
+    setRelation(mission.id, 'area', primaryAreaId);
+    linkMissionToSkill(mission.id, skillId);
+  }
+
+  for (const stat of getPotentialStatsForArea(areaId)) {
+    setPotentialStatArea(stat.id, primaryAreaId);
+  }
+
+  for (const achievement of getAchievementsForArea(areaId)) {
+    setRelation(achievement.id, 'achievementArea', null);
+    setRelation(achievement.id, 'achievementSkill', skillId);
+  }
+
+  deleteItem(areaId);
+  return skillId;
+}
+
 // ── Mission completion (mutually exclusive Mission vs. Achievement tier) ──
 
 // Completing a Mission always produces exactly one active domainContribution
