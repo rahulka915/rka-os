@@ -9,6 +9,7 @@ import {
   pickGroupThumbnailImageKey,
   MUSCLE_GROUPS,
 } from './exerciseLibrary.ts';
+import * as exerciseLibrary from './exerciseLibrary.ts';
 
 function makeExercise(id, title, meta) {
   return {
@@ -30,8 +31,8 @@ test('parseExerciseMeta falls back to full-body on missing/malformed metadata', 
 
 test('parseExerciseMeta reads valid fields and drops invalid ones', () => {
   assert.deepEqual(
-    parseExerciseMeta(JSON.stringify({ muscleGroup: 'chest', equipment: 'barbell', notes: 'form cue', imageKey: 'BarbellBenchPressfinal' })),
-    { muscleGroup: 'chest', equipment: 'barbell', notes: 'form cue', imageKey: 'BarbellBenchPressfinal' },
+    parseExerciseMeta(JSON.stringify({ muscleGroup: 'chest', equipment: 'barbell', movementFamily: 'chest-press', notes: 'form cue', imageKey: 'BarbellBenchPressfinal' })),
+    { muscleGroup: 'chest', equipment: 'barbell', movementFamily: 'chest-press', notes: 'form cue', imageKey: 'BarbellBenchPressfinal' },
   );
   assert.deepEqual(
     parseExerciseMeta(JSON.stringify({ muscleGroup: 'not-a-group', equipment: 'not-equipment', imageKey: 123 })),
@@ -86,4 +87,26 @@ test('pickGroupThumbnailImageKey returns undefined when no exercise in the group
     exercises: [makeExercise('1', 'Squat', { muscleGroup: 'legs' })],
   };
   assert.equal(pickGroupThumbnailImageKey(group), undefined);
+});
+
+test('exercise library exposes family grouping', () => {
+  assert.equal(typeof exerciseLibrary.groupExercisesByMovementFamily, 'function');
+});
+
+test('family grouping uses stored metadata then falls back to title inference', () => {
+  const exercises = [
+    makeExercise('1', 'Custom Horizontal Press', { muscleGroup: 'chest', movementFamily: 'chest-press' }),
+    makeExercise('2', 'Incline Dumbbell Bench Press', { muscleGroup: 'chest' }),
+    makeExercise('3', 'Wide Push Ups', { muscleGroup: 'chest' }),
+  ];
+  const groups = exerciseLibrary.groupExercisesByMovementFamily(exercises);
+  assert.deepEqual(groups.map((group) => [group.movementFamily, group.label, group.exercises.map((item) => item.id)]), [
+    ['chest-press', 'Chest Press', ['1', '2']],
+    ['push-up', 'Push-Up', ['3']],
+  ]);
+});
+
+test('family-aware search finds variations by the parent movement name', () => {
+  const exercises = [makeExercise('1', 'Incline Dumbbell Bench Press', { muscleGroup: 'chest' })];
+  assert.deepEqual(filterExercisesByQuery(exercises, 'chest press').map((item) => item.id), ['1']);
 });

@@ -14,6 +14,7 @@ import {
   groupExercisesByMuscle,
   filterExercisesByQuery,
   formatExerciseSubtitle,
+  inferMovementFamily,
   parseExerciseMeta,
   pickGroupThumbnailImageKey,
 } from '../utils/exerciseLibrary';
@@ -46,13 +47,13 @@ export function ExerciseLibraryScreen() {
 
   const handleSubmit = (draft: ExerciseDraft) => {
     if (editTarget) {
-      updateItemMetadata(editTarget.id, { muscleGroup: draft.muscleGroup, equipment: draft.equipment, notes: draft.notes, imageKey: draft.imageKey });
+      updateItemMetadata(editTarget.id, { muscleGroup: draft.muscleGroup, equipment: draft.equipment, movementFamily: draft.movementFamily ?? inferMovementFamily(draft.title), notes: draft.notes, imageKey: draft.imageKey });
       if (draft.title !== editTarget.title) {
         updateItemTitle(editTarget.id, draft.title);
       }
     } else {
       const id = createItem('exercise', draft.title, 'active');
-      updateItemMetadata(id, { muscleGroup: draft.muscleGroup, equipment: draft.equipment, notes: draft.notes, imageKey: draft.imageKey });
+      updateItemMetadata(id, { muscleGroup: draft.muscleGroup, equipment: draft.equipment, movementFamily: draft.movementFamily ?? inferMovementFamily(draft.title), notes: draft.notes, imageKey: draft.imageKey });
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     refresh();
@@ -76,7 +77,7 @@ export function ExerciseLibraryScreen() {
   const addStarters = () => {
     for (const starter of STARTER_EXERCISES) {
       const id = createItem('exercise', starter.title, 'active');
-      updateItemMetadata(id, { muscleGroup: starter.muscleGroup, equipment: starter.equipment, imageKey: starter.imageKey });
+      updateItemMetadata(id, { muscleGroup: starter.muscleGroup, equipment: starter.equipment, movementFamily: starter.movementFamily, imageKey: starter.imageKey });
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     refresh();
@@ -184,10 +185,10 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 12 },
   rowText: { flex: 1, gap: 2 },
   rowTitle: { fontSize: 16, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
-  rowSubtitle: { fontSize: 12, fontWeight: '500' },
+  rowSubtitle: { fontFamily: 'Inter_500Medium', fontSize: 12, fontWeight: '500' },
   empty: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 8, paddingHorizontal: 24 },
   emptyTitle: { fontSize: 18, fontWeight: '700', fontFamily: 'Inter_700Bold' },
-  emptySub: { fontSize: 14, fontWeight: '400', textAlign: 'center', marginBottom: 8 },
+  emptySub: { fontFamily: 'Inter_400Regular', fontSize: 14, fontWeight: '400', textAlign: 'center', marginBottom: 8 },
   primaryCard: { borderRadius: 14, paddingVertical: 14, paddingHorizontal: 24, alignItems: 'center', marginTop: 8 },
   primaryCardText: { fontSize: 15, fontWeight: '700', fontFamily: 'Inter_700Bold' },
   linkText: { fontSize: 14, fontWeight: '600', fontFamily: 'Inter_600SemiBold', marginTop: 8 },

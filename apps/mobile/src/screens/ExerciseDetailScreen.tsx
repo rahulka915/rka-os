@@ -143,10 +143,10 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     marginBottom: 8,
   },
-  tipsText: { fontSize: 15, fontWeight: '400', lineHeight: 21 },
-  emptyText: { fontSize: 14, fontWeight: '400' },
+  tipsText: { fontFamily: 'Inter_400Regular', fontSize: 15, fontWeight: '400', lineHeight: 21 },
+  emptyText: { fontFamily: 'Inter_400Regular', fontSize: 14, fontWeight: '400' },
   templateRow: { paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth },
   templateTitle: { fontSize: 15, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
   progressEmpty: { borderRadius: 14, paddingVertical: 20, paddingHorizontal: 16, alignItems: 'center' },
-  progressEmptyText: { fontSize: 13, fontWeight: '500', textAlign: 'center' },
+  progressEmptyText: { fontFamily: 'Inter_500Medium', fontSize: 13, fontWeight: '500', textAlign: 'center' },
 });

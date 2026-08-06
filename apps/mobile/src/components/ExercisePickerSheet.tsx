@@ -8,7 +8,7 @@ import { getItemComposerMaterial, getThemeColors, spacing } from '../theme';
 import { BottomSheet } from './ui/BottomSheet';
 import { ExerciseEditSheet, type ExerciseDraft } from './ExerciseEditSheet';
 import { ExerciseThumbnail } from './ExerciseThumbnail';
-import { groupExercisesByMuscle, filterExercisesByQuery, formatExerciseSubtitle, parseExerciseMeta } from '../utils/exerciseLibrary';
+import { groupExercisesByMovementFamily, filterExercisesByQuery, formatExerciseSubtitle, inferMovementFamily, parseExerciseMeta } from '../utils/exerciseLibrary';
 import type { Item } from '../db/types';
 
 interface ExercisePickerSheetProps {
@@ -28,9 +28,9 @@ export function ExercisePickerSheet({ visible, onClose, onPick }: ExercisePicker
   const groups = useMemo(() => {
     if (query.trim()) {
       const filtered = filterExercisesByQuery(exercises, query);
-      return filtered.length ? [{ muscleGroup: 'full-body' as const, label: 'Results', exercises: filtered }] : [];
+      return filtered.length ? [{ movementFamily: 'other' as const, label: 'Results', exercises: filtered }] : [];
     }
-    return groupExercisesByMuscle(exercises);
+    return groupExercisesByMovementFamily(exercises);
   }, [exercises, query]);
 
   const handlePick = (item: Item) => {
@@ -42,14 +42,15 @@ export function ExercisePickerSheet({ visible, onClose, onPick }: ExercisePicker
 
   const handleCreateSubmit = (draft: ExerciseDraft) => {
     const id = createItem('exercise', draft.title, 'active');
-    updateItemMetadata(id, { muscleGroup: draft.muscleGroup, equipment: draft.equipment, notes: draft.notes, imageKey: draft.imageKey });
+    const movementFamily = draft.movementFamily ?? inferMovementFamily(draft.title);
+    updateItemMetadata(id, { muscleGroup: draft.muscleGroup, equipment: draft.equipment, movementFamily, notes: draft.notes, imageKey: draft.imageKey });
     refresh();
     const created: Item = {
       id,
       type: 'exercise',
       title: draft.title,
       status: 'active',
-      metadata: JSON.stringify({ muscleGroup: draft.muscleGroup, equipment: draft.equipment, notes: draft.notes, imageKey: draft.imageKey }),
+      metadata: JSON.stringify({ muscleGroup: draft.muscleGroup, equipment: draft.equipment, movementFamily, notes: draft.notes, imageKey: draft.imageKey }),
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
@@ -89,7 +90,7 @@ export function ExercisePickerSheet({ visible, onClose, onPick }: ExercisePicker
         </TouchableOpacity>
         <ScrollView style={styles.list} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           {groups.map((group) => (
-            <View key={group.muscleGroup + group.label} style={styles.sectionRows}>
+            <View key={group.movementFamily + group.label} style={styles.sectionRows}>
               <Text style={[styles.sectionLabel, { color: palette.textTertiary }]}>{group.label.toUpperCase()}</Text>
               {group.exercises.map((item) => (
                 <TouchableOpacity key={item.id} style={styles.row} onPress={() => handlePick(item)}>
@@ -119,7 +120,7 @@ export function ExercisePickerSheet({ visible, onClose, onPick }: ExercisePicker
 const styles = StyleSheet.create({
   sheet: { marginHorizontal: 16, maxHeight: '80%' },
   content: { paddingBottom: spacing[5], flexGrow: 1 },
-  actionText: { fontSize: 16, fontWeight: '400' },
+  actionText: { fontFamily: 'Inter_400Regular', fontSize: 16, fontWeight: '400' },
   search: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, marginBottom: 8 },
   newRow: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 10, paddingVertical: 12, alignItems: 'center', marginBottom: 12 },
   newRowText: { fontSize: 15, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
@@ -129,5 +130,5 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 },
   rowText: { flex: 1, gap: 2 },
   rowTitle: { fontSize: 15, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
-  rowSubtitle: { fontSize: 12, fontWeight: '500' },
+  rowSubtitle: { fontFamily: 'Inter_500Medium', fontSize: 12, fontWeight: '500' },
 });

@@ -115,14 +115,37 @@ function inferMuscleGroup(stem) {
   return 'full-body';
 }
 
+function inferMovementFamily(title) {
+  const rules = [
+    ['chest-stretch', /chest stretch/i], ['triceps-stretch', /triceps stretch/i],
+    ['forearm-stretch', /forearm stretch/i], ['arm-bar', /arm bar/i],
+    ['mobility', /childs pose|arm swings/i], ['renegade-row', /renegade row/i],
+    ['inverted-row', /inverted row/i], ['face-pull', /face pull|reverse fly|rear delt fly/i],
+    ['lat-pulldown', /lat pulldown/i], ['pull-up', /pull up|pull ups|chin up/i],
+    ['triceps-pushdown', /tricep pushdown|triceps pushdown/i], ['triceps-kickback', /tricep kickback/i],
+    ['wrist-curl', /wrist curl|finger curl/i], ['wrist-mobility', /^wrist$|wrist twist|wrist adduction/i],
+    ['lunge', /lunge/i], ['biceps-curl', /curl/i],
+    ['triceps-extension', /tricep|triceps|skull crusher|seated cable extension/i],
+    ['push-up', /push up|push ups/i],
+    ['chest-press', /bench press|chest press|incline machine press|close grip press|floor press|svend press|tate press/i],
+    ['chest-fly', /fly|crossover/i], ['dip', /\bdip\b|\bdips\b/i], ['pullover', /pullover/i],
+    ['row', /\brow\b|\brows\b/i], ['shrug', /shrug/i], ['deadlift', /deadlift|rack pull/i],
+    ['squat', /squat/i], ['good-morning', /good morning/i], ['back-extension', /hyper extension/i],
+    ['plank', /plank/i], ['bird-dog', /bird dog/i], ['burpee', /burpees?/i], ['crab-walk', /crab walk/i],
+  ];
+  return rules.find(([, pattern]) => pattern.test(title))?.[0] ?? 'other';
+}
+
 const entries = files.map((file) => {
   const stem = file.replace(/\.png$/i, '');
+  const title = formatTitle(file);
   return {
     file,
     imageKey: stem,
-    title: formatTitle(file),
+    title,
     equipment: inferEquipment(stem),
     muscleGroup: inferMuscleGroup(stem),
+    movementFamily: inferMovementFamily(title),
   };
 });
 
@@ -141,6 +164,11 @@ if (uglyTitles.length > 0) {
 const dupeTitles = entries.map((e) => e.title).filter((t, i, arr) => arr.indexOf(t) !== i);
 if (dupeTitles.length > 0) {
   console.error('Duplicate titles:', dupeTitles);
+  process.exit(1);
+}
+const unclassifiedFamilies = entries.filter((e) => e.movementFamily === 'other');
+if (unclassifiedFamilies.length > 0) {
+  console.error('Exercises missing movement families:', unclassifiedFamilies.map((e) => e.title));
   process.exit(1);
 }
 
@@ -164,14 +192,15 @@ fs.writeFileSync(IMAGES_OUT, imagesFile);
 // --- Write src/utils/starterExercises.ts ---
 const startersSorted = [...entries].sort((a, b) => a.title.localeCompare(b.title));
 const startersBody = startersSorted
-  .map((e) => `  { title: '${e.title.replace(/'/g, "\\'")}', muscleGroup: '${e.muscleGroup}', equipment: '${e.equipment}', imageKey: '${e.imageKey}' },`)
+  .map((e) => `  { title: '${e.title.replace(/'/g, "\\'")}', muscleGroup: '${e.muscleGroup}', equipment: '${e.equipment}', movementFamily: '${e.movementFamily}', imageKey: '${e.imageKey}' },`)
   .join('\n');
-const startersFile = `import type { MuscleGroup, Equipment } from './exerciseLibrary';
+const startersFile = `import type { MuscleGroup, Equipment, MovementFamily } from './exerciseLibrary';
 
 export interface StarterExercise {
   title: string;
   muscleGroup: MuscleGroup;
   equipment?: Equipment;
+  movementFamily: MovementFamily;
   imageKey?: string;
 }
 
