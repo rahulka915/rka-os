@@ -7,8 +7,8 @@ BUDGET = {'head-face':30,'head-ear':6,'head-hair-back':14,'head-hair-front':10,
  'arm-R-upper':4,'arm-R-fore':4,'arm-R-hand':6,'arm-L-upper':4,'arm-L-fore':4,'arm-L-hand':6,
  'leg-R-thigh':4,'leg-R-shin':4,'leg-R-foot':6,'leg-L-thigh':4,'leg-L-shin':4,'leg-L-foot':6}
 PALETTE = ['0E0A0C','161B38','E89359','DB3720','AD231B','925B3E','401E20','FFFFFF']
-CONTAINED_MIN = 0.85   # fraction of a path's area that must lie inside its own proxy
-GROW = 1.10            # proxy tolerance, since art may sit slightly proud of the blocking shape
+CONTAINED_MIN = 0.90   # fraction of a path's area that must lie inside its own proxy
+PROXY_TOL = 25         # units of slack outside the proxy edge, in artboard units
 PALETTE_TOL = 40       # euclidean RGB distance
 
 def rgb(h):
@@ -16,11 +16,14 @@ def rgb(h):
     except Exception: return None
 
 def near_palette(h):
+    # Radius is PALETTE_TOL exactly. The previous "* 3" made the real radius
+    # 40*sqrt(3) = 69.3, which admitted genuinely wrong colours - #FF6633 was
+    # accepted as sash red at distance 62.2.
     v = rgb(h)
     if v is None: return False
     for p in PALETTE:
         q = rgb(p)
-        if sum((v[i]-q[i])**2 for i in range(3)) <= PALETTE_TOL**2 * 3: return True
+        if sum((v[i]-q[i])**2 for i in range(3)) <= PALETTE_TOL**2: return True
     return False
 
 def inside(pt, poly):
@@ -30,9 +33,28 @@ def inside(pt, poly):
         if ((y1 > y) != (y2 > y)) and x < (x2-x1)*(y-y1)/(y2-y1) + x1: c = not c
     return c
 
-def grow(poly, f=GROW):
-    cx = sum(p[0] for p in poly)/len(poly); cy = sum(p[1] for p in poly)/len(poly)
-    return [[cx + (p[0]-cx)*f, cy + (p[1]-cy)*f] for p in poly]
+def dist_to_edge(pt, poly):
+    """Shortest distance from pt to the polygon boundary."""
+    x, y = pt; best = float('inf'); n = len(poly)
+    for i in range(n):
+        x1, y1 = poly[i]; x2, y2 = poly[(i+1) % n]
+        dx, dy = x2-x1, y2-y1
+        L2 = dx*dx + dy*dy
+        t = 0.0 if L2 == 0 else max(0.0, min(1.0, ((x-x1)*dx + (y-y1)*dy) / L2))
+        px, py = x1 + t*dx, y1 + t*dy
+        d = ((x-px)**2 + (y-py)**2) ** 0.5
+        if d < best: best = d
+    return best
+
+def within(pt, poly, tol=PROXY_TOL):
+    """True dilation: inside the polygon, or within tol of its boundary.
+
+    Replaces the old grow()-from-centroid, which is only a dilation for CONVEX
+    polygons. head-bandana piece 3 has its centroid outside itself, so scaling
+    from it moved vertices the wrong way - five of eleven landed outside the
+    "grown" shape. Edge distance is correct for any simple polygon.
+    """
+    return inside(pt, poly) or dist_to_edge(pt, poly) <= tol
 
 def samples_of(path, n=13):
     """Area-sample a path from its anchors. Falls back to the bbox centre."""
@@ -51,14 +73,14 @@ def samples_of(path, n=13):
 
 def frac_in(samples, polys):
     if not samples: return 0.0
-    hit = sum(1 for s in samples if any(inside(s, p) for p in polys))
+    hit = sum(1 for s in samples if any(within(s, p) for p in polys))
     return hit / float(len(samples))
 
 def main():
     data = json.load(open(sys.argv[1]))
     want = sys.argv[2:] or sorted(BUDGET)
     proxies, paths = data['proxies'], data['paths']
-    grown = {k: [grow(p) for p in v['polys']] for k, v in proxies.items() if v['polys']}
+    shapes = {k: v['polys'] for k, v in proxies.items() if v['polys']}
     fails = []
     for s in want:
         mine = [p for p in paths if p['slot'] == s]
@@ -67,7 +89,7 @@ def main():
             fails.append('%s: NO PROXY' % s); continue
         if not mine:
             fails.append('%s: EMPTY' % s); continue
-        if s not in grown:
+        if s not in shapes:
             fails.append('%s: proxy has no polygons' % s); continue
 
         # 1. path budget
@@ -81,10 +103,10 @@ def main():
         # with a neighbour necessarily has a large fraction OUTSIDE its own proxy.
         for p in mine:
             sm = samples_of(p)
-            f_own = frac_in(sm, grown[s])
+            f_own = frac_in(sm, shapes[s])
             if f_own >= CONTAINED_MIN: continue
-            leak = sorted(((frac_in([q for q in sm if not any(inside(q, pl) for pl in grown[s])], gp), o)
-                           for o, gp in grown.items() if o != s), reverse=True)
+            leak = sorted(((frac_in([q for q in sm if not any(within(q, pl) for pl in shapes[s])], gp), o)
+                           for o, gp in shapes.items() if o != s), reverse=True)
             where = (' - %.0f%% of the escaping area is in %s' % (leak[0][0]*100, leak[0][1])) if leak and leak[0][0] > 0.2 else ''
             fails.append('%s: path %d only %.0f%% inside its own proxy%s'
                          % (s, p['i'], f_own*100, where))
