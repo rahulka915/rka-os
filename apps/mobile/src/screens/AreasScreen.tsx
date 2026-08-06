@@ -1,16 +1,18 @@
 import { useCallback, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Alert, StyleSheet } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { useAreas } from '../hooks/useDb';
-import { createItem, updateItem, deleteItem, getAreaProjectCount } from '../db/database';
+import { createItem, updateItem, deleteItem, getAreaProjectCount, computeDomainScore } from '../db/database';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
 import { LensSurface } from '../components/LensSurface';
 import { QuickCreateSheet } from '../components/QuickCreateSheet';
+import { RiverStoneSurface } from '../components/ui/RiverStoneSurface';
 import { useRegisterFabHoldAction } from '../hooks/useFabHoldAction';
 import type { Item } from '../db/types';
 import { AreaBonsaiIcon } from '../components/icons/AreaBonsaiIcon';
+import { getDomainIcon } from '../utils/domainIcons';
 
 // No header "+" — holding the dock FAB while this screen is focused opens
 // New Area instead (see useRegisterFabHoldAction / App.tsx's runFabHold).
@@ -21,6 +23,15 @@ export function AreasScreen() {
   const palette = getThemeColors(isDark);
   const [createOpen, setCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Item | null>(null);
+  const [scores, setScores] = useState<Record<string, number>>({});
+
+  useFocusEffect(
+    useCallback(() => {
+      const next: Record<string, number> = {};
+      for (const area of areas) next[area.id] = computeDomainScore(area.id);
+      setScores(next);
+    }, [areas]),
+  );
 
   useRegisterFabHoldAction(useCallback(() => setCreateOpen(true), []));
 
@@ -72,21 +83,32 @@ export function AreasScreen() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
-          <View style={styles.rows}>
-            {areas.map(area => {
+          <View style={styles.grid}>
+            {areas.map((area) => {
               const count = getAreaProjectCount(area.id);
+              const score = Math.round(scores[area.id] ?? 0);
+              const DomainIcon = getDomainIcon(area.title);
               return (
                 <TouchableOpacity
                   key={area.id}
-                  style={[styles.row, { backgroundColor: palette.surface }]}
-                  activeOpacity={0.7}
+                  style={styles.cardWrap}
+                  activeOpacity={0.82}
                   onPress={() => (navigation as any).navigate('AreaDetail', { areaId: area.id, title: area.title })}
                   onLongPress={() => handleLongPress(area)}
                   delayLongPress={400}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${area.title}, ${score}% potential, ${count} missions`}
                 >
-                  <AreaBonsaiIcon size={34} />
-                  <Text style={[styles.rowTitle, { color: palette.text }]} numberOfLines={1}>{area.title}</Text>
-                  <Text style={[styles.rowCount, { color: palette.textTertiary }]}>{count}</Text>
+                  <RiverStoneSurface variant="card" isDark={isDark} style={styles.card} stretchToFill>
+                    <View style={styles.cardContent}>
+                      <DomainIcon size={30} color={palette.antiqueBrass} strokeWidth={1.6} />
+                      <Text style={[styles.cardTitle, { color: palette.ivory }]} numberOfLines={2}>{area.title}</Text>
+                      <View style={styles.cardFooter}>
+                        <Text style={[styles.cardScore, { color: palette.vermilion }]}>{score}%</Text>
+                        <Text style={[styles.cardCount, { color: palette.greige }]}>{count} missions</Text>
+                      </View>
+                    </View>
+                  </RiverStoneSurface>
                 </TouchableOpacity>
               );
             })}
@@ -112,29 +134,42 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 24,
   },
-  rows: {
-    gap: 8,
-  },
-  row: {
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+  grid: {
     flexDirection: 'row',
-    alignItems: 'center',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: 10,
+    rowGap: 12,
   },
-  rowTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    fontFamily: 'Inter_600SemiBold',
+  cardWrap: {
+    width: '31%',
+    minHeight: 44,
+  },
+  card: {
+    aspectRatio: 0.92,
+  },
+  cardContent: {
     flex: 1,
+    padding: 12,
+    justifyContent: 'space-between',
   },
-  rowCount: {
+  cardTitle: {
     fontSize: 14,
-    fontWeight: '600',
-    fontFamily: 'Inter_600SemiBold',
-    marginLeft: 12,
+    fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
+    marginTop: 8,
+  },
+  cardFooter: {
+    gap: 2,
+  },
+  cardScore: {
+    fontSize: 16,
+    fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
+  },
+  cardCount: {
+    fontSize: 11,
+    fontWeight: '500',
+    fontFamily: 'Inter_500Medium',
   },
   empty: {
     flex: 1,
