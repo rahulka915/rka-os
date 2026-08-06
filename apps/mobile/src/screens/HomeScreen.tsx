@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import Animated, { FadeIn, ReduceMotion } from 'react-native-reanimated';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { ScrollViewContainer } from 'react-native-reorderable-list';
 import { YStack } from 'tamagui';
 import * as Haptics from 'expo-haptics';
@@ -12,6 +12,7 @@ import { TodayCard } from '../components/home/TodayCard';
 import { HabitsWidget } from '../components/home/HabitsWidget';
 import { HomeTaskRow } from '../components/home/HomeTaskRow';
 import { RoninJourneyPrototype } from '../components/home/RoninJourneyPrototype';
+import { JourneySummaryStrip } from '../components/home/JourneySummaryStrip';
 import { useHomeData, useUpcomingPreview, useTodayHabits, useProjects } from '../hooks/useDb';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { useItemComposer } from '../components/item-composer';
@@ -26,6 +27,7 @@ import {
   deleteItem,
   formatDate,
   computeOverallPotential,
+  getFocus,
 } from '../db/database';
 import { LACQUER_DISC_COMPLETION_DURATION } from '../components/ui/LacquerDiscControl';
 import { getThemeColors } from '../theme';
@@ -51,6 +53,7 @@ const VIEW_CHIPS: Array<{ key: HomeView; label: string }> = [
 ];
 
 export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpcoming }: HomeScreenProps) {
+  const navigation = useNavigation();
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
   const { revision: composerRevision } = useItemComposer();
@@ -66,6 +69,7 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
   const [somedayItems, setSomedayItems] = useState<Item[]>([]);
   const [logbookItems, setLogbookItems] = useState<Item[]>([]);
   const [potentialPercent, setPotentialPercent] = useState(0);
+  const [focusLabel, setFocusLabel] = useState<string | null>(null);
 
   // Anytime/Upcoming/Someday are task-only (matching the dedicated Tasks/
   // Upcoming screens and GTD convention) — Domains/Missions/Habits/Workouts
@@ -77,6 +81,7 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
     setSomedayItems(getItemsByType('task').filter((item) => item.status === 'someday'));
     setLogbookItems(getCompletedItems());
     setPotentialPercent(computeOverallPotential());
+    setFocusLabel(getFocus()?.label ?? null);
   }, []);
 
   const getProjectTitle = useCallback((item: Item): string | null => {
@@ -269,6 +274,12 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
           totalCount={todayItems.length}
           isDark={isDark}
           potentialPercent={potentialPercent}
+        />
+        <JourneySummaryStrip
+          isDark={isDark}
+          potentialPercent={potentialPercent}
+          focusLabel={focusLabel}
+          onPress={() => (navigation as any).navigate('Menu', { screen: 'Potential' })}
         />
 
         {/* Quick actions: Medication logging (Inbox now lives in the header).
