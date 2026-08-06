@@ -26,7 +26,7 @@ Each arrow is one `itemRelations` edge, labeled with its `relationType` — read
 
 ### `items` — the master table
 
-Every entity type (`area`, `project`, `task`, `habit`, `medication`, `workout-template`, `workout-block`, `exercise`, `workout-session`, `meal`) is a row here, discriminated by `type`.
+Every entity type (`area`, `project`, `task`, `habit`, `medication`, `workout-template`, `workout-block`, `exercise`, `workout-session`, `meal`, `potential-stat`, `achievement`, `focus`) is a row here, discriminated by `type`.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -66,10 +66,30 @@ Currently used relations:
 - `workout-block -> workout-template` (relationType `'workout-template'`)
 - `workout-block -> exercise` (relationType `'exercise'`)
 - `workout-session -> workout-template` (relationType `'workout-template'`, optional — only set for template-started sessions)
+- `potential-stat -> area` (relationType `'potentialStatArea'` — deliberately NOT `'area'`, so Potential Stats never leak into `getRelatedItems(areaId, 'area')`/`getAreaProjectCount`, which are Mission-specific)
+- `achievement -> area` (relationType `'achievementArea'`, same reasoning — kept out of Mission rollups)
 
 ### `itemInstances`, `activityLogs`, `appSettings`
 
 Supporting tables, not part of the entity/relation model: `itemInstances` tracks per-day scheduling instances of recurring items; `activityLogs` is an audit trail (dose logs, status changes); `appSettings` is a flat key-value store.
+
+### `domainContributions` — live Domain scoring effects
+
+One row per completion-event's *current, decaying* effect on a Domain's score — kept deliberately separate from the permanent `items` rows (`project`, `achievement`) that record history, so the scoring formula/defaults can be re-tuned, or one contribution soft-disabled, without ever touching that history. See `src/utils/domainScoring.ts` for the decay/lift math and `src/db/database.ts`'s `completeMission`/`setMissionAchievementEligible`/`computeDomainScore` for how rows here get created and read.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | TEXT PK | uuid |
+| `areaId` | TEXT | the Domain this contribution affects |
+| `sourceType` | TEXT | `'mission'` \| `'achievement'` |
+| `sourceId` | TEXT | id of the `project` or `achievement` item that produced this contribution |
+| `magnitude` | REAL | base strength at `occurredAt`, as a fraction of `MAX_ACHIEVEMENT_LIFT` (0..1) |
+| `halfLifeDays` | REAL | decay half-life |
+| `occurredAt` | INTEGER | epoch ms the decay clock starts from — the Mission's *original* completion date, even across achievement-eligibility upgrades/downgrades |
+| `excludedAt` | INTEGER? | soft-disable timestamp (NULL = active). Never deleted — same convention as `archivedAt`/`deletedAt` on `items` |
+| `createdAt` | INTEGER | epoch ms |
+
+At most one row is active per completion event: completing a Mission creates exactly one (Mission-tier for ordinary Missions, Achievement-tier instead-of for `achievementEligible` ones — never both). Toggling `achievementEligible` after completion excludes one tier's row and reactivates/creates the other, always preserving the original `occurredAt`.
 
 ## Entity type reference
 
@@ -88,6 +108,15 @@ Supporting tables, not part of the entity/relation model: `itemInstances` tracks
 | `exercise` | built | `muscleGroup`, `equipment`, `notes`, `imageKey` |
 | `workout-session` | built | none (sets are logged as `activityLogs` rows, `actionType: 'workout-set-logged'`, `entityId` = exercise id, `details`: `{sessionId, setNumber, reps, weight, weightUnit}`) |
 | `meal` | declared, not built | — |
+| `potential-stat` | built | `seedKey` (only on the 4 legacy-migrated defaults — Physique/Skin/Oral Hygiene/Vitality) |
+| `achievement` | built | `earnedAt` (YYYY-MM-DD, the real date — separate from `createdAt` so retrospective/backdated trophies don't inflate current Potential), `source` (`'mission'` \| `'milestone'` \| `'manual'`), `sourceId` (originating Mission/milestone item id, if auto-created), `contributesToScore` (boolean — `false` = display-only trophy, no `domainContributions` row; toggling this after creation must go through `setAchievementContributesToScore`, which is the only thing that actually creates/reactivates/excludes the `domainContributions` row — the flag alone does nothing) |
+| `focus` | built | `weights` (`Record<areaId, number>`) — singleton row (title = the focus label); absence means equal (1x) weighting for every Domain |
+
+`project` also gains a `metadata.achievementEligible` boolean (default `false`) — set at any time, before or after completion, and read at completion time to decide whether completing the Mission creates a permanent `achievement` trophy + Achievement-tier `domainContributions` row, or just an ordinary Mission-tier `domainContributions` row. Toggling it after completion runs the upgrade/downgrade flow in `setMissionAchievementEligible` (excludes one contribution tier, reactivates/creates the other, keeps the original completion date, never deletes the trophy once created).
+
+### Potential / Domain scoring
+
+Domain score = live "maintenance" baseline (average % across the Domain's linked `potential-stat` items, each stat's % itself the average, across its assigned habits, of `min(streak/targetDays, 1) * 100`) **plus** a capped, decaying "achievement lift" from active `domainContributions` rows, combined via a product-of-complements diminishing-returns formula so multiple overlapping contributions approach the cap (`MAX_ACHIEVEMENT_LIFT = 30`) without pinning it. Overall Potential is a weighted average of Domain scores, weights defaulting to 1 (equal) and overridden per-Domain by the active `focus` row's `weights`. See `src/utils/domainScoring.ts` (pure math) and `src/db/database.ts`'s `computeDomainScore`/`computeOverallPotential` (orchestration). Changing Current Focus only changes these read-time weights — it never resets or touches Domains/Missions/Achievements/history.
 
 ## Medication packaging & stock
 
