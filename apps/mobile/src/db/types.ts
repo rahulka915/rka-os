@@ -1,4 +1,4 @@
-export type ItemType = 'area' | 'project' | 'task' | 'habit' | 'medication' | 'workout-template' | 'workout-block' | 'exercise' | 'workout-session' | 'meal' | 'object' | 'routine' | 'routine-step' | 'routine-session';
+export type ItemType = 'area' | 'project' | 'task' | 'habit' | 'medication' | 'workout-template' | 'workout-block' | 'exercise' | 'workout-session' | 'meal' | 'object' | 'potential-stat' | 'achievement' | 'focus' | 'routine' | 'routine-step' | 'routine-session';
 export type ItemStatus = 'inbox' | 'active' | 'someday' | 'scheduled' | 'due-today' | 'overdue' | 'completed' | 'skipped' | 'archived' | 'cancelled';
 
 // Object's own possession-tracking lifecycle — independent of the generic ItemStatus
@@ -63,4 +63,20 @@ export interface AppSettingRow {
   key: string;
   value: string;
   updatedAt: number;
+}
+
+// One row per completion-event's live scoring effect on a Domain. Kept
+// separate from the permanent 'achievement'/'project' items records so the
+// scoring formula/defaults can be re-tuned or a contribution soft-disabled
+// without ever touching achievement or Mission history.
+export interface DomainContributionRow {
+  id: string;
+  areaId: string;
+  sourceType: 'mission' | 'achievement';
+  sourceId: string;
+  magnitude: number;
+  halfLifeDays: number;
+  occurredAt: number;
+  excludedAt?: number;
+  createdAt: number;
 }

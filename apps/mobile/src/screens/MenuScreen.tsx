@@ -15,7 +15,7 @@ import {
   ToGetParcelIcon,
   WorkoutTrainingIcon,
 } from '../components/icons/CollectionIcons';
-import { Sparkles, ListChecks } from '../icons';
+import { Sparkles, Flag, ListChecks } from '../icons';
 
 const CALENDAR_GOLD = '#D4B078';
 
@@ -69,10 +69,26 @@ export function MenuScreen() {
     {
       route: 'Potential',
       label: 'Potential',
-      sub: 'Character stats from your habits',
+      sub: 'Overall Potential and Domain scores',
       icon: Sparkles,
-      iconSize: 34,
-      accent: palette.purple,
+      iconSize: 38,
+      accent: palette.red,
+    },
+    {
+      route: 'Achievements',
+      label: 'Achievements',
+      sub: 'Permanent record of what you’ve accomplished',
+      icon: Sparkles,
+      iconSize: 38,
+      accent: CALENDAR_GOLD,
+    },
+    {
+      route: 'Focus',
+      label: 'Focus',
+      sub: 'Temporary emphasis across Domains',
+      icon: Flag,
+      iconSize: 38,
+      accent: palette.blue,
     },
     {
       route: 'Upcoming',
@@ -204,19 +220,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    rowGap: spacing[2],
+    rowGap: spacing[1] + 2,
   },
   cardWrap: {
     width: '31%',
   },
   card: {
-    aspectRatio: 1,
+    aspectRatio: 1.14,
   },
   cardContent: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
     paddingHorizontal: 6,
   },
   label: {

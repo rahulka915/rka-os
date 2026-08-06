@@ -1,21 +1,20 @@
 import { computeStreak } from './streak.ts';
 import type { Item } from '../db/types';
 
-export type PotentialStat = 'physique' | 'skin' | 'oralHygiene' | 'vitality';
-
-export const POTENTIAL_STATS: PotentialStat[] = ['physique', 'skin', 'oralHygiene', 'vitality'];
-
-export const POTENTIAL_STAT_LABELS: Record<PotentialStat, string> = {
-  physique: 'Physique',
-  skin: 'Skin',
-  oralHygiene: 'Oral Hygiene',
-  vitality: 'Vitality',
-};
+// A Potential Stat is a DB-backed 'potential-stat' item (see src/db/database.ts
+// getPotentialStats/getPotentialStatsForArea) — its id is what habits assign
+// to via metadata.potentialStat. There is no fixed enum any more; the four
+// original stats (Physique/Skin/Oral Hygiene/Vitality) are seeded as regular
+// items on first launch (see migratePotentialStats in database.ts).
+export interface PotentialStatItem {
+  id: string;
+  title: string;
+}
 
 const DEFAULT_TARGET_DAYS = 100;
 
 export interface HabitPotentialMeta {
-  potentialStat?: PotentialStat;
+  potentialStat?: string; // potential-stat item id
   potentialTargetDays?: number;
 }
 
@@ -23,7 +22,7 @@ export function parseHabitPotentialMeta(metadata?: string): HabitPotentialMeta {
   if (!metadata) return {};
   try {
     const parsed = JSON.parse(metadata);
-    if (!POTENTIAL_STATS.includes(parsed.potentialStat)) return {};
+    if (typeof parsed.potentialStat !== 'string' || !parsed.potentialStat) return {};
     const meta: HabitPotentialMeta = { potentialStat: parsed.potentialStat };
     meta.potentialTargetDays =
       typeof parsed.potentialTargetDays === 'number' && parsed.potentialTargetDays > 0
@@ -42,26 +41,27 @@ export interface StatContribution {
 }
 
 export interface PotentialStatResult {
-  stat: PotentialStat;
+  stat: string; // potential-stat item id
   percent: number;
   contributions: StatContribution[];
 }
 
+// Per stat (keyed by potential-stat item id): average, across every habit
+// assigned to it, of min(currentStreak / targetDays, 1) * 100. This is the
+// Domain's "maintenance" signal — see computeDomainMaintenance in database.ts,
+// which averages these percents across a Domain's linked stats.
 export function computePotentialStats(
   habits: Item[],
+  stats: PotentialStatItem[],
   completedDatesByHabitId: Record<string, Set<string>>,
   today: string,
-): Record<PotentialStat, PotentialStatResult> {
-  const contributionsByStat: Record<PotentialStat, StatContribution[]> = {
-    physique: [],
-    skin: [],
-    oralHygiene: [],
-    vitality: [],
-  };
+): Record<string, PotentialStatResult> {
+  const contributionsByStat: Record<string, StatContribution[]> = {};
+  for (const stat of stats) contributionsByStat[stat.id] = [];
 
   for (const habit of habits) {
     const meta = parseHabitPotentialMeta(habit.metadata);
-    if (!meta.potentialStat) continue;
+    if (!meta.potentialStat || !(meta.potentialStat in contributionsByStat)) continue;
     const completedDates = completedDatesByHabitId[habit.id] ?? new Set<string>();
     const streak = computeStreak(habit.rrule, completedDates, today);
     const targetDays = meta.potentialTargetDays ?? DEFAULT_TARGET_DAYS;
@@ -69,13 +69,13 @@ export function computePotentialStats(
     contributionsByStat[meta.potentialStat].push({ habitId: habit.id, habitTitle: habit.title, percent });
   }
 
-  const result = {} as Record<PotentialStat, PotentialStatResult>;
-  for (const stat of POTENTIAL_STATS) {
-    const contributions = contributionsByStat[stat];
+  const result: Record<string, PotentialStatResult> = {};
+  for (const stat of stats) {
+    const contributions = contributionsByStat[stat.id];
     const percent = contributions.length === 0
       ? 0
       : contributions.reduce((sum, c) => sum + c.percent, 0) / contributions.length;
-    result[stat] = { stat, percent, contributions };
+    result[stat.id] = { stat: stat.id, percent, contributions };
   }
   return result;
 }

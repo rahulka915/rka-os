@@ -30,6 +30,7 @@ import {
   Inter_700Bold,
   Inter_800ExtraBold,
 } from '@expo-google-fonts/inter';
+import { Newsreader_600SemiBold } from '@expo-google-fonts/newsreader';
 import {
   TorriHomeIcon, SunDialCalendarIcon, EnsoMoreIcon, RoninMonIcon,
 } from './src/components/icons/DockIcons';
@@ -52,6 +53,7 @@ import { ItemComposerProvider, useItemComposer } from './src/components/item-com
 import { OverlayHostProvider } from './src/hooks/useOverlayHost';
 import { AssistantOverlay } from './src/components/assistant/AssistantOverlay';
 import { navigationRef } from './src/navigation/rootNavigation';
+import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { AreaDetailScreen } from './src/screens/AreaDetailScreen';
 import { ProjectDetailScreen } from './src/screens/ProjectDetailScreen';
 import { ObjectDetailScreen } from './src/screens/ObjectDetailScreen';
@@ -60,7 +62,7 @@ import { PersistentTimerBanner } from './src/components/PersistentTimerBanner';
 import { RoutineResumeBanner } from './src/components/RoutineResumeBanner';
 import { AppLoadingScreen } from './src/components/AppLoadingScreen';
 import { requestNotificationPermission, setBadgeCount } from './src/hooks/useNotifications';
-import { getInboxItems, getDb } from './src/db/database';
+import { getInboxItems, getDb, getItemsByType } from './src/db/database';
 import { registerBackgroundSync } from './src/services/backgroundSync';
 import { requestLocationPermission } from './src/services/locationReminders';
 import { auth, hasFirebaseConfig } from './src/lib/firebase';
@@ -94,7 +96,7 @@ const RootStack = createNativeStackNavigator();
 const TAB_ITEMS = [
   { name: 'Home',     Icon: TorriHomeIcon,        color: '#C44545' },
   { name: 'Calendar', Icon: SunDialCalendarIcon,  color: '#D4B078' },
-  { name: 'Menu',     Icon: EnsoMoreIcon,         color: '#4E9E86' },
+  { name: 'Menu',     Icon: EnsoMoreIcon,         color: '#C1503A' }, // vermilion — was teal (#4E9E86), see DESIGN_CHECKLIST.md app-wide-refinement-v1
   { name: 'Profile',  Icon: RoninMonIcon,         color: '#2b7ff0' },
 ];
 
@@ -190,11 +192,13 @@ function NavigationLayer({
   inboxOpen,
   setInboxOpen,
   onFabHold,
+  needsOnboarding,
 }: {
   isDark: boolean;
   inboxOpen: boolean;
   setInboxOpen: (open: boolean) => void;
   onFabHold: () => boolean;
+  needsOnboarding: boolean;
 }) {
   const { openCapture } = useItemComposer();
   const { isExperimentalHome } = useUIModeContext();
@@ -239,7 +243,15 @@ function NavigationLayer({
   return (
     <>
       <NavigationContainer ref={navigationRef}>
-        <RootStack.Navigator screenOptions={{ headerShown: false }}>
+        <RootStack.Navigator
+          screenOptions={{ headerShown: false }}
+          initialRouteName={needsOnboarding ? 'Onboarding' : 'Main'}
+        >
+          <RootStack.Screen name="Onboarding">
+            {({ navigation }) => (
+              <OnboardingScreen onDone={() => navigation.reset({ index: 0, routes: [{ name: 'Main' }] })} />
+            )}
+          </RootStack.Screen>
           <RootStack.Screen name="Main">
             {() => (
               <Tab.Navigator
@@ -327,6 +339,7 @@ export default function App() {
     Inter_600SemiBold,
     Inter_700Bold,
     Inter_800ExtraBold,
+    Newsreader_600SemiBold,
   });
 
   useEffect(() => {
@@ -336,6 +349,10 @@ export default function App() {
   const systemScheme = useColorScheme();
   const [manualDark, setManualDark] = useState<boolean | null>(true);
   const isDark = manualDark !== null ? manualDark : systemScheme === 'dark';
+
+  // Computed once at boot, not reactive — Onboarding itself creates the first
+  // Domain, and we don't want the gate flipping mid-session while it's open.
+  const [needsOnboarding] = useState(() => Platform.OS !== 'web' && getItemsByType('area').length === 0);
 
   const [inboxOpen, setInboxOpen] = useState(false);
   const holdActionRef = useRef<(() => void) | null>(null);
@@ -424,6 +441,7 @@ export default function App() {
                   inboxOpen={inboxOpen}
                   setInboxOpen={setInboxOpen}
                   onFabHold={runFabHold}
+                  needsOnboarding={needsOnboarding}
                 />
               </ItemComposerProvider>
             </OverlayHostProvider>

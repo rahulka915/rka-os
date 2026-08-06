@@ -3,7 +3,7 @@ import { Alert, View, Text, TouchableOpacity, TextInput, StyleSheet } from 'reac
 import { useFocusEffect, useRoute } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import ReorderableList from 'react-native-reorderable-list';
-import { getRelatedItems, getBlockingTask, applyManualOrder, updateItemStatus, deleteItem, planForToday, unplanToday, isPlannedForToday, getItemWithMetadata, updateItemMetadata } from '../db/database';
+import { getRelatedItems, getBlockingTask, applyManualOrder, updateItemStatus, deleteItem, planForToday, unplanToday, isPlannedForToday, getItemWithMetadata, updateItemMetadata, completeMission, setMissionAchievementEligible } from '../db/database';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
 import { LensSurface } from '../components/LensSurface';
@@ -23,6 +23,7 @@ import { showActionSheet } from '../utils/actionSheet';
 import { useHapticReorder } from '../hooks/useHapticReorder';
 import { readChecklist, checklistProgress } from '../utils/checklist';
 import { ProjectPlaceholderIcon } from '../components/icons/ProjectPlaceholderIcon';
+import { Sparkles } from '../icons';
 
 // Item-local, so it never makes a row's height depend on list position.
 function checklistLabel(item: Item): string | null {
@@ -108,6 +109,8 @@ export function ProjectDetailScreen() {
   const [tasks, setTasks] = useState<Item[]>([]);
   const [completingIds, setCompletingIds] = useState<Set<string>>(new Set());
   const [icon, setIcon] = useState<string | undefined>(undefined);
+  const [missionStatus, setMissionStatus] = useState<Item['status']>('active');
+  const [achievementEligible, setAchievementEligible] = useState(false);
   const emojiInputRef = useRef<TextInput>(null);
 
   const listKey = `project:${projectId}`;
@@ -117,6 +120,8 @@ export function ProjectDetailScreen() {
     const project = getItemWithMetadata(projectId);
     const meta = project?.metadata ? JSON.parse(project.metadata) : {};
     setIcon(typeof meta.icon === 'string' ? meta.icon : undefined);
+    setMissionStatus(project?.status ?? 'active');
+    setAchievementEligible(!!meta.achievementEligible);
   }, [projectId, listKey]);
 
   const saveIcon = useCallback((nextIcon: string) => {
@@ -152,6 +157,33 @@ export function ProjectDetailScreen() {
         return next;
       });
     }, LACQUER_DISC_COMPLETION_DURATION);
+  };
+
+  const handleMissionMenu = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    const actions = [];
+    if (missionStatus !== 'completed') {
+      actions.push({
+        label: 'Mark Mission Complete',
+        onPress: () => {
+          completeMission(projectId);
+          refresh();
+        },
+      });
+    }
+    actions.push({
+      label: achievementEligible ? 'Achievement-worthy: On (tap to turn off)' : 'Achievement-worthy: Off (tap to turn on)',
+      onPress: () => {
+        const next = !achievementEligible;
+        setMissionAchievementEligible(projectId, next);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        refresh();
+      },
+    });
+    showActionSheet(
+      missionStatus === 'completed' ? `${title} — Completed` : title,
+      actions,
+    );
   };
 
   const handleLongPress = (item: Item) => {
@@ -216,6 +248,11 @@ export function ProjectDetailScreen() {
   return (
     <LensSurface
       title={title}
+      headerRight={
+        <TouchableOpacity onPress={handleMissionMenu} accessibilityRole="button" accessibilityLabel="Mission achievement options" hitSlop={8}>
+          <Sparkles size={20} color={achievementEligible ? palette.red : palette.textMuted} strokeWidth={1.75} />
+        </TouchableOpacity>
+      }
       icon={
         <TouchableOpacity
           onPress={() => emojiInputRef.current?.focus()}
@@ -313,6 +350,7 @@ const styles = StyleSheet.create({
   },
   emptySub: {
     fontSize: 14,
+    fontFamily: 'Inter_400Regular',
     fontWeight: '400',
   },
   iconEmoji: {

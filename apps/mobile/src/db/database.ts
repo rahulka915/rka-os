@@ -1,5 +1,5 @@
 import * as SQLite from 'expo-sqlite';
-import { Item, ItemInstance, ActivityLog } from './types';
+import { Item, ItemInstance, ActivityLog, DomainContributionRow } from './types';
 import 'react-native-get-random-values';
 import { v4 as uuidv4 } from 'uuid';
 import { getTimeOfDayFromHour, normalizeTimeInput, timeToMinutes, type TimeOfDay } from '../utils/time';
@@ -9,6 +9,13 @@ import { countDosesByDay } from '../utils/medicationDoseHistory';
 import { buildTimelineEntries, type TimelineEntry } from './timelineEntry';
 import type { WorkoutSetDetails } from '../utils/workoutSet';
 import { getMostRecentSessionSets } from '../utils/workoutSet';
+import { computePotentialStats, type PotentialStatResult } from '../utils/potential';
+import {
+  domainScore,
+  overallPotential,
+  MISSION_CONTRIBUTION_DEFAULTS,
+  ACHIEVEMENT_CONTRIBUTION_DEFAULTS,
+} from '../utils/domainScoring';
 import {
   parseRoutineStepMeta,
   parseRoutineSessionMeta,
@@ -37,6 +44,7 @@ export function getDb(): SQLite.SQLiteDatabase {
   if (!db) {
     db = SQLite.openDatabaseSync('rka-os.db');
     initSchema();
+    migratePotentialStats();
   }
   return db;
 }
@@ -111,12 +119,32 @@ function initSchema() {
       PRIMARY KEY (listKey, itemId)
     );
 
+    -- One row per completion-event's live scoring effect on a Domain (see
+    -- src/utils/domainScoring.ts for the decay/lift math). Kept separate from
+    -- the permanent 'achievement'/'project' items rows so the scoring formula
+    -- can be re-tuned, and a contribution soft-disabled (excludedAt), without
+    -- ever touching achievement or Mission history. sourceType/sourceId point
+    -- at the project or achievement item that produced this contribution.
+    CREATE TABLE IF NOT EXISTS domainContributions (
+      id TEXT PRIMARY KEY,
+      areaId TEXT NOT NULL,
+      sourceType TEXT NOT NULL,
+      sourceId TEXT NOT NULL,
+      magnitude REAL NOT NULL,
+      halfLifeDays REAL NOT NULL,
+      occurredAt INTEGER NOT NULL,
+      excludedAt INTEGER,
+      createdAt INTEGER NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_items_status ON items(status);
     CREATE INDEX IF NOT EXISTS idx_items_scheduledDate ON items(scheduledDate);
     CREATE INDEX IF NOT EXISTS idx_instances_scheduledDate ON itemInstances(scheduledDate);
     CREATE INDEX IF NOT EXISTS idx_instances_itemId ON itemInstances(itemId);
     CREATE INDEX IF NOT EXISTS idx_relations_target ON itemRelations(targetId, relationType);
     CREATE INDEX IF NOT EXISTS idx_itemOrder_list ON itemOrder(listKey);
+    CREATE INDEX IF NOT EXISTS idx_domainContributions_area ON domainContributions(areaId);
+    CREATE INDEX IF NOT EXISTS idx_domainContributions_source ON domainContributions(sourceType, sourceId);
   `);
 
   try {
@@ -190,7 +218,7 @@ export function getItemsByType(type: string): Item[] {
 // viewed day but missing a time).
 export function getUnscheduledItems(): Item[] {
   return getDb().getAllSync<Item>(
-    `SELECT * FROM items WHERE scheduledDate IS NULL AND deletedAt IS NULL AND status NOT IN ('completed', 'archived') ORDER BY createdAt DESC`
+    `SELECT * FROM items WHERE type = 'task' AND scheduledDate IS NULL AND deletedAt IS NULL AND status NOT IN ('completed', 'archived') ORDER BY createdAt DESC`
   );
 }
 
@@ -324,12 +352,407 @@ export function countRelated(targetId: string, relationType: string): number {
   return row[0]?.count ?? 0;
 }
 
+// Like getRelatedItems, but also filters the joined side by items.type and
+// applies no status filter — needed because Potential Stats and Achievements
+// link to a Domain via their own relationTypes ('potentialStatArea',
+// 'achievementArea', see below) rather than reusing 'area' (which is reserved
+// for project -> area, so Mission rollups never pick up a stat or trophy).
+export function getRelatedItemsByType(targetId: string, relationType: string, itemType: string): Item[] {
+  return getDb().getAllSync<Item>(
+    `SELECT items.* FROM items
+     JOIN itemRelations ON itemRelations.sourceId = items.id
+     WHERE itemRelations.targetId = ? AND itemRelations.relationType = ? AND items.type = ?
+       AND items.deletedAt IS NULL
+     ORDER BY items.createdAt DESC`,
+    [targetId, relationType, itemType]
+  );
+}
+
 export function getProjectItemCount(projectId: string): number {
   return countRelated(projectId, 'project');
 }
 
 export function getAreaProjectCount(areaId: string): number {
   return countRelated(areaId, 'area');
+}
+
+// ── Potential Stats ───────────────────────────────────────────────────────
+// Potential Stats are 'potential-stat' items, optionally linked to a Domain
+// via relationType 'potentialStatArea' (kept distinct from 'area' so they
+// never leak into Mission rollups above). A stat with no Domain link is
+// legal — it just doesn't feed any Domain's maintenance score yet.
+
+export function getPotentialStats(): Item[] {
+  return getItemsByType('potential-stat');
+}
+
+export function getPotentialStatsForArea(areaId: string): Item[] {
+  return getRelatedItemsByType(areaId, 'potentialStatArea', 'potential-stat');
+}
+
+export function getAreaForPotentialStat(statId: string): string | null {
+  return getRelation(statId, 'potentialStatArea');
+}
+
+export function setPotentialStatArea(statId: string, areaId: string | null): void {
+  setRelation(statId, 'potentialStatArea', areaId);
+}
+
+export function createPotentialStat(title: string, areaId?: string | null): string {
+  const id = createItem('potential-stat', title, 'active');
+  if (areaId) setPotentialStatArea(id, areaId);
+  return id;
+}
+
+const LEGACY_POTENTIAL_STAT_KEYS = ['physique', 'skin', 'oralHygiene', 'vitality'] as const;
+const LEGACY_POTENTIAL_STAT_LABELS: Record<string, string> = {
+  physique: 'Physique',
+  skin: 'Skin',
+  oralHygiene: 'Oral Hygiene',
+  vitality: 'Vitality',
+};
+
+// One-time (idempotent) migration from the old fixed 4-stat enum to DB-backed
+// 'potential-stat' items: seeds the 4 defaults (tagged metadata.seedKey so
+// re-runs don't duplicate them) and rewrites any habit still carrying the
+// legacy literal stat name in its metadata to the new item id. Safe to call
+// on every launch — after the first run there's nothing left to migrate.
+function migratePotentialStats(): void {
+  const existingStats = getPotentialStats();
+  const seedKeyToId: Record<string, string> = {};
+  for (const stat of existingStats) {
+    if (!stat.metadata) continue;
+    try {
+      const meta = JSON.parse(stat.metadata);
+      if (meta.seedKey) seedKeyToId[meta.seedKey] = stat.id;
+    } catch {
+      // Malformed metadata — skip, treated as unseeded below.
+    }
+  }
+  for (const key of LEGACY_POTENTIAL_STAT_KEYS) {
+    if (!seedKeyToId[key]) {
+      const id = createItem('potential-stat', LEGACY_POTENTIAL_STAT_LABELS[key], 'active');
+      updateItemMetadata(id, { seedKey: key });
+      seedKeyToId[key] = id;
+    }
+  }
+
+  const habits = getItemsByType('habit');
+  for (const habit of habits) {
+    if (!habit.metadata) continue;
+    let meta: any;
+    try {
+      meta = JSON.parse(habit.metadata);
+    } catch {
+      continue;
+    }
+    if (meta.potentialStat && (LEGACY_POTENTIAL_STAT_KEYS as readonly string[]).includes(meta.potentialStat)) {
+      meta.potentialStat = seedKeyToId[meta.potentialStat];
+      updateItemMetadata(habit.id, meta);
+    }
+  }
+}
+
+// ── Domain contributions (live scoring) ───────────────────────────────────
+// See src/utils/domainScoring.ts for the decay/lift math these rows feed.
+
+function insertDomainContribution(
+  areaId: string,
+  sourceType: 'mission' | 'achievement',
+  sourceId: string,
+  magnitude: number,
+  halfLifeDays: number,
+  occurredAt: number,
+): string {
+  const id = uuidv4();
+  getDb().runSync(
+    `INSERT INTO domainContributions (id, areaId, sourceType, sourceId, magnitude, halfLifeDays, occurredAt, excludedAt, createdAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?)`,
+    [id, areaId, sourceType, sourceId, magnitude, halfLifeDays, occurredAt, Date.now()]
+  );
+  return id;
+}
+
+export function excludeDomainContribution(id: string): void {
+  getDb().runSync(`UPDATE domainContributions SET excludedAt = ? WHERE id = ?`, [Date.now(), id]);
+}
+
+export function reactivateDomainContribution(id: string): void {
+  getDb().runSync(`UPDATE domainContributions SET excludedAt = NULL WHERE id = ?`, [id]);
+}
+
+export function getActiveContributionsForArea(areaId: string): DomainContributionRow[] {
+  return getDb().getAllSync<DomainContributionRow>(
+    `SELECT * FROM domainContributions WHERE areaId = ? AND excludedAt IS NULL`,
+    [areaId]
+  );
+}
+
+// Most recent contribution row (active or excluded) for a given source —
+// used by the achievement-eligibility upgrade/downgrade flow to find the row
+// to exclude/reactivate rather than creating duplicates.
+function getContributionForSource(sourceType: 'mission' | 'achievement', sourceId: string): DomainContributionRow | null {
+  const rows = getDb().getAllSync<DomainContributionRow>(
+    `SELECT * FROM domainContributions WHERE sourceType = ? AND sourceId = ? ORDER BY createdAt DESC LIMIT 1`,
+    [sourceType, sourceId]
+  );
+  return rows[0] ?? null;
+}
+
+// ── Achievements (permanent trophies) ─────────────────────────────────────
+// 'achievement' items are permanent history — created once, status stays
+// 'completed' forever, never deleted by any scoring change. Their live
+// scoring effect (if any) is a separate domainContributions row, so toggling
+// contributesToScore or excluding a contribution never touches this record.
+
+export interface CreateAchievementInput {
+  title: string;
+  areaId?: string | null;
+  earnedAt: string; // YYYY-MM-DD, the real date it happened — not createdAt
+  source: 'mission' | 'milestone' | 'manual';
+  sourceId?: string;
+  contributesToScore: boolean;
+  notes?: string;
+}
+
+export function createAchievement(input: CreateAchievementInput): string {
+  const id = createItem('achievement', input.title, 'completed', undefined, input.notes);
+  updateItemMetadata(id, {
+    earnedAt: input.earnedAt,
+    source: input.source,
+    sourceId: input.sourceId,
+    contributesToScore: input.contributesToScore,
+  });
+  if (input.areaId) setRelation(id, 'achievementArea', input.areaId);
+  return id;
+}
+
+export function getAchievementsForArea(areaId: string): Item[] {
+  return getRelatedItemsByType(areaId, 'achievementArea', 'achievement');
+}
+
+export function getAllAchievements(): Item[] {
+  return getItemsByType('achievement');
+}
+
+export function getAreaForAchievement(achievementId: string): string | null {
+  return getRelation(achievementId, 'achievementArea');
+}
+
+function getAchievementForSource(source: 'mission' | 'milestone' | 'manual', sourceId: string): Item | null {
+  const achievements = getItemsByType('achievement');
+  for (const achievement of achievements) {
+    if (!achievement.metadata) continue;
+    try {
+      const meta = JSON.parse(achievement.metadata);
+      if (meta.source === source && meta.sourceId === sourceId) return achievement;
+    } catch {
+      // Malformed metadata — skip.
+    }
+  }
+  return null;
+}
+
+// ── Mission completion (mutually exclusive Mission vs. Achievement tier) ──
+
+// Completing a Mission always produces exactly one active domainContribution
+// for this event — never both. Achievement-eligible Missions (metadata.
+// achievementEligible) get the larger/slower Achievement tier plus a
+// permanent trophy; ordinary Missions get the smaller/faster Mission tier.
+// No-op for the score side if the Mission has no Domain — a trophy/contribution
+// needs somewhere to attach.
+export function completeMission(missionId: string): void {
+  updateItemStatus(missionId, 'completed');
+  const item = getItemWithMetadata(missionId);
+  const areaId = getRelation(missionId, 'area');
+  if (!item || !areaId) return;
+
+  const meta = item.metadata ? JSON.parse(item.metadata) : {};
+  const eligible = !!meta.achievementEligible;
+  const now = Date.now();
+
+  if (eligible) {
+    const achievementId = createAchievement({
+      title: item.title,
+      areaId,
+      earnedAt: formatDate(new Date(now)),
+      source: 'mission',
+      sourceId: missionId,
+      contributesToScore: true,
+    });
+    insertDomainContribution(
+      areaId,
+      'achievement',
+      achievementId,
+      ACHIEVEMENT_CONTRIBUTION_DEFAULTS.magnitude,
+      ACHIEVEMENT_CONTRIBUTION_DEFAULTS.halfLifeDays,
+      now,
+    );
+  } else {
+    insertDomainContribution(
+      areaId,
+      'mission',
+      missionId,
+      MISSION_CONTRIBUTION_DEFAULTS.magnitude,
+      MISSION_CONTRIBUTION_DEFAULTS.halfLifeDays,
+      now,
+    );
+  }
+}
+
+// Toggling achievementEligible always updates the flag. If the Mission isn't
+// completed yet, that's all — the flag is simply read at completion time. If
+// it IS already completed, this performs the upgrade/downgrade dance: at
+// most one contribution for this completion event stays active, the trophy
+// (once created) is permanent, and the achievement contribution always uses
+// the Mission's ORIGINAL completion date, not the toggle time.
+export function setMissionAchievementEligible(missionId: string, eligible: boolean): void {
+  const item = getItemWithMetadata(missionId);
+  if (!item) return;
+  const existingMeta = item.metadata ? JSON.parse(item.metadata) : {};
+  updateItemMetadata(missionId, { ...existingMeta, achievementEligible: eligible });
+
+  if (item.status !== 'completed') return;
+  const areaId = getRelation(missionId, 'area');
+  if (!areaId) return;
+  const completedAt = item.completedAt ?? item.updatedAt;
+
+  if (eligible) {
+    const missionContribution = getContributionForSource('mission', missionId);
+    if (missionContribution && !missionContribution.excludedAt) {
+      excludeDomainContribution(missionContribution.id);
+    }
+
+    let achievement = getAchievementForSource('mission', missionId);
+    if (!achievement) {
+      const achievementId = createAchievement({
+        title: item.title,
+        areaId,
+        earnedAt: formatDate(new Date(completedAt)),
+        source: 'mission',
+        sourceId: missionId,
+        contributesToScore: true,
+      });
+      achievement = getItemWithMetadata(achievementId);
+    }
+    if (!achievement) return;
+
+    const achievementContribution = getContributionForSource('achievement', achievement.id);
+    if (achievementContribution) {
+      reactivateDomainContribution(achievementContribution.id);
+    } else {
+      insertDomainContribution(
+        areaId,
+        'achievement',
+        achievement.id,
+        ACHIEVEMENT_CONTRIBUTION_DEFAULTS.magnitude,
+        ACHIEVEMENT_CONTRIBUTION_DEFAULTS.halfLifeDays,
+        completedAt,
+      );
+    }
+  } else {
+    const achievement = getAchievementForSource('mission', missionId);
+    if (achievement) {
+      const achievementContribution = getContributionForSource('achievement', achievement.id);
+      if (achievementContribution && !achievementContribution.excludedAt) {
+        excludeDomainContribution(achievementContribution.id);
+      }
+    }
+
+    const missionContribution = getContributionForSource('mission', missionId);
+    if (missionContribution) {
+      reactivateDomainContribution(missionContribution.id);
+    } else {
+      insertDomainContribution(
+        areaId,
+        'mission',
+        missionId,
+        MISSION_CONTRIBUTION_DEFAULTS.magnitude,
+        MISSION_CONTRIBUTION_DEFAULTS.halfLifeDays,
+        completedAt,
+      );
+    }
+  }
+}
+
+// ── Current Focus (singleton) ─────────────────────────────────────────────
+// A temporary label + per-Domain weight overrides for Overall Potential.
+// Changing it never touches Domains/Missions/Achievements/history — it's
+// purely a read-time weighting multiplier in computeOverallPotential.
+
+export interface FocusData {
+  id: string;
+  label: string;
+  weights: Record<string, number>;
+}
+
+export function getFocus(): FocusData | null {
+  const rows = getItemsByType('focus');
+  const focus = rows[0];
+  if (!focus) return null;
+  const meta = focus.metadata ? JSON.parse(focus.metadata) : {};
+  return { id: focus.id, label: focus.title, weights: meta.weights ?? {} };
+}
+
+export function setFocus(label: string, weights: Record<string, number>): void {
+  const rows = getItemsByType('focus');
+  if (rows[0]) {
+    updateItem(rows[0].id, { title: label });
+    updateItemMetadata(rows[0].id, { weights });
+  } else {
+    const id = createItem('focus', label, 'active');
+    updateItemMetadata(id, { weights });
+  }
+}
+
+export function clearFocus(): void {
+  const rows = getItemsByType('focus');
+  if (rows[0]) deleteItem(rows[0].id);
+}
+
+// ── Domain score / Overall Potential ──────────────────────────────────────
+
+export function getPotentialStatResultsForArea(areaId: string, today: string): Record<string, PotentialStatResult> {
+  const stats = getPotentialStatsForArea(areaId);
+  const habits = getItemsByType('habit');
+  const completedDatesByHabitId: Record<string, Set<string>> = {};
+  for (const habit of habits) {
+    completedDatesByHabitId[habit.id] = getCompletedOccurrenceDates(habit.id);
+  }
+  return computePotentialStats(habits, stats, completedDatesByHabitId, today);
+}
+
+export function computeDomainMaintenance(areaId: string, today: string): number {
+  const stats = getPotentialStatsForArea(areaId);
+  if (stats.length === 0) return 0;
+  const results = getPotentialStatResultsForArea(areaId, today);
+  const percents = stats.map((stat) => results[stat.id]?.percent ?? 0);
+  return percents.reduce((sum, p) => sum + p, 0) / percents.length;
+}
+
+export function computeDomainScore(areaId: string, now: number = Date.now()): number {
+  const today = formatDate(new Date(now));
+  const maintenance = computeDomainMaintenance(areaId, today);
+  const rows = getActiveContributionsForArea(areaId);
+  const contributions = rows.map((row) => ({
+    magnitude: row.magnitude,
+    halfLifeDays: row.halfLifeDays,
+    occurredAt: row.occurredAt,
+  }));
+  return domainScore(maintenance, contributions, now);
+}
+
+export function computeOverallPotential(now: number = Date.now()): number {
+  const areas = getItemsByType('area');
+  if (areas.length === 0) return 0;
+  const focus = getFocus();
+  const scores: Record<string, number> = {};
+  const weights: Record<string, number> = {};
+  for (const area of areas) {
+    scores[area.id] = computeDomainScore(area.id, now);
+    weights[area.id] = focus?.weights?.[area.id] ?? 1;
+  }
+  return overallPotential(scores, weights);
 }
 
 export function getProjectsForArea(areaId: string): Item[] {
@@ -545,10 +968,7 @@ export function updateRoutineStep(stepId: string, meta: RoutineStepMeta): void {
 // existing useHapticReorder drag gesture hook (which calls setManualOrder
 // directly) works here unmodified.
 export function getRoutineSteps(routineId: string): Item[] {
-    if (!step) return;
-    const meta = parseRoutineStepMeta(step.metadata);
-    updateItemMetadata(stepId, { ...meta, order: index } as unknown as Record<string, any>);
-  });
+  return applyManualOrder(`routine:${routineId}`, getRelatedItems(routineId, 'routine'));
 }
 
 export function startRoutineSession(routineId: string): string {
@@ -1329,6 +1749,24 @@ export function getInstancesForDate(date: string): ItemInstance[] {
 
 export function getTimelineEntriesForDate(date: string): TimelineEntry[] {
   return buildTimelineEntries(getItemsForDate(date), getInstancesForDate(date));
+}
+
+// Lightweight per-day counts for a date range (month-grid badges) — counts distinct
+// scheduled items per day across both items.scheduledDate and itemInstances.scheduledDate,
+// not the full TimelineEntry shape getTimelineEntriesForDate builds, since the grid only
+// needs a badge count.
+export function getItemCountsForRange(startDate: string, endDate: string): Record<string, number> {
+  const rows = getDb().getAllSync<{ date: string; count: number }>(
+    `SELECT date, COUNT(DISTINCT id) as count FROM (
+       SELECT scheduledDate as date, id FROM items
+         WHERE scheduledDate BETWEEN ? AND ? AND deletedAt IS NULL
+       UNION ALL
+       SELECT scheduledDate as date, itemId as id FROM itemInstances
+         WHERE scheduledDate BETWEEN ? AND ?
+     ) GROUP BY date`,
+    [startDate, endDate, startDate, endDate]
+  );
+  return Object.fromEntries(rows.map((row) => [row.date, row.count]));
 }
 
 export function createItem(
