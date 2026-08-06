@@ -8,7 +8,7 @@ import { LensSurface } from '../components/LensSurface';
 import { RiverStoneSurface } from '../components/ui/RiverStoneSurface';
 import { KatanaProgress } from '../components/ui/KatanaProgress';
 import { HaradaWheel } from '../components/potential/HaradaWheel';
-import { AreaBonsaiIcon } from '../components/icons/AreaBonsaiIcon';
+import { getDomainIcon } from '../utils/domainIcons';
 import type { Item } from '../db/types';
 import type { FocusData } from '../db/database';
 
@@ -101,23 +101,26 @@ export function PotentialScreen() {
             <Text style={[styles.emptySub, { color: palette.textSecondary }]}>No Domains yet — create one from the Domains screen.</Text>
           ) : (
             <View style={styles.rows}>
-              {domains.map((domain) => (
-                <TouchableOpacity
-                  key={domain.id}
-                  style={[styles.domainRow, { backgroundColor: isDark ? palette.fillStrong : palette.surface, borderColor: domain.id === focusDomainId ? palette.vermilion : palette.separatorStrong }]}
-                  activeOpacity={0.75}
-                  onPress={() => goToDomain(domain.id)}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${domain.title}, ${Math.round(domain.score)}% potential${domain.id === focusDomainId ? ', current focus' : ''}`}
-                >
-                  <AreaBonsaiIcon size={28} color={palette.antiqueBrass} />
-                  <View style={styles.domainCopy}>
-                    <Text style={[styles.domainTitle, { color: palette.text }]} numberOfLines={1}>{domain.title}</Text>
-                    <KatanaProgress progress={domain.score / 100} size={16} accessibilityLabel={`${domain.title} score`} />
-                  </View>
-                  <Text style={[styles.domainPercent, { color: palette.textTertiary }]}>{Math.round(domain.score)}%</Text>
-                </TouchableOpacity>
-              ))}
+              {domains.map((domain) => {
+                const DomainIcon = getDomainIcon(domain.title);
+                return (
+                  <TouchableOpacity
+                    key={domain.id}
+                    style={[styles.domainRow, { backgroundColor: isDark ? palette.fillStrong : palette.surface, borderColor: domain.id === focusDomainId ? palette.vermilion : palette.separatorStrong }]}
+                    activeOpacity={0.75}
+                    onPress={() => goToDomain(domain.id)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${domain.title}, ${Math.round(domain.score)}% potential${domain.id === focusDomainId ? ', current focus' : ''}`}
+                  >
+                    <DomainIcon size={28} color={palette.antiqueBrass} strokeWidth={1.6} />
+                    <View style={styles.domainCopy}>
+                      <Text style={[styles.domainTitle, { color: palette.text }]} numberOfLines={1}>{domain.title}</Text>
+                      <KatanaProgress progress={domain.score / 100} size={16} accessibilityLabel={`${domain.title} score`} />
+                    </View>
+                    <Text style={[styles.domainPercent, { color: palette.textTertiary }]}>{Math.round(domain.score)}%</Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           )}
         </View>
