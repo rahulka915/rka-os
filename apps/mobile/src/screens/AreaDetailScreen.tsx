@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Alert, StyleSheet, Image } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import {
@@ -11,6 +11,7 @@ import {
   updateItemStatus,
   setRelation,
   computeDomainScore,
+  computeDomainMaintenance,
   getPotentialStatsForArea,
   getPotentialStatResultsForArea,
   getPotentialStats,
@@ -31,6 +32,8 @@ import type { PotentialStatResult } from '../utils/potential';
 import { ProjectPortfolioIcon } from '../components/icons/ProjectPortfolioIcon';
 import { showActionSheet } from '../utils/actionSheet';
 
+const chapterBackdrop = require('../../assets/ronin/journey/sunset-trail-background-v1.png');
+
 interface AreaDetailRouteParams {
   areaId: string;
   title: string;
@@ -48,6 +51,7 @@ export function AreaDetailScreen() {
   const [projects, setProjects] = useState<Item[]>([]);
   const [createOpen, setCreateOpen] = useState(false);
   const [domainScore, setDomainScore] = useState(0);
+  const [maintenance, setMaintenance] = useState(0);
   const [stats, setStats] = useState<Item[]>([]);
   const [statResults, setStatResults] = useState<Record<string, PotentialStatResult>>({});
   const [achievements, setAchievements] = useState<Item[]>([]);
@@ -55,6 +59,7 @@ export function AreaDetailScreen() {
   const refresh = useCallback(() => {
     setProjects(getProjectsForArea(areaId));
     setDomainScore(computeDomainScore(areaId));
+    setMaintenance(computeDomainMaintenance(areaId, formatDate(new Date())));
     setStats(getPotentialStatsForArea(areaId));
     setStatResults(getPotentialStatResultsForArea(areaId, formatDate(new Date())));
     setAchievements(getAchievementsForArea(areaId));
@@ -165,15 +170,35 @@ export function AreaDetailScreen() {
   const cardBg = isDark ? palette.fillStrong : palette.surface;
   const cardBorder = isDark ? palette.separatorStrong : palette.separator;
 
+  const trendDelta = Math.round(domainScore - maintenance);
+
   return (
     <LensSurface title={title}>
       <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.scoreSection}>
-          <View style={styles.scoreHeaderRow}>
-            <Text style={[styles.sectionLabel, { color: palette.textTertiary }]}>DOMAIN SCORE</Text>
-            <Text style={[styles.scorePercent, { color: palette.text }]}>{Math.round(domainScore)}%</Text>
+        <View style={styles.chapterHeader}>
+          <Image source={chapterBackdrop} style={StyleSheet.absoluteFillObject} resizeMode="cover" accessible={false} />
+          <View style={[styles.chapterScrim, { backgroundColor: isDark ? 'rgba(15,15,26,0.72)' : 'rgba(15,15,26,0.55)' }]} />
+          <View style={styles.chapterContent}>
+            <Text style={[styles.chapterEyebrow, { color: palette.antiqueBrass }]}>DOMAIN</Text>
+            <Text style={[styles.chapterTitle, { color: palette.ivory }]}>{title}</Text>
+            <View style={styles.chapterScoreRow}>
+              <Text style={[styles.scorePercent, { color: palette.ivory }]}>{Math.round(domainScore)}%</Text>
+              {trendDelta !== 0 && (
+                <Text
+                  style={[styles.trendBadge, { color: trendDelta > 0 ? palette.green : palette.textTertiary }]}
+                  accessibilityLabel={trendDelta > 0 ? `Boosted ${trendDelta} percent above baseline maintenance` : `${Math.abs(trendDelta)} percent below baseline maintenance`}
+                >
+                  {trendDelta > 0 ? `+${trendDelta}` : trendDelta}
+                </Text>
+              )}
+            </View>
+            <KatanaProgress progress={domainScore / 100} size={16} accessibilityLabel={`${title} domain score`} style={styles.chapterProgress} />
+            <Text style={[styles.chapterCaption, { color: palette.greige }]}>
+              {maintenance < domainScore
+                ? 'Recent achievements are lifting this Domain above its everyday maintenance.'
+                : 'This score reflects how well the linked Pillars are being maintained day to day.'}
+            </Text>
           </View>
-          <KatanaProgress progress={domainScore / 100} size={16} accessibilityLabel={`${title} domain score`} />
         </View>
 
         {projects.length === 0 ? (
@@ -182,33 +207,38 @@ export function AreaDetailScreen() {
             <Text style={[styles.emptySub, { color: palette.textSecondary }]}>Hold the + in the dock to add one to this domain</Text>
           </View>
         ) : (
-          <View style={styles.rows}>
-            {projects.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                style={[styles.row, { backgroundColor: cardBg, borderColor: cardBorder }]}
-                activeOpacity={0.75}
-                onPress={() => (navigation as any).navigate('ProjectDetail', { projectId: item.id, title: item.title })}
-                onLongPress={() => handleLongPress(item)}
-                delayLongPress={400}
-              >
-                <ProjectPortfolioIcon size={32} />
-                <Text style={[styles.rowTitle, { color: palette.text }]} numberOfLines={1}>{item.title}</Text>
-                <Text style={[styles.rowCount, { color: palette.textTertiary }]}>{getProjectItemCount(item.id)}</Text>
-              </TouchableOpacity>
-            ))}
+          <View style={styles.section}>
+            <Text style={[styles.sectionLabel, { color: palette.textTertiary }]}>MISSIONS</Text>
+            <View style={styles.rows}>
+              {projects.map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={[styles.row, { backgroundColor: cardBg, borderColor: cardBorder }]}
+                  activeOpacity={0.75}
+                  onPress={() => (navigation as any).navigate('ProjectDetail', { projectId: item.id, title: item.title })}
+                  onLongPress={() => handleLongPress(item)}
+                  delayLongPress={400}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${item.title}, ${getProjectItemCount(item.id)} tasks`}
+                >
+                  <ProjectPortfolioIcon size={32} />
+                  <Text style={[styles.rowTitle, { color: palette.text }]} numberOfLines={1}>{item.title}</Text>
+                  <Text style={[styles.rowCount, { color: palette.textTertiary }]}>{getProjectItemCount(item.id)}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         )}
 
-        <View style={styles.statsSection}>
+        <View style={styles.section}>
           <View style={styles.scoreHeaderRow}>
-            <Text style={[styles.sectionLabel, { color: palette.textTertiary }]}>POTENTIAL STATS</Text>
-            <TouchableOpacity onPress={promptAddStat} hitSlop={10}>
-              <Text style={[styles.addLink, { color: palette.red }]}>+ Add</Text>
+            <Text style={[styles.sectionLabel, { color: palette.textTertiary }]}>PILLARS</Text>
+            <TouchableOpacity onPress={promptAddStat} hitSlop={10} accessibilityRole="button" accessibilityLabel="Add a Pillar">
+              <Text style={[styles.addLink, { color: palette.vermilion }]}>+ Add</Text>
             </TouchableOpacity>
           </View>
           {stats.length === 0 ? (
-            <Text style={[styles.emptySub, { color: palette.textSecondary }]}>No stats linked yet — add one to feed this Domain's maintenance score.</Text>
+            <Text style={[styles.emptySub, { color: palette.textSecondary }]}>No Pillars linked yet — add one to feed this Domain's maintenance score.</Text>
           ) : (
             <View style={styles.rows}>
               {stats.map((stat) => {
@@ -220,12 +250,19 @@ export function AreaDetailScreen() {
                     activeOpacity={0.75}
                     onLongPress={() => handleStatLongPress(stat)}
                     delayLongPress={400}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${stat.title}, ${percent}% potential`}
                   >
                     <View style={styles.statRowHeader}>
                       <Text style={[styles.rowTitle, { color: palette.text }]} numberOfLines={1}>{stat.title}</Text>
                       <Text style={[styles.rowCount, { color: palette.textTertiary }]}>{percent}%</Text>
                     </View>
                     <KatanaProgress progress={percent / 100} size={16} accessibilityLabel={`${stat.title} potential`} />
+                    {(statResults[stat.id]?.contributions.length ?? 0) > 0 && (
+                      <Text style={[styles.contributingText, { color: palette.textTertiary }]} numberOfLines={1}>
+                        {statResults[stat.id].contributions.map((c) => c.habitTitle).join(' · ')}
+                      </Text>
+                    )}
                   </TouchableOpacity>
                 );
               })}
@@ -234,7 +271,7 @@ export function AreaDetailScreen() {
         </View>
 
         {achievements.length > 0 && (
-          <View style={styles.statsSection}>
+          <View style={styles.section}>
             <Text style={[styles.sectionLabel, { color: palette.textTertiary }]}>ACHIEVEMENTS</Text>
             <View style={styles.rows}>
               {achievements.map((achievement) => {
@@ -279,11 +316,58 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 24,
   },
-  scoreSection: {
-    gap: 8,
+  chapterHeader: {
+    borderRadius: 22,
+    overflow: 'hidden',
     marginBottom: 20,
+    minHeight: 200,
   },
-  statsSection: {
+  chapterScrim: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  chapterContent: {
+    padding: 20,
+    paddingTop: 24,
+    gap: 8,
+  },
+  chapterEyebrow: {
+    fontSize: 11,
+    fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
+    letterSpacing: 1.2,
+  },
+  chapterTitle: {
+    fontFamily: 'Newsreader_600SemiBold',
+    fontSize: 28,
+    marginBottom: 4,
+  },
+  chapterScoreRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
+  },
+  trendBadge: {
+    fontSize: 14,
+    fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
+  },
+  chapterProgress: {
+    marginTop: 4,
+  },
+  chapterCaption: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    fontWeight: '400',
+    lineHeight: 19,
+    marginTop: 4,
+  },
+  contributingText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+    fontWeight: '400',
+    marginTop: 2,
+  },
+  section: {
     gap: 8,
     marginTop: 20,
   },
@@ -299,7 +383,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   scorePercent: {
-    fontSize: 20,
+    fontSize: 34,
     fontWeight: '700',
     fontFamily: 'Inter_700Bold',
   },
