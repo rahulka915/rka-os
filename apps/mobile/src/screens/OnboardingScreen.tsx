@@ -17,7 +17,7 @@ import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
 import { KatanaProgress } from '../components/ui/KatanaProgress';
 import { AreaBonsaiIcon } from '../components/icons/AreaBonsaiIcon';
-import { Briefcase, Users, Banknotes, PuzzlePiece, ChartBar, Flag, Star } from '../icons';
+import { Briefcase, Users, Banknotes, PuzzlePiece, ChartBar, Flag, Star, Lock, Dumbbell } from '../icons';
 import {
   createItem,
   setRelation,
@@ -35,13 +35,21 @@ interface SuggestedDomain {
   Icon: typeof Briefcase;
 }
 
+// Fixed 8-Domain default (the traditional Harada life-balance count) so the
+// Harada wheel visualization always renders as a proper 8-spoke wheel while
+// the visual design is still being iterated on, rather than a shape that
+// varies per user. Pre-selected below, not just suggested — still fully
+// editable (deselect, rename via custom-add, or add more later from the
+// Domains screen).
 const SUGGESTED_DOMAINS: SuggestedDomain[] = [
-  { title: 'Health', Icon: AreaBonsaiIcon as unknown as typeof Briefcase },
+  { title: 'Health & Wellbeing', Icon: AreaBonsaiIcon as unknown as typeof Briefcase },
   { title: 'Career', Icon: Briefcase },
+  { title: 'Finance', Icon: Banknotes },
   { title: 'Relationships', Icon: Users },
-  { title: 'Finances', Icon: Banknotes },
-  { title: 'Craft', Icon: PuzzlePiece },
-  { title: 'Mind', Icon: ChartBar },
+  { title: 'Creativity', Icon: PuzzlePiece },
+  { title: 'Growth', Icon: ChartBar },
+  { title: 'Discipline', Icon: Lock },
+  { title: 'Fitness & Performance', Icon: Dumbbell },
 ];
 
 interface CreatedDomain {
@@ -64,7 +72,7 @@ export function OnboardingScreen({ onDone }: OnboardingScreenProps) {
   const palette = getThemeColors(isDark);
 
   const [step, setStep] = useState<Step>('intro');
-  const [selectedTitles, setSelectedTitles] = useState<string[]>(['Health', 'Career']);
+  const [selectedTitles, setSelectedTitles] = useState<string[]>(SUGGESTED_DOMAINS.map((d) => d.title));
   const [customTitle, setCustomTitle] = useState('');
   const [customDomains, setCustomDomains] = useState<string[]>([]);
 
