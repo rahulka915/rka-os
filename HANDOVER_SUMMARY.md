@@ -1,6 +1,627 @@
 # RKA OS — Handover Summary
-**Last Updated:** 2026-07-15  
+**Last Updated:** 2026-08-05
 **Status:** Mobile-only — React Native iOS (active). The companion Web PWA described in Session 1 below has since been fully retired; that section is kept as historical record only.
+
+---
+
+## 2026-08-05 — Routines and quantified-habits product brief
+
+### Changes
+- Consolidated the previously recorded Routinery and habit-tracker research into `docs/design/routines-and-habits-product-brief.md`.
+- Captured the intended feature set, light architectural direction, delivery order and design guardrails without turning it into a detailed implementation plan.
+- Apple Health remains documented as a future measurement source but is explicitly excluded from the initial implementation.
+
+### Working state
+- Documentation only; no runtime code, schema, dependencies or configuration changed.
+
+### Next step
+- Claude can inspect the current app, create its own implementation plan from the brief and begin with manual quantified habits/core routines. This Codex chat can remain focused on design exploration.
+
+---
+
+## 2026-08-05 — App-wide UI refinement v1 implementation
+
+### Changes
+- Implemented the approved `app-wide-ui-refinement-v1` concept family (see the two entries below) across Tasks/Logbook, Inbox, Collections/More, and Edit Item. Calendar/Timeline was reviewed and found already substantially compliant (brass `CALENDAR_GOLD` selected segment, preserved blue "now" line, restrained paper-texture grid) — no structural changes needed there.
+- New theme tokens in `src/theme/colors.ts`: `ivory`/`greige` (primary/secondary text on River Stone surfaces) and `antiqueBrass`/`vermilion` (+ `Soft` variants), both modes. `itemComposer.ts`'s existing brass `accent` (`#D4B078`/`#8B6936`) and Calendar's `CALENDAR_GOLD` (`#D4B078`) were already the same brass family — left as-is rather than forced onto the new token to avoid an unnecessary rename across a large already-compliant file.
+- Removed the one teal active-state in the app: `App.tsx`'s `TAB_ITEMS` Menu-tab dock color changed from `#4E9E86` (jade/teal) to vermilion `#C1503A`. Since Tasks/Logbook and Collections are both reached through the Menu stack, this single change gives both their vermilion active-dock treatment for free.
+- `TasksScreen.tsx`: task/completed rows now render through `RiverStoneSurface` (`variant="list"`) instead of a flat colored `View` — denser padding (row `paddingVertical` 6→4, cell gap 8→6), ivory/greige text. Segmented control (Tasks/Logbook) restyled as an inset stone chip with a brass border on the selected tab. `LensSurface` title set to `titleStyle="editorial"` (new prop, Newsreader). Empty states (no tasks / logbook empty) got a small monochrome `CheckCircle2` symbol with a brass tint, Inter copy (no serif).
+- `InboxScreenV2.tsx` + `TaskSwipeItem.tsx`: title switched from Georgia italic to Newsreader (matches Tasks). Count badge changed from a filled deeperBlue pill to a vermilion-outlined one. Row surface swapped to `RiverStoneSurface` (`variant="list"`, `shape="regular"`) in place of the old fillStrong/separatorStrong-or-flat-surface split; container corner radius 999→18 to match (swipe-reveal clipping still works, just a rounded rect instead of a full pill now); row padding/gap trimmed (~25%) for the same denser read as Tasks. Empty state got a small brass `Check` glyph.
+- `ItemEditorSheet.tsx`: footer Save button changed from a solid brass fill to a brass-outlined button (was reading as "a large flat mustard block" per the design brief). Section `card` surfaces and every chip/segment/duration/bucket/priority control dropped their default hairline border — border now only appears on the *selected* state, which is what was creating the "boxes inside boxes" look. No fields, scheduling logic, validation, or keyboard behavior changed.
+- `MenuScreen.tsx` (Collections): tile aspect ratio 1 → 1.14 and grid `rowGap`/content `gap` trimmed slightly for a shorter, denser tile per the brief. All 12 destinations and their existing artwork are unchanged.
+- No changes to database, navigation architecture, dock icon artwork, FAB, or any interaction/gesture logic anywhere in this pass.
+
+### Verification
+- `npx tsc --noEmit` clean for every file touched (remaining errors are all pre-existing, in the already-retired `src/webApp/*` PWA remnants, unrelated to this change).
+- Not yet verified on-device/in-Expo-Go — do that before calling this fully done, especially dark/light contrast on the new ivory/greige/vermilion/brass tokens and Dynamic Type/truncation on the denser rows.
+
+### Next step
+- On-device visual pass (both color schemes) to confirm contrast and touch targets, then update `apps/mobile/DESIGN_CHECKLIST.md` screen-status checkboxes for the touched screens (done in this same commit — see below) and graduate any settled tokens into `docs/design-system/reference/` per that file's promotion rule once genuinely reviewed on a real device.
+
+---
+
+## 2026-08-05 — Habit-tracker research catalogue
+
+### Review
+- Catalogued two additional screenshot batches from a configurable habit tracker. Feature references include build/quit habit polarity, daily/weekly/monthly/custom goal periods, quantitative units and Health links, time ranges, multiple reminders, completion memos, configurable row gestures, progress charts, date-bounded habits, weekly grid reports, monthly rate/calendar analytics, numeric/duration goal entry, undo/reset, filters and empty states.
+- Recommended product takeaway: add a small set of explicit habit measurement modes (`binary`, `count`, `duration`, `health-derived`) and period-based targets, rather than exposing the source app's full settings density. RKA already has streaks, target days, time buckets, reminders/notifications and a HealthKit dependency, but its documented habit metadata does not yet model these generalized targets.
+- Strongest transferable interaction patterns: direct progress bars with current/target values, context-sensitive completion actions (done/add value/enter value), reversible completion, compact status/time filters, and restrained weekly/monthly review. Avoid copying the source app's dense form hierarchy, excessive toggles, colourful report grid, or instructional popups.
+
+### Working state
+- Research/catalogue only; no runtime code, schema, packages, assets or configuration changed.
+
+### Next step
+- Continue collecting references. Before implementation, consolidate all research into a prioritized product brief separating Routine execution, Habit measurement, analytics, reminders and Apple Health integration.
+
+---
+
+## 2026-08-05 — Canonical exercise movement families
+
+### Changes
+- Added a tested 32-family exercise taxonomy in `apps/mobile/src/utils/exerciseLibrary.ts`. All 183 starter exercises resolve with no fallback; equipment, angle and grip variants remain separate exercises but share a stable parent movement such as `chest-press`.
+- Updated `scripts/generateExerciseAssets.cjs` and regenerated `starterExercises.ts` so every starter persists `movementFamily`. Existing/custom database rows remain compatible through title-based inference; no destructive migration or exercise rename was required.
+- `ExerciseMuscleGroupScreen.tsx` now presents family sections with variation counts, `ExercisePickerSheet.tsx` uses the same family hierarchy, and exercise search matches both exact variation titles and parent-family names.
+- New and edited exercises persist the inferred/stored family through the existing metadata JSON. Updated `SCHEMA.md`, `apps/mobile/CLAUDE.md`, `AGENTS.md`, and `DESIGN_CHECKLIST.md` with the new contract.
+
+### Verification
+- TDD red/green cycle recorded in `exerciseLibrary.test.ts` and `starterExercises.test.ts`: stored-family parsing, bench-press coalescing, full 183-item classification, exact 32-family count, legacy inference, family grouping and family-aware search.
+- `npm test`: 160/160 passing.
+- `npm run typecheck`: no new mobile errors; command remains non-zero only for the known retired-web files importing already-removed web modules.
+
+### Next step
+- On-device review of section density in the muscle-group browser and the 32-section exercise picker. Before importing RepCount history, create an explicit mapping from its 48 legacy names to these families and exact RKA variations.
+
+---
+
+## 2026-08-05 — Exercise catalogue family audit
+
+### Review
+- Confirmed the generated starter catalogue contains 183 unique exercise records/assets. Current muscle-group distribution is highly upper-body weighted: arms 69, chest 62, back 33, full-body 6, shoulders 5, legs 4, core 4.
+- The schema currently treats every named variation as an independent exercise and stores no canonical movement-family relation, so an exact “unique movements vs variations” count does not exist yet.
+- Example counts from a practical name-based grouping: 8 explicitly named Bench Press variations, 15 broader chest-press variations, 39 push-up variations, 34 curl variations, 29 triceps isolation variations, 15 row variations, 14 pull-up/chin-up/pulldown variations, 7 dip variations and 5 fly variations. These groups can overlap and are evidence of a variation-heavy catalogue, not an additive total.
+
+### Working state
+- Audit only; no generated catalogue, exercise assets, schema or runtime code changed.
+
+### Next step
+- Introduce a canonical movement-family taxonomy separately from exercise/equipment variants, then map both the 183 starter exercises and the 48 RepCount legacy names to it. This would support family-level history while preserving exact-machine and gym-specific variants.
+
+---
+
+## 2026-08-05 — RepCount workout export assessment
+
+### Review
+- Inspected `repcount_export_5 Aug 2026.csv` supplied outside the repo: 3,527 set rows grouped reliably into 199 sessions from 2022-01-03 through 2025-10-17, covering 48 legacy exercise names and 24 workout names. 197 sessions contain at least one logged set; 2,389 rows contain both weight and reps; 1,119 rows contain no performance metric and appear to be unlogged/planned set slots.
+- Historical import is feasible because RKA already has `workout-session` items and `workout-set-logged` activity rows with session ID, set number, reps, weight and unit. A safe importer must preserve historical timestamps directly, retain repeated identical sets, skip/flag blank planned rows, map legacy exercise aliases deliberately, and be idempotent.
+- Important feature signals: per-set notes, persistent machine/setup notes, exercise aliases and gym/location variants, workout-history/backdating, import/export, session start/end duration, template evolution, progression/volume/PR views, and explicit warm-up/failure markers. None were implemented.
+
+### Working state
+- Analysis only; no CSV data was imported and no database, runtime code or schema changed.
+
+### Next step
+- Before importing, produce a dry-run mapping report for all 48 legacy exercise names, confirm weights are kilograms and resolve ambiguous total-vs-per-side reps. Then implement a backup-first, idempotent importer with an import ledger/fingerprint and post-import reconciliation totals.
+
+---
+
+## 2026-08-05 — Quantified-habit research capture review
+
+### Review
+- Reviewed the second supplied research batch as feature/UI reference only: build-vs-quit habit types, daily/weekly/monthly/custom goal periods, quantified goals and units, Apple Health-linked progress, reminder windows, completion memos, configurable row actions, swipe completion and progress-bar list presentation.
+- Strongest fits for RKA are quantified habit values, period-based targets, Health-sourced automatic progress and action-specific row controls. These extend the existing `activityLogs`/streak/Potential model without requiring a separate product area.
+- Current code supports binary habit occurrence logs, recurrence, streaks, Potential target days, notifications and hold-to-confirm. It does not yet model numeric habit samples/period aggregation. `app.json` contains Health usage descriptions, but `apps/mobile/package.json` currently has no active HealthKit library, so Health sync is configured only at the permission-copy level, not implemented.
+
+### Working state
+- Research review only; no runtime code, schema, dependencies, configuration or UI changed.
+
+### Next step
+- Keep these references for later feature prioritisation. If selected, define a small goal model (`build`/`quit`, aggregation period, target value/unit, manual vs Health source) before designing screens or changing habit completion behaviour.
+
+---
+
+## 2026-08-05 — Routinery feature/architecture assessment
+
+### Review
+- Identified the supplied research captures as Routinery: guided routine onboarding, ordered timed steps, per-step settings/quick add, a sequential routine player, and Lock Screen/Dynamic Island presentation.
+- Audited the active RKA architecture against the concept. Existing reusable foundations include task `durationMinutes`, checklists, tags/context/time buckets, recurrence, manual ordering, timeline scheduling, `activityLogs`, notifications, the medication timer controller, and `expo-widgets` Live Activities.
+- Recommended a first-class Routine domain rather than reusing Missions or plain task checklists. Missions carry Harada/Potential semantics, while checklists lack independent step timing, reuse, session state and analytics. A production implementation would need Routine/step persistence plus a durable routine-session state machine; the existing timer and Live Activity code can then be generalized.
+
+### Working state
+- Architecture review only; no runtime code, schema, packages or configuration changed.
+
+### Next step
+- If pursued, scope an MVP around routine templates, ordered timed steps, foreground player, pause/skip/complete and session logging; add notifications/Live Activity second, then suggestions/onboarding/voice/Watch features later.
+
+---
+
+## 2026-08-05 — App-wide UI refinement concept family
+
+### Changes
+- Extended the approved Tasks/Logbook direction into five additional high-fidelity concepts under `docs/design-system/concepts/app-wide-ui-refinement-v1/`: `inbox-refinement-v1.png`, `calendar-timeline-refinement-v1.png`, `edit-item-refinement-v1.png`, `collections-refinement-v1.png`, and `logbook-empty-state-v1.png`.
+- The set now tests the shared language across dense list rows, calendar/time hierarchy, utility forms, artwork-led destination tiles, section headings, and a deliberately quiet empty state.
+- The family consistently uses compact charcoal River Stone surfaces, warm ivory type, muted greige secondary information, restrained brass state emphasis, and vermilion navigation emphasis. Production UI remains unchanged.
+
+### Verification
+- Confirmed all five new PNGs are valid portrait assets at approximately 853×1844 and saved alongside the original Tasks concept.
+- Visual review note: the Calendar concept generator selected the Tasks dock position instead of Calendar, and the empty-state concept used an editorial serif for its main message despite the intended sans treatment. Treat both as presentation-generator drift, not implementation guidance.
+
+### Next step
+- Choose whether this family is the app-wide target. If approved, codify typography, row density, River Stone variants, section labels, selected-state accents, and empty-state rules before screen-by-screen implementation.
+
+---
+
+## 2026-08-05 — Tasks/Logbook visual-refinement mockup
+
+### Changes
+- Added `docs/design-system/concepts/app-wide-ui-refinement-v1/tasks-logbook-refinement-v1.png`, a high-fidelity Tasks screen concept based on the current app capture.
+- The concept establishes a candidate shared grammar for the wider refresh: denser River Stone rows, warm ivory hierarchy, Newsreader-style editorial screen title, tracked section labels, lacquer check controls, restrained brass state emphasis, and vermilion active dock treatment.
+- Production UI and navigation remain unchanged; this is approval-stage concept artwork only.
+
+### Verification
+- Confirmed the saved PNG is valid at 853×1844 and visually retains the original Tasks/Logbook information architecture and five-position dock.
+
+### Next step
+- Collect direction on density, serif usage, and brass/vermilion balance; if approved, translate the direction into shared tokens/components before applying it across Inbox, Calendar, and forms.
+
+---
+
+## 2026-08-05 — App-wide screenshot visual audit
+
+### Review
+- Audited the 13 current iPhone captures under `Screenshots (from App)/` as a single product system: Profile, Inbox, Tasks/Logbook, Calendar/Timeline, More, Settings, Quick Add, medication logging, and the full edit-item sheet.
+- The clearest app-wide gap is coexistence of the newer River Stone / warm ivory / restrained brass shell with older oversized blue-purple list cards and generic productivity-screen styling.
+- Highest-leverage follow-up: define one shared visual grammar for typography hierarchy, surface depth, list density, section labels, and accent roles before polishing individual screens. Tasks/Logbook is the best representative first mockup because its patterns will transfer directly to Inbox, collections, and form rows.
+
+### Working state
+- Review only; no runtime assets, styles, components, dependencies, or app configuration changed.
+
+### Next step
+- Create a focused Tasks/Logbook refinement mockup, then use the approved direction to propagate shared tokens/components across the remaining screenshots.
+
+---
+
+## 2026-08-05 — App-wide fontFamily/fontWeight fix
+
+### Changes
+- Found and fixed a real, app-wide rendering bug: ~105 style blocks across ~40 files set `fontWeight` (`'500'`/`'600'`/`'700'`/`'800'`) with no matching `fontFamily`. Per the note already in `App.tsx` (RN doesn't synthesize bold for custom fonts), every one of these was silently rendering as `Inter_400Regular` regardless of the requested weight — the actual root cause of "every label shouting at the same volume" that started the Home typography pass. Ran a mechanical sweep adding the matching `Inter_{weight}` family to every affected block.
+- The first pass of this sweep (a Python script) had a bug of its own on single-line style objects (e.g. `text: { fontSize: 12, fontWeight: '500' }` all on one line) — it inserted the new `fontFamily` line in the wrong place, corrupting ~50 files' `StyleSheet.create()` calls. Caught immediately via `tsc --noEmit`, repaired with a second script, one file needed a manual fix (`WorkoutSessionScreen.tsx`'s `cardTarget` had gotten double-inserted). Confirmed no corruption pattern remains anywhere in `src/` via grep, and `tsc --noEmit` + the domainScoring/potential unit tests (24/24) are clean.
+
+### Next step
+- The mechanical bug fix is done app-wide. The qualitative parts of the typography brief from the Home pass — capping title weights at 600 instead of 700/800, dimming inactive nav/segment text, warm off-white beyond Home, deciding if any other screen's heading deserves Newsreader — are per-screen judgment calls, not yet applied beyond `HomeScreen`/`TodayCard`/`RoninJourneyPrototype`/`AppHeader`. Continue screen-by-screen on request.
+
+---
+
+## 2026-08-05 — Home River Stone + typography refinement pass
+
+### Changes
+- Started migrating Home's remaining flat surfaces to the existing `RiverStoneSurface`/`RiverStonePressable` material (already used app-wide — tab bar, Settings, Profile, several Home widgets — but not `HomeScreen.tsx` itself). Converted the Today/Upcoming/Anytime/Someday tab row (`HomeScreen.tsx`) and the Today/Upcoming toggle (`TodayCard.tsx`) to the `chip` variant, which is designed as an inset/pressed treatment — only the active tab gets the stone material, matching how the tab bar itself distinguishes the active icon. Note: `RiverStoneSurface`'s `face` layer is `flex: 1` and needs an ancestor with an explicit height to resolve against (every prior usage passes a fixed `style={{ width, height }}`) — omitting it caused the chip to collapse to nothing in a horizontal scroll row and to stretch to fill the whole remaining screen height in a vertical list. Fixed by giving both an explicit `height: 30`.
+- Removed `TodayCard`'s old `palette.fill` track background + `padding: 3` inset now that the active segment carries its own material contrast — it read as a mismatched second boxed layer once the chip was added.
+- Fixed a real bug in `RoninJourneyPrototype.tsx`: the `TODAY'S PATH` eyebrow was written as literal JSX text `TODAY’S PATH` (not inside a JS string), so React Native rendered the raw backslash-u-escape characters instead of an apostrophe. Wrapped in `{'...'}`.
+- Typography pass, motivated by "every label shouting at the same volume": added `@expo-google-fonts/newsreader` (`Newsreader_600SemiBold`, loaded in `App.tsx`'s `useFonts`) reserved *only* for the Journey card's title (`RoninJourneyPrototype.tsx`'s `progressLabel`) and the `RKA` wordmark (`AppHeader.tsx`) — everything else stays Inter. Inactive tab labels (both Home rows) dropped to `Inter_500Medium`/12px/`textTertiary` so only the active tab reads bold; several components (`TodayCard` row/empty-state text, `HabitHoldButton` pill title/streak) had `fontWeight: '600'`/`'700'` with no matching `fontFamily`, which — per the existing note in `App.tsx` about RN not synthesizing bold for custom fonts — silently rendered as Regular; added the matching `Inter_600SemiBold` family so the weight actually applies. `TodayCard`'s empty-state heading was deliberately kept Inter (not Newsreader) rather than serif, per the call that Newsreader should stay exclusive to the Journey card's one line of emotional copy. `RoninJourneyPrototype` text swapped from pure `#ffffff` to a warm off-white (`#f5efe4`, matching the app's existing dark-mode `text` token) plus an added top-down `LinearGradient` scrim behind the heading row for legibility.
+
+### Verification
+- `npx tsc --noEmit`: clean except the pre-existing retired-web errors.
+- Newsreader is a JS-only font asset (no native module) — no EAS/dev-client rebuild needed, just a Metro restart.
+- Not yet verified: on-device visual check of the gradient scrim and Newsreader rendering (can't drive the physical dev-client remotely).
+
+### Next step
+- Continue the River Stone migration to Home's remaining flat surfaces (Log Medication card, stat pills) and audit other screens for the same gap, per `src/components/riverstone/MIGRATION_GUIDE.md`.
+
+---
+
+## 2026-08-04 — Harada Setup walkthrough (onboarding)
+
+### Changes
+- New `apps/mobile/src/screens/OnboardingScreen.tsx`: first-launch, skippable guided setup for the full Journey/Domains/Missions/Potential model (see below). 4-step flow — intro (real `hero-dawn.png` art) → Domain chip picker (suggested + custom, tap to select) → per-Domain loop (optional Mission + optional Potential Stat, each independently skippable) → Focus selection with a live `KatanaProgress` preview of `computeOverallPotential()`. Pure UI over existing `database.ts` functions (`createItem`, `setRelation`, `createPotentialStat`, `setFocus`) — no schema changes.
+- `App.tsx`: registers an `Onboarding` root-stack screen and gates `RootStack.Navigator`'s `initialRouteName` on `getItemsByType('area').length === 0`, computed once at boot (native only — web has no SQLite).
+- `SettingsScreen.tsx`: new "Redo Setup" row (SETUP section) re-enters the same flow at any time; existing Domains/Missions/Stats are untouched, it only adds more.
+- `src/icons.tsx`: added `Briefcase`/`Users`/`Banknotes`/`PuzzlePiece`/`ChartBar`/`Star`/`Trophy` heroicon re-exports for the new screen's chip/card glyphs.
+- Design doc: `docs/superpowers/specs/2026-08-04-harada-onboarding-design.md`. Flagged follow-up (not done): a bespoke Domain-glyph icon set (torii/cherry-blossom/coin-stack/crane) in the same rendered-3D style as `icons/collections/*.png`, to replace the heroicon-outline stand-ins.
+
+### Verification
+- `npx tsc --noEmit`: clean except the pre-existing retired-web `App.web.tsx`/`src/webApp/*` errors.
+- `domainScoring.test.ts` + `potential.test.ts`: 24/24 pass (no logic changed, sanity check only).
+
+### Next step
+- On-device smoke test: fresh-install trigger, chip selection, per-domain skip vs. fill, Focus selection, Settings → Redo Setup re-entry.
+
+---
+
+## 2026-08-04 — Journey/Domains/Missions/Potential scoring model
+
+### Changes
+- New DB table `domainContributions` (`apps/mobile/src/db/database.ts`): one row per completion-event's live, decaying effect on a Domain score, separate from permanent `items` history so scoring can be re-tuned without touching Mission/Achievement records. Soft-disable only, via `excludedAt` (never deleted).
+- New `ItemType`s: `potential-stat`, `achievement`, `focus` (`apps/mobile/src/db/types.ts`). Potential Stats and Achievements link to a Domain via new relationTypes `potentialStatArea`/`achievementArea` (kept distinct from `project -> area`'s `'area'` relationType so Mission rollups never pick them up).
+- New pure scoring module `apps/mobile/src/utils/domainScoring.ts`: exponential half-life decay, product-of-complements diminishing-returns lift combinator (capped at `MAX_ACHIEVEMENT_LIFT = 30`), `domainScore = min(100, maintenance + lift)`, weighted `overallPotential`. Defaults: ordinary Mission contribution `magnitude 0.25 / halfLife 14d`; Achievement contribution `magnitude 0.6 / halfLife 60d`. 15 unit tests.
+- `apps/mobile/src/utils/potential.ts` migrated from a fixed 4-stat enum to DB-backed `potential-stat` items (`computePotentialStats` now keyed by stat item id). One-time idempotent migration (`migratePotentialStats` in `database.ts`, runs on every `getDb()` first-open) seeds the 4 legacy stats and rewrites any habit's `metadata.potentialStat` from the old literal string to the new item id.
+- Mission completion (`completeMission`) and achievement-eligibility toggling (`setMissionAchievementEligible`) implement the mutually-exclusive Mission-vs-Achievement contribution rule: a Mission's `metadata.achievementEligible` flag decides whether completion produces an ordinary Mission-tier contribution or a permanent `achievement` trophy + Achievement-tier contribution — never both for the same completion event. Upgrading/downgrading after completion preserves the original completion date and never deletes a trophy once created.
+- New screens: `AchievementsScreen.tsx` (trophy case + manual/retrospective add), `FocusScreen.tsx` (Current Focus label + per-Domain weight overrides — changing it never resets Domains/Missions/Achievements/history). `PotentialScreen.tsx` rewritten as a Domain-grouped overview (Overall Potential, Focus, per-Domain scores). `AreaDetailScreen.tsx` gained Domain score + Potential Stats management + Achievements list. `ProjectDetailScreen.tsx` gained a "Mark Mission Complete" action and an achievement-eligible toggle. `ProfileScreen.tsx`'s Potential card simplified to Overall Potential + per-Domain scores. `HabitDetailScreen.tsx`'s stat chips now read from the DB instead of the old fixed enum.
+- `RoninJourneyPrototype.tsx` gained an optional `potentialPercent` caption; `HomeScreen.tsx` now computes and passes Overall Potential. Journey itself stays presentation-only, per the agreed architecture (permanent framework, not a named data object).
+- `apps/mobile/SCHEMA.md` updated with the new table, types, relations and the scoring formula summary — treat it as the canonical reference for this model.
+
+### Verification
+- `domainScoring.test.ts` (15/15) and rewritten `potential.test.ts` (9/9) pass via `node --experimental-strip-types --test`.
+- Full architecture was worked through conversationally (Journey/Domains/Missions/Potential audit → three-layer model → maintenance+achievement scoring philosophy → baseline+capped-decaying-lift formula → permanent Achievements/Trophies → mutually-exclusive Mission/Achievement contributions) before implementation — see conversation history for the full design rationale if extending this further.
+
+### Next step
+- Full `npx tsc --noEmit` + on-device smoke test of the new screens/flows (Complete Mission, achievement toggle upgrade/downgrade, Focus weighting, manual Achievement add) still pending at time of writing.
+
+---
+
+## 2026-08-03 — Storybook Ronin production animation pipeline started
+
+### Changes
+- Added `docs/plans/2026-08-03-ronin-storybook-animation-system.md`, covering contract, rig authoring, modular outfits/props, Rive integration and on-device acceptance.
+- Added `apps/mobile/src/domain/ronin/journeyAnimation.ts` and exported it from the Ronin domain. It fixes production names and semantic state for activity, mood, outfit, cat state, progress, Reduce Motion, tap and completion.
+- Added `apps/mobile/assets/ronin/for-rive/storybook-journey-rig.manifest.json`, mapping every approved reference to Side, Front, Rear, Seated, Sleeping, Training and Cat rig families and defining modular slots, draw order, continuous motion policy and acceptance gates.
+- Added `apps/mobile/src/utils/roninJourneyAnimation.test.ts`, validating stable authoring names, defaults, progress normalization, manifest parity and source-art resolution.
+- Left the active `apps/mobile/assets/rka_journey_rig.riv` and its runtime renderer unchanged. The replacement target `apps/mobile/assets/rka_journey_storybook.riv` will only become active after authoring and device verification.
+
+### Verification
+- Targeted production contract suite: 5/5 passed.
+- Full mobile test suite: 129/129 passed.
+- `git diff --check`: passed before documentation sync and will be rerun at handoff.
+- Full TypeScript check remains blocked only by the pre-existing retired-web imports under `App.web.tsx` and `src/webApp/`; no new Ronin contract errors were reported.
+
+### Next step
+- Use the corrected gear-free stretching/training artwork when it arrives, update the two manifest sources, then vectorise the approved Side and Front neutral rigs first. Author the production file against the fixed `Journey` View Model contract rather than extending the experimental `State Machine 1` interface.
+
+---
+
+## 2026-08-03 — Canonical front-facing Ronin and cat reference
+
+### Changes
+- Generated and saved `apps/mobile/assets/ronin/model/ronin-cat-front-reference-v1.png`, a 1254×1254 straight-on identity reference with simplified app-like shapes, clean outlines and clear limb separation.
+- Generated `apps/mobile/assets/ronin/model/ronin-cat-master-identity-sheet-v2.png`, then rejected it after clarification that the desired visual target was specifically the softer side-on artwork already present in the Fuji scene, not the later clean-anime turnaround style.
+- Saved `apps/mobile/assets/ronin/model/ronin-cat-side-style-reference-v3.png` as the canonical source-only identity reference. It is an exact duplicate of the approved transparent `journey/ronin-cat-walkers-v1.png`, preventing regeneration drift while giving future generation work an unambiguous reference path. The v1 and v2 generated sheets remain rejected explorations; the active runtime character is unchanged.
+- Preserved the six accepted storybook-style outputs in `apps/mobile/assets/ronin/reference/approved-storybook-v1/` with semantic filenames: side-neutral, rear, three-quarter, cat turnaround, front expressions and side expressions. These are reference-only and do not alter the runtime bundle.
+- Preserved the six-image structural batch in `apps/mobile/assets/ronin/reference/approved-structural-v1/`. Front rigging, cross-legged, sleeping, working/journaling and celebration are approved; the rear view is explicitly named `rear-rig-needs-sword-correction.png` because its duplicated sword/scabbard arrangement is not rig-safe.
+- Saved the successful rear correction as `approved-structural-v1/rear-rig-corrected-approved.png`: both hands are empty and only one attached sheathed sword remains.
+- Saved the second activity batch under `apps/mobile/assets/ronin/reference/approved-activities-v1/`. Tea break, petting, reading and tired/comfort are approved; stretching-with-travel-gear is retained as a distinct travel concept, and training-with-travel-gear is marked for a gear-free correction before it defines the Workout state.
+
+### Verification
+- Confirmed the saved asset is a valid 8-bit RGB PNG at 1254×1254.
+- Confirmed the v2 master sheet is a valid 8-bit RGB PNG at 1536×1024 and visually contains the required Ronin turnaround, cat turnaround and six-expression set.
+- Confirmed the v3 reference is a 1254×1254 RGBA PNG with alpha and has the same SHA-256 hash as the approved journey walker artwork.
+- Confirmed all six approved reference files are valid RGB PNGs and recorded their SHA-256 hashes. The rear view remains concept-only due to headband/backpack drift, and the cat turnaround needs a standing front correction before rigging.
+- Confirmed all six structural outputs are valid 1254×1254 RGB PNGs and recorded their SHA-256 hashes. Visual review found no blocking identity/style drift in the five approved images.
+- Confirmed the corrected rear and all six activity outputs are valid 1254×1254 RGB PNGs and recorded their SHA-256 hashes. The style, character scale and storybook texture remain consistent across the batch.
+
+### Next step
+- Generate gear-free waking/stretching and Workout/training variants, then decide whether the accumulated reference coverage is sufficient to begin vector reconstruction before expanding into modular outfit concepts.
+
+---
+
+## 2026-08-03 — Rive journey runtime activated
+
+### Changes
+- Exported the upgraded Rive editor file as the valid 250 KB runtime binary `apps/mobile/assets/rka_journey_rig.riv`.
+- Connected `State Machine 1` entry directly to the looping `Walk` state and verified changing leg poses in Rive preview.
+- Mounted the runtime through `RoninJourneyRiveWalker` inside `RoninJourneyPrototype`; the PNG now serves only as a loading/error fallback while the existing Reanimated path progress and tap reaction remain intact.
+- Added `riv` to Metro's asset extensions in `apps/mobile/metro.config.js`.
+
+### Verification
+- Confirmed the asset starts with the `RIVE` binary header and contains the expected `Walk`, `Idle`, and `State Machine 1` names.
+- Targeted TypeScript check for both Home journey components passes.
+- Full mobile test suite: 124/124 passed. Metro configuration check and `git diff --check` passed.
+- Initial Expo Cloud build `4d7ecc9a-0c01-46aa-93df-0a156e3022ac` compiled but crashed before JavaScript startup. A paired-device console reproduction identified the exact `dyld` failure: `ExpoLocation.framework` referenced a missing Swift symbol in `ExpoModulesCore.framework`.
+- `npx expo install --check` confirmed the project had been partially moved to Expo `57.0.9` while 23 native dependencies still used earlier SDK 57 patches. `npx expo install --fix` aligned the full supported matrix, including `expo-location ~57.0.7`, `expo-dev-client ~57.0.10`, React Native `0.86.2`, Reanimated `4.5.1`, Screens `~4.26.0`, Worklets `0.10.1` and Widgets `~57.0.7`.
+- After alignment, `npx expo install --check`, all 124 tests and `git diff --check` pass. Replacement Expo Cloud development build `9c105bf8-be26-4409-b3f3-a1b48150c651` completed successfully and was installed on the paired iPhone.
+- A normal device launch remained alive in the iOS process table after 29 seconds, confirming the original instant-close `dyld` crash was resolved. The first JavaScript load then reported Worklets JavaScript `0.10.1` versus Babel plugin `0.10.0`; the Metro process had been running since before dependency alignment. Restarting Metro on port 8082 with `--clear` rebuilt all 2,906 modules and launched the app without the Worklets error.
+- First on-device visual review found the Rive artboard's `#282828` fill rendering as a square over the Fuji scene, an under-authored `Walk` state cycling only the rear leg, and system Reduce Motion suppressing the app-level tap hop. Set the artboard fill opacity to 0% in Rive, removed the malformed `Walk` state from `State Machine 1` so Entry now uses `Idle`, and re-exported the runtime asset. The React Native wrapper now explicitly uses a transparent non-interactive Rive surface, while all deliberately restrained bob/progress/reaction timings use `ReduceMotion.Never` so functional feedback remains visible.
+
+### Next step
+- Visually recheck the transparent Idle-based journey and tap hop on the paired iPhone after unlocking it. Keep the current clean Metro server running on port 8082; after native dependency changes, restart Metro with `npx expo start --dev-client --port 8082 --clear` before judging the new build.
+
+---
+
+## 2026-08-02 — Ronin + cat Rive rig, motion and native adapter
+
+### Changes
+- Renamed Rive editor file `2478489` to `RKA Journey Rig` and preserved the structured `ronin-cat-walk-rive-source` vector import.
+- Added Ronin spine, arm, leg and sword skeletons plus cat spine, tail and leg skeletons. Bound and auto-weighted the body art, then verified representative leg and tail deformation before restoring the exact rest pose.
+- Bound the separate rear boot, sword, hair/bandana and backpack artwork to their relevant bones.
+- Authored looping `Idle` and `Walk` animations. `Idle` gently moves the Ronin torso and cat tail; `Walk` adds alternating Ronin leg motion, torso motion and cat-tail movement.
+- Installed `@rive-app/react-native@0.4.19` and `react-native-nitro-modules@0.35.10` and added `apps/mobile/src/components/home/RoninJourneyRiveWalker.tsx`, a local `.riv` state-machine adapter with a safe fallback.
+- Rive Agent was visibly placed in Build mode, but the beta repeatedly replied that it could not manipulate the file. The working rig and timelines were therefore completed directly in the editor.
+
+### Verification
+- Verified Ronin leg art follows its weighted leg bone and the cat tail follows its tail chain, undoing both test rotations back to rest.
+- Previewed both looping timelines in Rive and confirmed the character/companion remain in continuous motion.
+- Confirmed the Rive Nitro packages satisfy the current React Native/Expo requirements. A targeted TypeScript check of `RoninJourneyRiveWalker.tsx` passes. The full mobile typecheck remains blocked by the pre-existing retired-web imports under `App.web.tsx` and `src/webApp/`; no Rive adapter errors were reported.
+- Full mobile test suite: 124/124 passed. `git diff --check` passed.
+
+### Resolved follow-up
+- The export gate was resolved on 2026-08-03: the valid runtime asset is now active at `apps/mobile/assets/rka_journey_rig.riv`, with the PNG retained only as the adapter fallback.
+
+---
+
+## 2026-08-05 — A/F negative-space RKA monogram attempt
+
+### Changes
+- Explored integrating `RKA` into the empty channels of the selected A/F Harada crest families rather than overlaying conventional lettering.
+- Saved the generated concept board at `docs/design-system/concepts/ronin-harada-negative-space-v1/negative-space-rka-attempt-v1.png`; no production assets changed.
+
+### Verification
+- The pass preserved A/F geometry, styling and small-size previews, but failed the primary acceptance criterion: the negative spaces still read as generic channels rather than a genuinely legible `RKA` monogram.
+- Marked this direction as requiring deliberate vector counter/stroke construction rather than further unconstrained image-generation averaging.
+
+### Next step
+- Construct a small number of deterministic black-and-white vector skeletons where R, K and A counters are explicitly drawn first, then derive the eight contribution objects around those locked spaces.
+
+---
+
+## 2026-08-05 — A/F Harada crest colour and depth finalists
+
+### Changes
+- Expanded monochrome hybrid concepts A and F into five refinements per family while restoring the established RKA OS lacquer, washi, vermilion and restrained brass styling.
+- Preserved the clean small-size geometry: A uses an eight-contribution 3×3 discipline grid around a central life ensō; F uses eight explicit contribution paths feeding the central ensō.
+- Saved the concept-only board at `docs/design-system/concepts/ronin-harada-af-finalists-v1/af-colour-depth-10up-v1.png`; no production icon or app configuration changed.
+
+### Verification
+- Confirmed the board contains A1–A5 and F1–F5 with simulated 16 px and 32 px previews.
+- A5 reads most like a finished Apple icon, F2 communicates Current Focus most clearly and F5 provides the strongest premium layered-system treatment; A3/F3 lose too much brand warmth.
+
+### Next step
+- Choose between A5, F2 and F5, then produce deterministic vector geometry and real Apple default/dark/clear/tinted appearance tests.
+
+---
+
+## 2026-08-05 — Monochrome Harada/Ronin crest simplification
+
+### Changes
+- Generated a strict monochrome simplification board after rejecting the detailed symbolic crest direction as unsuitable for Apple icon sizes.
+- Generated a second ten-option hybrid board combining the successful monochrome reduction with the earlier Daily Grid and Orbit System semantics: eight contributions, a central life/Overall Potential ensō and one weighted Focus.
+- Saved both concept-only boards under `docs/design-system/concepts/ronin-harada-monochrome-v1/`; no production icon or Expo configuration changed.
+
+### Verification
+- Both boards include ten labelled concepts plus simulated 16 px and 32 px previews.
+- Hybrid concepts A, D, F and I best retain the many-contributions-to-one-core meaning without reading primarily as targets or scientific orbit symbols.
+
+### Next step
+- Select hybrid finalists, reduce them to deterministic vector paths and test real iOS/macOS default, dark, clear and tinted appearances.
+
+---
+
+## 2026-08-05 — Unified Ronin principles crest exploration
+
+### Changes
+- Generated a ten-option unified Ronin crest board integrating five agreed symbols: an overall crest for chosen principles, central ensō for life/wholeness, sunrise for purpose, bamboo for resilient continuous improvement and a musubi-derived interlock for harmony.
+- Matched the established app treatment with ink/lacquer backgrounds, washi-ivory forms, vermilion sunrise and restrained brass accents.
+- Saved the concept-only board at `docs/design-system/concepts/ronin-principles-crest-v1/ronin-crest-symbolism-10up-v1.png`; no production icon or app configuration changed.
+
+### Verification
+- Confirmed the board contains ten labelled options in one 5×2 image with simulated small-size previews.
+- Identified E/J as strongest at app-icon size, I as the richest full crest and H as the clearest independent-Ronin silhouette; A–D are comparatively intricate at small sizes.
+
+### Next step
+- Select one or two crest constructions, then simplify their vector geometry and test real default/dark/tinted Apple appearances before production asset replacement.
+
+---
+
+## 2026-08-05 — Harada logo finalist family boards
+
+### Changes
+- Expanded the four selected Harada-inspired concepts—1 Eight-Point Compass, 7 Domain Crest, 9 Daily Grid and 10 Orbit System—into four separate boards of ten variations each.
+- Each board explores Focus weighting, central-goal hierarchy, flat/tactile treatments and small-size Apple-platform readability.
+- Saved the four concept-only boards under `docs/design-system/concepts/harada-logo-finalists-v1/`; no production icon or Expo configuration changed.
+
+### Verification
+- Confirmed each board contains ten labelled variations in a 5×2 grid with a simulated 32 px preview per concept.
+- Confirmed all families preserve the shared meaning: Domains, Missions and daily actions contributing toward one central Overall Potential goal, with optional Current Focus emphasis.
+
+### Next step
+- Select finalists across the four boards, then compare only those finalists in default/dark/tinted iOS and macOS contexts before deterministic vector construction.
+
+---
+
+## 2026-08-05 — Harada-inspired logo exploration
+
+### Changes
+- Generated one ten-concept app-icon board exploring completely new brand metaphors derived from the app's Harada model: balanced Domains, daily Potential Stats, Missions, weighted Focus and Overall Potential.
+- Concepts cover an eight-point compass, rising potential, focused sun, mission path, balanced stones, katana measure, domain crest, potential vessel, daily grid and orbit system.
+- Saved the concept-only board at `docs/design-system/concepts/harada-logo-exploration-v1/harada-logo-concepts-10up-v1.png`; no production logo or app configuration changed.
+
+### Verification
+- Confirmed the board contains ten numbered concepts in one 5×2 image with a small-size preview for each.
+- Shortlisted concepts 1, 3, 7, 9 and 10 as the clearest expressions of balanced Domains and focused potential.
+
+### Next step
+- Select one or more concepts for deeper silhouette, Apple appearance and Home-header exploration before any deterministic vector construction.
+
+---
+
+## 2026-08-05 — Apple-platform logo refinement concepts
+
+### Changes
+- Generated six refinements of the existing RKA ensō monogram, focusing on clearer R/K/A construction, fewer heavier strokes, removal of the ambiguous underscore and small-size recognition.
+- Generated an Apple-platform application board showing the shortlisted D/F direction in default, dark, tinted, Spotlight, macOS Dock, title-bar, Home-header and three-layer Icon Composer contexts.
+- Saved both concept-only boards under `docs/design-system/concepts/logo-refinement-v1/`; the configured runtime app/splash/Android icons remain unchanged.
+
+### Verification
+- Visually checked the concepts at large and simulated 32 px sizes and across light/dark/tinted Apple contexts.
+- Confirmed the proposed construction keeps one consistent core silhouette and separates lacquer background, ensō and monogram into three potential layers.
+
+### Next step
+- Select a monogram direction, redraw it deterministically as vector geometry, then build real default/dark/tinted Icon Composer layers and validate actual iOS/macOS rendered sizes before replacing production assets.
+
+---
+
+## 2026-08-05 — Home typography hierarchy mockup
+
+### Changes
+- Generated a Home-screen refinement mockup preserving the centred `RKA` future-logo position and current River Stone/navigation layout.
+- Explored lighter Inter UI hierarchy, Newsreader Journey/empty-state headlines, warmer off-white text, quieter inactive tabs, corrected `TODAY’S PATH` copy and improved Journey text contrast.
+- Saved the concept-only board at `docs/design-system/concepts/home-typography-v1/home-hierarchy-newsreader-v1.png`; no runtime code, fonts or assets changed.
+
+### Verification
+- Visually confirmed that the supplied Home structure, Journey artwork, widgets, controls and navigation remain represented while the typographic hierarchy is more differentiated.
+- The generated image is an art-direction reference rather than a pixel-accurate implementation specification.
+
+### Next step
+- Review the hierarchy direction, then apply selected type/contrast changes to the real Home components and validate on-device.
+
+---
+
+## 2026-08-04 — Onboarding typography mockup set
+
+### Changes
+- Generated five four-screen onboarding typography boards from the supplied Harada setup reference: Inter only, Inter + Newsreader, Manrope + Newsreader, Nunito Sans + Newsreader and Inter + Shippori Mincho.
+- Saved the concept-only boards under `docs/design-system/concepts/onboarding-typography-v1/`; no runtime artwork, font packages, typography tokens or onboarding code changed.
+
+### Verification
+- Confirmed every board includes the introduction, Domain selection, Workout setup and Focus screens and preserves the dark/vermilion product direction.
+- These generated boards are art-direction comparisons, not glyph-accurate or layout-locked implementation proofs; image generation introduced some secondary layout/icon variation.
+
+### Next step
+- Select one or two finalists, then typeset the real onboarding implementation with actual font files for a controlled device screenshot comparison before adopting a typography change.
+
+---
+
+## 2026-08-02 — App typography comparison mockup
+
+### Changes
+- Generated a five-direction Home-screen typography comparison covering Inter only, Inter + Newsreader, Manrope + Newsreader, Nunito Sans + Newsreader and Inter + Shippori Mincho.
+- Saved the non-runtime art-direction board at `docs/design-system/concepts/rka-os-type-study-v1.png`; no fonts, packages, tokens or app code were changed.
+
+### Verification
+- Visually checked that each panel holds the UI structure, content and palette constant so the display/body typography relationship remains the main variable.
+- This generated board is directional rather than a glyph-accurate typesetting proof.
+
+### Next step
+- Choose one or two directions, then build a deterministic in-app comparison using the real font files before changing the established Inter typography system.
+
+---
+
+## 2026-08-02 — Ronin navigation portrait concept set
+
+### Changes
+- Generated a six-option portrait navigation concept board derived from the active Journey Ronin identity.
+- Explored simplified full-colour, painted, lacquer-medallion, two-tone mon, dark illuminated badge and ensō-framed treatments.
+- Saved the non-runtime selection board at `apps/mobile/assets/ronin/navigation/concepts/ronin-navigation-portrait-options-v1.png`; no active navigation asset or app code was replaced.
+
+### Verification
+- Visually checked all six options for character continuity and navigation-scale suitability.
+- Shortlisted D for maximum small-size clarity, E for premium presence and F for strongest ensō continuity.
+
+### Next step
+- Choose a direction, then generate and validate isolated active/inactive transparent exports at the actual tab-bar size before replacing `icons/nav/ronin-mon-portrait.png`.
+
+---
+
+## 2026-08-02 — Illustrator SVG to Rive source cleanup
+
+### Changes
+- Inspected the user's `Rka-OS avatar 1.svg` Illustrator export and confirmed its artwork contains 166 editable vector paths alongside a removable embedded raster reference.
+- Added `tools/illustrator/prepare_rive_svg.py` to non-destructively extract the generated vector, remove the raster and white artboard, preserve its original draw order, crop it to a 1255-square transparent canvas, and assign stable names to every group and path.
+- Created `apps/mobile/assets/ronin/for-rive/ronin-cat-walk-rive-source.svg` plus its JSON structure manifest. Primary branches are named for the rear boot, sword, body, hair/bandana, cat and backpack; useful nested branches now identify face/eye details, clothing, bandana tails, cat tail/head and backpack/bedroll structure.
+- Added a rig-readiness audit, suggested Ronin/cat joint coordinates and `ronin-cat-walk-rig-notes.md`, including the intended Rive bone hierarchy and current View Model/data-binding contract (`progress`, `tap`, `reducedMotion`).
+- Documented the repeatable SVG conversion command in `tools/illustrator/README.md`.
+
+### Verification
+- Parsed the cleaned SVG successfully and rendered it with ImageMagick; the complete Ronin and cat match the Illustrator vector with transparency intact.
+- Confirmed the cleaned SVG contains no embedded `<image>` element or background `<rect>` and retains all 166 artwork paths. Re-rendered the semantic version and confirmed that naming changes did not alter the illustration.
+
+### Next step
+- Import `ronin-cat-walk-rive-source.svg` into Rive. The generated main-body branch still contains nested anatomy, so assign bones, pivots and constraints in Rive rather than treating the generated nesting as a finished skeletal rig.
+
+---
+
+## 2026-08-02 — Illustrator rig organisation assistant
+
+### Changes
+- Added `tools/illustrator/RKA_Rig_Organizer.jsx`, a modeless Illustrator panel for safely organising the AI-generated Ronin and cat vectors into animation-facing groups.
+- On first run the script duplicates the selected generated artwork into a hidden, locked `GENERATION_BACKUP`, creates `RKA_RIG/RONIN` and `RKA_RIG/CAT`, and presents the complete part assignment checklist.
+- Each assignment groups, names, moves and locks the user's selected shapes rather than guessing anatomy from geometry. Added clipping warnings, correction/unlock controls, progress tracking and a missing-group audit.
+- Added `tools/illustrator/README.md` with installation, operation, safety and limitation guidance.
+
+### Verification
+- Stripped the Illustrator `#target` directives and passed the remaining script through JavaScript syntax validation.
+- Confirmed the expected backup, rig hierarchy, assignment, clipping-warning and audit paths are present. Runtime canvas verification remains to be completed in the user's Illustrator document.
+- First Illustrator run exposed error 8705 because the script locked a group/layer before clearing its selected items. Reordered backup creation, part assignment and bulk locking to clear selection before locking; added recovery guidance for the already-created backup.
+
+### Next step
+- In Illustrator, select the complete working generation and run the script through **File → Scripts → Other Script…**. Test `Front Boot`, `Front Shin` and `Front Thigh` first, then review the resulting Layers panel before assigning the remaining parts.
+
+---
+
+## 2026-08-01 — Illustrated Ronin rig build manual
+
+### Changes
+- Created a 13-page LEGO-style Figma construction guide for manually rebuilding the Ronin and cat as animation-ready vector layers.
+- The manual teaches the small Figma toolset once, then provides ten visual construction stages with highlighted new pieces, expected end states and per-stage checkpoints.
+- Added final joint-overlap, layer-order, phone-scale legibility and Rive handoff checks.
+- Source builder and generated diagrams live under `docs/artifacts/`; the verified deliverable is `docs/artifacts/ronin_rig_build_manual.pdf`.
+- After review found that the beginner manual's mascot diverged too far from the supplied PNG, added `ronin_rig_build_manual_advanced.pdf`: a 16-page faithful reconstruction guide using actual PNG close-ups, suggested Bézier anchors/handles, Pen and node-editing techniques, colour sampling, boolean/mask guidance, rotation tests, simplified three-tone depth, and a detailed Rive layer gate.
+
+### Verification
+- Rendered the DOCX to 13 page PNGs and PDF using the bundled document renderer.
+- Inspected a full contact sheet: no clipped text, overflow, broken tables or unintended page breaks.
+- Rendered and inspected the advanced manual twice; corrected reference/overlay scaling and arrow direction, then verified all 16 final pages.
+
+### Next step
+- Follow the manual in Figma, then review a screenshot of the completed canvas and Layers panel before beginning the Rive animation rig.
+
+---
+
+## 2026-08-01 — Animated Ronin journey prototype
+
+### Changes
+- Added `RoninJourneyPrototype.tsx` above the Today content on Home, using the existing `todayItems` completed/total ratio as its only progress source.
+- Iterated the original side-profile walker twice after visual review rejected the first detailed 3D render and then the still-too-illustrative intermediate. The active asset is now the ultra-simple, six-color app mascot at `apps/mobile/assets/ronin/journey/ronin-walker-flat-v3.png`.
+- Expanded the card into a layered illustrated landscape with mountains, hills, a travelled/untravelled five-waypoint route and destination gate. The larger Ronin continuously idles, advances along the rising trail, and gives a haptic hop when tapped.
+- Reduce Motion retains a slower progress translation and minimal idle so the functional walking metaphor remains visible, while rotational movement is removed.
+- After on-device review reported that both idle and taps appeared inert and the generated SVG landscape looked poor, replaced that visual revision rather than tuning it. Used the user's supplied Fuji sunset/Ronin/cat composite as the new source of truth, producing `sunset-trail-background-v1.png` with the characters removed and `ronin-cat-walkers-v1.png` as a transparent grouped layer.
+- Rebuilt interaction reliability: the entire journey card is now the `Pressable`, while the animated character is pointer-events-free. Tap is deliberately unmistakable (medium haptic, 18pt hop, scale pulse and temporary phrase bubble). Continuous motion now uses a simple reversible `withTiming` repeat; Reduce Motion still gets a slower two-point bob and progress travel without rotation.
+- Recorded the component, prototype status, artwork path, and exact shipped generation prompt across the app guide, design checklist, component reference, prompt library, and root agent guide.
+
+### Verification
+- Targeted TypeScript check for `RoninJourneyPrototype.tsx`: passed.
+- Targeted TypeScript check after the supplied-art rebuild: passed.
+- Full mobile test suite after the supplied-art rebuild: 109/109 passed.
+- `git diff --check`: passed before documentation updates.
+- Full `tsc --noEmit`: still blocked by the existing TypeScript compiler `Maximum call stack size exceeded` crash, with no source diagnostic.
+
+### Next step
+- Rive migration requested after PNG motion remained unsatisfactory. `@rive-app/react-native` and `react-native-nitro-modules` are installed successfully. Sign in to the Rive editor tab left open by Codex, then author/export a local `.riv` state machine with continuous idle/walk, tap, numeric progress and completion states; wire it over the existing Fuji background and make a fresh native development build.
+
+---
+
+## 2026-08-01 — High-detail collection artwork
+
+### Changes
+- An initial filled-SVG pass was rejected after on-device review because it lacked the detail and material depth of the existing 3D entity artwork.
+- Generated four replacement transparent 1254×1254 PNG identities using the existing Task note, Project portfolio and Medication bottle as direct style references: black lacquer kettlebell (Workout), wooden prayer beads with lacquer tally (Habit), indigo/rose furoshiki parcel (To Get), and black lacquer/brass scroll chest (Archive destination).
+- Added the final assets under `apps/mobile/assets/icons/collections/`; `CollectionIcons.tsx` now provides consistent RN Image wrappers rather than drawing simplified SVGs.
+- Replaced generic collection glyphs in `MenuScreen.tsx` and reused the entity icons in Calendar, Habit creation, To Get placeholders and the Home practice card.
+- Removed the collection cards' tinted rounded-square icon badges and enlarged every transparent object to 42pt, leaving the artwork directly on the River Stone card surface.
+- Kept generic archive glyphs for swipe actions, settings and other universal commands; the custom chest identifies the Archive destination only.
+- Updated the custom-icon audit, design checklist, reference iconography, `AGENTS.md`, and `apps/mobile/CLAUDE.md`.
+
+### Verification
+- Targeted TypeScript check for all six touched TSX files: passed.
+- Full mobile test suite: 109/109 passed.
+
+### Next step
+- Check the four replacement objects together on-device in dark and light mode; tune subject scale if one reads smaller than its siblings.
+
+---
+
+## 2026-08-01 — Animation-ready vector FAB
+
+### Changes
+- Rebuilt `apps/mobile/src/components/fab/FabControl.tsx` from idle/pressed PNG swapping into one layered SVG/Reanimated control.
+- Preserved the blue lacquer disc, washi paper and calligraphy brush identity while separating disc, paper, ink, handle, ferrule and brush tip into independently animated layers.
+- Added press compression, brush lift/sweep, ink reveal, long-press pose, haptics and Reduce Motion handling without changing the shared tap or route-aware long-press APIs.
+- Updated `AGENTS.md`, `apps/mobile/CLAUDE.md`, `apps/mobile/DESIGN_CHECKLIST.md`, and the design-system references. The previous PNG frame pack remains as source/reference art and can be removed separately after an on-device visual sign-off.
+
+### Verification
+- Isolated TypeScript check for `FabControl.tsx`: passed.
+- `git diff --check`: passed.
+- Expo web production export: passed (existing Tamagui static-extraction warnings remain).
+- Full project `tsc --noEmit`: blocked by a TypeScript `Maximum call stack size exceeded` compiler crash with no source diagnostic; this is distinct from the isolated FAB check.
+
+### Next step
+- View the 52pt dock and 56pt capture variants on-device and tune brush angle/travel if desired; then remove the unused raster frame pack in a separate cleanup.
 
 ---
 
@@ -384,3 +1005,132 @@ npm run dev    # from project root
 | `docs/design-system/` | RKA.OS Design System — AI reference + human handbook |
 
 PWA-specific docs (`FIX_LOG.md`, `AUDIT_LOG.md`, `SCROLL_*.md`, `IOS_BOTTOM_NAV.md`, `MOBILE_IMPLEMENTATION_GUIDE.md`) were removed when the web app was retired — see git history if you need them.
+
+---
+
+## 2026-08-03 — Storybook Ronin Rive preparation checkpoint
+
+### Rive editor state
+
+- Rive desktop project `2479241` is connected through the local Rive MCP server.
+- Artboard `0-2` is named `Journey Ronin Side Prep`.
+- Clean imported source `0-4814` is named `RONIN_SIDE_SOURCE`, centred at the original source position, and selected for the next rigging phase.
+- Its hierarchy is labelled as source geometry (`RONIN_SIDE_ART`, `ILLUSTRATION_SOURCE`, `CHARACTER_RIG_WRAPPER_SOURCE`, `RONIN_AND_CAT_SOURCE`, and the broad body/accessory source groups).
+- The cat remains visible but is explicitly labelled `CAT_SOURCE_UNRIGGED`; it must not be included in the first Ronin skeleton.
+- The previous damaged duplicate `0-17` is hidden at 0% opacity and named `OLD_CORRUPTED_SOURCE_HIDDEN_DO_NOT_USE`.
+- Empty bone `0-4813` is named `UNUSED_EMPTY_ROOT_BONE`; it can be reused as the production Ronin root after the skeleton proposal is approved.
+
+### Findings and verification
+
+- The clean import was verified to contain the full named `CAT` subtree and all broad Ronin source groups.
+- Cat removal is blocked at the vector-source level: a large continuous outline path is shared by the Ronin and cat, so deleting the named CAT group leaves a black cat silhouette while hiding the shared path also damages the Ronin. Leave the cat intact until Illustrator geometry is split.
+- The current SVG buckets are broad source groups rather than animation-ready anatomical parts. Rigging should begin with a conservative FK skeleton and bind only geometry that can be assigned unambiguously.
+- Diagnostic evidence is stored in `apps/mobile/assets/ronin/for-rive/ronin-side-rive-prep-v1.audit.md` and `.audit.json`. The `-BLOCKED.svg` derivative is diagnostic only and must not replace the clean import.
+
+### Immediate next step
+
+- Approve the Ronin-only skeleton proposal, then create bones in Rive Design mode, verify their hierarchy through MCP, and bind/auto-weight each unambiguous vector group one operation at a time. Keep the cat static and unbound.
+# 2026-08-03 — Ronin Rive coarse layer import pack
+
+- Added `tools/build-ronin-rive-layer-pack.mjs` and generated `apps/mobile/assets/ronin/for-rive/side-layer-pack-v1/` from the preserved side-view SVG.
+- The pack contains independently importable cat, legs/boots, hair/headband, torso/sash, face/front-hand, backpack, and back-hand/sword SVGs plus a manifest with Rive target names and import order.
+- Verified all seven generated SVGs are well-formed with `xmllint`; the pack contains 319 retained paths in total.
+- This supports independent rigid transforms in Rive. Mesh deformation remains blocked where the original traced artwork shares contours or fuses upper/lower limb geometry; those contours must be redrawn before weighting.
+- Next: import the seven files into the `Journey` artboard in manifest order, rename them to the supplied Rive names, establish pivots/bones, and keep deformation disabled until the shared-contour redraw.
+
+## 2026-08-03 — Ronin raster modular rig candidate
+
+- Added `apps/mobile/assets/ronin/for-rive/raster-modular-v1/` as a faster raster alternative to redrawing the fused Illustrator contours.
+- Generated identity-preserving chroma-key sheets from the canonical v3 side reference, then extracted 23 transparent PNG candidates covering the torso, head/hair/headband, backpack, sword/scabbard, sash, both three-part arms, and both three-part legs.
+- Added `manifest.json` with back-to-front import order, anatomical groupings, recommended pivots, and explicit limitations; added `README.md` with Rive assembly acceptance checks.
+- Verified every part has an alpha channel and transparent corners. Applied a one-pixel alpha contraction to reduce residual green antialiasing.
+- This is an assembly candidate, not a production-approved replacement. The torso includes concealed hip stubs, the generated head still contains some hair/headband pixels, several core-sheet crops need seam/fringe review, and the first Rive assembly must confirm scale, draw order, and joint overlap at runtime size.
+- No runtime code or active `.riv` asset was changed. Next: assemble only the core plus arm/leg pieces in a scratch Rive artboard, reject visibly mismatched candidates, repaint seams, then replace the current coarse SVG rig only after side-by-side approval.
+- Cleaned all 23 candidates by retaining the principal connected silhouette, contracting the alpha matte, trimming empty margins, and despilling green edge pixels. Regenerated `contact-sheet.png` from the cleaned parts.
+- Added `assembly-guide.png`/`.svg` with the proposed Ronin bone chains and joint pivots, plus `generation-prompts.md` so the built-in generation brief is reproducible.
+- Revalidated the manifest JSON and confirmed every part remains non-opaque with an alpha channel. The next hands-on step is importing these PNGs into a scratch Rive artboard in manifest order and tuning overlap at the yellow guide pivots.
+- Rive desktop assembly started after the user imported all 23 PNGs into Assets. Instantiated and visually aligned `torso-hips`, `head-face`, `front-hair`, `waist-sash`, `front-thigh`, `rear-thigh`, and `rear-shin` over the existing side character at 50.6% editor zoom.
+- Instantiated `front-boot` near the ankle as a provisional placement; its final scale/seam must be tuned after `front-shin` is placed. The new raster objects are still root-level artboard children and have not yet been parented to `Side_Root` or bound to bones.
+- Next Rive steps: place front shin and both boots, then arms/backpack/rear hair/accessories; validate draw order; parent the complete modular set beneath `Side_Root`; only then set joint origins and build the new limb bone chains.
+- Fifteen-minute continuation: added and aligned the generated backpack and front forearm, scaled the forearm and set its transform rotation to 45 degrees. The visible raster reconstruction now covers the head/hair, torso/sash, backpack, both thighs, rear lower leg, provisional front boot and front forearm over the original reference.
+- Grouped the placed modular raster objects into a root-level `Group` so they can be treated as one preserved-world assembly. A test reparent of the boot under the transformed `Side_Root` changed its world transform, so it was immediately undone; do not parent these pieces directly without first converting world coordinates to the parent's local space.
+- No reliable raster-group animation track was added: a manual Y-key attempt entered Design mode, so the group was restored to its neutral Y value of 617.5. Existing `Side_Idle` and `Timeline 1`/Side_Root keys remain the only verified animations.
+- Remaining production work: finish front shin/rear boot and full arm pieces, fix the visibly vertical forearm/hand seam as needed, add rear hair/headband/weapon layers, give the raster assembly a zero-transform parent or compensated local transforms, then animate that parent and establish actual limb pivots/bones.
+- Ten-minute raster-only cleanup: hid the old `Side_Root` SVG Ronin non-destructively; verified that the separate cat remains visible. This exposes the true modular raster silhouette without duplicate hair, face, torso, limbs or sash.
+- Moved the generated backpack inward so it reconnects with the raster torso. Added the generated sword as a root-level raster object, reduced its width and attempted grip alignment; its current vertical/ground-reaching placement is provisional and still needs uniform scale plus final rotation.
+- The raster-only character is now visibly readable, but missing upper/lower arm coverage and incomplete boot/shin pieces are no longer masked by the SVG. Prioritize those missing anatomy pieces before animation or export.
+
+## 2026-08-03 — Fresh Rive raster assembly retry
+
+- Rebuilt the modular Ronin in the user's new untitled Rive file after all 23 cleaned PNG rasters had been re-added and instantiated.
+- Used `torso-hips` as the fixed visual anchor, then brought the head/hair, waist sash, backpack, both arm chains and hands, both leg chains and boots, sword, scabbard, and headband elements into one readable standing silhouette.
+- The current Rive canvas now shows a complete static Ronin instead of scattered parts. The backpack is behind the torso; the sash covers the waist seam; hands, trousers, shins, and boots are connected; sword/scabbard are aligned at the front hand.
+- No runtime `.riv` export or app code was changed. The Rive file is still untitled and the assembled rasters remain root-level objects.
+- Next: save/name the Rive source, establish a zero-transform `Ronin_Root`, preserve world transforms while parenting parts into anatomical groups, set joint origins, and test a small idle pose before creating a walk cycle.
+
+## 2026-08-03 — Artwork-first approach retired; clean skeleton started
+
+- The distorted raster assembly was rejected. Its failure was caused by independently generated tight crops with inconsistent anatomical scale and overlap geometry.
+- The user cleared the Rive file, and a new artwork-independent neutral skeleton was created directly in the empty artboard.
+- Current scaffold contains one central pelvis-to-head spine, two two-segment arm chains, two two-segment leg chains, a separate head bone, two hand bones, and two foot bones. It is visually centred and proportioned as a compact side-character puppet.
+- All chains are currently root-level and retain Rive's default `Root Bone` names. No artwork, binding, animation, or runtime export has been added yet.
+- Next: name bones by anatomical role, parent the head/limb roots under the correct spine or pelvis joints while preserving world transforms, then create simple capsule placeholders to validate Idle and Walk before drawing replacement vectors.
+
+## 2026-08-03 — Skeleton naming and idle setup
+
+- Named the visible skeleton controls in the clean Rive file: `Rig_Root`, `Spine_Tip`, `Head`, `Arm_Front`, `Forearm_Front`, `Hand_Front`, `Arm_Rear`, `Forearm_Rear`, `Hand_Rear`, `Leg_Front`, `Shin_Front`, `Foot_Front`, `Leg_Rear`, `Shin_Rear`, and `Foot_Rear`.
+- Confirmed the arm and leg segment children are genuine bone-chain children in the Rive hierarchy. The separate head, hands, feet and limb roots remain root-level controls pending final parenting.
+- Existing `Timeline 1` now contains a verified 60-frame root-position idle: neutral at frame 0, a raised midpoint at frame 32, and a return key at frame 60.
+- Playback was tested with Space. The stage becomes blank during playback because Rive's final-playback view hides bones and no artwork has been attached yet; the playhead advances correctly.
+- Existing `State Machine 1` retains the Entry-to-`Timeline 1` connection. Next: parent the root-level controls under `Rig_Root` with preserved transforms, add capsule/vector placeholders as bone children, then visually validate the idle and build the first walk pose.
+
+## 2026-08-03 — Claude computer-control handoff prepared
+
+- Stopped further Rive editing at the user's request and documented the exact current skeleton, hierarchy limitations, idle timeline state, locked chibi proportions, canonical/rejected references, and safe continuation sequence.
+- Full handoff: `docs/plans/2026-08-03-ronin-rive-claude-handoff.md`.
+- The last attempted built-in Rive Agent prompt was interrupted before submission; do not assume any agent-created placeholder shapes exist.
+- One zero-sized root-level `Ellipse` may remain from a failed manual placeholder test. It is not part of the skeleton and can be explicitly selected and removed.
+- No runtime code or `.riv` asset was changed during this handoff preparation.
+
+## 2026-08-04 — Rive placeholder progress audit
+
+- Read-only inspection confirmed that a visible large head ellipse, short torso and rounded arm placeholders have been added around the named skeleton.
+- The current mannequin is compact but front-facing rather than the locked side-on Ronin silhouette. Legs, hands and large rounded feet are not visibly complete.
+- Shapes remain root-level artboard children (`Ellipse`, `Rectangle`, `Rectangle 2`–`Rectangle 5`) rather than named bone children.
+- `Timeline 1` still contains only the `Rig_Root` track with keys at frames 0, 32 and 60. Because the placeholder shapes are not parented or keyed, visible animation has not yet been proven.
+- Updated `docs/plans/2026-08-03-ronin-rive-claude-handoff.md` with the observed state and revised next steps. No Rive edits, runtime code changes or asset exports were made in this audit.
+
+## 2026-08-04 — Rive placeholder silhouette continuation
+
+- Continued manually in the open untitled Rive source after its built-in Agent hit quota (`429`) without making changes.
+- Renamed the existing head, torso, pelvis and arm shapes to `Placeholder_*` anatomical names.
+- Added named front/rear leg and large flat front/rear foot placeholders, completing a visible full-body mannequin for structural testing.
+- Tested hierarchy dragging once. The attempt targeted the `Head` bone rather than the head artwork and temporarily parented it under `Leg_Front`; the change was immediately undone and the original bone hierarchy was visually rechecked.
+- Removed the accidental text layer created while establishing reliable keyboard shortcuts. No app runtime files or `.riv` exports were changed.
+- Verified remaining blocker: placeholders are still root-level and the silhouette remains frontal. Next session should reshape it side-on, then parent exactly one named placeholder at a time with an indentation/world-position check after every drag before testing `Timeline 1`.
+
+## 2026-08-04 — Rive placeholder naming audit
+
+- Verified the user-parented head, upper-leg, torso/pelvis and arm placeholder hierarchy in the saved `Ronin Rig 1` Rive source.
+- Identified and renamed the four remaining root-level shapes by their actual canvas geometry: `Placeholder_Shin_Front`, `Placeholder_Shin_Rear`, `Placeholder_Foot_Front`, and `Placeholder_Foot_Rear`.
+- Corrected the rear-arm labels: the upper segment is now `Placeholder_Arm_Rear` and the child of `Forearm_Rear` is now `Placeholder_Forearm_Rear`.
+- The shin and foot shapes are visually aligned but remain root-level. The rear forearm is parented but crosses the torso and needs its local transform corrected. No dedicated hand artwork exists yet.
+- Next: parent the named shin/foot shapes one at a time while preserving world position, correct the rear forearm neutral pose, add simple hand shapes, and only then validate `Timeline 1` playback.
+- Follow-up: the user added two hand circles. They were verified by canvas position and renamed `Placeholder_Hand_Front` (right/front side) and `Placeholder_Hand_Rear` (left/rear side). Both remain root-level pending safe parenting to `Hand_Front` and `Hand_Rear`.
+- Arm hierarchy names are now internally consistent: each `Arm_*` owns its upper-arm placeholder and `Forearm_*` chain; each forearm owns its matching `Placeholder_Forearm_*`. Front arm placement reads correctly. Rear arm endpoints meet the rear hand, but its forearm remains too far inward/partly across the torso and needs a neutral-pose adjustment.
+
+## 2026-08-04 — Positional naming audit exposed hierarchy corruption
+
+- Audited placeholders from their visible canvas geometry rather than trusting their current bone parents.
+- Verified and retained explicit names for head, torso, front/rear hands, front/rear shins and front/rear feet. Renamed visible upper-leg geometry to `Placeholder_Thigh_Front` / `Placeholder_Thigh_Rear` and restored the central body shape to `Placeholder_Torso`.
+- Found that several previously parented shapes do not match their parent bones: a visible thigh is beneath `Arm_Rear`, a forearm-labelled object is beneath a leg chain, and the shape previously labelled `Placeholder_Pelvis` is visibly a left/rear arm capsule. That capsule is now named `Placeholder_Arm_Rear_Combined` based on its actual silhouette.
+- The hierarchy can no longer be considered animation-safe merely because labels look anatomical. Do not add walk keys yet. Next: detach the mismatched shapes while preserving world transforms, assign each visible shape to a clean root-level anatomical inventory, then reparent one verified object at a time.
+- Attempted the safe-detach workflow in both Animate and Design modes. The Animate-mode attempt was cancelled before deletion; the file was restored. In Design mode, cut/paste to Artboard changed the pasted object's world transform and moved it off-canvas, so both operations were undone. The visible mannequin and original thigh were restored.
+- Direct hierarchy dragging also proved unreliable through computer control: the intended thigh row resolved to `Hand_Rear`. Do not continue bulk hierarchy mutation through coordinate automation. The current safe state is Design mode with the mannequin visually intact; use direct manual hierarchy dragging or Rive's own object API with explicit IDs for the next structural pass.
+
+## 2026-08-04 — Shapes flattened to Artboard
+
+- User manually moved all artwork shapes back to direct Artboard children. Verified that the bone chains no longer contain placeholder-shape children, removing the earlier hierarchy ambiguity.
+- Current root-level visible inventory includes head, torso, front/rear thighs, front upper arm, multiple forearm candidates and a combined rear-arm capsule. Bone handles still provide the apparent lower legs, feet and hand circles; those are not independent artwork shapes.
+- Attempted to create actual hand ellipses through computer control, but the editor unexpectedly changed from 34% to 5% zoom and produced zero-length ellipse objects. They are named `Placeholder_Hand_Front` / `Placeholder_Hand_Rear` but must be redrawn at normal zoom before parenting.
+- Do not rebuild bone parenting until the missing hand, shin and foot artwork shapes exist and the duplicate `Placeholder_Forearm_Front` candidates are visually resolved.

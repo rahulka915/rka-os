@@ -105,7 +105,7 @@ At most one row is active per completion event: completing a Mission creates exa
 | `medication` | built | `dose`, `stockRemaining` (derived total, see Packaging below), `initialStock`, `refillThreshold`, `lastTakenAt`, `maxPerDay`, `minHoursBetweenDoses`, `frequency`, `containerLabel`, `containerSize`, `containersPerRestock`, `sheetsPerContainer`, `pillsPerSheet`, `packagingNote`, `containers[]` |
 | `workout-template` | built | none yet |
 | `workout-block` | built | `sets`, `reps`, `weight`, `restSeconds`, `notes` |
-| `exercise` | built | `muscleGroup`, `equipment`, `notes`, `imageKey` |
+| `exercise` | built | `muscleGroup`, `equipment`, `movementFamily` (one of the 32 canonical parent movement ids), `notes`, `imageKey`; legacy/custom rows without `movementFamily` are classified from their title at read time |
 | `workout-session` | built | none (sets are logged as `activityLogs` rows, `actionType: 'workout-set-logged'`, `entityId` = exercise id, `details`: `{sessionId, setNumber, reps, weight, weightUnit}`) |
 | `meal` | declared, not built | — |
 | `potential-stat` | built | `seedKey` (only on the 4 legacy-migrated defaults — Physique/Skin/Oral Hygiene/Vitality) |

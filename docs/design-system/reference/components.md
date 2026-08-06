@@ -13,7 +13,7 @@ Anything not listed below as settled is still being decided — check [`apps/mob
 | Variant | Major/minor radius | Used by |
 |---|---|---|
 | hero | 36/22 | `RoninGreetingCard.tsx` |
-| card | 26/17 | `NextUpCard.tsx`, `InboxScrollCard.tsx` |
+| card | 26/17 | `NextUpCard.tsx`, `InboxScrollCard.tsx`, `RoninJourneyPrototype.tsx` |
 | list | 17/13 | `TimelineSection.tsx` time-block header rows |
 | chip | 20/16 | icon+label pill inside a time-block header |
 | tray | 32/24 | `App.tsx`'s `AppleTabBar` |
@@ -26,6 +26,10 @@ Anything not listed below as settled is still being decided — check [`apps/mob
 **RN platform constraints** (don't try to pixel-match the original CSS mockup — RN can't do these): no native inset/multi-layer `box-shadow`; rim highlight/shadow are plain clipped `View`s, not a shadow trick; per-corner radial ambient occlusion was dropped as not worth an `onLayout`-tracked SVG overlay for a barely-visible gain.
 
 **Not yet adopted:** dialogs, sheets, and `MenuScreen`/`ProfileScreen`/`MedicationsScreen`/`CalendarScreen`'s own cards — per the original brief, adopted incrementally as those screens get touched, not in one sweep.
+
+## Home journey prototype — `RoninJourneyPrototype.tsx`
+
+The Today view opens with a prototype journey scene derived from a user-supplied Fuji sunset illustration. The supplied composite was split into a clean background and a matching transparent Ronin+cat group so the original painterly art direction is preserved while the characters remain independently animated. Position comes from the existing `todayItems` completed/total ratio rather than a separate XP system. A simple reversible timing loop continuously bobs the group; progress translates it along a subtle route overlay. The whole scene is pressable so transformed child hit-testing cannot make the interaction unreliable: tap produces a medium haptic, pronounced hop/scale, and temporary speech bubble. Reduce Motion keeps slower translation and a minimal bob, but removes rotation.
 
 ## Hero card color system — `RoninGreetingCard.tsx`
 
@@ -58,6 +62,8 @@ Icon-only tab bar (no labels). Color mode is **selected-color state**: hex value
 | More | Ensō (Zen circle) | Archive jade `#4E9E86` |
 | Me | Ronin mon/portrait | RKA blue `#2b7ff0` |
 | Create (FAB) | Calligraphy brush | RKA blue, always |
+
+The FAB artwork is a layered SVG/Reanimated composition in `FabControl.tsx`: lacquer disc, washi paper, ink, bamboo handle, lacquer ferrule and brush tip animate independently. Tap compresses the disc, lifts/sweeps the brush and reveals ink without delaying the capture sheet; long press retains its route-aware action. Reduce Motion skips the decorative sequence. The older registered PNG sequence remains reference material only.
 
 ## Still in progress
 

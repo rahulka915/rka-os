@@ -57,6 +57,12 @@ A reusable geometry primitive (not a color system — colors/content stay each c
 | `deeperBlue` (primary, both modes) | `#2b7ff0` |
 | `pink` | `#ffb8d1` |
 | `purple` | `#d4a8ff` |
+| `ivory` | `#2b2620` (light) / `#F2ECDD` (dark) — primary text on River Stone surfaces |
+| `greige` | `rgba(43,38,32,0.58)` (light) / `rgba(242,236,221,0.56)` (dark) — secondary text on River Stone surfaces |
+| `antiqueBrass` | `#8B6936` (light) / `#D4B078` (dark) — selection / important-action emphasis; same family as `itemComposer.ts`'s `accent` and `CalendarScreen.tsx`'s `CALENDAR_GOLD`, not yet unified into one token |
+| `vermilion` | `#A8402C` (light) / `#C1503A` (dark) — active-navigation / brand emphasis; replaced the old teal (`#4E9E86`) Menu-tab dock color |
+
+Added 2026-08-05 as part of `app-wide-ui-refinement-v1` (see below and `HANDOVER_SUMMARY.md`).
 
 ## Primary blue — still under review
 
@@ -131,9 +137,9 @@ First generation (simple stroke silhouettes) came from a Codex design handoff. S
 | Calendar | Sun dial | `SunDialCalendarIcon` | Ritual gold | `#D4B078` |
 | More | Ensō (Zen circle) | `EnsoMoreIcon` (was `LayersMoreIcon`) | Archive jade | `#4E9E86` |
 | Me | Ronin mon/portrait | `RoninMonIcon` (was `PersonalSealMeIcon`) | RKA blue | `#2b7ff0` |
-| Create (FAB) | Registered brush + washi animation | `FabControl` | Master asset blue, always | `#274B8F` |
+| Create (FAB) | Layered vector brush + washi animation | `FabControl` | RKA blue, always | `#274B8F` |
 
-The FAB now uses the locked commissioned asset sheet directly: 4 interaction states, 5 ink frames and 5 unfold frames share one registered 192×192 canvas. The original SVG brush remains only as a legacy fallback.
+The FAB was rebuilt as a single animation-ready vector composition on 2026-08-01. Its lacquer disc, washi sheet, ink mark, bamboo handle, red ferrule and brush tip are independent SVG/Reanimated layers, so press compression, brush lift/sweep and ink reveal animate without raster-frame swapping. Tap and route-aware long-press behavior are unchanged; Reduce Motion bypasses the decorative sequence. The previous registered PNG frame pack remains on disk as source/reference art but is no longer loaded by `FabControl`.
 
 Note the torii-gate motif now has two live meanings in the app: the Home tab icon (navigation, lacquer red) and the still-unbuilt "milestones/unlocks" illustration-card concept above (also red) — same motif, consistent color, different contexts. Not a conflict, just worth knowing both exist.
 
@@ -143,19 +149,22 @@ Note the torii-gate motif now has two live meanings in the app: the Home tab ico
 
 - [ ] `AreaDetailScreen.tsx` — single life-area detail view
 - [ ] `AreasScreen.tsx` — list of life areas
-- [ ] `CalendarScreen.tsx` — calendar/agenda view (partial: fixed a real bug where the "Project" item-type accent aliased to `maroon`→`deeperBlue`, colliding with the "Task"/"Area" accent color, `blue`; now uses `purple`. Rest of the screen not yet reviewed)
+- [x] `CalendarScreen.tsx` — calendar/agenda view (partial: fixed a real bug where the "Project" item-type accent aliased to `maroon`→`deeperBlue`, colliding with the "Task"/"Area" accent color, `blue`; now uses `purple`. Reviewed against `app-wide-ui-refinement-v1` 2026-08-05: already substantially compliant — `CALENDAR_GOLD` (`#D4B078`) selected Calendar/Timeline segment is already brass, the blue "now" line is preserved, the paper-texture grid is already restrained. No structural changes made.)
 - [x] `HomeScreen.tsx` — root uses Tamagui `$bg`, which was itself on a completely separate, entirely stale token system (old `#faf9f6`/`#0c0c0c` bg, `#007aff` blue, `#ff8c42` orange) — see `tamagui.config.ts` fix below. File composes only already-reviewed children otherwise.
-- [x] `InboxScreenV2.tsx` — serif italic title matching Home's greeting, count badge tinted deeperBlue, FAB swapped from generic + to the calligraphy brush (also fixed a real contrast bug: the old icon color was picked for the deprecated silvery-blue bg and barely read on the current blue), bulk-toolbar bg moved off a stray hardcoded hex onto the real dark surface value
+- [x] `InboxScreenV2.tsx` — serif italic title matching Home's greeting, count badge tinted deeperBlue, FAB swapped from generic + to the calligraphy brush (also fixed a real contrast bug: the old icon color was picked for the deprecated silvery-blue bg and barely read on the current blue), bulk-toolbar bg moved off a stray hardcoded hex onto the real dark surface value. **Updated 2026-08-05 (`app-wide-ui-refinement-v1`):** title font switched from Georgia italic to Newsreader; count badge switched from a filled deeperBlue pill to a vermilion-outlined one; empty state got a small brass `Check` glyph, ivory/greige text.
 - [ ] `MedicationsScreen.tsx` — medication tracking list
-- [ ] `MenuScreen.tsx` — app menu / nav hub
+- [x] `MenuScreen.tsx` — app menu / nav hub; collection icon pass complete: removed the colored rounded-square badges so the transparent 3D objects render directly on the River Stone cards at 42pt. **Updated 2026-08-05 (`app-wide-ui-refinement-v1`):** tile `aspectRatio` 1→1.14 and grid spacing trimmed for a slightly denser grid; all 12 destinations/artwork unchanged. Dock's vermilion active-Menu-tab color (see App shell below) applies here automatically.
 - [ ] `ProfileScreen.tsx` — user profile + dev bench
 - [ ] `ProjectDetailScreen.tsx` — single project detail view
 - [ ] `ProjectsScreen.tsx` — list of projects
 - [x] `QuickAddScreen.tsx` — When/Tags/Priority pills moved off dead `maroon` alias to `deeperBlue`; tag chips now cycle deeperBlue/pink/purple by tag text instead of one flat neutral fill
-- [ ] `TasksScreen.tsx` — task list view
+- [x] `TasksScreen.tsx` — task list view. **Updated 2026-08-05 (`app-wide-ui-refinement-v1`):** rows now render through `RiverStoneSurface` (`variant="list"`) instead of a flat colored `View`, denser padding, ivory/greige text; Tasks/Logbook segmented control restyled as an inset stone chip with a brass border on the selected tab; `LensSurface` title uses the new `titleStyle="editorial"` (Newsreader); empty states got a small brass `CheckCircle2` symbol.
 - [ ] `WorkoutsScreen.tsx` — workout tracking list
+- [x] Exercise catalogue hierarchy — 183 exact exercises now browse as 32 parent movement families inside each muscle group; the picker uses the same family sections and family-aware search. This is an information-architecture change only: existing exercise artwork and selectable variations are preserved.
 
 ## Home components — `apps/mobile/src/components/home/`
+
+- [ ] `RoninJourneyPrototype.tsx` — **prototype awaiting another on-device verdict**. The hand-built SVG landscape and standalone flat walker were rejected because the background looked poor and the on-device tap/idle appeared inert. The active revision uses the user's supplied Fuji sunset composition, edited into a clean portrait background (`sunset-trail-background-v1.png`) plus matching transparent Ronin+cat group (`ronin-cat-walkers-v1.png`). The entire scene is now the press target, eliminating the small transformed-hit-area failure mode; tap performs a large hop, medium haptic, and visible speech bubble. A simple reversible `withTiming` loop continuously bobs the walkers, including a slower two-point cycle under Reduce Motion, while completed/total Today progress translates them along the path. Decide after phone review whether scale/crop/motion now land correctly.
 
 - [ ] `DomProbe.tsx` — dev-only webview sanity check
 - [x] `InboxScrollCard.tsx` — deeperBlue accent; dropped the old stacked-duplicate-card "paper stack" effect in favor of real depth — a top-lit gradient surface, an actual drop shadow, same techniques already used for the dock FAB. Following a comparison against a real Moonly home screen (found ours light on illustration below the hero), the small `ScrollIcon` line-icon-in-a-bubble was replaced with a commissioned flat-vector illustration (`assets/illustrations/scroll-stack.png` — chibi-style single scroll, parchment/wood/red-tie, matching the chibi Ronin's art style per `ART_HANDOFF_home_illustrations.md`), no bubble background needed since the art carries its own color/depth. Restructured from a horizontal row to a square tile (`aspectRatio: 1`) — illustration on top, stat + text stacked below, chevron moved to a small top-right corner accent — since it now sits side by side with `NextUpCard.tsx` splitting the row width (see HomeScreen.tsx), rather than each stacked full-width. `ScrollIcon.tsx` kept in the repo as a fallback, no longer referenced.
@@ -172,7 +181,7 @@ Note the torii-gate motif now has two live meanings in the app: the Home tab ico
 
 ## App shell — `apps/mobile/App.tsx`
 
-- [x] `AppleTabBar` (bottom tab bar + FAB) — icon-only dock (no labels), custom SVG icon set (see `src/components/icons/DockIcons.tsx` — "Dock icon color system" above has the full history of both icon generations). Color mode: **selected-color state** (icons neutral/muted at rest, section color + soft badge only on the focused tab) — an early "persistent, always-colored" option was tried on-device first and replaced with this one per user feedback. FAB uses the registered brush-and-paper frame sequence from `assets/fab/`.
+- [x] `AppleTabBar` (bottom tab bar + FAB) — icon-only dock (no labels), custom SVG icon set (see `src/components/icons/DockIcons.tsx` — "Dock icon color system" above has the full history of both icon generations). Color mode: **selected-color state** (icons neutral/muted at rest, section color + soft badge only on the focused tab) — an early "persistent, always-colored" option was tried on-device first and replaced with this one per user feedback. FAB uses the layered vector brush-and-washi composition in `FabControl.tsx`. **Updated 2026-08-05 (`app-wide-ui-refinement-v1`):** Menu tab's active color changed from teal `#4E9E86` to vermilion `#C1503A` in `App.tsx`'s `TAB_ITEMS` — the only teal active-state in the app, per the refinement brief's "remove teal active states" direction. Home/Calendar/Profile tab colors unchanged (not teal, not flagged).
 
 ## Hero components — `apps/mobile/src/components/hero/`
 
@@ -187,6 +196,7 @@ Note the torii-gate motif now has two live meanings in the app: the Home tab ico
 - [x] `ZenGardenIcon.tsx` — raked zen-garden circles + stone (silver); **no longer referenced** — `NextUpCard.tsx`'s empty state now uses the commissioned `assets/illustrations/zen-garden-scene.png` illustration instead. Kept in the repo as a fallback.
 - [x] `TimeBlockIcons.tsx` — `StoneIcon`/`SunriseIcon`/`FanIcon`/`MoonStarIcon`, one per Anytime/Morning/Afternoon/Evening block, used on `TimelineSection.tsx` in place of generic Lucide Clock/Sun/Sunset/Moon icons
 - [x] `TimeOfDayMotif.tsx` — sun-with-rays / plain sun-disc / crescent+stars, keyed by the same `RoninTimeOfDay` value as the scene art and greeting, used as `RoninGreetingCard.tsx`'s corner decoration in place of an earlier ink-brush-stroke placeholder
+- [x] `CollectionIcons.tsx` — wrappers for the high-detail transparent 3D PNG set under `assets/icons/collections/`: Workout (black lacquer kettlebell with bronze/cord handle), Habit (wooden prayer beads, lacquer tally and red tassel), To Get (indigo/rose furoshiki parcel), and Archive destination (black lacquer scroll chest with brass hardware). An initial flat SVG pass was rejected on-device because it lacked the material depth of the existing entity artwork. The replacements reuse Task, Project and Medication as direct style references. Ordinary archive actions deliberately retain their familiar system glyph.
 
 ## UI primitives — `apps/mobile/src/components/ui/`
 
@@ -207,13 +217,14 @@ Note the torii-gate motif now has two live meanings in the app: the Home tab ico
 - [x] `AppHeader.tsx` — uses Tamagui `$bg`/`$textSecondary`/`$textTertiary`; these were themselves stale (see `tamagui.config.ts` fix), now correct now that the underlying token system is synced
 - [ ] `AvatarCompanion.tsx` — avatar/companion display widget
 - [x] `ContextMenu.tsx` — Tamagui `$surface`/`$separator`/`$red`/`$text`, fixed via the `tamagui.config.ts` sync
-- [ ] `LensSurface.tsx` — chrome-less pushed-screen container
+- [x] `LensSurface.tsx` — chrome-less pushed-screen container. **Updated 2026-08-05 (`app-wide-ui-refinement-v1`):** added an opt-in `titleStyle="editorial"` prop (Newsreader, 30pt) — default `titleStyle` is unchanged Inter. Only `TasksScreen.tsx` opts in so far; every other Lens screen (Projects, Workouts, Medications, ...) keeps the default Inter title per the brief's "Newsreader only for editorial top-level screen titles" rule.
+- [x] `item-composer/ItemEditorSheet.tsx` — Edit Item sheet. **Updated 2026-08-05 (`app-wide-ui-refinement-v1`):** footer Save switched from a solid brass fill to a brass-outlined button; section `card` surfaces and every chip/segment/duration/bucket/priority control dropped their default hairline border (border now only appears on the selected state) to cut the "boxes inside boxes" look. `itemComposer.ts`'s existing brass `accent` token was already correct and untouched.
 - [ ] `LogDoseSheet.tsx` — medication dose logging sheet
 - [ ] `MedicationStockMeter.tsx` — medication stock-level meter
 - [ ] `PersistentTimerBanner.tsx` — persistent running-timer banner
 - [ ] `QuickCreateSheet.tsx` — quick-create item bottom sheet
 - [ ] `SwipeableItem.tsx` — generic swipe-to-action row
-- [ ] `TaskSwipeItem.tsx` — task-specific swipe-to-action row
+- [x] `TaskSwipeItem.tsx` — task-specific swipe-to-action row. **Updated 2026-08-05 (`app-wide-ui-refinement-v1`):** row surface swapped from a flat fillStrong/separatorStrong-or-surface split to `RiverStoneSurface` (`variant="list"`); container corner radius 999→18 to match (swipe-reveal clipping still correct, now a rounded rect not a full pill); padding/gap trimmed ~25%; title/notes text moved to ivory/greige.
 - [x] `TimelineSection.tsx` — superseded the "neutral, matches Things 3 as-is" call: each time block (Anytime/Morning/Afternoon/Evening) now gets its own Ronin motif icon and accent color from the new "Bold" palette (`timeBlockColors` in-file), bled through the header chip, count number, checkbox rings, and full row background tint (mockup-tested against a Muted and Sunrise alternative + 3 bleed depths before picking Bold/full-row)
 
 ## Typography

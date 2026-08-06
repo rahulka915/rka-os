@@ -8,9 +8,31 @@ The project previously also shipped a Progressive Web App (Vite + React + Dexie.
 
 **Status:** Active development (mobile only)
 
----
+**Current native baseline:** Expo SDK `57.0.9` with React Native `0.86.2`. Keep Expo native packages aligned with `npx expo install --check`; mixing earlier SDK 57 patch packages with the current `expo-modules-core` causes iOS launch-time `dyld` failures before JavaScript starts. After changing native or Babel-backed packages, restart Metro with `--clear` so it does not keep an older Worklets/Reanimated transform plugin in memory.
+
+**Current shared FAB:** `apps/mobile/src/components/fab/FabControl.tsx` renders the Create control as independently animated SVG/Reanimated lacquer, washi, ink and brush layers. The older `apps/mobile/assets/fab/` PNG sequence is reference/source art and is not loaded at runtime.
+
+**Current collection artwork:** `apps/mobile/src/components/icons/CollectionIcons.tsx` wraps the transparent, high-detail 3D PNGs under `apps/mobile/assets/icons/collections/` for Workout, Habit, To Get and Archive destination identity. Reuse these components instead of generic entity glyphs; keep system icons for universal archive actions.
+
+**Current exercise taxonomy:** the 183 exact starter exercises/icons remain individually selectable but resolve to 32 canonical parent movements through `apps/mobile/src/utils/exerciseLibrary.ts`. Generated starters persist `metadata.movementFamily`; older/custom exercise rows fall back to title inference. Exercise browsing and picking group variations under those families, and search matches family labels. Keep the generator and runtime classifiers aligned; tests enforce full classification and the 32-family count.
+
+**Current Home journey prototype:** `apps/mobile/src/components/home/RoninJourneyPrototype.tsx` uses the user-supplied sunset/Fuji background with the local `apps/mobile/assets/rka_journey_rig.riv` Ronin-and-cat state machine. The whole scene is a reliable press target; the Rive walkers loop continuously while the group advances from today's real completion ratio even under Reduce Motion and shows a haptic speech-bubble reaction on tap. The transparent PNG remains only as a loading/error fallback.
+
+**Current Rive journey runtime:** `@rive-app/react-native` and `react-native-nitro-modules` are installed in `apps/mobile/`. Rive file `2478489` (`RKA Journey Rig`) has weighted Ronin/cat skeletons plus `Idle` and `Walk` timelines. Its transparent-artboard runtime export is `apps/mobile/assets/rka_journey_rig.riv`; `apps/mobile/src/components/home/RoninJourneyRiveWalker.tsx` autoplays `State Machine 1`, whose entry uses the restrained `Idle` loop while the app supplies whole-character bob, progress travel, and tap reactions. Rive contains native code, so test this renderer in a freshly regenerated development build rather than Expo Go.
+
+**Next-generation Ronin reference:** `apps/mobile/assets/ronin/model/ronin-cat-side-style-reference-v3.png` is the canonical visual identity reference for all new turnarounds, expressions and activity poses. It is an exact duplicate of the transparent side-on Ronin-and-walking-cat artwork used over the Fuji scene, preserving its compact proportions, softly textured shading and nostalgic illustrated-storybook finish without regeneration drift. It is source/reference art only and is not loaded separately at runtime. The generated v1 front reference and v2 identity sheet are rejected explorations, not visual targets.
+
+**Approved Ronin generation pack:** `apps/mobile/assets/ronin/reference/approved-storybook-v1/` contains the accepted side-neutral, rear, three-quarter, cat-turnaround and front/side expression outputs. Use these together with the canonical v3 side reference when expanding the pose library. They are generation/reference inputs rather than runtime assets; the rear and cat turnaround still need the documented geometry corrections before rigging.
+
+**Approved Ronin structural pack:** `apps/mobile/assets/ronin/reference/approved-structural-v1/` contains approved front-rig, cross-legged, sleeping, working/journaling and celebration references. Its rear-rig image is retained as `rear-rig-needs-sword-correction.png` because the generated view incorrectly shows both an attached sword hilt and a separate scabbard/object in the Ronin's hand; do not rig that view until corrected.
+
+**Approved Ronin activity pack:** `apps/mobile/assets/ronin/reference/approved-activities-v1/` contains approved tea-break, petting, reading and tired/comfort references. The stretching-with-gear image is a travel-stretch concept rather than the intended waking state, and the training-with-gear image must be regenerated without backpack or sword before defining the Workout rig. The corrected single-sword rear rig is `approved-structural-v1/rear-rig-corrected-approved.png`.
 
 **Journey/Domains/Missions/Potential scoring:** Domain scores = live maintenance baseline (from linked `potential-stat` items) + a capped, decaying "achievement lift" from `domainContributions` rows; Overall Potential is a weighted average of Domain scores, weighted by the active `focus` item. Manually-added Achievements must call `setAchievementContributesToScore` to actually create their scoring row — `createAchievement` alone only stores the flag on the item, it does not touch `domainContributions` (fixed 2026-08-05 for the Achievements screen's retrospective add flow, which previously silently no-op'd). See `apps/mobile/SCHEMA.md` (canonical schema/formula reference) and `apps/mobile/src/utils/domainScoring.ts` (pure scoring math) before touching any of this.
+
+**Production storybook Rive contract:** `apps/mobile/src/domain/ronin/journeyAnimation.ts` is the typed app-facing contract for the replacement rig. The authoring source of truth is `apps/mobile/assets/ronin/for-rive/storybook-journey-rig.manifest.json`, which fixes the `Journey` artboard, `Journey Controller` state machine, `Journey` View Model, activity/mood/outfit/cat enums, progress/Reduce Motion values, triggers, rig families, modular slots and acceptance gates. The target export is `apps/mobile/assets/rka_journey_storybook.riv`; it does not exist yet, so the active `rka_journey_rig.riv` runtime remains unchanged. Implementation plan: `docs/plans/2026-08-03-ronin-storybook-animation-system.md`.
+
+---
 
 ## Available Skills
 
@@ -141,6 +163,7 @@ Multiple AI agents (Claude, Codex, Antigravity, etc.) and developers work on thi
 - `docs/design-system/` — The RKA.OS Design System: `reference/` (AI-facing tokens, components, iconography, motion, writing, decision log) and `handbook/` (human-facing visual tour). Start here before any styling work.
 
 **Mobile App:**
+- `docs/design/routines-and-habits-product-brief.md` — Concise product/architecture direction distilled from routine and habit-tracker research; Apple Health is documented but deferred
 - `apps/mobile/CLAUDE.md` — Platform guide: stack, component structure, design patterns, known constraints, quick reference
 - `apps/mobile/DESIGN_CHECKLIST.md` — Live, in-progress visual-refresh tracker (source of truth over its human-facing artifact mirror)
 - `apps/mobile/THINGS_3_DESIGN.md` — Interaction pattern reference

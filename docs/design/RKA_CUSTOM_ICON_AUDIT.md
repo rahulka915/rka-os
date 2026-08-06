@@ -1,6 +1,6 @@
 # RKA OS Custom Icon Audit
 
-Last reviewed: 15 July 2026
+Last reviewed: 1 August 2026
 
 ## Rule
 
@@ -25,14 +25,16 @@ Use commissioned RKA artwork for entities, destinations, time-of-day identity, a
 | Tags | Washi label artwork | Item editor and tag selection |
 | Inbox | Empty, active and full trays | Home inbox card and hero environment |
 | Completion | Lacquer disc | Tasks, Inbox, timeline and project tasks |
+| Workout / training | High-detail lacquer kettlebell PNG | Menu, Calendar and practice cards |
+| Habit / ritual | High-detail prayer-bead/tally PNG | Menu, Calendar and habit creation |
+| To Get | High-detail furoshiki parcel PNG | Menu and object placeholders |
+| Archive destination | High-detail lacquer scroll chest PNG | Menu destination only; universal archive actions retain the system glyph |
 
 ## Missing entity artwork — priority
 
-1. **Workout / training** — still represented by generic fire/dumbbell vectors in Menu, Calendar, Practice cards and Next Up. Create one primary workout asset that remains legible at 20–34 pt.
-2. **Habit / ritual** — still represented by Sparkles or a generic list glyph. Create a repeatable ritual/tally object that reads clearly at small sizes.
-3. **Meal** — still represented by a Clock in Calendar. Create a meal or bento asset.
-4. **Exercise** — the data model distinguishes exercises from workout templates; create a small exercise asset if exercises become visible independently.
-5. **Workout block / set** — create only when blocks become first-class UI; it should be visually related to the workout asset rather than a separate style.
+1. **Meal** — still represented by a Clock in Calendar. Create a meal or bento asset.
+2. **Exercise** — the data model distinguishes exercises from workout templates; create a small exercise asset if exercises become visible independently.
+3. **Workout block / set** — create only when blocks become first-class UI; it should be visually related to the lacquer kettlebell rather than a separate style.
 
 ## Future collection artwork
 
