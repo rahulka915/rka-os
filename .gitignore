@@ -43,3 +43,4 @@ tmp/imagegen/
 # Python bytecode
 __pycache__/
 *.pyc
+.rig-tmp/

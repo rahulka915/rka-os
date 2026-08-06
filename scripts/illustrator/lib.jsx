@@ -24,14 +24,24 @@ function rgb(h) {
   c.red = parseInt(h.substr(0,2),16); c.green = parseInt(h.substr(2,2),16); c.blue = parseInt(h.substr(4,2),16);
   return c;
 }
+// Illustrator's exportFile silently no-ops when writing to /tmp under this
+// configuration - no file, no error - which let a previous run report an image as
+// "viewed" when none existed. Always write inside the repo, and always assert.
+var TMP = '/Users/rahulkrishanand/Downloads/Coding Projects/rka-os/.rig-tmp/';
 // Renders a temporary artboard to PNG, then removes it. box = [left, top, right, bottom].
 function renderPNG(path, box, scale) {
+  var f = new File(path);
+  if (f.exists) f.remove();
   var ab = DOC.artboards.add(box);
   DOC.artboards.setActiveArtboardIndex(DOC.artboards.length - 1);
   var o = new ExportOptionsPNG24();
   o.artBoardClipping = true; o.transparency = false;
   o.horizontalScale = scale; o.verticalScale = scale;
-  DOC.exportFile(new File(path), ExportType.PNG24, o);
+  DOC.exportFile(f, ExportType.PNG24, o);
   ab.remove();
   DOC.artboards.setActiveArtboardIndex(0);
+  var check = new File(path);
+  if (!check.exists) throw new Error('renderPNG wrote nothing to ' + path +
+    ' - exportFile no-opped. Never report an image as viewed without this check.');
+  return path;
 }
