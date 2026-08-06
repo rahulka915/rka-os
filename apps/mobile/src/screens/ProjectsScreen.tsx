@@ -196,6 +196,7 @@ const styles = StyleSheet.create({
   },
   areaBadgeText: {
     fontSize: 11,
+    fontFamily: 'Inter_500Medium',
     fontWeight: '500',
   },
   rowCount: {
@@ -217,6 +218,7 @@ const styles = StyleSheet.create({
   },
   emptySub: {
     fontSize: 14,
+    fontFamily: 'Inter_400Regular',
     fontWeight: '400',
   },
 });

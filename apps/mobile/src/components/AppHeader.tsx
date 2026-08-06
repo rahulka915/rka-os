@@ -104,9 +104,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   wordmark: {
-    fontFamily: 'Georgia',
-    fontStyle: 'italic',
-    fontWeight: '700',
+    fontFamily: 'Newsreader_600SemiBold',
+    fontWeight: '600',
     fontSize: 15,
     letterSpacing: 0.5,
   },
@@ -141,6 +140,7 @@ const styles = StyleSheet.create({
   badgeText: {
     color: '#ffffff',
     fontSize: 10,
+    fontFamily: 'Inter_700Bold',
     fontWeight: '700',
   },
 });

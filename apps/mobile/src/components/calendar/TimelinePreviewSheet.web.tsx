@@ -116,6 +116,7 @@ const styles = StyleSheet.create({
   },
   headerActionText: {
     fontSize: 13,
+    fontFamily: 'Inter_600SemiBold',
     fontWeight: '600',
   },
   destructive: {

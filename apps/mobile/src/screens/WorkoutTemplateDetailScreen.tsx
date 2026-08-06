@@ -196,8 +196,8 @@ const styles = StyleSheet.create({
   },
   rowContent: { flex: 1, gap: 2 },
   rowTitle: { fontSize: 15, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
-  rowSubtitle: { fontSize: 12, fontWeight: '500' },
+  rowSubtitle: { fontFamily: 'Inter_500Medium', fontSize: 12, fontWeight: '500' },
   empty: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 8 },
   emptyTitle: { fontSize: 18, fontWeight: '700', fontFamily: 'Inter_700Bold' },
-  emptySub: { fontSize: 14, fontWeight: '400' },
+  emptySub: { fontFamily: 'Inter_400Regular', fontSize: 14, fontWeight: '400' },
 });

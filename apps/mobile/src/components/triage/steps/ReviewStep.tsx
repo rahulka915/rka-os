@@ -47,7 +47,7 @@ export function ReviewStep({ priority, when, projectTitle, onConfirm }: ReviewSt
 
 const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: spacing[5], paddingTop: spacing[6] },
-  prompt: { fontSize: fontSize.title, fontWeight: '700', marginBottom: spacing[5] },
+  prompt: { fontFamily: 'Inter_700Bold', fontSize: fontSize.title, fontWeight: '700', marginBottom: spacing[5] },
   card: { borderWidth: 1, borderRadius: radius.card, paddingHorizontal: spacing[4] },
   row: {
     flexDirection: 'row',
@@ -57,7 +57,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   rowLabel: { fontSize: fontSize.base },
-  rowValue: { fontSize: fontSize.base, fontWeight: '600' },
+  rowValue: { fontFamily: 'Inter_600SemiBold', fontSize: fontSize.base, fontWeight: '600' },
   confirmButton: {
     marginTop: spacing[6],
     height: 52,
@@ -65,5 +65,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  confirmText: { fontSize: fontSize.base, fontWeight: '700' },
+  confirmText: { fontFamily: 'Inter_700Bold', fontSize: fontSize.base, fontWeight: '700' },
 });

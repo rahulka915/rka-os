@@ -48,6 +48,20 @@ export const colors = {
   // RiverStoneSurface for components that don't already carry their own
   // deliberate color (hero gradients, scene photos, etc. keep their own).
   stoneSurface: '#f3efe4',
+
+  // App-wide-refinement-v1 accents (2026-08-05): warm ivory/greige text for
+  // River Stone surfaces, antique brass for selection/important-action
+  // emphasis (matches `itemComposer.ts`'s existing brass accent), restrained
+  // vermilion for active-navigation/brand emphasis — replaces the teal More-
+  // tab active color. Same family as the existing torii-red (`#C44545`) but
+  // its own token since it's now used for selection/badges too, not just
+  // one icon.
+  ivory: '#2b2620',
+  greige: 'rgba(43,38,32,0.58)',
+  antiqueBrass: '#8B6936',
+  antiqueBrassSoft: 'rgba(139,105,54,0.12)',
+  vermilion: '#A8402C',
+  vermilionSoft: 'rgba(168,64,44,0.12)',
 } as const;
 
 export const darkColors = {
@@ -91,6 +105,15 @@ export const darkColors = {
 
   // See the light-mode `colors` comment above — same rationale.
   stoneSurface: '#1c1c22',
+
+  // See the light-mode `colors` comment above for the app-wide-refinement-v1
+  // rationale — dark-mode values brightened for legibility against charcoal.
+  ivory: '#F2ECDD',
+  greige: 'rgba(242,236,221,0.56)',
+  antiqueBrass: '#D4B078',
+  antiqueBrassSoft: 'rgba(212,176,120,0.16)',
+  vermilion: '#C1503A',
+  vermilionSoft: 'rgba(193,80,58,0.18)',
 } as const;
 
 export const themeColors = {

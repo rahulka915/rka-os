@@ -8,7 +8,7 @@ import { HeaderStoneButton } from '../components/header/HeaderStoneButton';
 import { ThemeStoneButton } from '../components/header/ThemeStoneButton';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { useBackup } from '../hooks/useBackup';
-import { Archive, ChevronLeft, CheckCircle2, Upload } from '../icons';
+import { Archive, ChevronLeft, CheckCircle2, Upload, Compass } from '../icons';
 import { getThemeColors, spacing } from '../theme';
 import type { RoninMood } from '../domain/ronin/types';
 import { getMoodClip, isOneShotClip } from '../domain/ronin/roninModel';
@@ -236,6 +236,31 @@ export function SettingsScreen() {
             <Text style={[styles.settingDetail, { color: palette.textSecondary }]}>Your working data remains available on this iPhone</Text>
           </View>
         </RiverStoneSurface>
+
+        <Text style={[styles.sectionLabel, { color: palette.textTertiary }]}>SETUP</Text>
+        <TouchableOpacity
+          activeOpacity={0.84}
+          onPress={() => (navigation as any).navigate('Onboarding')}
+          accessibilityRole="button"
+          accessibilityLabel="Redo Setup"
+        >
+          <RiverStoneSurface
+            variant="list"
+            mode={isDark ? 'dark' : 'light'}
+            shape="regular"
+            contentStyle={styles.settingRow}
+          >
+            <View style={[styles.iconFrame, { backgroundColor: palette.redSoft }]}>
+              <Compass size={21} color={palette.red} strokeWidth={1.9} />
+            </View>
+            <View style={styles.settingCopy}>
+              <Text style={[styles.settingTitle, { color: palette.text }]}>Redo Setup</Text>
+              <Text style={[styles.settingDetail, { color: palette.textSecondary }]}>
+                Walk through Domains, Missions, Potential Stats and Focus again
+              </Text>
+            </View>
+          </RiverStoneSurface>
+        </TouchableOpacity>
 
         {__DEV__ && <DevToolsSection />}
 

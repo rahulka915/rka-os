@@ -2,6 +2,7 @@ import { memo, useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { NestedReorderableList } from 'react-native-reorderable-list';
 import { LacquerDiscControl } from '../ui/LacquerDiscControl';
+import { RiverStoneSurface } from '../riverstone';
 import { DragHandleButton } from '../ui/DragHandleButton';
 import { DeadlineBadge } from '../DeadlineBadge';
 import { ChevronRight } from '../../icons';
@@ -113,22 +114,27 @@ export function TodayCard({
 
   return (
     <View style={styles.container}>
-      <View style={[styles.segmentedControl, { backgroundColor: palette.fill }]}>
-        <TouchableOpacity
-          style={[styles.segment, activeTab === 'today' && { backgroundColor: palette.surface }]}
-          onPress={() => setActiveTab('today')}
-        >
-          <Text style={[styles.segmentLabel, { color: activeTab === 'today' ? palette.text : palette.textSecondary }]}>
-            Today
-          </Text>
+      {/* Selected segment sits in the "chip" River Stone material (inset/
+          pressed treatment) instead of a flat surface fill, matching the
+          Today/Upcoming/Anytime/Someday tabs above and the tab bar. */}
+      <View style={styles.segmentedControl}>
+        <TouchableOpacity style={styles.segment} onPress={() => setActiveTab('today')}>
+          {activeTab === 'today' ? (
+            <RiverStoneSurface variant="chip" mode={isDark ? 'dark' : 'light'} shape="regular" style={styles.segmentChip} contentStyle={styles.segmentChipContent}>
+              <Text style={[styles.segmentLabelActive, { color: palette.text }]}>Today</Text>
+            </RiverStoneSurface>
+          ) : (
+            <Text style={[styles.segmentLabelInactive, styles.segmentChipContent, { color: palette.textTertiary }]}>Today</Text>
+          )}
         </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.segment, activeTab === 'upcoming' && { backgroundColor: palette.surface }]}
-          onPress={() => setActiveTab('upcoming')}
-        >
-          <Text style={[styles.segmentLabel, { color: activeTab === 'upcoming' ? palette.text : palette.textSecondary }]}>
-            Upcoming
-          </Text>
+        <TouchableOpacity style={styles.segment} onPress={() => setActiveTab('upcoming')}>
+          {activeTab === 'upcoming' ? (
+            <RiverStoneSurface variant="chip" mode={isDark ? 'dark' : 'light'} shape="regular" style={styles.segmentChip} contentStyle={styles.segmentChipContent}>
+              <Text style={[styles.segmentLabelActive, { color: palette.text }]}>Upcoming</Text>
+            </RiverStoneSurface>
+          ) : (
+            <Text style={[styles.segmentLabelInactive, styles.segmentChipContent, { color: palette.textTertiary }]}>Upcoming</Text>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -195,23 +201,42 @@ const styles = StyleSheet.create({
   },
   segmentedControl: {
     flexDirection: 'row',
-    borderRadius: 10,
-    padding: 3,
+    gap: 6,
     marginBottom: 12,
   },
   segment: {
     flex: 1,
-    paddingVertical: 7,
+    height: 30,
     borderRadius: 8,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  segmentLabel: {
+  // Only the active segment is bold — the inactive one recedes (smaller,
+  // lighter, textTertiary) instead of matching weight, so the pair doesn't
+  // read as two equally loud labels.
+  segmentLabelActive: {
     fontSize: 13,
+    fontFamily: 'Inter_600SemiBold',
     fontWeight: '600',
+  },
+  segmentLabelInactive: {
+    fontSize: 12,
+    fontFamily: 'Inter_500Medium',
+    fontWeight: '500',
+  },
+  segmentChip: {
+    width: '100%',
+    height: '100%',
+  },
+  segmentChipContent: {
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   groupLabel: {
     fontSize: 11,
-    fontWeight: '700',
+    fontFamily: 'Inter_600SemiBold',
+    fontWeight: '600',
     letterSpacing: 0.6,
     marginBottom: 8,
     marginTop: 4,
@@ -237,8 +262,11 @@ const styles = StyleSheet.create({
     minHeight: 44,
     justifyContent: 'center',
   },
+  // Task/card titles use 600, not 700/800 — one consistent emphasis level
+  // instead of every title shouting louder than the text around it.
   rowTitle: {
     fontSize: 16,
+    fontFamily: 'Inter_600SemiBold',
     fontWeight: '600',
   },
   empty: {
@@ -246,12 +274,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
   },
+  // Reduced from 700/16 — stays Inter (not Newsreader) per the follow-up
+  // note that a serif empty-state heading was one serif usage too many;
+  // Newsreader stays exclusive to the Journey card's emotional copy.
   emptyTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 15,
+    fontFamily: 'Inter_600SemiBold',
+    fontWeight: '600',
   },
   emptySub: {
-    fontSize: 14,
+    fontSize: 13,
+    fontFamily: 'Inter_400Regular',
     fontWeight: '400',
   },
 });

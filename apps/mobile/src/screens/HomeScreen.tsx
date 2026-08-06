@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import Animated, { FadeIn, ReduceMotion } from 'react-native-reanimated';
 import { useFocusEffect } from '@react-navigation/native';
 import { ScrollViewContainer } from 'react-native-reorderable-list';
 import { YStack } from 'tamagui';
 import * as Haptics from 'expo-haptics';
 import { AppHeader } from '../components/AppHeader';
+import { RiverStoneSurface } from '../components/riverstone';
 import { MedicationQuickLogWidget } from '../components/home/MedicationQuickLogWidget';
 import { TodayCard } from '../components/home/TodayCard';
 import { HabitsWidget } from '../components/home/HabitsWidget';
 import { HomeTaskRow } from '../components/home/HomeTaskRow';
+import { RoninJourneyPrototype } from '../components/home/RoninJourneyPrototype';
 import { useHomeData, useUpcomingPreview, useTodayHabits, useProjects } from '../hooks/useDb';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { useItemComposer } from '../components/item-composer';
@@ -22,6 +25,7 @@ import {
   getRelation,
   deleteItem,
   formatDate,
+  computeOverallPotential,
 } from '../db/database';
 import { LACQUER_DISC_COMPLETION_DURATION } from '../components/ui/LacquerDiscControl';
 import { getThemeColors } from '../theme';
@@ -61,6 +65,7 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
   const [anytimeItems, setAnytimeItems] = useState<Item[]>([]);
   const [somedayItems, setSomedayItems] = useState<Item[]>([]);
   const [logbookItems, setLogbookItems] = useState<Item[]>([]);
+  const [potentialPercent, setPotentialPercent] = useState(0);
 
   // Anytime/Upcoming/Someday are task-only (matching the dedicated Tasks/
   // Upcoming screens and GTD convention) — Domains/Missions/Habits/Workouts
@@ -71,6 +76,7 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
     setAnytimeItems(getItemsByType('task').filter((item) => item.status === 'active' && !item.scheduledDate));
     setSomedayItems(getItemsByType('task').filter((item) => item.status === 'someday'));
     setLogbookItems(getCompletedItems());
+    setPotentialPercent(computeOverallPotential());
   }, []);
 
   const getProjectTitle = useCallback((item: Item): string | null => {
@@ -199,8 +205,6 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
     </TouchableOpacity>
   );
 
-  const chipActiveBg = isDark ? '#2c2c2e' : '#e5e5ea';
-
   return (
     <YStack flex={1} backgroundColor="$bg">
       <AppHeader
@@ -217,31 +221,56 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
       >
         {VIEW_CHIPS.map((chip) => {
           const isActive = activeView === chip.key;
+          const onPress = () => {
+            if (activeView !== chip.key) {
+              Haptics.selectionAsync();
+              setActiveView(chip.key);
+            }
+          };
+          // Active tab sits in the "chip" River Stone material — its inset/
+          // pressed treatment (see RiverStoneSurface) reads as a carved
+          // groove the selection rests in, matching the tab bar's material
+          // elsewhere in the app. Inactive tabs stay flat text, same as the
+          // tab bar's unselected icons.
+          if (isActive) {
+            return (
+              <TouchableOpacity key={chip.key} style={{ flexShrink: 0 }} onPress={onPress}>
+                <RiverStoneSurface
+                  variant="chip"
+                  mode={isDark ? 'dark' : 'light'}
+                  shape="regular"
+                  style={{ height: 30 }}
+                  contentStyle={{ paddingHorizontal: 14, height: '100%', justifyContent: 'center' }}
+                >
+                  <Text style={{ fontSize: 13, fontFamily: 'Inter_600SemiBold', fontWeight: '600', color: palette.text }}>{chip.label}</Text>
+                </RiverStoneSurface>
+              </TouchableOpacity>
+            );
+          }
           return (
             <TouchableOpacity
               key={chip.key}
-              style={{
-                flexShrink: 0,
-                paddingHorizontal: 14,
-                paddingVertical: 6,
-                borderRadius: 999,
-                backgroundColor: isActive ? chipActiveBg : 'transparent',
-              }}
-              onPress={() => setActiveView(chip.key)}
+              style={{ flexShrink: 0, height: 30, paddingHorizontal: 14, justifyContent: 'center' }}
+              onPress={onPress}
             >
-              <Text style={{ fontSize: 13, fontWeight: '600', color: isActive ? palette.text : palette.textSecondary }}>
-                {chip.label}
-              </Text>
+              <Text style={{ fontSize: 12, fontFamily: 'Inter_500Medium', fontWeight: '500', color: palette.textTertiary }}>{chip.label}</Text>
             </TouchableOpacity>
           );
         })}
       </ScrollView>
 
       <ScrollViewContainer showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 16 }}>
-        <View>
+        <Animated.View key={activeView} entering={FadeIn.duration(200).reduceMotion(ReduceMotion.Never)}>
 
         {activeView === 'today' && (
         <>
+        <RoninJourneyPrototype
+          completedCount={todayItems.filter((item) => item.status === 'completed').length}
+          totalCount={todayItems.length}
+          isDark={isDark}
+          potentialPercent={potentialPercent}
+        />
+
         {/* Quick actions: Medication logging (Inbox now lives in the header).
             Sized to a third of the row (3 square widgets fit side by side) so
             we can see how much room is left for more widgets on this row. */}
@@ -256,7 +285,7 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
 
         {/* Today */}
         <TodayCard
-          items={todayItems}
+          items={todayItems.filter((item) => item.status !== 'completed')}
           completingIds={completingIds}
           onComplete={handleItemComplete}
           onOpen={handleItemTap}
@@ -346,7 +375,7 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
         </View>
         )}
 
-        </View>
+        </Animated.View>
       </ScrollViewContainer>
     </YStack>
   );

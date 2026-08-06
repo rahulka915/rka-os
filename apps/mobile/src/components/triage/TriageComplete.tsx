@@ -50,7 +50,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: spacing[4],
   },
-  title: { fontSize: fontSize.title, fontWeight: '700', marginBottom: spacing[2] },
+  title: { fontFamily: 'Inter_700Bold', fontSize: fontSize.title, fontWeight: '700', marginBottom: spacing[2] },
   subtitle: { fontSize: fontSize.base },
   doneButton: {
     marginTop: spacing[6],
@@ -60,5 +60,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  doneText: { fontSize: fontSize.base, fontWeight: '700' },
+  doneText: { fontFamily: 'Inter_700Bold', fontSize: fontSize.base, fontWeight: '700' },
 });

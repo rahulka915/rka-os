@@ -109,6 +109,7 @@ const styles = StyleSheet.create({
   },
   actionText: {
     fontSize: 16,
+    fontFamily: 'Inter_400Regular',
     fontWeight: '400',
   },
   saveText: {

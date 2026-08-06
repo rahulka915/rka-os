@@ -89,5 +89,5 @@ const styles = StyleSheet.create({
   rowTitle: { fontSize: 16, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
   empty: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 8 },
   emptyTitle: { fontSize: 18, fontWeight: '700', fontFamily: 'Inter_700Bold' },
-  emptySub: { fontSize: 14, fontWeight: '400' },
+  emptySub: { fontFamily: 'Inter_400Regular', fontSize: 14, fontWeight: '400' },
 });

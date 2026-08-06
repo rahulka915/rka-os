@@ -150,6 +150,7 @@ const styles = StyleSheet.create({
   },
   emptySub: {
     fontSize: 14,
+    fontFamily: 'Inter_400Regular',
     fontWeight: '400',
     textAlign: 'center',
   },

@@ -33,6 +33,6 @@ export function TypeStep({ itemTitle, onChooseTask, onChooseObject }: TypeStepPr
 
 const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: spacing[5], paddingTop: spacing[6] },
-  prompt: { fontSize: fontSize.title, fontWeight: '700', marginBottom: spacing[2] },
+  prompt: { fontFamily: 'Inter_700Bold', fontSize: fontSize.title, fontWeight: '700', marginBottom: spacing[2] },
   itemTitle: { fontSize: fontSize.base, marginBottom: spacing[5] },
 });

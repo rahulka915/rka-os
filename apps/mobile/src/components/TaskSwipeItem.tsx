@@ -23,6 +23,7 @@ import {
 } from './ui/LacquerDiscControl';
 import { BlockedBadge } from './BlockedBadge';
 import { getThemeColors } from '../theme';
+import { RiverStoneSurface } from './riverstone';
 import type { Item } from '../db/types';
 
 interface TaskSwipeItemProps {
@@ -274,18 +275,14 @@ export function TaskSwipeItem({
             </Animated.View>
           )}
 
-          {/* Task row — dark mode uses the same fillStrong/separatorStrong
-              card treatment as Home/Menu/Areas so it reads as a distinct row
-              against the near-black background; light mode keeps the plain
-              flat surface (no border needed there). */}
-          <Animated.View
-            style={[
-              s.taskRow,
-              isDark
-                ? { backgroundColor: palette.fillStrong, borderWidth: StyleSheet.hairlineWidth, borderColor: palette.separatorStrong }
-                : { backgroundColor: palette.surface },
-              animatedTaskStyle,
-            ]}
+          {/* Task row — compact River Stone charcoal/pale-stone surface,
+              matching the Tasks/Logbook row language. */}
+          <Animated.View style={animatedTaskStyle}>
+          <RiverStoneSurface
+            variant="list"
+            mode={isDark ? 'dark' : 'light'}
+            shape="regular"
+            contentStyle={s.taskRow}
           >
             {selectionMode ? (
               <Pressable
@@ -334,14 +331,14 @@ export function TaskSwipeItem({
               }}
             >
               <Text
-                style={[s.taskTitle, { color: blocked ? palette.textMuted : palette.text }]}
+                style={[s.taskTitle, { color: blocked ? palette.textMuted : palette.ivory }]}
                 numberOfLines={1}
               >
                 {item.title}
               </Text>
               {item.notes && (
                 <Text
-                  style={[s.taskNotes, { color: palette.textSecondary }]}
+                  style={[s.taskNotes, { color: palette.greige }]}
                   numberOfLines={1}
                 >
                   {item.notes}
@@ -352,6 +349,7 @@ export function TaskSwipeItem({
             {!selectionMode ? (
               <Text style={[s.chevron, { color: palette.textMuted }]}>›</Text>
             ) : null}
+          </RiverStoneSurface>
           </Animated.View>
         </Animated.View>
       </GestureDetector>
@@ -362,9 +360,9 @@ export function TaskSwipeItem({
 const s = StyleSheet.create({
   container: {
     overflow: 'hidden',
-    borderRadius: 999, // fully rounded — RN clips to a pill shape once radius exceeds half the row height
+    borderRadius: 18, // matches RiverStoneSurface's "list" variant radius
     marginHorizontal: 16,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   swipeContainer: {
     position: 'relative',
@@ -396,9 +394,9 @@ const s = StyleSheet.create({
   taskRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    gap: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 12,
   },
   selectionTarget: {
     width: 44,
@@ -426,6 +424,7 @@ const s = StyleSheet.create({
   },
   taskNotes: {
     fontSize: 12,
+    fontFamily: 'Inter_400Regular',
     fontWeight: '400',
     marginTop: 2,
   },

@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
-import { Dumbbell, FolderKanban, MusicNote } from '../../icons';
+import { FolderKanban, MusicNote } from '../../icons';
 import { MedicationBottleIcon } from '../icons/MedicationBottleIcon';
+import { WorkoutTrainingIcon } from '../icons/CollectionIcons';
 import type { Item } from '../../db/types';
 
 interface PracticeListProps {
@@ -44,7 +45,7 @@ export function PracticeList({ medications, workouts, isDark }: PracticeListProp
     {
       id: 'fitness',
       label: 'FITNESS',
-      icon: <Dumbbell size={ICON_SIZE} color="#3dbb5e" strokeWidth={1.8} />,
+      icon: <WorkoutTrainingIcon size={ICON_SIZE + 3} color="#3dbb5e" />,
       statusLine: workouts.length > 0
         ? `${workouts.length} template${workouts.length > 1 ? 's' : ''}`
         : 'No session',

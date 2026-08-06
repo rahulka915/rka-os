@@ -64,7 +64,7 @@ export function SetLogRow({ setNumber, initialReps, initialWeight, onLog }: SetL
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  setNumber: { width: 20, fontSize: 13, fontWeight: '600', textAlign: 'center' },
+  setNumber: { fontFamily: 'Inter_600SemiBold', width: 20, fontSize: 13, fontWeight: '600', textAlign: 'center' },
   input: { flex: 1, borderWidth: StyleSheet.hairlineWidth, borderRadius: 10, fontSize: 15, paddingVertical: 8, paddingHorizontal: 10 },
   logButton: { borderRadius: 10, paddingVertical: 8, paddingHorizontal: 16, justifyContent: 'center' },
   logButtonText: { fontSize: 14, fontWeight: '700', fontFamily: 'Inter_700Bold' },

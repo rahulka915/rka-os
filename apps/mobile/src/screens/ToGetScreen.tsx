@@ -5,7 +5,7 @@ import { getItemsByType } from '../db/database';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
 import { LensSurface } from '../components/LensSurface';
-import { ShoppingBag } from '../icons';
+import { ToGetParcelIcon } from '../components/icons/CollectionIcons';
 import type { Item, ObjectStatus } from '../db/types';
 
 const STATUS_LABELS: Record<ObjectStatus, string> = {
@@ -78,7 +78,7 @@ export function ToGetScreen() {
                       {photoUri ? (
                         <Image source={{ uri: photoUri }} style={styles.rowThumb} />
                       ) : (
-                        <ShoppingBag size={24} color={palette.textMuted} strokeWidth={1.6} />
+                        <ToGetParcelIcon size={26} color={palette.pink} />
                       )}
                       <View style={styles.rowBody}>
                         <Text style={[styles.rowTitle, { color: palette.text }]} numberOfLines={1}>{item.title}</Text>
@@ -155,6 +155,7 @@ const styles = StyleSheet.create({
   },
   emptySub: {
     fontSize: 14,
+    fontFamily: 'Inter_400Regular',
     fontWeight: '400',
     textAlign: 'center',
     paddingHorizontal: 32,

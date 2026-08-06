@@ -192,6 +192,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: fontSize.lg,
+    fontFamily: 'Inter_600SemiBold',
     fontWeight: '600',
     textAlign: 'center',
     lineHeight: fontSize.lg * lineHeight.snug,
@@ -218,6 +219,7 @@ const styles = StyleSheet.create({
   },
   btnText: {
     fontSize: fontSize.base,
+    fontFamily: 'Inter_600SemiBold',
     fontWeight: '600',
   },
   cancelBtn: {

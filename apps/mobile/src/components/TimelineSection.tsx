@@ -717,6 +717,7 @@ const styles = StyleSheet.create({
   },
   itemTitle: {
     fontSize: 16,
+    fontFamily: 'Inter_400Regular',
     fontWeight: '400',
     lineHeight: 22,
   },
@@ -737,6 +738,7 @@ const styles = StyleSheet.create({
   },
   itemNotes: {
     fontSize: 13,
+    fontFamily: 'Inter_400Regular',
     fontWeight: '400',
     lineHeight: 18,
     marginTop: 2,

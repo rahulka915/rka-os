@@ -13,9 +13,8 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Stop } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useCalendar, useUnscheduledItems } from '../hooks/useDb';
+import { useCalendar, useUnscheduledItems, useMonthItemCounts } from '../hooks/useDb';
 import {
-  CalendarDayBadge,
   CalendarPill,
   MiniTimeIcon,
   StatusChip,
@@ -306,86 +305,101 @@ function getDraggedMinutes(baseMinutes: number, deltaY: number): number {
   return snapMinutesToStep(baseMinutes + timelineMinutesForPixels(deltaY), TIMELINE_METRICS.snapMinutes);
 }
 
-interface WeekStripProps {
+interface MonthGridProps {
+  monthDate: Date;
   selected: Date;
-  onSelect: (d: Date) => void;
   isDark: boolean;
+  onSelectDay: (d: Date) => void;
 }
 
-const WEEK_STRIP_DAY_COUNT = 29;
-const WEEK_STRIP_CENTER_INDEX = Math.floor(WEEK_STRIP_DAY_COUNT / 2);
+function startOfMonth(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
 
-function WeekStrip({ selected, onSelect, isDark }: WeekStripProps) {
+function addMonths(date: Date, n: number): Date {
+  return new Date(date.getFullYear(), date.getMonth() + n, 1);
+}
+
+function MonthGrid({ monthDate, selected, isDark, onSelectDay }: MonthGridProps) {
   const palette = getThemeColors(isDark);
-  const scrollRef = useRef<ScrollView>(null);
-  const lastDayTickRef = useRef<number | null>(null);
-  const [viewportWidth, setViewportWidth] = useState(0);
-  const itemWidth = viewportWidth ? viewportWidth / 7 : 48;
-  const windowStart = addDays(selected, -WEEK_STRIP_CENTER_INDEX);
+  const monthStart = startOfMonth(monthDate);
+  const gridStart = addDays(monthStart, -monthStart.getDay());
+  const gridDays = Array.from({ length: 42 }, (_, index) => addDays(gridStart, index));
+  const gridStartStr = formatDate(gridDays[0]);
+  const gridEndStr = formatDate(gridDays[gridDays.length - 1]);
+  const { counts } = useMonthItemCounts(gridStartStr, gridEndStr);
   const today = formatDate(new Date());
   const selectedStr = formatDate(selected);
 
-  useEffect(() => {
-    if (!viewportWidth) return;
-    const targetX = WEEK_STRIP_CENTER_INDEX * itemWidth - viewportWidth / 2 + itemWidth / 2;
-    const frame = requestAnimationFrame(() => scrollRef.current?.scrollTo({ x: targetX, animated: false }));
-    return () => cancelAnimationFrame(frame);
-  }, [itemWidth, selectedStr, viewportWidth]);
-
-  const handleScroll = (event: { nativeEvent: { contentOffset: { x: number } } }) => {
-    const tick = Math.round(event.nativeEvent.contentOffset.x / itemWidth);
-    if (lastDayTickRef.current === tick) return;
-    lastDayTickRef.current = tick;
-    Haptics.impactAsync(tick % 7 === 0 ? Haptics.ImpactFeedbackStyle.Heavy : Haptics.ImpactFeedbackStyle.Light);
-  };
+  const weeks = Array.from({ length: 6 }, (_, weekIndex) => gridDays.slice(weekIndex * 7, weekIndex * 7 + 7));
 
   return (
-    <ScrollView
-      ref={scrollRef}
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      directionalLockEnabled
-      decelerationRate={0.4}
-      snapToInterval={itemWidth}
-      scrollEventThrottle={16}
-      onScroll={handleScroll}
-      onLayout={(event) => setViewportWidth(event.nativeEvent.layout.width)}
-      contentContainerStyle={s.weekStrip}
-    >
-      {Array.from({ length: WEEK_STRIP_DAY_COUNT }, (_, index) => {
-        const day = addDays(windowStart, index);
-        const isSelected = formatDate(day) === formatDate(selected);
-        const isToday = formatDate(day) === today;
-        const isSunday = day.getDay() === 0;
-        return (
-          <TouchableOpacity
-            key={index}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              onSelect(day);
-            }}
-            style={[s.weekDay, { width: itemWidth }]}
-            activeOpacity={0.75}
-            accessibilityRole="button"
-            accessibilityLabel={day.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}
-            accessibilityState={{ selected: isSelected }}
-          >
-            <CalendarDayBadge
-              day={day.getDate()}
-              weekday={DAYS[day.getDay()]}
-              state={isSelected ? 'selected' : isToday ? 'today' : 'default'}
-              isSunday={isSunday}
-            />
-            <RNView
-              style={[
-                s.todayDot,
-                { backgroundColor: isSelected ? CALENDAR_GOLD : isToday ? palette.blue : 'transparent' },
-              ]}
-            />
-          </TouchableOpacity>
-        );
-      })}
-    </ScrollView>
+    <RNView style={s.monthGrid}>
+      <RNView style={s.monthGridWeekdayRow}>
+        {DAYS.map((day) => (
+          <RNText key={day} style={[s.monthGridWeekdayLabel, { color: palette.textTertiary }]}>
+            {day[0]}
+          </RNText>
+        ))}
+      </RNView>
+      <RNView style={s.monthGridBody}>
+        {weeks.map((week, weekIndex) => (
+          <RNView key={weekIndex} style={s.monthGridWeekRow}>
+            {week.map((day) => {
+              const dayStr = formatDate(day);
+              const isCurrentMonth = day.getMonth() === monthDate.getMonth();
+              const isToday = dayStr === today;
+              const isSelected = dayStr === selectedStr;
+              const count = counts[dayStr] ?? 0;
+              return (
+                <TouchableOpacity
+                  key={dayStr}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    onSelectDay(day);
+                  }}
+                  style={s.monthGridCell}
+                  activeOpacity={0.75}
+                  accessibilityRole="button"
+                  accessibilityLabel={day.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}
+                  accessibilityState={{ selected: isSelected }}
+                >
+                  <RNView
+                    style={[
+                      s.monthGridDayCircle,
+                      isSelected && { backgroundColor: CALENDAR_GOLD },
+                      !isSelected && isToday && { borderWidth: 1.5, borderColor: palette.blue },
+                    ]}
+                  >
+                    <RNText
+                      style={[
+                        s.monthGridDayNumber,
+                        {
+                          color: isSelected
+                            ? '#1a1204'
+                            : isCurrentMonth
+                              ? palette.text
+                              : palette.textTertiary,
+                          opacity: isCurrentMonth ? 1 : 0.4,
+                        },
+                      ]}
+                    >
+                      {day.getDate()}
+                    </RNText>
+                  </RNView>
+                  <RNView
+                    style={[
+                      s.monthGridDot,
+                      { backgroundColor: count > 0 ? (isSelected ? CALENDAR_GOLD : palette.blue) : 'transparent' },
+                    ]}
+                  />
+                </TouchableOpacity>
+              );
+            })}
+          </RNView>
+        ))}
+      </RNView>
+    </RNView>
   );
 }
 
@@ -1072,6 +1086,7 @@ export function CalendarScreen() {
   const scrollYRef = useRef(0);
   const scrollViewAbsoluteYRef = useRef(0);
   const [dragTarget, setDragTarget] = useState<{ dateStr: string; minutes: number | null } | null>(null);
+  const [activeView, setActiveView] = useState<'timeline' | 'calendar'>('timeline');
 
   const dateStr = formatDate(selected);
   const todayStr = formatDate(new Date());
@@ -1198,6 +1213,17 @@ export function CalendarScreen() {
   );
 
   const [trayExpanded, setTrayExpanded] = useState(false);
+  const [topShellHeight, setTopShellHeight] = useState(0);
+  const [isDraggingFromTray, setIsDraggingFromTray] = useState(false);
+  const trayOverlayOpacity = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.timing(trayOverlayOpacity, {
+      toValue: isDraggingFromTray ? 0 : 1,
+      duration: 120,
+      useNativeDriver: true,
+    }).start();
+  }, [isDraggingFromTray, trayOverlayOpacity]);
   const { unscheduledItems, refresh: refreshUnscheduled } = useUnscheduledItems();
 
   const openCreate = (targetDateStr: string, time?: string, durationMinutes?: number) => {
@@ -1269,6 +1295,7 @@ export function CalendarScreen() {
   };
 
   const handleTrayDragUpdate = (absoluteY: number) => {
+    setIsDraggingFromTray(true);
     const contentY = absoluteY - scrollViewAbsoluteYRef.current + scrollYRef.current;
     const target = computeDropTarget(daySectionLayouts, contentY, {
       hourHeight: TIMELINE_METRICS.hourHeight,
@@ -1280,6 +1307,7 @@ export function CalendarScreen() {
   };
 
   const handleTrayDragEnd = (itemId: string, absoluteY: number, committed: boolean) => {
+    setIsDraggingFromTray(false);
     const contentY = absoluteY - scrollViewAbsoluteYRef.current + scrollYRef.current;
     const target = computeDropTarget(daySectionLayouts, contentY, {
       hourHeight: TIMELINE_METRICS.hourHeight,
@@ -1337,7 +1365,10 @@ export function CalendarScreen() {
 
   return (
     <RNView style={[s.container, { backgroundColor: palette.bg }]}>
-      <RNView style={s.topShell}>
+      <RNView
+        style={[s.topShell, activeView === 'calendar' && s.topShellFill]}
+        onLayout={(event) => setTopShellHeight(event.nativeEvent.layout.height)}
+      >
         <RiverStoneSurface
           variant="header"
           mode={isDark ? 'dark' : 'light'}
@@ -1362,7 +1393,7 @@ export function CalendarScreen() {
         >
           <RNView style={s.headerRow}>
             <TouchableOpacity
-              onPress={() => setSelected((prev) => addDays(prev, -7))}
+              onPress={() => setSelected((prev) => activeView === 'calendar' ? addMonths(prev, -1) : addDays(prev, -7))}
               hitSlop={12}
               style={s.headerNavTouchable}
               activeOpacity={0.78}
@@ -1387,7 +1418,7 @@ export function CalendarScreen() {
                 style={s.headerTodayChip}
               />
               <TouchableOpacity
-                onPress={() => setSelected((prev) => addDays(prev, 7))}
+                onPress={() => setSelected((prev) => activeView === 'calendar' ? addMonths(prev, 1) : addDays(prev, 7))}
                 hitSlop={12}
                 style={s.headerNavTouchable}
                 activeOpacity={0.78}
@@ -1407,94 +1438,158 @@ export function CalendarScreen() {
           style={s.weekStone}
           contentStyle={s.weekStoneContent}
         >
-          <WeekStrip selected={selected} onSelect={setSelected} isDark={isDark} />
-        </RiverStoneSurface>
-
-        <RiverStoneSurface
-          variant="list"
-          mode={isDark ? 'dark' : 'light'}
-          shape="regular"
-          style={s.sectionBarStone}
-          contentStyle={s.sectionBar}
-        >
-          <TouchableOpacity
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setTrayExpanded((v) => !v);
-            }}
-            activeOpacity={0.75}
-          >
-            <RNView style={s.sectionBarHeader}>
-              <RNView style={s.sectionBarCopy}>
-                <RNText style={[s.sectionBarLabel, { color: palette.text }]}>Timeblocking</RNText>
-                <RNText style={[s.sectionBarHint, { color: palette.textTertiary }]} numberOfLines={1}>
-                  {trayExpanded ? 'Tap to collapse' : `${unscheduledItems.length + unscheduledEntries.length} to schedule · tap to expand`}
-                </RNText>
-              </RNView>
-              <RNView style={s.sectionBarActions}>
+          <RNView style={s.viewChipRow}>
+            {(['calendar', 'timeline'] as const).map((view) => {
+              const isActive = activeView === view;
+              return (
                 <TouchableOpacity
+                  key={view}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    openCreate(dateStr);
+                    setActiveView(view);
                   }}
-                  style={[s.fabButton, { borderColor: CALENDAR_GOLD }]}
-                  hitSlop={10}
+                  style={[s.viewChip, isActive && { backgroundColor: CALENDAR_GOLD }]}
+                  activeOpacity={0.8}
                   accessibilityRole="button"
-                  accessibilityLabel="Add time block"
+                  accessibilityState={{ selected: isActive }}
                 >
-                  <Plus size={16} color={CALENDAR_GOLD} strokeWidth={2.4} />
+                  <RNText style={[s.viewChipLabel, { color: isActive ? '#1a1204' : palette.textSecondary }]}>
+                    {view === 'calendar' ? 'Calendar' : 'Timeline'}
+                  </RNText>
                 </TouchableOpacity>
-              </RNView>
-            </RNView>
-          </TouchableOpacity>
-
-          {trayExpanded && (
-            <>
-              <RNView style={[s.sectionCardDivider, { backgroundColor: palette.separatorStrong }]} />
-              <ScrollView style={s.trayScroll} nestedScrollEnabled showsVerticalScrollIndicator={false}>
-                <RNText style={[s.traySectionLabel, { color: palette.textTertiary }]}>UNSCHEDULED</RNText>
-                {unscheduledItems.length === 0 ? (
-                  <RNText style={[s.trayEmptyText, { color: palette.textTertiary }]}>Nothing unscheduled.</RNText>
-                ) : (
-                  unscheduledItems.map((item) => (
-                    <TrayCard
-                      key={item.id}
-                      id={item.id}
-                      title={item.title}
-                      type={item.type}
-                      timeLabel="No date"
-                      palette={palette}
-                      onPress={() => openItem({ item })}
-                      onDragUpdate={handleTrayDragUpdate}
-                      onDragEnd={(absoluteY, committed) => handleTrayDragEnd(item.id, absoluteY, committed)}
-                    />
-                  ))
-                )}
-
-                <RNText style={[s.traySectionLabel, { color: palette.textTertiary, marginTop: 12 }]}>TODAY</RNText>
-                {unscheduledEntries.length === 0 ? (
-                  <RNText style={[s.trayEmptyText, { color: palette.textTertiary }]}>Nothing flexible today.</RNText>
-                ) : (
-                  unscheduledEntries.map((entry) => (
-                    <TrayCard
-                      key={entry.instance?.id ?? entry.item.id}
-                      id={entry.item.id}
-                      title={entry.item.title}
-                      type={entry.item.type}
-                      timeLabel="Anytime today"
-                      palette={palette}
-                      onPress={() => openEdit(entry, dateStr)}
-                      onDragUpdate={handleTrayDragUpdate}
-                      onDragEnd={(absoluteY, committed) => handleTrayDragEnd(entry.item.id, absoluteY, committed)}
-                    />
-                  ))
-                )}
-              </ScrollView>
-            </>
-          )}
+              );
+            })}
+          </RNView>
         </RiverStoneSurface>
+
+        {activeView === 'calendar' ? (
+          <RiverStoneSurface
+            variant="card"
+            mode={isDark ? 'dark' : 'light'}
+            shape="flush"
+            style={s.monthStone}
+            contentStyle={s.monthStoneContent}
+          >
+            <MonthGrid
+              monthDate={selected}
+              selected={selected}
+              isDark={isDark}
+              onSelectDay={(day) => {
+                setSelected(day);
+                setActiveView('timeline');
+              }}
+            />
+          </RiverStoneSurface>
+        ) : (
+          <RiverStoneSurface
+            variant="list"
+            mode={isDark ? 'dark' : 'light'}
+            shape="regular"
+            style={s.sectionBarStone}
+            contentStyle={s.sectionBar}
+          >
+            <TouchableOpacity
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setTrayExpanded((v) => !v);
+              }}
+              activeOpacity={0.75}
+            >
+              <RNView style={s.sectionBarHeader}>
+                <RNView style={s.sectionBarCopy}>
+                  <RNText style={[s.sectionBarLabel, { color: palette.text }]}>Timeblocking</RNText>
+                  <RNText style={[s.sectionBarHint, { color: palette.textTertiary }]} numberOfLines={1}>
+                    {trayExpanded ? 'Tap to collapse' : `${unscheduledItems.length + unscheduledEntries.length} to schedule · tap to expand`}
+                  </RNText>
+                </RNView>
+                <RNView style={s.sectionBarActions}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      openCreate(dateStr);
+                    }}
+                    style={[s.fabButton, { borderColor: CALENDAR_GOLD }]}
+                    hitSlop={10}
+                    accessibilityRole="button"
+                    accessibilityLabel="Add time block"
+                  >
+                    <Plus size={16} color={CALENDAR_GOLD} strokeWidth={2.4} />
+                  </TouchableOpacity>
+                </RNView>
+              </RNView>
+            </TouchableOpacity>
+          </RiverStoneSurface>
+        )}
       </RNView>
 
+      {activeView === 'timeline' && trayExpanded ? (
+        <Animated.View
+          pointerEvents={isDraggingFromTray ? 'none' : 'auto'}
+          style={[s.trayOverlayLayer, { top: topShellHeight, opacity: trayOverlayOpacity }]}
+        >
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setTrayExpanded(false);
+            }}
+          >
+            <RNView style={[StyleSheet.absoluteFill, s.trayOverlayBackdrop]} />
+          </TouchableOpacity>
+
+          <RiverStoneSurface
+            variant="list"
+            mode={isDark ? 'dark' : 'light'}
+            shape="regular"
+            style={s.trayOverlayPanelStone}
+            contentStyle={s.trayOverlayPanel}
+          >
+            <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false}>
+              <RNText style={[s.traySectionLabel, { color: palette.textTertiary }]}>UNSCHEDULED</RNText>
+              {unscheduledItems.length === 0 ? (
+                <RNText style={[s.trayEmptyText, { color: palette.textTertiary }]}>Nothing unscheduled.</RNText>
+              ) : (
+                unscheduledItems.map((item) => (
+                  <TrayCard
+                    key={item.id}
+                    id={item.id}
+                    title={item.title}
+                    type={item.type}
+                    timeLabel="No date"
+                    palette={palette}
+                    onPress={() => openItem({ item })}
+                    onDragUpdate={handleTrayDragUpdate}
+                    onDragEnd={(absoluteY, committed) => handleTrayDragEnd(item.id, absoluteY, committed)}
+                  />
+                ))
+              )}
+
+              <RNText style={[s.traySectionLabel, { color: palette.textTertiary, marginTop: 12 }]}>TODAY</RNText>
+              {unscheduledEntries.length === 0 ? (
+                <RNText style={[s.trayEmptyText, { color: palette.textTertiary }]}>Nothing flexible today.</RNText>
+              ) : (
+                unscheduledEntries.map((entry) => (
+                  <TrayCard
+                    key={entry.instance?.id ?? entry.item.id}
+                    id={entry.item.id}
+                    title={entry.item.title}
+                    type={entry.item.type}
+                    timeLabel="Anytime today"
+                    palette={palette}
+                    onPress={() => openEdit(entry, dateStr)}
+                    onDragUpdate={handleTrayDragUpdate}
+                    onDragEnd={(absoluteY, committed) => handleTrayDragEnd(entry.item.id, absoluteY, committed)}
+                  />
+                ))
+              )}
+            </ScrollView>
+          </RiverStoneSurface>
+        </Animated.View>
+      ) : null}
+
+      {activeView === 'timeline' ? (
+      <>
       <RNView
         pointerEvents="none"
         style={[s.timelineLeadIn, { backgroundColor: palette.bg }]}
@@ -1590,6 +1685,8 @@ export function CalendarScreen() {
           style={[s.jumpToNowChip, { bottom: Math.max(insets.bottom, 16) + 88 }]}
         />
       ) : null}
+      </>
+      ) : null}
 
       {preview && previewLane && previewMinutes != null ? (
         <TimelinePreviewSheet
@@ -1638,18 +1735,38 @@ const s = StyleSheet.create({
   trayCardTitle: {
     flex: 1,
     fontSize: 14,
+    fontFamily: 'Inter_600SemiBold',
     fontWeight: '600',
   },
   trayCardTime: {
     fontSize: 12,
+    fontFamily: 'Inter_500Medium',
     fontWeight: '500',
   },
-  trayScroll: {
-    maxHeight: 320,
+  trayOverlayLayer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 15,
+  },
+  trayOverlayBackdrop: {
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  trayOverlayPanelStone: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    top: 12,
+    bottom: 12,
+  },
+  trayOverlayPanel: {
+    flex: 1,
     paddingTop: 8,
   },
   traySectionLabel: {
     fontSize: 11,
+    fontFamily: 'Inter_700Bold',
     fontWeight: '700',
     letterSpacing: 0.6,
     textTransform: 'uppercase',
@@ -1657,6 +1774,7 @@ const s = StyleSheet.create({
   },
   trayEmptyText: {
     fontSize: 13,
+    fontFamily: 'Inter_400Regular',
     fontWeight: '400',
     marginBottom: 8,
   },
@@ -1680,6 +1798,9 @@ const s = StyleSheet.create({
   topShell: {
     gap: spacing[1],
   },
+  topShellFill: {
+    flex: 1,
+  },
   headerStone: {
     minHeight: 44,
   },
@@ -1691,6 +1812,78 @@ const s = StyleSheet.create({
   },
   weekStoneContent: {
     paddingVertical: 2,
+  },
+  monthStone: {
+    flex: 1,
+  },
+  monthStoneContent: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  viewChipRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: spacing[2],
+    paddingVertical: 8,
+  },
+  viewChip: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  viewChipLabel: {
+    fontSize: 13,
+    fontFamily: 'Inter_600SemiBold',
+    fontWeight: '600',
+  },
+  monthGrid: {
+    flex: 1,
+    paddingHorizontal: 8,
+  },
+  monthGridWeekdayRow: {
+    flexDirection: 'row',
+    paddingBottom: 4,
+  },
+  monthGridWeekdayLabel: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 12,
+    fontFamily: 'Inter_600SemiBold',
+    fontWeight: '600',
+  },
+  monthGridBody: {
+    flex: 1,
+    flexDirection: 'column',
+  },
+  monthGridWeekRow: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  monthGridCell: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  monthGridDayCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  monthGridDayNumber: {
+    fontSize: 16,
+    fontFamily: 'Inter_600SemiBold',
+    fontWeight: '600',
+  },
+  monthGridDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
   },
   headerRow: {
     flexDirection: 'row',
@@ -1747,21 +1940,6 @@ const s = StyleSheet.create({
   headerTodayChip: {
     width: 82,
   },
-  weekStrip: {
-    flexDirection: 'row',
-    paddingTop: 2,
-  },
-  weekDay: {
-    alignItems: 'center',
-    gap: 2,
-    paddingVertical: 2,
-  },
-  todayDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    marginTop: 2,
-  },
   statsRow: {
     height: 36,
     flexDirection: 'row',
@@ -1815,10 +1993,6 @@ const s = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     gap: 2,
-  },
-  sectionCardDivider: {
-    height: StyleSheet.hairlineWidth,
-    opacity: 0.5,
   },
   sectionBarLabel: {
     fontSize: 13.5,
@@ -1984,6 +2158,7 @@ const s = StyleSheet.create({
   },
   createRangeLabelText: {
     fontSize: 12,
+    fontFamily: 'Inter_700Bold',
     fontWeight: '700',
     color: '#fff',
   },

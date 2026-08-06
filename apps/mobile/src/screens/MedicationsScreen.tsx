@@ -677,6 +677,7 @@ const s = StyleSheet.create({
   },
   medDose: {
     fontSize: 12,
+    fontFamily: 'Inter_400Regular',
     fontWeight: '400',
     marginTop: 2,
   },
@@ -688,10 +689,12 @@ const s = StyleSheet.create({
   },
   medTimeSince: {
     fontSize: 11,
+    fontFamily: 'Inter_400Regular',
     fontWeight: '400',
   },
   medSummary: {
     fontSize: 11,
+    fontFamily: 'Inter_400Regular',
     fontWeight: '400',
     marginTop: 2,
   },
@@ -762,6 +765,7 @@ const s = StyleSheet.create({
   },
   emptySub: {
     fontSize: 13,
+    fontFamily: 'Inter_400Regular',
     fontWeight: '400',
   },
   addMedContainer: {
@@ -805,6 +809,7 @@ const s = StyleSheet.create({
   },
   fieldInput: {
     fontSize: 15,
+    fontFamily: 'Inter_400Regular',
     fontWeight: '400',
     paddingHorizontal: 12,
     paddingVertical: 10,

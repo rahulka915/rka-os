@@ -13,11 +13,15 @@ interface LensSurfaceProps {
   headerRight?: ReactNode;
   contextBar?: ReactNode;
   children: ReactNode;
+  // 'editorial' = Newsreader serif, reserved for top-level editorial screen
+  // titles (Tasks, Inbox) per app-wide-refinement-v1. Every other Lens
+  // destination keeps the default Inter title.
+  titleStyle?: 'default' | 'editorial';
 }
 
 // Shared chrome-less container for "Lens" destinations (Projects, Workouts, Medications, ...).
 // No border, no corner radius, no close button — these are pushed screens, not sheets.
-export function LensSurface({ title, icon, onBack, headerRight, contextBar, children }: LensSurfaceProps) {
+export function LensSurface({ title, icon, onBack, headerRight, contextBar, children, titleStyle = 'default' }: LensSurfaceProps) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { isDark } = useThemeContext();
@@ -36,7 +40,13 @@ export function LensSurface({ title, icon, onBack, headerRight, contextBar, chil
             </TouchableOpacity>
           )}
           {icon}
-          <Text style={[styles.title, { color: palette.text }]} numberOfLines={1}>
+          <Text
+            style={[
+              titleStyle === 'editorial' ? styles.titleEditorial : styles.title,
+              { color: palette.text },
+            ]}
+            numberOfLines={1}
+          >
             {title}
           </Text>
         </View>
@@ -76,6 +86,11 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     fontFamily: 'Inter_800ExtraBold',
     letterSpacing: -0.4,
+  },
+  titleEditorial: {
+    fontSize: 30,
+    fontFamily: 'Newsreader_600SemiBold',
+    letterSpacing: -0.3,
   },
   content: {
     flex: 1,

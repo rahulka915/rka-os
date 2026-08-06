@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing[4],
   },
   closeBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  remaining: { fontSize: fontSize.sm, fontWeight: '600' },
+  remaining: { fontFamily: 'Inter_600SemiBold', fontSize: fontSize.sm, fontWeight: '600' },
   progressTrack: {
     flexDirection: 'row',
     gap: spacing[1],
@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[5],
     paddingVertical: spacing[4],
   },
-  backText: { fontSize: fontSize.base, fontWeight: '500' },
+  backText: { fontFamily: 'Inter_500Medium', fontSize: fontSize.base, fontWeight: '500' },
   pulseWrap: {
     ...StyleSheet.absoluteFill,
     alignItems: 'center',

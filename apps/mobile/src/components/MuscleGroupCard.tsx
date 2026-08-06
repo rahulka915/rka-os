@@ -31,8 +31,10 @@ export function MuscleGroupCard({ label, count, imageKey, onPress }: MuscleGroup
 
 const styles = StyleSheet.create({
   card: {
-    flex: 1,
+    width: '47%',
+    aspectRatio: 1,
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
@@ -40,5 +42,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   label: { fontSize: 15, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
-  count: { fontSize: 12, fontWeight: '500' },
+  count: { fontFamily: 'Inter_500Medium', fontSize: 12, fontWeight: '500' },
 });

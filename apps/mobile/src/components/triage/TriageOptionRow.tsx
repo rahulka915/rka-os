@@ -46,6 +46,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing[3],
   },
   optionText: { flex: 1 },
-  optionLabel: { fontSize: fontSize.lg, fontWeight: '600' },
+  optionLabel: { fontFamily: 'Inter_600SemiBold', fontSize: fontSize.lg, fontWeight: '600' },
   optionHint: { fontSize: fontSize.sm, marginTop: 2 },
 });

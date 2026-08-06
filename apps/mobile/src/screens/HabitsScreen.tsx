@@ -15,6 +15,7 @@ import { HabitQuantifiedSheet } from '../components/home/HabitQuantifiedSheet';
 import { useOpenItem } from '../hooks/useOpenItem';
 import { showActionSheet } from '../utils/actionSheet';
 import { Flame } from '../icons';
+import { HabitRitualIcon } from '../components/icons/CollectionIcons';
 import type { Item } from '../db/types';
 
 // No header "+" — holding the dock FAB while this screen is focused opens
@@ -133,7 +134,7 @@ export function HabitsScreen() {
         visible={createOpen}
         title="New Habit"
         placeholder="Habit name..."
-        icon={<Flame size={38} color={palette.red} />}
+        icon={<HabitRitualIcon size={38} color={palette.red} />}
         onClose={() => setCreateOpen(false)}
         onSubmit={handleCreate}
       />
@@ -174,6 +175,7 @@ const styles = StyleSheet.create({
   },
   rowTitle: {
     fontSize: 16,
+    fontFamily: 'Inter_600SemiBold',
     fontWeight: '600',
   },
   streak: {
@@ -183,6 +185,7 @@ const styles = StyleSheet.create({
   },
   streakText: {
     fontSize: 14,
+    fontFamily: 'Inter_700Bold',
     fontWeight: '700',
   },
   empty: {
@@ -193,10 +196,12 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 18,
+    fontFamily: 'Inter_700Bold',
     fontWeight: '700',
   },
   emptySub: {
     fontSize: 14,
+    fontFamily: 'Inter_400Regular',
     fontWeight: '400',
   },
 });

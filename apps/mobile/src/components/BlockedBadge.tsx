@@ -31,6 +31,7 @@ const styles = StyleSheet.create({
   },
   text: {
     fontSize: 12,
+    fontFamily: 'Inter_500Medium',
     fontWeight: '500',
     flexShrink: 1,
   },

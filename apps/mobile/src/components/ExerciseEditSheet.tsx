@@ -10,6 +10,7 @@ import {
   MUSCLE_GROUPS,
   MUSCLE_GROUP_LABELS,
   type Equipment,
+  type MovementFamily,
   type MuscleGroup,
 } from '../utils/exerciseLibrary';
 
@@ -17,6 +18,7 @@ export interface ExerciseDraft {
   title: string;
   muscleGroup: MuscleGroup;
   equipment?: Equipment;
+  movementFamily?: MovementFamily;
   notes?: string;
   imageKey?: string;
 }
@@ -181,7 +183,7 @@ export function ExerciseEditSheet({ visible, initialValue, onClose, onSubmit }: 
 const styles = StyleSheet.create({
   sheet: { marginHorizontal: 16 },
   content: { paddingBottom: spacing[5], gap: 4 },
-  actionText: { fontSize: 16, fontWeight: '400' },
+  actionText: { fontFamily: 'Inter_400Regular', fontSize: 16, fontWeight: '400' },
   saveText: { fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
   inputRow: {
     minHeight: 64,

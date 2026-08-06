@@ -146,7 +146,7 @@ export function BlockEditSheet({ visible, exerciseTitle, initialValue, onClose, 
 const styles = StyleSheet.create({
   sheet: { marginHorizontal: 16 },
   content: { paddingBottom: spacing[5], gap: 12 },
-  actionText: { fontSize: 16, fontWeight: '400' },
+  actionText: { fontFamily: 'Inter_400Regular', fontSize: 16, fontWeight: '400' },
   saveText: { fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
   fieldRow: { gap: 4 },
   fieldLabel: { fontSize: 11, fontWeight: '700', fontFamily: 'Inter_700Bold', letterSpacing: 0.6 },

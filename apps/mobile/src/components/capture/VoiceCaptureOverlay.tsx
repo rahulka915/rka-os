@@ -218,6 +218,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: fontSize.sm,
+    fontFamily: 'Inter_600SemiBold',
     fontWeight: '600',
     letterSpacing: 0.5,
     textTransform: 'uppercase',
@@ -248,6 +249,7 @@ const styles = StyleSheet.create({
   },
   stopBtnText: {
     fontSize: fontSize.base,
+    fontFamily: 'Inter_600SemiBold',
     fontWeight: '600',
   },
 });

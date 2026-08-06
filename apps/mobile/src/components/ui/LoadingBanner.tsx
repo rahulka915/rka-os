@@ -46,6 +46,7 @@ const styles = StyleSheet.create({
   },
   message: {
     fontSize: 13,
+    fontFamily: 'Inter_500Medium',
     fontWeight: '500',
   },
 });

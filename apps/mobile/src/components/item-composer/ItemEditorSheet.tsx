@@ -364,7 +364,7 @@ export function ItemEditorSheet({
                   <TouchableOpacity
                     style={[
                       styles.segment,
-                      { backgroundColor: !scheduled ? material.accentSoft : material.fill, borderColor: !scheduled ? material.rimStrong : material.rim },
+                      { backgroundColor: !scheduled ? material.accentSoft : material.fill, borderColor: !scheduled ? material.rimStrong : 'transparent' },
                     ]}
                     onPress={clearSchedule}
                     disabled={draft.lockScheduleDate}
@@ -374,7 +374,7 @@ export function ItemEditorSheet({
                   <TouchableOpacity
                     style={[
                       styles.segment,
-                      { backgroundColor: scheduled ? material.accentSoft : material.fill, borderColor: scheduled ? material.rimStrong : material.rim },
+                      { backgroundColor: scheduled ? material.accentSoft : material.fill, borderColor: scheduled ? material.rimStrong : 'transparent' },
                     ]}
                     onPress={enableSchedule}
                   >
@@ -454,7 +454,7 @@ export function ItemEditorSheet({
                                   key={minutes}
                                   style={[
                                     styles.durationChip,
-                                    { backgroundColor: selected ? material.accentSoft : material.fill, borderColor: selected ? material.rimStrong : material.rim },
+                                    { backgroundColor: selected ? material.accentSoft : material.fill, borderColor: selected ? material.rimStrong : 'transparent' },
                                   ]}
                                   onPress={() => onChange({ durationMinutes: minutes })}
                                 >
@@ -480,7 +480,7 @@ export function ItemEditorSheet({
                         key={bucket}
                         style={[
                           styles.bucketChip,
-                          { backgroundColor: selected ? material.accentSoft : material.fill, borderColor: selected ? material.rimStrong : material.rim },
+                          { backgroundColor: selected ? material.accentSoft : material.fill, borderColor: selected ? material.rimStrong : 'transparent' },
                         ]}
                         onPress={() => onChange({ preferredTimeBucket: bucket })}
                       >
@@ -509,7 +509,7 @@ export function ItemEditorSheet({
                   <TouchableOpacity
                     style={[
                       styles.choiceChip,
-                      { backgroundColor: draft.dueDate ? material.accentSoft : material.fill, borderColor: draft.dueDate ? material.rimStrong : material.rim },
+                      { backgroundColor: draft.dueDate ? material.accentSoft : material.fill, borderColor: draft.dueDate ? material.rimStrong : 'transparent' },
                     ]}
                     onPress={() => {
                       if (draft.dueDate) { showView('deadline'); return; }
@@ -543,7 +543,7 @@ export function ItemEditorSheet({
                         key={option.label}
                         style={[
                           styles.bucketChip,
-                          { backgroundColor: selected ? material.accentSoft : material.fill, borderColor: selected ? material.rimStrong : material.rim },
+                          { backgroundColor: selected ? material.accentSoft : material.fill, borderColor: selected ? material.rimStrong : 'transparent' },
                         ]}
                         onPress={() => onChange({ rrule: option.value })}
                       >
@@ -590,7 +590,7 @@ export function ItemEditorSheet({
                     return (
                       <TouchableOpacity
                         key={priority.value}
-                        style={[styles.priorityChip, { backgroundColor: selected ? `${accent}20` : material.fill, borderColor: selected ? accent : material.rim }]}
+                        style={[styles.priorityChip, { backgroundColor: selected ? `${accent}20` : material.fill, borderColor: selected ? accent : 'transparent' }]}
                         onPress={() => onChange({ priority: selected ? undefined : priority.value })}
                       >
                         <Flag size={14} color={selected ? accent : palette.iconMuted} strokeWidth={1.8} />
@@ -632,11 +632,15 @@ export function ItemEditorSheet({
                 <Text style={[styles.footerButtonText, { color: palette.textSecondary }]}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.footerButton, { backgroundColor: material.accent, opacity: canSave ? 1 : 0.3 }]}
+                style={[
+                  styles.footerButton,
+                  styles.footerButtonSave,
+                  { backgroundColor: material.surface, borderColor: material.accent, opacity: canSave ? 1 : 0.3 },
+                ]}
                 onPress={onSave}
                 disabled={!canSave}
               >
-                <Text style={[styles.footerButtonText, { color: material.onAccent }]}>{busy ? 'Saving…' : 'Save'}</Text>
+                <Text style={[styles.footerButtonText, { color: material.accent }]}>{busy ? 'Saving…' : 'Save'}</Text>
               </TouchableOpacity>
             </View>
           ) : null}
@@ -667,29 +671,31 @@ const styles = StyleSheet.create({
   section: { gap: spacing[2] },
   sectionTitleRow: { minHeight: 28, flexDirection: 'row', alignItems: 'center', gap: 7 },
   sectionTitle: { fontSize: 11, fontWeight: '700', fontFamily: 'Inter_700Bold', letterSpacing: 0.7 },
-  card: { borderRadius: radius.card, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },
+  // Inset grouped surface — no border; the field-vs-field hairline
+  // `separator` inside is what reads as structure, not an outer outline.
+  card: { borderRadius: radius.card, overflow: 'hidden' },
   titleInput: { minHeight: 52, paddingHorizontal: 14, fontSize: 20, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
   notesInput: { minHeight: 94, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, lineHeight: 21 },
   separator: { height: StyleSheet.hairlineWidth, marginLeft: 14 },
   checklistRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 40 },
-  checklistText: { flex: 1, fontSize: 15, fontWeight: '500' },
+  checklistText: { fontFamily: 'Inter_500Medium', flex: 1, fontSize: 15, fontWeight: '500' },
   checklistTextDone: { textDecorationLine: 'line-through' },
-  checklistInput: { minHeight: 40, fontSize: 15, fontWeight: '500' },
+  checklistInput: { fontFamily: 'Inter_500Medium', minHeight: 40, fontSize: 15, fontWeight: '500' },
   segmentRow: { flexDirection: 'row', gap: 8 },
-  segment: { flex: 1, minHeight: 44, borderRadius: radius.control, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center' },
+  segment: { flex: 1, minHeight: 44, borderRadius: radius.control, borderWidth: 1, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
   segmentText: { fontSize: 14, fontWeight: '700', fontFamily: 'Inter_700Bold' },
   choiceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  choiceChip: { flex: 1, minWidth: 88, minHeight: 44, borderRadius: radius.control, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center' },
+  choiceChip: { flex: 1, minWidth: 88, minHeight: 44, borderRadius: radius.control, borderWidth: 1, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
   choiceText: { fontSize: 13, fontWeight: '700', fontFamily: 'Inter_700Bold' },
   pickerRow: { minHeight: 56, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   pickerValueRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   pickerValue: { fontSize: 14, fontWeight: '600', fontFamily: 'Inter_600SemiBold', fontVariant: ['tabular-nums'] },
   durationSection: { paddingHorizontal: 14, paddingVertical: 12, gap: 10 },
   durationHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  durationChip: { minWidth: 48, minHeight: 36, paddingHorizontal: 10, borderRadius: radius.control, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center' },
+  durationChip: { minWidth: 48, minHeight: 36, paddingHorizontal: 10, borderRadius: radius.control, borderWidth: 1, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
   durationText: { fontSize: 12, fontWeight: '700', fontFamily: 'Inter_700Bold' },
   subsectionLabel: { fontSize: 10, fontWeight: '700', fontFamily: 'Inter_700Bold', letterSpacing: 0.6, marginTop: 5 },
-  bucketChip: { flexGrow: 1, minHeight: 40, paddingHorizontal: 10, borderRadius: radius.control, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center' },
+  bucketChip: { flexGrow: 1, minHeight: 40, paddingHorizontal: 10, borderRadius: radius.control, borderWidth: 1, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
   unscheduleButton: { minHeight: 46, borderRadius: radius.card, borderWidth: StyleSheet.hairlineWidth, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 4 },
   unscheduleText: { fontSize: 14, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
   rowLabelWithIcon: { flexDirection: 'row', alignItems: 'center', gap: 9, flexShrink: 1 },
@@ -706,6 +712,8 @@ const styles = StyleSheet.create({
   deleteText: { fontSize: 14, fontWeight: '700', fontFamily: 'Inter_700Bold' },
   footer: { borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: spacing[4], paddingTop: 10, flexDirection: 'row', gap: 10 },
   footerButton: { flex: 1, minHeight: 48, borderRadius: radius.card, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center' },
+  // Restrained brass outline rather than a large flat filled block.
+  footerButtonSave: { borderWidth: 1.5 },
   footerButtonText: { fontSize: 15, fontWeight: '700', fontFamily: 'Inter_700Bold' },
   selectionContent: { paddingHorizontal: spacing[4], paddingTop: spacing[2], paddingBottom: 40 },
   selectionRow: { minHeight: 54, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },

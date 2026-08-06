@@ -142,6 +142,7 @@ const styles = StyleSheet.create({
   btnPrimary: {},
   btnText: {
     fontSize: fontSize.sm,
+    fontFamily: 'Inter_600SemiBold',
     fontWeight: '600',
   },
 });

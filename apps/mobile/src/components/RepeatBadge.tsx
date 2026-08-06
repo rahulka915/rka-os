@@ -25,5 +25,5 @@ export function RepeatBadge({ isDark, rrule }: RepeatBadgeProps) {
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
-  text: { fontSize: 12, fontWeight: '500', flexShrink: 1 },
+  text: { fontFamily: 'Inter_500Medium', fontSize: 12, fontWeight: '500', flexShrink: 1 },
 });

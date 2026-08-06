@@ -2,10 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View, ScrollView } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
-import { getItemWithMetadata, getCompletedOccurrenceDates, formatDate, toggleHabitOccurrence, updateItemMetadata } from '../db/database';
+import { getItemWithMetadata, getCompletedOccurrenceDates, formatDate, toggleHabitOccurrence, updateItemMetadata, getPotentialStats } from '../db/database';
 import { computeStreak } from '../utils/streak';
 import { buildHabitCalendarMonth, type HabitCalendarDay } from '../utils/habitCalendar';
-import { POTENTIAL_STATS, POTENTIAL_STAT_LABELS, parseHabitPotentialMeta, type PotentialStat } from '../utils/potential';
+import { parseHabitPotentialMeta } from '../utils/potential';
 import { parseHabitMeta, type HabitMeasurement, type HabitTargetPeriod } from '../utils/habitMeta';
 import { useItemComposer } from '../components/item-composer';
 import { useThemeContext } from '../hooks/useThemeContext';
@@ -33,6 +33,7 @@ export function HabitDetailScreen() {
   const [completedDates, setCompletedDates] = useState<Set<string>>(new Set());
   const [monthAnchor, setMonthAnchor] = useState(new Date());
   const [targetDaysText, setTargetDaysText] = useState('');
+  const [potentialStats, setPotentialStats] = useState<Item[]>([]);
   const [measurementExpanded, setMeasurementExpanded] = useState(false);
   const [targetValueText, setTargetValueText] = useState('');
   const [targetUnitText, setTargetUnitText] = useState('');
@@ -42,6 +43,7 @@ export function HabitDetailScreen() {
   const load = useCallback(() => {
     const loaded = getItemWithMetadata(habitId);
     setItem(loaded);
+    setPotentialStats(getPotentialStats());
     setCompletedDates(getCompletedOccurrenceDates(habitId));
   }, [habitId]);
 
@@ -63,8 +65,11 @@ export function HabitDetailScreen() {
   );
 
   const potentialMeta = useMemo(() => parseHabitPotentialMeta(item?.metadata), [item]);
-
   const habitMeta = useMemo(() => (item ? parseHabitMeta(item) : null), [item]);
+
+  useEffect(() => {
+    setTargetDaysText(potentialMeta.potentialTargetDays ? String(potentialMeta.potentialTargetDays) : '');
+  }, [potentialMeta.potentialTargetDays]);
 
   useEffect(() => {
     if (!habitMeta) return;
@@ -80,11 +85,7 @@ export function HabitDetailScreen() {
     load();
   };
 
-  useEffect(() => {
-    setTargetDaysText(potentialMeta.potentialTargetDays ? String(potentialMeta.potentialTargetDays) : '');
-  }, [potentialMeta.potentialTargetDays]);
-
-  const savePotentialStat = (stat: PotentialStat | null) => {
+  const savePotentialStat = (stat: string | null) => {
     if (!item) return;
     const existing = item.metadata ? JSON.parse(item.metadata) : {};
     if (stat === null) {
@@ -164,15 +165,15 @@ export function HabitDetailScreen() {
             >
               <Text style={[styles.chipText, { color: !potentialMeta.potentialStat ? palette.surface : palette.text }]}>None</Text>
             </TouchableOpacity>
-            {POTENTIAL_STATS.map((stat) => {
-              const selected = potentialMeta.potentialStat === stat;
+            {potentialStats.map((stat) => {
+              const selected = potentialMeta.potentialStat === stat.id;
               return (
                 <TouchableOpacity
-                  key={stat}
+                  key={stat.id}
                   style={[styles.chip, { borderColor: palette.separator }, selected && { backgroundColor: palette.red, borderColor: palette.red }]}
-                  onPress={() => savePotentialStat(stat)}
+                  onPress={() => savePotentialStat(stat.id)}
                 >
-                  <Text style={[styles.chipText, { color: selected ? palette.surface : palette.text }]}>{POTENTIAL_STAT_LABELS[stat]}</Text>
+                  <Text style={[styles.chipText, { color: selected ? palette.surface : palette.text }]}>{stat.title}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -351,6 +352,7 @@ const styles = StyleSheet.create({
   },
   streakText: {
     fontSize: 18,
+    fontFamily: 'Inter_700Bold',
     fontWeight: '700',
   },
   potentialSection: {
@@ -358,6 +360,7 @@ const styles = StyleSheet.create({
   },
   potentialLabel: {
     fontSize: 11,
+    fontFamily: 'Inter_700Bold',
     fontWeight: '700',
     letterSpacing: 0.6,
     textTransform: 'uppercase',
@@ -383,6 +386,7 @@ const styles = StyleSheet.create({
   },
   chipText: {
     fontSize: 13,
+    fontFamily: 'Inter_600SemiBold',
     fontWeight: '600',
   },
   targetDaysRow: {
@@ -391,6 +395,7 @@ const styles = StyleSheet.create({
   },
   targetDaysLabel: {
     fontSize: 11,
+    fontFamily: 'Inter_700Bold',
     fontWeight: '700',
     letterSpacing: 0.6,
   },
@@ -409,6 +414,7 @@ const styles = StyleSheet.create({
   },
   monthLabel: {
     fontSize: 15,
+    fontFamily: 'Inter_600SemiBold',
     fontWeight: '600',
   },
   weekdayRow: {
@@ -419,6 +425,7 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'center',
     fontSize: 11,
+    fontFamily: 'Inter_600SemiBold',
     fontWeight: '600',
   },
   weekRow: {
@@ -439,10 +446,12 @@ const styles = StyleSheet.create({
   },
   dayText: {
     fontSize: 12,
+    fontFamily: 'Inter_600SemiBold',
     fontWeight: '600',
   },
   logHeader: {
     fontSize: 13,
+    fontFamily: 'Inter_600SemiBold',
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -458,6 +467,7 @@ const styles = StyleSheet.create({
   },
   logDate: {
     fontSize: 14,
+    fontFamily: 'Inter_500Medium',
     fontWeight: '500',
   },
 });

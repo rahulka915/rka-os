@@ -7,6 +7,8 @@ import { deleteItem, updateItemStatus, setRelation, getRelation, getBlockingTask
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
 import { LensSurface } from '../components/LensSurface';
+import { RiverStoneSurface } from '../components/riverstone';
+import { CheckCircle2 } from '../icons';
 import {
   LacquerDiscControl,
   LACQUER_DISC_COMPLETION_DURATION,
@@ -61,7 +63,13 @@ const TaskRow = memo(function TaskRow({
   return (
     <View style={styles.cell}>
       {showConnector && <DependencyConnector isDark={isDark} leftOffset={CHECKBOX_CENTER_X} />}
-      <View style={[styles.row, { backgroundColor: palette.surface }]}>
+      <RiverStoneSurface
+        variant="list"
+        mode={isDark ? 'dark' : 'light'}
+        shape="regular"
+        style={styles.rowStone}
+        contentStyle={styles.row}
+      >
         <LacquerDiscControl
           isCompleted={isCompleting}
           accessibilityLabel={blocker ? `${item.title}, blocked by ${blocker.title}` : `Complete ${item.title}`}
@@ -74,19 +82,19 @@ const TaskRow = memo(function TaskRow({
           onLongPress={() => onLongPress(item)}
           delayLongPress={400}
         >
-          <Text style={[styles.rowTitle, { color: blocker ? palette.textMuted : palette.text }]} numberOfLines={1}>{item.title}</Text>
+          <Text style={[styles.rowTitle, { color: blocker ? palette.textMuted : palette.ivory }]} numberOfLines={1}>{item.title}</Text>
           {projectTitle && (
-            <Text style={[styles.rowSub, { color: palette.textTertiary }]} numberOfLines={1}>{projectTitle}</Text>
+            <Text style={[styles.rowSub, { color: palette.greige }]} numberOfLines={1}>{projectTitle}</Text>
           )}
           {blocker && <BlockedBadge isDark={isDark} title={blocker.title} />}
           {item.dueDate && <DeadlineBadge isDark={isDark} dueDate={item.dueDate} />}
           {item.rrule && <RepeatBadge isDark={isDark} rrule={item.rrule} />}
           {checklistLabel(item) && (
-            <Text style={[styles.rowSub, { color: palette.textTertiary }]}>{checklistLabel(item)}</Text>
+            <Text style={[styles.rowSub, { color: palette.greige }]}>{checklistLabel(item)}</Text>
           )}
         </TouchableOpacity>
         <DragHandleButton color={palette.textMuted} />
-      </View>
+      </RiverStoneSurface>
     </View>
   );
 });
@@ -266,7 +274,13 @@ export function TasksScreen() {
 
   const renderCompletedRow = (item: Item) => (
     <View key={item.id} style={styles.cell}>
-      <View style={[styles.row, { backgroundColor: palette.surface }]}>
+      <RiverStoneSurface
+        variant="list"
+        mode={isDark ? 'dark' : 'light'}
+        shape="regular"
+        style={styles.rowStone}
+        contentStyle={styles.row}
+      >
         <LacquerDiscControl
           isCompleted={!restoringIds.has(item.id)}
           accessibilityLabel={`Restore ${item.title}`}
@@ -274,59 +288,66 @@ export function TasksScreen() {
         />
         <View style={styles.rowContent}>
           <Text
-            style={[styles.rowTitle, styles.rowTitleCompleted, { color: palette.textSecondary }]}
+            style={[styles.rowTitle, styles.rowTitleCompleted, { color: palette.greige }]}
             numberOfLines={1}
           >
             {item.title}
           </Text>
           {getProjectTitle(item) && (
-            <Text style={[styles.rowSub, { color: palette.textTertiary }]} numberOfLines={1}>{getProjectTitle(item)}</Text>
+            <Text style={[styles.rowSub, { color: palette.greige }]} numberOfLines={1}>{getProjectTitle(item)}</Text>
           )}
         </View>
-      </View>
+      </RiverStoneSurface>
     </View>
   );
 
   const completedGroups = groupCompletedByDay(completedItems);
 
   return (
-    <LensSurface title="Tasks">
-      <View style={[styles.segmentedControl, { backgroundColor: palette.fill }]}>
+    <LensSurface title="Tasks" titleStyle="editorial">
+      <RiverStoneSurface
+        variant="chip"
+        mode={isDark ? 'dark' : 'light'}
+        shape="regular"
+        style={styles.segmentedControlStone}
+        contentStyle={styles.segmentedControl}
+      >
         <TouchableOpacity
           style={[
             styles.segment,
-            activeTab === 'tasks' && { backgroundColor: palette.surface },
+            activeTab === 'tasks' && { borderColor: palette.antiqueBrass, borderWidth: 1 },
           ]}
           onPress={() => setActiveTab('tasks')}
         >
-          <Text style={[styles.segmentLabel, { color: activeTab === 'tasks' ? palette.text : palette.textSecondary }]}>
+          <Text style={[styles.segmentLabel, { color: activeTab === 'tasks' ? palette.antiqueBrass : palette.greige }]}>
             Tasks
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[
             styles.segment,
-            activeTab === 'logbook' && { backgroundColor: palette.surface },
+            activeTab === 'logbook' && { borderColor: palette.antiqueBrass, borderWidth: 1 },
           ]}
           onPress={() => setActiveTab('logbook')}
         >
-          <Text style={[styles.segmentLabel, { color: activeTab === 'logbook' ? palette.text : palette.textSecondary }]}>
+          <Text style={[styles.segmentLabel, { color: activeTab === 'logbook' ? palette.antiqueBrass : palette.greige }]}>
             Logbook
           </Text>
         </TouchableOpacity>
-      </View>
+      </RiverStoneSurface>
 
       {activeTab === 'tasks' ? (
         tasks.length === 0 ? (
           <View style={styles.empty}>
-            <Text style={[styles.emptyTitle, { color: palette.text }]}>No tasks yet</Text>
-            <Text style={[styles.emptySub, { color: palette.textSecondary }]}>Tap the + in the dock to create one</Text>
+            <CheckCircle2 size={40} color={palette.antiqueBrass} strokeWidth={1.3} />
+            <Text style={[styles.emptyTitle, { color: palette.ivory }]}>No tasks yet</Text>
+            <Text style={[styles.emptySub, { color: palette.greige }]}>Tap the + in the dock to create one</Text>
           </View>
         ) : (
           <ScrollViewContainer contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
             {active.length > 0 && (
               <View style={[styles.section, activeReorder.isReordering && styles.sectionDragging]}>
-                <Text style={[styles.sectionLabel, { color: palette.textTertiary }]}>ACTIVE</Text>
+                <Text style={[styles.sectionLabel, { color: palette.greige }]}>ACTIVE</Text>
                 <NestedReorderableList
                   data={active}
                   keyExtractor={(item, index) => item?.id ?? String(index)}
@@ -340,7 +361,7 @@ export function TasksScreen() {
             )}
             {someday.length > 0 && (
               <View style={[styles.section, somedayReorder.isReordering && styles.sectionDragging]}>
-                <Text style={[styles.sectionLabel, { color: palette.textTertiary }]}>SOMEDAY</Text>
+                <Text style={[styles.sectionLabel, { color: palette.greige }]}>SOMEDAY</Text>
                 <NestedReorderableList
                   data={someday}
                   keyExtractor={(item, index) => item?.id ?? String(index)}
@@ -356,13 +377,15 @@ export function TasksScreen() {
         )
       ) : completedGroups.length === 0 ? (
         <View style={styles.empty}>
-          <Text style={[styles.emptyTitle, { color: palette.text }]}>Nothing completed yet</Text>
+          <CheckCircle2 size={40} color={palette.antiqueBrass} strokeWidth={1.3} />
+          <Text style={[styles.emptyTitle, { color: palette.ivory }]}>No completed tasks yet</Text>
+          <Text style={[styles.emptySub, { color: palette.greige }]}>Finished tasks will rest here.</Text>
         </View>
       ) : (
         <ScrollViewContainer contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
           {completedGroups.map((group) => (
             <View key={group.label} style={styles.section}>
-              <Text style={[styles.sectionLabel, { color: palette.textTertiary }]}>{group.label}</Text>
+              <Text style={[styles.sectionLabel, { color: palette.greige }]}>{group.label}</Text>
               <View style={styles.sectionRows}>{group.items.map(renderCompletedRow)}</View>
             </View>
           ))}
@@ -402,15 +425,18 @@ const styles = StyleSheet.create({
   // now a zero-layout overlay. position:relative anchors that overlay.
   cell: {
     position: 'relative',
-    marginBottom: 8,
+    marginBottom: 6,
+  },
+  rowStone: {
+    // RiverStoneSurface owns the clip/shape; this wrapper just carries the
+    // ambient/contact shadow layers from `container` outward.
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    borderRadius: 14,
     paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingVertical: 4,
   },
   rowActive: {
     opacity: 0.9,
@@ -444,19 +470,24 @@ const styles = StyleSheet.create({
   },
   emptySub: {
     fontSize: 14,
+    fontFamily: 'Inter_400Regular',
     fontWeight: '400',
   },
-  segmentedControl: {
-    flexDirection: 'row',
-    borderRadius: 10,
-    padding: 3,
+  segmentedControlStone: {
     marginHorizontal: 16,
     marginBottom: 12,
   },
+  segmentedControl: {
+    flexDirection: 'row',
+    padding: 3,
+    gap: 3,
+  },
   segment: {
     flex: 1,
-    paddingVertical: 7,
+    paddingVertical: 9,
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'transparent',
     alignItems: 'center',
   },
   segmentLabel: {

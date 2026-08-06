@@ -49,12 +49,14 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xl,
     lineHeight: fontSize.xl * lineHeight.tight,
     textAlign: 'center',
+    fontFamily: 'Inter_500Medium',
     fontWeight: '500',
   },
   placeholder: {
     fontSize: fontSize.xl,
     lineHeight: fontSize.xl * lineHeight.tight,
     textAlign: 'center',
+    fontFamily: 'Inter_400Regular',
     fontWeight: '400',
   },
 });

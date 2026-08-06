@@ -28,6 +28,7 @@ import {
   getUpcomingItems,
   formatDate,
   getUnscheduledItems,
+  getItemCountsForRange,
 } from '../db/database';
 import type { Item, ItemInstance } from '../db/types';
 import type { TimelineEntry } from '../db/database';
@@ -205,6 +206,15 @@ export function useExercises() {
   }, []);
   useDbRefresh(refresh);
   return { exercises, refresh };
+}
+
+export function useMonthItemCounts(startDate: string, endDate: string) {
+  const [counts, setCounts] = useState<Record<string, number>>({});
+  const refresh = useCallback(() => {
+    setCounts(getItemCountsForRange(startDate, endDate));
+  }, [startDate, endDate]);
+  useDbRefresh(refresh);
+  return { counts, refresh };
 }
 
 export function useUnscheduledItems() {

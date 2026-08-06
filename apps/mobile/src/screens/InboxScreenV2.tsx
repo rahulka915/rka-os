@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, Modal, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { Calendar, Sun, Moon, Archive, Trash2, Tag } from '../icons';
+import { Calendar, Sun, Moon, Archive, Trash2, Tag, Check } from '../icons';
 import { TaskSwipeItem } from '../components/TaskSwipeItem';
 import { DependencyConnector } from '../components/DependencyConnector';
 import { useThemeContext } from '../hooks/useThemeContext';
@@ -135,10 +135,10 @@ export function InboxScreenV2({ visible, onClose }: InboxScreenV2Props) {
             <Text style={[s.title, { color: palette.text }]}>{selectedIds.size} Selected</Text>
           ) : (
             <View style={s.titleRow}>
-              <Text style={[s.title, { color: palette.text }]}>Inbox</Text>
+              <Text style={[s.title, { color: palette.ivory }]}>Inbox</Text>
               {inboxItems.length > 0 ? (
-                <View style={[s.countBadge, { backgroundColor: palette.deeperBlueSoft }]}>
-                  <Text style={[s.countText, { color: palette.deeperBlue }]}>{inboxItems.length}</Text>
+                <View style={[s.countBadge, { borderColor: palette.vermilion }]}>
+                  <Text style={[s.countText, { color: palette.vermilion }]}>{inboxItems.length}</Text>
                 </View>
               ) : null}
             </View>
@@ -155,8 +155,9 @@ export function InboxScreenV2({ visible, onClose }: InboxScreenV2Props) {
         {/* List or Empty State */}
         {emptyState ? (
           <View style={s.empty}>
-            <Text style={[s.emptyTitle, { color: palette.text }]}>Inbox clear</Text>
-            <Text style={[s.emptySub, { color: palette.textSecondary }]}>
+            <Check size={32} color={palette.antiqueBrass} strokeWidth={1.5} />
+            <Text style={[s.emptyTitle, { color: palette.ivory }]}>Inbox clear</Text>
+            <Text style={[s.emptySub, { color: palette.greige }]}>
               No unscheduled tasks
             </Text>
           </View>
@@ -277,11 +278,9 @@ const s = StyleSheet.create({
     gap: 8,
   },
   title: {
-    fontSize: 25,
-    fontWeight: '500',
-    fontFamily: 'Georgia',
-    fontStyle: 'italic',
-    lineHeight: 25 * lineHeight.tight,
+    fontSize: 28,
+    fontFamily: 'Newsreader_600SemiBold',
+    lineHeight: 28 * lineHeight.tight,
     letterSpacing: letterSpacing.tight,
   },
   cancelText: {
@@ -293,6 +292,7 @@ const s = StyleSheet.create({
     minWidth: 24,
     height: 24,
     borderRadius: 12,
+    borderWidth: 1.5,
     paddingHorizontal: 7,
     alignItems: 'center',
     justifyContent: 'center',
@@ -326,6 +326,7 @@ const s = StyleSheet.create({
   },
   emptySub: {
     fontSize: 14,
+    fontFamily: 'Inter_400Regular',
     fontWeight: '400',
   },
   fab: {

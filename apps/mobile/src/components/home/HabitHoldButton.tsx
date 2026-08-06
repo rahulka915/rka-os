@@ -214,11 +214,13 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 12,
+    fontFamily: 'Inter_600SemiBold',
     fontWeight: '600',
     textAlign: 'center',
   },
   streak: {
     fontSize: 11,
+    fontFamily: 'Inter_600SemiBold',
     fontWeight: '600',
   },
 });
