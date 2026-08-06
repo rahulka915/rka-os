@@ -2,6 +2,7 @@
  "_note": "Blocking-proxy geometry traced from the reference raster, in REFERENCE pose (arms down). Artboard 2500x2500 at [0,0,2500,-2500]; Illustrator y is negative downward. Superseded in ronin_master.ai by the generated vector art, kept here so the rig geometry and joints survive deletion of PROXY-BACKUP.",
  "pose": "reference (NOT A-pose)",
  "aPoseRotationsDeg": {
+  "_SUPERSEDED": "These were measured against the ORIGINAL hand-drawn blocking proxies, which already sat 23-45 deg out from vertical. The polygons in this file are a LATER trace of the reference raster, whose arms hang vertical, so applying these angles yields only ~12 deg, not the intended 30-40. Retained as history. Task 2 of the v4 plan MEASURES the starting axis by PCA and solves for the target instead of using any stored constant.",
   "arm-R (upper,fore,hand) about 1744,-1045": 12,
   "arm-L (upper,fore,hand) about 1463,-1046": 10,
   "leg-R (thigh,shin,foot) about 1606,-1485": -7,
@@ -1456,5 +1457,12 @@
     ]
    ]
   ]
+ },
+ "aPoseTargetsDeg": {
+  "_note": "Authoritative. Signed angle of each chain-root axis from straight down; positive leans toward viewer-right. Brief 3.2 wants arms 30-40 deg out and legs 10-15 deg apart.",
+  "arm-R": 35,
+  "arm-L": -35,
+  "leg-R": 6.5,
+  "leg-L": -6.5
  }
 }
