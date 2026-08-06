@@ -10,6 +10,8 @@ The project previously also shipped a Progressive Web App (Vite + React + Dexie.
 
 ---
 
+**Journey/Domains/Missions/Potential scoring:** Domain scores = live maintenance baseline (from linked `potential-stat` items) + a capped, decaying "achievement lift" from `domainContributions` rows; Overall Potential is a weighted average of Domain scores, weighted by the active `focus` item. Manually-added Achievements must call `setAchievementContributesToScore` to actually create their scoring row — `createAchievement` alone only stores the flag on the item, it does not touch `domainContributions` (fixed 2026-08-05 for the Achievements screen's retrospective add flow, which previously silently no-op'd). See `apps/mobile/SCHEMA.md` (canonical schema/formula reference) and `apps/mobile/src/utils/domainScoring.ts` (pure scoring math) before touching any of this.
+
 ## Available Skills
 
 ### 🎨 Design & UX

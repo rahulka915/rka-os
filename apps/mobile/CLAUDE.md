@@ -126,7 +126,11 @@ Dark Mode:
 | `MedicationsScreen.tsx` | Tamagui | Timer, take button, LogDoseSheet |
 | `CalendarScreen.tsx` | Tamagui + custom timeline | Week strip, protocol-style instances |
 | `MenuScreen.tsx` | Tamagui | Navigation stubs |
-| `ProfileScreen.tsx` | Tamagui | Placeholder |
+| `ProfileScreen.tsx` | Tamagui | Overall Potential + per-Domain score card |
+| `PotentialScreen.tsx` | RN primitives (StyleSheet) | Overall Potential, Current Focus, per-Domain scores |
+| `AchievementsScreen.tsx` | RN primitives (StyleSheet) | Permanent trophy case; manual/retrospective add flow (long-press a row to toggle contributes-to-score or delete) |
+| `FocusScreen.tsx` | RN primitives (StyleSheet) | Current Focus label + per-Domain weight overrides |
+| `OnboardingScreen.tsx` | RN primitives (StyleSheet) | First-launch guided setup: Domains -> per-Domain Mission/Potential Stat -> Focus; gated in `App.tsx` on `getItemsByType('area').length === 0` at boot, skippable throughout |
 | `ExerciseLibraryScreen.tsx` | RN primitives (StyleSheet) | Exercise catalog, grouped by muscle group |
 | `WorkoutTemplateDetailScreen.tsx` | RN primitives + ReorderableList | Drag-reorder exercises within a template |
 | `WorkoutSessionScreen.tsx` | RN primitives (StyleSheet) | Live set logging: reps/weight capture per exercise, shows last-session reference |
@@ -163,6 +167,7 @@ Dark Mode:
   - `createItem(type, title, status, scheduledDate?, notes?)` — now accepts optional `notes`
   - `getInboxItems()`, `getTodayItems()`, `getItemsByStatus()`
   - `logMedicationTaken(itemId, takenAt?)`, `getMedicationLogs()`, `editMedicationLog()`, `deleteMedicationLog()`
+  - Potential/Domains/Achievements/Focus: `computeDomainScore(areaId)`, `computeOverallPotential()`, `completeMission(missionId)`, `setMissionAchievementEligible(missionId, eligible)`, `createAchievement()`, `setAchievementContributesToScore(achievementId, contributes)` (also creates/reactivates/excludes the achievement's `domainContributions` row — `createAchievement` alone never does), `deleteAchievement(achievementId)`, `getFocus()`/`setFocus()`/`clearFocus()` — see `../../SCHEMA.md` for the full data model and `src/utils/domainScoring.ts` for the scoring formula
 
 ### Hooks (`src/hooks/`)
 
