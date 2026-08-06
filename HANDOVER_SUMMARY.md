@@ -633,6 +633,26 @@
 
 ---
 
+## Session — Skills layer (2026-08-06)
+
+### What Was Done
+Added `Skill` as a first-class entity distinct from Domains — "Domains = areas of life you maintain, Skills = capabilities you develop, Habits/routines = repeated practice, Missions/projects = outcomes you pursue, Achievements = evidence of meaningful progress." Requested by the user as a new layer, not a redesign of an existing one — new schema, new scoring channel, new screens.
+
+**Locked product decisions (confirmed with the user before building):** proficiency is a manual 0-100 self-rating, never derived from practice data. A Skill's only path to Domain scoring is a new capped/decaying `domainContributions` row (`sourceType: 'skill'`, `SKILL_CONTRIBUTION_DEFAULTS`: magnitude 0.3/halfLife 45d — deliberately smaller than the Mission 0.25/14d and Achievement 0.6/60d tiers) created from a skill-linked milestone/achievement — never merely by existing.
+
+1. `apps/mobile/src/db/types.ts` — `ItemType` gains `'skill'`; `DomainContributionRow.sourceType` gains `'skill'`.
+2. `apps/mobile/src/utils/domainScoring.ts` — `SKILL_CONTRIBUTION_DEFAULTS`.
+3. `apps/mobile/src/db/database.ts` — Skill CRUD (`createSkill`, `getSkills`, `getSkillsForArea`, `updateSkillProficiency`), primary Domain via a real `skillArea` relation + secondary Domains via `metadata.secondaryAreaIds` (a plain array — `itemRelations` only supports one target per `(sourceId, relationType)`, and a skill can have several secondaries). Organizational links `habitSkill`/`routineSkill`/`missionSkill` — linked items keep contributing to Potential exactly as they already do via their own Potential Stat/Mission-area relation, no second contribution. `achievementSkill` (mutually exclusive with `achievementArea` — an achievement targets a Domain or a Skill, never both, which is the actual double-counting guardrail) + `createSkillMilestone`/`setSkillMilestoneContributesToScore`/`deleteSkillMilestone`, which can write/exclude MULTIPLE `domainContributions` rows for one achievement (primary Domain full weight, each secondary half weight) — a new `getSkillContributionRows` helper reads all of them, since the existing `getContributionForSource` only returns the single most recent row. `computeSkillPracticeSummary` — read-only 30-day aggregation of linked habit completions/routine sessions, not a scoring input.
+4. `SkillsScreen.tsx`/`SkillDetailScreen.tsx` (new) — card grid list (matches the Domains grid pattern) and detail screen (5-level tap-stepper proficiency, no new dependency; primary/secondary Domain pickers; linked habits/routines/missions via action-sheet pickers; milestones mirroring `AchievementsScreen`'s add/toggle/delete flow but targeting the skill; 30-day practice readout). Registered in `MenuStack.tsx`, tile added to `MenuScreen.tsx`. `AreaDetailScreen.tsx` gained a Skills section (skills where the Domain is primary or secondary).
+
+### Verified
+- `npx tsc --noEmit`: clean across every touched/new file.
+- Every commit manually diffed against its predecessor to confirm it contains only this feature's own changes.
+- Not done: on-device verification (no simulator/device available in this environment).
+
+### Next Steps
+Not built: bulk-migrating existing habits/missions to Skills (the examples the user gave — Music Production, App Development, Guitar, Medicine, Strength Training — are illustrative, no seed data was created). No UI yet to unlink a habit/routine/mission from a skill (only linking) or to remove a Skill's primary Domain from the Skill detail screen's own picker flow beyond the "None" option already present. `getSkillContributionRows`/`computeSkillPracticeSummary` are O(all achievements)/O(all routine-sessions) scans — fine at current scale, would want indexing if either table grows large.
+
 ## Session — Journey/Domains/Potential/Focus visual redesign (2026-08-06)
 
 ### What Was Done
