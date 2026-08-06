@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
-import { getAllAchievements, getAreaForAchievement, getItemsByType, createAchievement, formatDate } from '../db/database';
+import { getAllAchievements, getAreaForAchievement, getItemsByType, createAchievement, formatDate, deleteAchievement, setAchievementContributesToScore } from '../db/database';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
 import { LensSurface } from '../components/LensSurface';
@@ -42,7 +42,12 @@ export function AchievementsScreen() {
   useFocusEffect(load);
 
   const finishAdd = (title: string, areaId: string | null, earnedAt: string, contributesToScore: boolean) => {
-    createAchievement({ title, areaId, earnedAt, source: 'manual', contributesToScore });
+    const id = createAchievement({ title, areaId, earnedAt, source: 'manual', contributesToScore });
+    // createAchievement only stores the contributesToScore flag — it never
+    // inserts the domainContributions row itself (completeMission does that
+    // separately for Mission-sourced trophies). This is what actually makes
+    // "contributes to score" do something for a manually-added achievement.
+    if (contributesToScore) setAchievementContributesToScore(id, true);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     load();
   };
@@ -83,6 +88,28 @@ export function AchievementsScreen() {
     });
   };
 
+  const handleLongPress = (row: AchievementRow) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    showActionSheet(row.item.title, [
+      {
+        label: row.contributesToScore ? 'Turn off: contributes to score' : 'Turn on: contributes to score',
+        onPress: () => {
+          setAchievementContributesToScore(row.item.id, !row.contributesToScore);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          load();
+        },
+      },
+      {
+        label: 'Delete',
+        destructive: true,
+        onPress: () => {
+          deleteAchievement(row.item.id);
+          load();
+        },
+      },
+    ]);
+  };
+
   const cardBg = isDark ? palette.fillStrong : palette.surface;
   const cardBorder = isDark ? palette.separatorStrong : palette.separator;
 
@@ -106,16 +133,22 @@ export function AchievementsScreen() {
       ) : (
         <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
           <View style={styles.rows}>
-            {rows.map(({ item, earnedAt, contributesToScore, domainTitle }) => (
-              <View key={item.id} style={[styles.row, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+            {rows.map((row) => (
+              <TouchableOpacity
+                key={row.item.id}
+                style={[styles.row, { backgroundColor: cardBg, borderColor: cardBorder }]}
+                activeOpacity={0.75}
+                onLongPress={() => handleLongPress(row)}
+                delayLongPress={400}
+              >
                 <Sparkles size={22} color={palette.red} strokeWidth={1.75} />
                 <View style={styles.rowCopy}>
-                  <Text style={[styles.rowTitle, { color: palette.text }]} numberOfLines={1}>{item.title}</Text>
+                  <Text style={[styles.rowTitle, { color: palette.text }]} numberOfLines={1}>{row.item.title}</Text>
                   <Text style={[styles.rowSub, { color: palette.textTertiary }]} numberOfLines={1}>
-                    {domainTitle ?? 'No Domain'} · {earnedAt}{!contributesToScore ? ' · Display only' : ''}
+                    {row.domainTitle ?? 'No Domain'} · {row.earnedAt}{!row.contributesToScore ? ' · Display only' : ''}
                   </Text>
                 </View>
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
         </ScrollView>

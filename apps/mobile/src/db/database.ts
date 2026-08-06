@@ -539,6 +539,53 @@ export function getAreaForAchievement(achievementId: string): string | null {
   return getRelation(achievementId, 'achievementArea');
 }
 
+// Deletes the trophy AND excludes its live scoring effect (if any) —
+// deleteItem alone would leave a stale active domainContributions row still
+// counting toward the Domain's score for a trophy that no longer exists.
+export function deleteAchievement(achievementId: string): void {
+  const contribution = getContributionForSource('achievement', achievementId);
+  if (contribution && !contribution.excludedAt) {
+    excludeDomainContribution(contribution.id);
+  }
+  deleteItem(achievementId);
+}
+
+// Creates, reactivates or excludes the achievement's domainContributions row
+// to match `contributes`, and persists the flag on the item itself. This is
+// the ONLY place that inserts a contribution for a manually-added
+// achievement — createAchievement itself deliberately does not, since
+// completeMission/setMissionAchievementEligible insert their own
+// achievement-tier contribution and would double up if createAchievement
+// did it too.
+export function setAchievementContributesToScore(achievementId: string, contributes: boolean): void {
+  const item = getItemWithMetadata(achievementId);
+  if (!item) return;
+  const existingMeta = item.metadata ? JSON.parse(item.metadata) : {};
+  updateItemMetadata(achievementId, { ...existingMeta, contributesToScore: contributes });
+
+  const areaId = getAreaForAchievement(achievementId);
+  if (!areaId) return;
+  const contribution = getContributionForSource('achievement', achievementId);
+
+  if (contributes) {
+    if (contribution) {
+      reactivateDomainContribution(contribution.id);
+    } else {
+      const earnedAt = typeof existingMeta.earnedAt === 'string' ? new Date(`${existingMeta.earnedAt}T00:00:00`).getTime() : item.createdAt;
+      insertDomainContribution(
+        areaId,
+        'achievement',
+        achievementId,
+        ACHIEVEMENT_CONTRIBUTION_DEFAULTS.magnitude,
+        ACHIEVEMENT_CONTRIBUTION_DEFAULTS.halfLifeDays,
+        Number.isFinite(earnedAt) ? earnedAt : item.createdAt,
+      );
+    }
+  } else if (contribution && !contribution.excludedAt) {
+    excludeDomainContribution(contribution.id);
+  }
+}
+
 function getAchievementForSource(source: 'mission' | 'milestone' | 'manual', sourceId: string): Item | null {
   const achievements = getItemsByType('achievement');
   for (const achievement of achievements) {
