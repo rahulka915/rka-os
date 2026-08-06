@@ -5,6 +5,11 @@ export const MAX_ACHIEVEMENT_LIFT = 30;
 
 export const MISSION_CONTRIBUTION_DEFAULTS = { magnitude: 0.25, halfLifeDays: 14 };
 export const ACHIEVEMENT_CONTRIBUTION_DEFAULTS = { magnitude: 0.6, halfLifeDays: 60 };
+// Deliberately smaller than the Achievement tier: a Skill milestone is real
+// evidence of practice, but shouldn't outweigh a genuine Mission/Achievement
+// on the same Domain. Applied at full magnitude to the Skill's primary
+// Domain and at half magnitude to each secondary Domain.
+export const SKILL_CONTRIBUTION_DEFAULTS = { magnitude: 0.3, halfLifeDays: 45 };
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 

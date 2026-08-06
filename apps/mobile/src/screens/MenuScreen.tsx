@@ -15,7 +15,7 @@ import {
   ToGetParcelIcon,
   WorkoutTrainingIcon,
 } from '../components/icons/CollectionIcons';
-import { Sparkles, Flag, ListChecks } from '../icons';
+import { Sparkles, Flag, ListChecks, PuzzlePiece } from '../icons';
 
 const CALENDAR_GOLD = '#D4B078';
 
@@ -65,6 +65,14 @@ export function MenuScreen() {
       icon: ListChecks,
       iconSize: 38,
       accent: palette.purple,
+    },
+    {
+      route: 'Skills',
+      label: 'Skills',
+      sub: 'Capabilities you develop',
+      icon: PuzzlePiece,
+      iconSize: 38,
+      accent: palette.deeperBlue,
     },
     {
       route: 'Potential',

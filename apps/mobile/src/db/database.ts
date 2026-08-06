@@ -15,6 +15,7 @@ import {
   overallPotential,
   MISSION_CONTRIBUTION_DEFAULTS,
   ACHIEVEMENT_CONTRIBUTION_DEFAULTS,
+  SKILL_CONTRIBUTION_DEFAULTS,
 } from '../utils/domainScoring';
 import {
   parseRoutineStepMeta,
@@ -598,6 +599,197 @@ function getAchievementForSource(source: 'mission' | 'milestone' | 'manual', sou
     }
   }
   return null;
+}
+
+// ── Skills (capabilities you develop, distinct from Domains you maintain) ─
+// A skill has ONE primary Domain (relationType 'skillArea', via setRelation
+// — a real itemRelations row) and any number of secondary Domains, stored
+// as metadata.secondaryAreaIds (a plain array) rather than itemRelations,
+// since itemRelations only supports one target per (sourceId, relationType)
+// and a skill can have several secondary Domains. Proficiency is a manual
+// 0-100 rating — never derived — stored in metadata.proficiency.
+//
+// Habits/routines/missions link to a skill purely for organization
+// ('habitSkill'/'routineSkill'/'missionSkill' relations) and keep
+// contributing to Potential exactly as they already do via their own
+// Potential Stat / Mission-area relation — the skill layer adds no second
+// contribution for them. The ONLY way a skill affects Domain scoring is a
+// skill-linked achievement/milestone (relationType 'achievementSkill',
+// mutually exclusive with 'achievementArea' — an achievement targets either
+// a Domain or a Skill, never both, which is what prevents double-counting).
+
+export function createSkill(title: string, primaryAreaId?: string | null, secondaryAreaIds: string[] = []): string {
+  const id = createItem('skill', title, 'active');
+  updateItemMetadata(id, { proficiency: 0, secondaryAreaIds });
+  if (primaryAreaId) setRelation(id, 'skillArea', primaryAreaId);
+  return id;
+}
+
+export function getSkills(): Item[] {
+  return getItemsByType('skill');
+}
+
+export function getSkillsForArea(areaId: string): Item[] {
+  return getSkills().filter((skill) => {
+    if (getRelation(skill.id, 'skillArea') === areaId) return true;
+    const meta = skill.metadata ? JSON.parse(skill.metadata) : {};
+    return Array.isArray(meta.secondaryAreaIds) && meta.secondaryAreaIds.includes(areaId);
+  });
+}
+
+export function updateSkillProficiency(skillId: string, proficiency: number): void {
+  const item = getItemWithMetadata(skillId);
+  const meta = item?.metadata ? JSON.parse(item.metadata) : {};
+  updateItemMetadata(skillId, { ...meta, proficiency: Math.max(0, Math.min(100, proficiency)) });
+}
+
+export function setPrimaryAreaForSkill(skillId: string, areaId: string | null): void {
+  setRelation(skillId, 'skillArea', areaId);
+}
+
+export function getPrimaryAreaForSkill(skillId: string): string | null {
+  return getRelation(skillId, 'skillArea');
+}
+
+export function setSkillSecondaryAreas(skillId: string, areaIds: string[]): void {
+  const item = getItemWithMetadata(skillId);
+  const meta = item?.metadata ? JSON.parse(item.metadata) : {};
+  updateItemMetadata(skillId, { ...meta, secondaryAreaIds: areaIds });
+}
+
+export function getSecondaryAreasForSkill(skillId: string): string[] {
+  const item = getItemWithMetadata(skillId);
+  const meta = item?.metadata ? JSON.parse(item.metadata) : {};
+  return Array.isArray(meta.secondaryAreaIds) ? meta.secondaryAreaIds : [];
+}
+
+export function linkHabitToSkill(habitId: string, skillId: string | null): void {
+  setRelation(habitId, 'habitSkill', skillId);
+}
+export function getSkillForHabit(habitId: string): string | null {
+  return getRelation(habitId, 'habitSkill');
+}
+export function getHabitsForSkill(skillId: string): Item[] {
+  return getRelatedItemsByType(skillId, 'habitSkill', 'habit');
+}
+
+export function linkMissionToSkill(projectId: string, skillId: string | null): void {
+  setRelation(projectId, 'missionSkill', skillId);
+}
+export function getSkillForMission(projectId: string): string | null {
+  return getRelation(projectId, 'missionSkill');
+}
+export function getMissionsForSkill(skillId: string): Item[] {
+  return getRelatedItemsByType(skillId, 'missionSkill', 'project');
+}
+
+export function linkRoutineToSkill(routineId: string, skillId: string | null): void {
+  setRelation(routineId, 'routineSkill', skillId);
+}
+export function getSkillForRoutine(routineId: string): string | null {
+  return getRelation(routineId, 'routineSkill');
+}
+export function getRoutinesForSkill(skillId: string): Item[] {
+  return getRelatedItemsByType(skillId, 'routineSkill', 'routine');
+}
+
+export function getMilestonesForSkill(skillId: string): Item[] {
+  return getRelatedItemsByType(skillId, 'achievementSkill', 'achievement');
+}
+
+// A skill milestone/achievement can create MULTIPLE domainContributions rows
+// for one achievement (primary Domain + each secondary Domain), unlike the
+// Mission/Area-achievement flows which only ever have one. getContributionForSource
+// (singular, most-recent-row) doesn't fit here — this reads all of them.
+function getSkillContributionRows(achievementId: string): DomainContributionRow[] {
+  return getDb().getAllSync<DomainContributionRow>(
+    `SELECT * FROM domainContributions WHERE sourceType = 'skill' AND sourceId = ?`,
+    [achievementId]
+  );
+}
+
+export function setSkillMilestoneContributesToScore(achievementId: string, contributes: boolean): void {
+  const item = getItemWithMetadata(achievementId);
+  if (!item) return;
+  const existingMeta = item.metadata ? JSON.parse(item.metadata) : {};
+  updateItemMetadata(achievementId, { ...existingMeta, contributesToScore: contributes });
+
+  const skillId = getRelation(achievementId, 'achievementSkill');
+  if (!skillId) return;
+  const primaryAreaId = getPrimaryAreaForSkill(skillId);
+  const secondaryAreaIds = getSecondaryAreasForSkill(skillId);
+  const existingRows = getSkillContributionRows(achievementId);
+  const earnedAtMs = typeof existingMeta.earnedAt === 'string' ? new Date(`${existingMeta.earnedAt}T00:00:00`).getTime() : NaN;
+  const occurredAt = Number.isFinite(earnedAtMs) ? earnedAtMs : item.createdAt;
+
+  if (contributes) {
+    const targets: Array<{ areaId: string; weight: number }> = [];
+    if (primaryAreaId) targets.push({ areaId: primaryAreaId, weight: 1 });
+    for (const areaId of secondaryAreaIds) targets.push({ areaId, weight: 0.5 });
+    for (const target of targets) {
+      const existing = existingRows.find((r) => r.areaId === target.areaId);
+      if (existing) {
+        reactivateDomainContribution(existing.id);
+      } else {
+        insertDomainContribution(
+          target.areaId,
+          'skill',
+          achievementId,
+          SKILL_CONTRIBUTION_DEFAULTS.magnitude * target.weight,
+          SKILL_CONTRIBUTION_DEFAULTS.halfLifeDays,
+          occurredAt,
+        );
+      }
+    }
+  } else {
+    for (const row of existingRows) {
+      if (!row.excludedAt) excludeDomainContribution(row.id);
+    }
+  }
+}
+
+export function createSkillMilestone(skillId: string, title: string, earnedAt: string, contributesToScore: boolean): string {
+  const id = createAchievement({ title, areaId: null, earnedAt, source: 'manual', contributesToScore });
+  setRelation(id, 'achievementSkill', skillId);
+  if (contributesToScore) setSkillMilestoneContributesToScore(id, true);
+  return id;
+}
+
+export function deleteSkillMilestone(achievementId: string): void {
+  for (const row of getSkillContributionRows(achievementId)) {
+    if (!row.excludedAt) excludeDomainContribution(row.id);
+  }
+  deleteItem(achievementId);
+}
+
+export interface SkillPracticeSummary {
+  habitCompletions30d: number;
+  routineSessionsCompleted: number;
+}
+
+// Best-effort "practice and consistency" read — aggregates existing habit
+// completion / routine session data for linked items rather than
+// introducing a new tracking mechanism. Not itself a scoring input.
+export function computeSkillPracticeSummary(skillId: string): SkillPracticeSummary {
+  const since = formatDate(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
+  let habitCompletions30d = 0;
+  for (const habit of getHabitsForSkill(skillId)) {
+    for (const date of getCompletedOccurrenceDates(habit.id)) {
+      if (date >= since) habitCompletions30d++;
+    }
+  }
+  const routineIds = new Set(getRoutinesForSkill(skillId).map((r) => r.id));
+  let routineSessionsCompleted = 0;
+  if (routineIds.size > 0) {
+    const sessions = getDb().getAllSync<{ id: string }>(
+      `SELECT id FROM items WHERE type = 'routine-session' AND status = 'completed' AND deletedAt IS NULL`
+    );
+    for (const session of sessions) {
+      const routineId = getRelation(session.id, 'routine-template');
+      if (routineId && routineIds.has(routineId)) routineSessionsCompleted++;
+    }
+  }
+  return { habitCompletions30d, routineSessionsCompleted };
 }
 
 // ── Mission completion (mutually exclusive Mission vs. Achievement tier) ──
