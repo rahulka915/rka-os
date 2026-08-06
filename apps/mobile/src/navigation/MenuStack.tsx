@@ -17,6 +17,8 @@ import { WorkoutSessionScreen } from '../screens/WorkoutSessionScreen';
 import { RoutinesScreen } from '../screens/RoutinesScreen';
 import { RoutineTemplateDetailScreen } from '../screens/RoutineTemplateDetailScreen';
 import { RoutineSessionScreen } from '../screens/RoutineSessionScreen';
+import { SkillsScreen } from '../screens/SkillsScreen';
+import { SkillDetailScreen } from '../screens/SkillDetailScreen';
 import { MedicationsScreen } from '../screens/MedicationsScreen';
 import { ToGetScreen } from '../screens/ToGetScreen';
 import { ArchiveScreen } from '../screens/ArchiveScreen';
@@ -49,6 +51,8 @@ export function MenuStack() {
       <Stack.Screen name="Routines" component={RoutinesScreen} />
       <Stack.Screen name="RoutineTemplateDetail" component={RoutineTemplateDetailScreen} />
       <Stack.Screen name="RoutineSession" component={RoutineSessionScreen} />
+      <Stack.Screen name="Skills" component={SkillsScreen} />
+      <Stack.Screen name="SkillDetail" component={SkillDetailScreen} />
       <Stack.Screen name="Medications" component={MedicationsScreen} />
       <Stack.Screen name="ToGet" component={ToGetScreen} />
       <Stack.Screen name="Archive" component={ArchiveScreen} />

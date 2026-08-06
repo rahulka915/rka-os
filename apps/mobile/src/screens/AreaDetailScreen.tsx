@@ -18,6 +18,7 @@ import {
   createPotentialStat,
   setPotentialStatArea,
   getAchievementsForArea,
+  getSkillsForArea,
   formatDate,
 } from '../db/database';
 import { useAreas } from '../hooks/useDb';
@@ -30,6 +31,7 @@ import { useRegisterFabHoldAction } from '../hooks/useFabHoldAction';
 import type { Item } from '../db/types';
 import type { PotentialStatResult } from '../utils/potential';
 import { ProjectPortfolioIcon } from '../components/icons/ProjectPortfolioIcon';
+import { PuzzlePiece } from '../icons';
 import { showActionSheet } from '../utils/actionSheet';
 
 const chapterBackdrop = require('../../assets/ronin/journey/sunset-trail-background-v1.png');
@@ -55,6 +57,7 @@ export function AreaDetailScreen() {
   const [stats, setStats] = useState<Item[]>([]);
   const [statResults, setStatResults] = useState<Record<string, PotentialStatResult>>({});
   const [achievements, setAchievements] = useState<Item[]>([]);
+  const [skills, setSkills] = useState<Item[]>([]);
 
   const refresh = useCallback(() => {
     setProjects(getProjectsForArea(areaId));
@@ -63,6 +66,7 @@ export function AreaDetailScreen() {
     setStats(getPotentialStatsForArea(areaId));
     setStatResults(getPotentialStatResultsForArea(areaId, formatDate(new Date())));
     setAchievements(getAchievementsForArea(areaId));
+    setSkills(getSkillsForArea(areaId));
   }, [areaId]);
 
   useFocusEffect(refresh);
@@ -269,6 +273,32 @@ export function AreaDetailScreen() {
             </View>
           )}
         </View>
+
+        {skills.length > 0 && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionLabel, { color: palette.textTertiary }]}>SKILLS</Text>
+            <View style={styles.rows}>
+              {skills.map((skill) => {
+                const meta = skill.metadata ? JSON.parse(skill.metadata) : {};
+                const proficiency = typeof meta.proficiency === 'number' ? meta.proficiency : 0;
+                return (
+                  <TouchableOpacity
+                    key={skill.id}
+                    style={[styles.row, { backgroundColor: cardBg, borderColor: cardBorder }]}
+                    activeOpacity={0.75}
+                    onPress={() => (navigation as any).navigate('SkillDetail', { skillId: skill.id, title: skill.title })}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${skill.title}, ${proficiency}% proficiency`}
+                  >
+                    <PuzzlePiece size={24} color={palette.antiqueBrass} strokeWidth={1.6} />
+                    <Text style={[styles.rowTitle, { color: palette.text }]} numberOfLines={1}>{skill.title}</Text>
+                    <Text style={[styles.rowCount, { color: palette.textTertiary }]}>{proficiency}%</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        )}
 
         {achievements.length > 0 && (
           <View style={styles.section}>
