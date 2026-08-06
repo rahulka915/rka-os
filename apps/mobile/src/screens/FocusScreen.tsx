@@ -75,26 +75,36 @@ export function FocusScreen() {
         </Text>
         <View style={styles.rows}>
           {areas.map((area) => (
-            <View key={area.id} style={[styles.weightRow, { borderColor: palette.separator }]}>
+            <View
+              key={area.id}
+              style={[styles.weightRow, { backgroundColor: isDark ? palette.fillStrong : palette.surface, borderColor: palette.separatorStrong }]}
+            >
               <Text style={[styles.weightLabel, { color: palette.text }]} numberOfLines={1}>{area.title}</Text>
               <TextInput
-                style={[styles.weightInput, { color: palette.text, borderColor: palette.separator }]}
+                style={[styles.weightInput, { color: palette.text, borderColor: palette.separatorStrong }]}
                 value={weightText[area.id] ?? ''}
                 onChangeText={(text) => setWeightText((current) => ({ ...current, [area.id]: text }))}
                 placeholder="1"
                 placeholderTextColor={palette.textTertiary}
                 keyboardType="decimal-pad"
+                accessibilityLabel={`${area.title} weight`}
               />
             </View>
           ))}
         </View>
 
-        <TouchableOpacity style={[styles.saveButton, { backgroundColor: palette.red, opacity: label.trim() ? 1 : 0.4 }]} onPress={handleSave} disabled={!label.trim()}>
-          <Text style={styles.saveButtonText}>Save Focus</Text>
+        <TouchableOpacity
+          style={[styles.saveButton, { backgroundColor: palette.vermilion, opacity: label.trim() ? 1 : 0.4 }]}
+          onPress={handleSave}
+          disabled={!label.trim()}
+          accessibilityRole="button"
+          accessibilityLabel="Save Focus"
+        >
+          <Text style={[styles.saveButtonText, { color: palette.ivory }]}>Save Focus</Text>
         </TouchableOpacity>
 
         {hasFocus && (
-          <TouchableOpacity style={styles.clearButton} onPress={handleClear}>
+          <TouchableOpacity style={styles.clearButton} onPress={handleClear} accessibilityRole="button" accessibilityLabel="Clear Focus">
             <Text style={[styles.clearButtonText, { color: palette.textSecondary }]}>Clear Focus</Text>
           </TouchableOpacity>
         )}
@@ -129,6 +139,7 @@ const styles = StyleSheet.create({
   weightLabel: { fontSize: 15, fontWeight: '600', fontFamily: 'Inter_600SemiBold', flex: 1 },
   weightInput: {
     width: 60,
+    minHeight: 44,
     fontSize: 15,
     fontWeight: '600',
     fontFamily: 'Inter_600SemiBold',

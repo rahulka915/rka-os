@@ -60,13 +60,15 @@ export function ProfileScreen() {
           style={styles.statsContainer}
           activeOpacity={0.75}
           onPress={() => (navigation as any).navigate('Potential')}
+          accessibilityRole="button"
+          accessibilityLabel={`Overall Potential ${Math.round(overall)}%. Open Potential`}
         >
-          <Text style={[styles.sectionLabel, { color: palette.textTertiary }]}>POTENTIAL</Text>
-          <View style={styles.statsCard}>
+          <Text style={[styles.sectionLabel, { color: palette.antiqueBrass }]}>POTENTIAL</Text>
+          <View style={[styles.statsCard, { backgroundColor: isDark ? palette.fillStrong : palette.surface, borderRadius: 18 }]}>
             <View style={[styles.statRow, domains.length > 0 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.separator, paddingBottom: 16 }]}>
               <View style={styles.statHeaderRow}>
                 <Text style={[styles.statLabel, { color: palette.text }]}>Overall</Text>
-                <Text style={[styles.statPercent, { color: palette.textTertiary }]}>{Math.round(overall)}%</Text>
+                <Text style={[styles.statPercent, { color: palette.vermilion }]}>{Math.round(overall)}%</Text>
               </View>
               <KatanaProgress progress={overall / 100} size={16} accessibilityLabel="Overall potential" />
             </View>
