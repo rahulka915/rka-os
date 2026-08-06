@@ -49,6 +49,12 @@ const TYPE_COLORS: Record<ItemType, string> = {
   'workout-session': '#EF4444',
   meal: '#EAB308',
   object: '#EC4899',
+  'potential-stat': '#6B7280',
+  achievement: '#6B7280',
+  focus: '#6B7280',
+  routine: '#14B8A6',
+  'routine-step': '#14B8A6',
+  'routine-session': '#14B8A6',
 };
 
 function typeColor(type: ItemType): string {
@@ -471,6 +477,7 @@ const styles = StyleSheet.create({
   },
   sectionLabel: {
     fontSize: 12,
+    fontFamily: 'Inter_600SemiBold',
     fontWeight: '600',
     letterSpacing: 0.5,
     marginBottom: 8,
@@ -493,6 +500,7 @@ const styles = StyleSheet.create({
   },
   inboxTitle: {
     fontSize: 16,
+    fontFamily: 'Inter_600SemiBold',
     fontWeight: '600',
   },
   eventCard: {
@@ -509,6 +517,7 @@ const styles = StyleSheet.create({
   },
   needsTitle: {
     fontSize: 16,
+    fontFamily: 'Inter_500Medium',
     fontWeight: '500',
   },
   cardSub: {
@@ -543,6 +552,7 @@ const styles = StyleSheet.create({
   },
   timelineItemText: {
     fontSize: 14,
+    fontFamily: 'Inter_500Medium',
     fontWeight: '500',
   },
   headerRow: {
@@ -586,6 +596,7 @@ const styles = StyleSheet.create({
   badgeText: {
     color: '#ffffff',
     fontSize: 10,
+    fontFamily: 'Inter_700Bold',
     fontWeight: '700',
   },
   chipRow: {
@@ -605,6 +616,7 @@ const styles = StyleSheet.create({
   },
   chipText: {
     fontSize: 13,
+    fontFamily: 'Inter_600SemiBold',
     fontWeight: '600',
   },
 });

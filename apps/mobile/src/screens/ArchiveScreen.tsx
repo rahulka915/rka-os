@@ -22,6 +22,12 @@ const TYPE_LABELS: Record<ItemType, string> = {
   'workout-session': 'Workout',
   meal: 'Meal',
   object: 'To Get',
+  'potential-stat': 'Potential Stat',
+  achievement: 'Achievement',
+  focus: 'Focus',
+  routine: 'Routine',
+  'routine-step': 'Routine',
+  'routine-session': 'Routine',
 };
 
 export function ArchiveScreen() {
@@ -142,6 +148,7 @@ const styles = StyleSheet.create({
   },
   emptySub: {
     fontSize: 14,
+    fontFamily: 'Inter_400Regular',
     fontWeight: '400',
   },
 });
