@@ -633,6 +633,27 @@
 
 ---
 
+## Session — Journey/Domains/Potential/Focus visual redesign (2026-08-06)
+
+### What Was Done
+Restyled the Journey, Potential, Focus, and Domain-detail screens to the "warm midnight storybook" direction (deep midnight bg, ivory text, muted brass, restrained vermilion, River Stone surfaces) per a supplied reference board. Structural, not cosmetic-only — added a genuine Harada-method visual connective element. No scoring logic, navigation structure, or data model changed.
+
+1. `apps/mobile/src/components/potential/HaradaWheel.tsx` (new) — center Overall Potential node + up to 8 Domain nodes on a circle, thin brass connecting lines, vermilion ring on the active Focus domain. Real RN touch targets (not SVG-embedded — those are unreliable for accessibility), each ≥44pt with `accessibilityLabel`/`Role`; only the connecting lines are SVG. Two sizes: compact (embedded in `PotentialScreen`) and full (behind a "View Harada Map" toggle).
+2. `PotentialScreen.tsx` — River Stone hero card wrapping the wheel; Domains list kept below as the accessible flat fallback (VoiceOver users get real rows, not just the radial visual).
+3. `AreaDetailScreen.tsx` — chapter-style header: full-bleed River Stone-cropped header reusing the existing Journey landscape art (tinted, not a new asset), score + a "current vs. maintenance-only baseline" directional cue (no fabricated time-trend, since no score history is stored). Missions/Pillars/Achievements sections restyled; Pillar rows now surface contributing habits inline.
+4. `JourneySummaryStrip.tsx` (new) — compact Overall Potential + Current Focus readout below Home's Journey hero card; the hero itself stays about today's task completion, unchanged.
+5. `FocusScreen.tsx` and `ProfileScreen.tsx`'s Potential card — token-level restyle only (brass/vermilion), no functional changes.
+
+**Locked decisions from research before touching anything:** two `RiverStoneSurface` components exist in the repo (`ui/` = canonical/wired everywhere except Profile's header, `riverstone/` = older parallel one) — all new work here uses `ui/`. No dimensional "collection" icon exists for Domains/Mind/Career/etc. and none was generated in this pass — reused existing heroicon-outline glyphs restyled with brass/vermilion rather than fabricating 3D icons. Bottom nav (Home/Calendar/Menu/Profile) unchanged, no new tab — Potential/Focus/Achievements stay reachable via Menu as before. `Newsreader_600SemiBold` (already loaded) reused for section/screen titles per the "editorial serif sparingly" direction; all data/body text stays Inter.
+
+### Verified
+- `npx tsc --noEmit`: clean across every touched/new file.
+- Every commit manually diffed against its predecessor to confirm it contains only this redesign's own changes.
+- Not done: on-device verification (no simulator/device session available in this environment) — recommend checking both color schemes and VoiceOver on the new `HaradaWheel` nodes before considering this final.
+
+### Next Steps
+`ProfileScreen.tsx`'s header and the rest of the screen are still on the old visual system (only its Potential card was touched) — a full Profile pass is separate future work. Domain-specific dimensional iconography (matching the Workout/Habit/To Get/Archive collection set) would be the next visual upgrade if pursued. `RoninJourneyPrototype.tsx` itself remains "prototype awaiting on-device verdict" per the existing checklist note — untouched by this session beyond the new summary strip beneath it.
+
 ## Session — Domains/Potential/Achievements/Focus landing + fix (2026-08-05)
 
 ### What Was Done
