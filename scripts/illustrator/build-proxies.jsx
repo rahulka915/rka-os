@@ -36,30 +36,70 @@ proxy('torso', [[[1748.0,-955.0],[1682.0,-1034.3],[1692.0,-1113.6],[1704.0,-1192
 proxy('head-hair-front', [[[1436.0,-640.0],[1560.0,-612.0],[1700.0,-600.0],[1810.0,-620.0],[1836.0,-690.0],[1790.0,-746.0],[1690.0,-702.0],[1560.0,-692.0],[1440.0,-702.0]]]);
 proxy('head-bandana', [[[1691.7,-551.7],[1756.7,-556.7],[1796.7,-650.0],[1625.0,-650.0],[1450.0,-701.7],[1568.3,-591.7],[1548.3,-656.7],[1636.7,-566.7],[1625.0,-613.3],[1640.0,-621.7],[1668.3,-555.0]],[[1403.3,-615.0],[1371.7,-685.0],[1381.7,-695.0],[1423.3,-670.0],[1411.7,-710.0],[1316.7,-731.7],[1243.3,-738.3],[1243.3,-721.7],[1255.0,-705.0],[1291.7,-683.3],[1311.7,-681.7],[1356.7,-635.0]],[[1211.7,-681.7],[1233.3,-685.0],[1238.3,-741.7],[1225.0,-760.0],[1208.3,-753.3],[1191.7,-728.3],[1195.0,-701.7]],[[1308.3,-646.7],[1293.3,-680.0],[1241.7,-701.7],[1246.7,-676.7]]]);
 
-// A-pose: rotate each chain about its measured joint. rotate()'s rotateAbout only
-// accepts bbox anchor presets, so a translate->rotate->translate matrix is required.
+// A-pose. The rotation is MEASURED AND COMPUTED, never hardcoded: the stored
+// aPoseRotationsDeg were derived against different (already part-posed) proxies and
+// do not apply to this traced geometry, whose arms hang vertical. Measuring the
+// actual starting axis and solving for the target is immune to that class of error.
 function pslot(nm){ for(var k=0;k<PROXY.pageItems.length;k++) if(PROXY.pageItems[k].name==nm+'-proxy') return PROXY.pageItems[k]; return null; }
+
+// Signed angle of a group's principal axis from straight down, via PCA over its
+// anchors. Positive = leaning toward viewer-right. PCA beats end-cap centroids for a
+// whole-limb axis (they disagree by ~4 degrees on a chamfered capsule).
+function axisAngle(g) {
+  var pts = [];
+  (function walk(x){
+    if (x.typename == 'GroupItem') { for (var i=0;i<x.pageItems.length;i++) walk(x.pageItems[i]); return; }
+    if (x.typename != 'PathItem') return;
+    for (var p = 0; p < x.pathPoints.length; p++) pts.push(x.pathPoints[p].anchor);
+  })(g);
+  var n = pts.length, cx = 0, cy = 0;
+  for (var i = 0; i < n; i++) { cx += pts[i][0]; cy += pts[i][1]; }
+  cx /= n; cy /= n;
+  var sxx=0, syy=0, sxy=0;
+  for (var i = 0; i < n; i++) {
+    var dx = pts[i][0]-cx, dy = pts[i][1]-cy;
+    sxx += dx*dx; syy += dy*dy; sxy += dx*dy;
+  }
+  var phi = 0.5 * Math.atan2(2*sxy, sxx-syy);
+  var vx = Math.cos(phi), vy = Math.sin(phi);
+  if (vy > 0) { vx = -vx; vy = -vy; }          // orient downward
+  return Math.atan2(vx, -vy) * 180 / Math.PI;
+}
+
+// Targets, not rotations: arms 35 deg out from the body, legs 6.5 deg out each
+// (brief 3.2 wants arms 30-40 and legs 10-15 apart). Sign convention: R is
+// viewer-right so its outward direction is positive; L is negative.
 var chains = [
- {p:['arm-R-upper','arm-R-fore','arm-R-hand'], px:1744, py:-1045, a: 12},
- {p:['arm-L-upper','arm-L-fore','arm-L-hand'], px:1463, py:-1046, a: 10},
- {p:['leg-R-thigh','leg-R-shin','leg-R-foot'], px:1606, py:-1485, a: -7},
- {p:['leg-L-thigh','leg-L-shin','leg-L-foot'], px:1441, py:-1509, a:  8}];
+ {p:['arm-R-upper','arm-R-fore','arm-R-hand'], px:1744, py:-1045, target:  35},
+ {p:['arm-L-upper','arm-L-fore','arm-L-hand'], px:1463, py:-1046, target: -35},
+ {p:['leg-R-thigh','leg-R-shin','leg-R-foot'], px:1606, py:-1485, target:  6.5},
+ {p:['leg-L-thigh','leg-L-shin','leg-L-foot'], px:1441, py:-1509, target: -6.5}];
+var report = [];
 for (var c = 0; c < chains.length; c++) {
   var ch = chains[c];
+  var root = pslot(ch.p[0]);
+  if (!root) { report.push(ch.p[0] + ': MISSING'); continue; }
+  var before = axisAngle(root);
+  var delta = ch.target - before;
   var m = app.getTranslationMatrix(-ch.px, -ch.py);
-  m = app.concatenateMatrix(m, app.getRotationMatrix(ch.a));
+  m = app.concatenateMatrix(m, app.getRotationMatrix(delta));
   m = app.concatenateMatrix(m, app.getTranslationMatrix(ch.px, ch.py));
   for (var k = 0; k < ch.p.length; k++) {
     var it = pslot(ch.p[k]);
     if (it) it.transform(m, true, true, true, true, 1, Transformation.DOCUMENTORIGIN);
   }
+  var after = axisAngle(root);
+  report.push(ch.p[0] + ': ' + before.toFixed(1) + ' -> ' + after.toFixed(1) +
+              ' (target ' + ch.target + ', applied ' + delta.toFixed(1) + ')');
+  if (Math.abs(after - ch.target) > 3)
+    report.push('  WARNING ' + ch.p[0] + ' did not reach target');
 }
 REFERENCE.visible = false;
-renderPNG('/tmp/v4-proxies.png', [900, -250, 2250, -2280], 40);
+renderPNG(TMP + 'v4-proxies.png', [900, -250, 2250, -2280], 40);
 REFERENCE.visible = true;
 PROXY.locked = true;
 DOC.save();
-var out = ['proxies=' + PROXY.pageItems.length];
+var out = ['proxies=' + PROXY.pageItems.length].concat(report);
 for (var k = 0; k < PROXY.pageItems.length; k++) {
   var b = PROXY.pageItems[k].geometricBounds;
   out.push('  ' + PROXY.pageItems[k].name + ' [' + b[0].toFixed(0) + ',' + b[1].toFixed(0) + ' ' + b[2].toFixed(0) + ',' + b[3].toFixed(0) + ']');
