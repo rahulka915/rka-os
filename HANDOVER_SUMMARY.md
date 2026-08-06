@@ -12,6 +12,27 @@
 
 ---
 
+## Session — Domains/Potential/Achievements/Focus landing + fix (2026-08-05)
+
+### What Was Done
+A large body of work implementing the Harada-inspired "Domains -> Missions -> Potential Stats -> Achievements -> Focus -> Overall Potential" scoring system was sitting entirely uncommitted in the working tree (16 files, ~2000 lines — 5 of them never committed at all: `AchievementsScreen.tsx`, `FocusScreen.tsx`, `OnboardingScreen.tsx`, `domainScoring.ts`, `domainScoring.test.ts`). Audited it end to end (every `database.ts` function, the pure scoring math, every surfacing screen, navigation reachability, types), found it substantially real and correct — 24 passing unit tests, no dead-end buttons, no stub screens — then landed it as a proper commit.
+
+1. `apps/mobile/src/utils/domainScoring.ts` — pure decay/lift/score math (exponential half-life decay, product-of-complements diminishing-returns lift, capped-at-100 Domain score, weighted Overall Potential). 15 tests.
+2. `apps/mobile/src/db/database.ts` — `potential-stat` items + Domain linkage (`potentialStatArea` relation, kept separate from Mission's `area` relation); `domainContributions` table (soft-disable via `excludedAt`, never deleted); `achievement` items (permanent trophies, independent of their live scoring effect); `completeMission`/`setMissionAchievementEligible` (mutually-exclusive Mission-vs-Achievement-tier contribution, preserving the original completion date across eligibility toggles); `focus` singleton (read-time-only weighting, never touches history).
+3. `PotentialScreen.tsx`/`AchievementsScreen.tsx`/`FocusScreen.tsx`/`AreaDetailScreen.tsx`/`ProfileScreen.tsx` — surface the above over real data; all reachable via `MenuStack.tsx`/`MenuScreen.tsx`.
+4. `OnboardingScreen.tsx` — first-launch guided setup (Domains -> per-Domain Mission/Potential Stat -> Focus), gated in `App.tsx` on `getItemsByType('area').length === 0` at boot, skippable throughout. Confirmed this is why a fresh/empty install shows 0%/0% on Home — correct empty-state math, not a bug, and Onboarding is the intended fix for that cold start.
+
+### Bug found and fixed
+`createAchievement` only ever stored `contributesToScore` in metadata — it never inserted the `domainContributions` row that actually feeds Domain scoring. `completeMission`/`setMissionAchievementEligible` get this right by inserting their own contribution alongside the trophy, but the Achievements screen's manual "+ Add" flow (`source: 'manual'`) had no equivalent, so a retrospective achievement marked "contributes to score" silently did nothing to Potential. Added `setAchievementContributesToScore` (creates/reactivates/excludes the contribution row to match the flag) and `deleteAchievement` (excludes the contribution before soft-deleting, so a removed trophy stops counting); `AchievementsScreen` now calls the former right after creation, and rows gained a long-press menu (toggle contributes-to-score, delete) — previously there was no way to edit or remove an achievement after adding it.
+
+### Verified
+- `node --test` on `domainScoring.test.ts` (15/15) and `potential.test.ts` (9/9), before and after the fix.
+- `npx tsc --noEmit`: clean throughout.
+- Each commit manually diffed against its predecessor to confirm scope: the big feature landing first (isolated from the achievement-scoring bug fix, which is a separate commit on top), and both isolated from the large amount of unrelated dirty content still sitting in the same files (exercise library, calendar tray, visual refresh, etc. — left untouched, not this session's scope).
+
+### Next Steps
+Doc sync for this feature (this entry, plus `AGENTS.md`/`CLAUDE.md`/`SCHEMA.md`) closed out in the same session. Not investigated: `getAchievementForSource`'s full-table-scan-per-achievement pattern (fine at current scale, would want an index if achievements grow large); whether `completeMission` needs a DB-level (not just UI-level) guard against double-completion.
+
 ## Session — Routines and Quantified Habits (2026-08-05)
 
 ### What Was Done
