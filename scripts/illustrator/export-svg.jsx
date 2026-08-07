@@ -14,6 +14,10 @@ for (var li = 0; li < DOC.layers.length; li++) {
   restore.push([lyr, lyr.visible]);
   lyr.visible = false;
 }
+// Creating art fails with "Target layer cannot be modified" if the active layer
+// is one we just hid. Make the rig layer the target before adding the frame.
+RONIN.visible = true;
+DOC.activeLayer = RONIN;
 var frame = RONIN.pathItems.rectangle(0, 0, 2500, 2500);
 frame.name = 'canvas-frame';
 frame.stroked = false; frame.filled = true; frame.fillColor = rgb('FFFFFF');
