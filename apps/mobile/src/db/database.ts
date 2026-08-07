@@ -153,7 +153,150 @@ function initSchema() {
   } catch {
     // Column already exists on this device's DB — safe to ignore.
   }
+
+  // One-time fix-up for a bug where Domains created during onboarding never
+  // got an explicit status and fell back to createItem's 'inbox' default —
+  // silently landing structural Domain items in the Inbox triage queue
+  // alongside genuinely unprocessed captures. Domains are never a capture
+  // type, so any 'area' item still sitting in 'inbox' gets normalized to
+  // 'active'. Idempotent — a no-op once no rows match.
+  db.execSync(`UPDATE items SET status = 'active', updatedAt = ${Date.now()} WHERE type = 'area' AND status = 'inbox'`);
+
+  // Retroactively mark pre-existing Domains as canonical (mandatory,
+  // undeletable) for devices that onboarded before that flag existed —
+  // matched by exact title against the same 8-Domain baseline OnboardingScreen
+  // creates today (see CANONICAL_DOMAIN_TITLES). A Domain already renamed
+  // away from its default title won't match and stays a regular, deletable
+  // Domain — this is a best-effort backfill, not a guarantee for every
+  // pre-existing install. Plain JS over existing rows (matching how metadata
+  // is read/written everywhere else in this file) rather than SQL JSON
+  // functions, which aren't used elsewhere and may not be available.
+  const existingAreas = db.getAllSync<{ id: string; title: string; metadata: string | null }>(
+    `SELECT id, title, metadata FROM items WHERE type = 'area' AND deletedAt IS NULL`
+  );
+  const alreadyHasCanonical = existingAreas.some((row) => {
+    const meta = row.metadata ? JSON.parse(row.metadata) : {};
+    return meta.canonical === true;
+  });
+  if (!alreadyHasCanonical) {
+    const now = Date.now();
+    for (const row of existingAreas) {
+      if (!CANONICAL_DOMAIN_TITLES.includes(row.title)) continue;
+      const meta = row.metadata ? JSON.parse(row.metadata) : {};
+      db.runSync(
+        `UPDATE items SET metadata = ?, updatedAt = ? WHERE id = ?`,
+        [JSON.stringify({ ...meta, canonical: true }), now, row.id]
+      );
+    }
+  }
+
+  // Corrective pass, runs every boot (cheap, idempotent): a device with
+  // duplicate-titled Domains (e.g. repeated onboarding runs during dev
+  // testing) could have the backfill above — or an earlier version of it —
+  // tag MORE THAN ONE row canonical for the same title, which incorrectly
+  // locks every duplicate as undeletable instead of just one. For each
+  // canonical title with multiple canonical=true rows, keep only the one
+  // with the most linked Missions (falling back to earliest createdAt) and
+  // clear the flag on the rest — they become ordinary, mergeable/deletable
+  // Domains again. Never deletes anything itself.
+  const canonicalRows = db.getAllSync<{ id: string; title: string; metadata: string | null; createdAt: number }>(
+    `SELECT id, title, metadata, createdAt FROM items WHERE type = 'area' AND deletedAt IS NULL`
+  ).filter((row) => {
+    const meta = row.metadata ? JSON.parse(row.metadata) : {};
+    return meta.canonical === true;
+  });
+  const byTitle = new Map<string, typeof canonicalRows>();
+  for (const row of canonicalRows) {
+    const list = byTitle.get(row.title) ?? [];
+    list.push(row);
+    byTitle.set(row.title, list);
+  }
+  for (const [, rows] of byTitle) {
+    if (rows.length <= 1) continue;
+    const missionCount = (areaId: string) =>
+      db.getFirstSync<{ count: number }>(
+        `SELECT COUNT(*) as count FROM itemRelations WHERE relationType = 'area' AND targetId = ?`,
+        [areaId]
+      )?.count ?? 0;
+    const [keep] = [...rows].sort((a, b) => missionCount(b.id) - missionCount(a.id) || a.createdAt - b.createdAt);
+    for (const row of rows) {
+      if (row.id === keep.id) continue;
+      const meta = row.metadata ? JSON.parse(row.metadata) : {};
+      delete meta.canonical;
+      db.runSync(`UPDATE items SET metadata = ?, updatedAt = ? WHERE id = ?`, [JSON.stringify(meta), Date.now(), row.id]);
+    }
+  }
+
+  // Fill-the-gaps pass, runs every boot: recomputes which canonical titles
+  // currently have a live canonical=true row (after the dedup pass above)
+  // and creates any that are missing entirely — e.g. a Domain deleted before
+  // the canonical flag existed, before it could ever be protected. This is
+  // what actually makes "every user has all 8" hold for devices with messy
+  // pre-existing data, not just fresh installs.
+  const canonicalTitlesPresent = new Set(
+    db.getAllSync<{ title: string; metadata: string | null }>(
+      `SELECT title, metadata FROM items WHERE type = 'area' AND deletedAt IS NULL`
+    )
+      .filter((row) => {
+        const meta = row.metadata ? JSON.parse(row.metadata) : {};
+        return meta.canonical === true;
+      })
+      .map((row) => row.title)
+  );
+  for (const title of CANONICAL_DOMAIN_TITLES) {
+    if (canonicalTitlesPresent.has(title)) continue;
+    const id = uuidv4();
+    const now = Date.now();
+    db.runSync(
+      `INSERT INTO items (id, type, title, status, metadata, createdAt, updatedAt) VALUES (?, 'area', ?, 'active', ?, ?, ?)`,
+      [id, title, JSON.stringify({ canonical: true }), now, now]
+    );
+  }
+
+  // One-time cleanup for the specific duplicate-title pairs left over from
+  // repeated onboarding test runs, confirmed with the user directly: "Mind"
+  // is a duplicate of the canonical "Growth", "Craft" a duplicate of the
+  // canonical "Creativity". Only acts when there's exactly one duplicate row
+  // and exactly one canonical target row (both active) — anything messier
+  // than that is left for manual "Merge into..." in AreasScreen rather than
+  // guessed at here. Uses mergeAreaIntoArea so linked Missions/Stats/
+  // Achievements/Skills and historical scoring re-home instead of being lost.
+  const KNOWN_DUPLICATE_MERGES: Array<[duplicateTitle: string, canonicalTitle: string]> = [
+    ['Mind', 'Growth'],
+    ['Craft', 'Creativity'],
+  ];
+  for (const [duplicateTitle, canonicalTitle] of KNOWN_DUPLICATE_MERGES) {
+    const duplicates = db.getAllSync<{ id: string }>(
+      `SELECT id FROM items WHERE type = 'area' AND title = ? AND deletedAt IS NULL`,
+      [duplicateTitle]
+    );
+    const canonicalTargets = db.getAllSync<{ id: string; metadata: string | null }>(
+      `SELECT id, metadata FROM items WHERE type = 'area' AND title = ? AND deletedAt IS NULL`,
+      [canonicalTitle]
+    ).filter((row) => {
+      const meta = row.metadata ? JSON.parse(row.metadata) : {};
+      return meta.canonical === true;
+    });
+    if (duplicates.length === 1 && canonicalTargets.length === 1) {
+      mergeAreaIntoArea(duplicates[0].id, canonicalTargets[0].id);
+    }
+  }
 }
+
+// Single source of truth for the 8-Domain Harada baseline every user gets
+// from onboarding (see OnboardingScreen.tsx's SUGGESTED_DOMAINS, which pairs
+// these titles with icons) — used by the retroactive canonical-flag backfill
+// above.
+export const CANONICAL_DOMAIN_TITLES = [
+  'Health & Wellbeing',
+  'Career',
+  'Finance',
+  'Relationships',
+  'Creativity',
+  'Growth',
+  'Discipline',
+  'Fitness & Performance',
+];
 
 export function formatDate(date: Date): string {
   return date.toISOString().split('T')[0];
@@ -609,20 +752,60 @@ function getAchievementForSource(source: 'mission' | 'milestone' | 'manual', sou
 // and a skill can have several secondary Domains. Proficiency is a manual
 // 0-100 rating — never derived — stored in metadata.proficiency.
 //
-// Habits/routines/missions link to a skill purely for organization
-// ('habitSkill'/'routineSkill'/'missionSkill' relations) and keep
-// contributing to Potential exactly as they already do via their own
-// Potential Stat / Mission-area relation — the skill layer adds no second
-// contribution for them. The ONLY way a skill affects Domain scoring is a
-// skill-linked achievement/milestone (relationType 'achievementSkill',
-// mutually exclusive with 'achievementArea' — an achievement targets either
-// a Domain or a Skill, never both, which is what prevents double-counting).
+// Habits/routines link to a skill purely for organization ('habitSkill'/
+// 'routineSkill' relations) and keep contributing to Potential exactly as
+// they already do via their own Potential Stat relation — the skill layer
+// adds no second contribution for them.
+//
+// Missions ('missionSkill' relation) are the one exception: a Mission's own
+// 'area' relation still wins when set, but a Mission with NO direct Domain
+// inherits its linked Skill's primary Domain for scoring purposes (see
+// getEffectiveAreaForMission) — e.g. one Mission per app, each linked to an
+// "App Development" Skill, all scoring against that Skill's Domain without
+// each Mission needing its own redundant Domain assignment. This is still
+// exactly one contribution per completion event, just resolved through the
+// Skill instead of a direct relation — not a second channel.
+//
+// The ONLY way a skill affects Domain scoring *directly* (i.e. without
+// completing a Mission) is a skill-linked achievement/milestone
+// (relationType 'achievementSkill', mutually exclusive with
+// 'achievementArea' — an achievement targets either a Domain or a Skill,
+// never both, which is what prevents double-counting).
 
 export function createSkill(title: string, primaryAreaId?: string | null, secondaryAreaIds: string[] = []): string {
   const id = createItem('skill', title, 'active');
-  updateItemMetadata(id, { proficiency: 0, secondaryAreaIds });
+  updateItemMetadata(id, { proficiency: 0, secondaryAreaIds, unlocked: false });
   if (primaryAreaId) setRelation(id, 'skillArea', primaryAreaId);
   return id;
+}
+
+// A Skill starts locked ("still learning") — a manual, skill-tree-style gate
+// distinct from proficiency. A locked skill can have milestones and linked
+// habits/routines/missions like any other skill, but NONE of its milestones
+// may affect Domain scoring while locked, no matter their own
+// contributesToScore flag — see setSkillMilestoneContributesToScore below.
+// Unlocking is manual only, never derived from proficiency or activity.
+export function isSkillUnlocked(skillId: string): boolean {
+  const item = getItemWithMetadata(skillId);
+  const meta = item?.metadata ? JSON.parse(item.metadata) : {};
+  return meta.unlocked === true;
+}
+
+export function setSkillUnlocked(skillId: string, unlocked: boolean): void {
+  const item = getItemWithMetadata(skillId);
+  const meta = item?.metadata ? JSON.parse(item.metadata) : {};
+  updateItemMetadata(skillId, { ...meta, unlocked });
+
+  // Re-sync every milestone's contribution rows against the new lock state:
+  // unlocking activates rows for milestones the user already marked as
+  // contributing; locking excludes any currently-active rows.
+  for (const milestone of getMilestonesForSkill(skillId)) {
+    const milestoneItem = getItemWithMetadata(milestone.id);
+    const milestoneMeta = milestoneItem?.metadata ? JSON.parse(milestoneItem.metadata) : {};
+    if (milestoneMeta.contributesToScore) {
+      applySkillMilestoneContribution(milestone.id, skillId, unlocked);
+    }
+  }
 }
 
 export function getSkills(): Item[] {
@@ -683,6 +866,21 @@ export function getMissionsForSkill(skillId: string): Item[] {
   return getRelatedItemsByType(skillId, 'missionSkill', 'project');
 }
 
+// A Mission's own 'area' relation always wins when set (explicit beats
+// inherited). Otherwise, a Mission linked to a Skill inherits that Skill's
+// primary Domain — e.g. a "Ship v2" Mission linked to the "App Development"
+// Skill scores against whatever Domain that Skill's primary is, with no need
+// to also set the Mission's own Domain. Used by completeMission/
+// setMissionAchievementEligible so Skill-linked Missions can score without
+// redundant direct Domain assignment.
+export function getEffectiveAreaForMission(projectId: string): string | null {
+  const directAreaId = getRelation(projectId, 'area');
+  if (directAreaId) return directAreaId;
+  const skillId = getSkillForMission(projectId);
+  if (!skillId) return null;
+  return getPrimaryAreaForSkill(skillId);
+}
+
 export function linkRoutineToSkill(routineId: string, skillId: string | null): void {
   setRelation(routineId, 'routineSkill', skillId);
 }
@@ -708,21 +906,20 @@ function getSkillContributionRows(achievementId: string): DomainContributionRow[
   );
 }
 
-export function setSkillMilestoneContributesToScore(achievementId: string, contributes: boolean): void {
+// Shared by setSkillMilestoneContributesToScore and setSkillUnlocked (the
+// latter re-syncs every already-contributing milestone when the lock state
+// flips, without touching each milestone's own contributesToScore flag).
+function applySkillMilestoneContribution(achievementId: string, skillId: string, active: boolean): void {
   const item = getItemWithMetadata(achievementId);
   if (!item) return;
-  const existingMeta = item.metadata ? JSON.parse(item.metadata) : {};
-  updateItemMetadata(achievementId, { ...existingMeta, contributesToScore: contributes });
-
-  const skillId = getRelation(achievementId, 'achievementSkill');
-  if (!skillId) return;
+  const meta = item.metadata ? JSON.parse(item.metadata) : {};
   const primaryAreaId = getPrimaryAreaForSkill(skillId);
   const secondaryAreaIds = getSecondaryAreasForSkill(skillId);
   const existingRows = getSkillContributionRows(achievementId);
-  const earnedAtMs = typeof existingMeta.earnedAt === 'string' ? new Date(`${existingMeta.earnedAt}T00:00:00`).getTime() : NaN;
+  const earnedAtMs = typeof meta.earnedAt === 'string' ? new Date(`${meta.earnedAt}T00:00:00`).getTime() : NaN;
   const occurredAt = Number.isFinite(earnedAtMs) ? earnedAtMs : item.createdAt;
 
-  if (contributes) {
+  if (active) {
     const targets: Array<{ areaId: string; weight: number }> = [];
     if (primaryAreaId) targets.push({ areaId: primaryAreaId, weight: 1 });
     for (const areaId of secondaryAreaIds) targets.push({ areaId, weight: 0.5 });
@@ -746,6 +943,22 @@ export function setSkillMilestoneContributesToScore(achievementId: string, contr
       if (!row.excludedAt) excludeDomainContribution(row.id);
     }
   }
+}
+
+export function setSkillMilestoneContributesToScore(achievementId: string, contributes: boolean): void {
+  const item = getItemWithMetadata(achievementId);
+  if (!item) return;
+  const existingMeta = item.metadata ? JSON.parse(item.metadata) : {};
+  updateItemMetadata(achievementId, { ...existingMeta, contributesToScore: contributes });
+
+  const skillId = getRelation(achievementId, 'achievementSkill');
+  if (!skillId) return;
+
+  // A locked skill ("still learning") never affects Domain scoring, no
+  // matter this milestone's own contributesToScore flag — the flag is still
+  // recorded so unlocking the skill later can activate it retroactively.
+  const active = contributes && isSkillUnlocked(skillId);
+  applySkillMilestoneContribution(achievementId, skillId, active);
 }
 
 export function createSkillMilestone(skillId: string, title: string, earnedAt: string, contributesToScore: boolean): string {
@@ -805,6 +1018,8 @@ export function computeSkillPracticeSummary(skillId: string): SkillPracticeSumma
 export function convertAreaToSkill(areaId: string, primaryAreaId: string): string {
   const area = getItemWithMetadata(areaId);
   const skillId = createSkill(area?.title ?? 'Skill', primaryAreaId);
+  // A converted Domain already has real history — it isn't "still learning".
+  setSkillUnlocked(skillId, true);
 
   for (const mission of getProjectsForArea(areaId)) {
     setRelation(mission.id, 'area', primaryAreaId);
@@ -824,18 +1039,62 @@ export function convertAreaToSkill(areaId: string, primaryAreaId: string): strin
   return skillId;
 }
 
+// Consolidates a duplicate Domain into another — re-homes everything that
+// pointed at it (Missions, Potential Stats, Achievements, Skills' primary/
+// secondary Domain, and historical domainContributions rows so past scoring
+// isn't orphaned) onto targetAreaId, then hard-deletes sourceAreaId. If the
+// source was canonical (one of the 8 baseline Domains), the flag transfers
+// to the target so the "always 8 canonical" guarantee doesn't silently drop
+// — this is why the delete below bypasses deleteItem's canonical guard
+// (deliberate user-initiated consolidation, not an accidental delete).
+export function mergeAreaIntoArea(sourceAreaId: string, targetAreaId: string): void {
+  if (sourceAreaId === targetAreaId) return;
+
+  for (const mission of getProjectsForArea(sourceAreaId)) {
+    setRelation(mission.id, 'area', targetAreaId);
+  }
+  for (const stat of getPotentialStatsForArea(sourceAreaId)) {
+    setPotentialStatArea(stat.id, targetAreaId);
+  }
+  for (const achievement of getAchievementsForArea(sourceAreaId)) {
+    setRelation(achievement.id, 'achievementArea', targetAreaId);
+  }
+  for (const skill of getSkillsForArea(sourceAreaId)) {
+    if (getPrimaryAreaForSkill(skill.id) === sourceAreaId) {
+      setPrimaryAreaForSkill(skill.id, targetAreaId);
+    }
+    const secondary = getSecondaryAreasForSkill(skill.id);
+    if (secondary.includes(sourceAreaId)) {
+      setSkillSecondaryAreas(skill.id, secondary.map((id) => (id === sourceAreaId ? targetAreaId : id)));
+    }
+  }
+  getDb().runSync(`UPDATE domainContributions SET areaId = ? WHERE areaId = ?`, [targetAreaId, sourceAreaId]);
+
+  const sourceItem = getItemWithMetadata(sourceAreaId);
+  const sourceMeta = sourceItem?.metadata ? JSON.parse(sourceItem.metadata) : {};
+  if (sourceMeta.canonical === true) {
+    const targetItem = getItemWithMetadata(targetAreaId);
+    const targetMeta = targetItem?.metadata ? JSON.parse(targetItem.metadata) : {};
+    if (targetMeta.canonical !== true) updateItemMetadata(targetAreaId, { ...targetMeta, canonical: true });
+  }
+
+  getDb().runSync(`UPDATE items SET deletedAt = ?, updatedAt = ? WHERE id = ?`, [Date.now(), Date.now(), sourceAreaId]);
+  syncItemToRemote(sourceAreaId);
+}
+
 // ── Mission completion (mutually exclusive Mission vs. Achievement tier) ──
 
 // Completing a Mission always produces exactly one active domainContribution
 // for this event — never both. Achievement-eligible Missions (metadata.
 // achievementEligible) get the larger/slower Achievement tier plus a
 // permanent trophy; ordinary Missions get the smaller/faster Mission tier.
-// No-op for the score side if the Mission has no Domain — a trophy/contribution
-// needs somewhere to attach.
+// No-op for the score side if the Mission has no Domain (direct or inherited
+// via a linked Skill's primary Domain, see getEffectiveAreaForMission) — a
+// trophy/contribution needs somewhere to attach.
 export function completeMission(missionId: string): void {
   updateItemStatus(missionId, 'completed');
   const item = getItemWithMetadata(missionId);
-  const areaId = getRelation(missionId, 'area');
+  const areaId = getEffectiveAreaForMission(missionId);
   if (!item || !areaId) return;
 
   const meta = item.metadata ? JSON.parse(item.metadata) : {};
@@ -884,7 +1143,7 @@ export function setMissionAchievementEligible(missionId: string, eligible: boole
   updateItemMetadata(missionId, { ...existingMeta, achievementEligible: eligible });
 
   if (item.status !== 'completed') return;
-  const areaId = getRelation(missionId, 'area');
+  const areaId = getEffectiveAreaForMission(missionId);
   if (!areaId) return;
   const completedAt = item.completedAt ?? item.updatedAt;
 
@@ -1474,6 +1733,20 @@ export interface MedicationMeta {
   pillsPerSheet?: number;         // purely descriptive breakdown, optional
   packagingNote?: string;         // free text for one-off quirks, e.g. "28 + 2 topper blister"
   containers?: MedicationContainer[]; // real inventory instances, oldest/open-first
+
+  // Focus timeline (opt-in, e.g. for stimulants): models onset -> peak -> fade
+  // as hour ranges elapsed since the dose was taken, since real onset/peak/
+  // wear-off varies dose to dose (food, tolerance, activity) rather than
+  // landing on one fixed hour. All six must be set, each min <= max, and the
+  // midpoints ordered onset <= peak <= fadeEnd — see `utils/focusCurve.ts`'s
+  // `computeFocusState`.
+  focusCurveEnabled?: boolean;
+  onsetMinHours?: number;   // earliest hours until the effect starts building
+  onsetMaxHours?: number;   // latest hours until the effect starts building
+  peakMinHours?: number;    // earliest hours until peak effect
+  peakMaxHours?: number;    // latest hours until peak effect
+  fadeEndMinHours?: number; // earliest hours until fully worn off
+  fadeEndMaxHours?: number; // latest hours until fully worn off
 }
 
 // Total pills across all containers, falling back to the legacy flat count for medications
@@ -1698,7 +1971,7 @@ export function updateMedication(id: string, title: string, meta: MedicationMeta
   logActivity(id, 'edited');
 }
 
-export function logMedicationTaken(itemId: string, takenAt: number = Date.now(), startTimer = false, amount = 1): void {
+export function logMedicationTaken(itemId: string, takenAt: number = Date.now(), startTimer = false, amount = 1, overrideReason?: string): void {
   const item = getItemWithMetadata(itemId);
   if (!item) return;
   let meta: MedicationMeta = item.metadata ? JSON.parse(item.metadata) : {};
@@ -1724,6 +1997,10 @@ export function logMedicationTaken(itemId: string, takenAt: number = Date.now(),
       accumulatedMs: 0,
       autoStopAfterMs: startTimer ? resolveAutoStopAfterMs(meta.autoStopAfterHours) : undefined,
       notified: false,
+      // Set only when this dose was taken before `minHoursBetweenDoses`
+      // elapsed and the user explicitly overrode the caution — see
+      // `promptTooSoonOverride` in `utils/medicationOverride.ts`.
+      overrideReason: overrideReason || undefined,
     }), now]
   );
 
@@ -2218,7 +2495,16 @@ export function updateItemStatus(id: string, status: Item['status']): void {
   syncItemToRemote(id);
 }
 
+// A canonical Domain (metadata.canonical, one of the 8 baseline Harada
+// Domains every user gets from onboarding) is a mandatory minimum — never
+// deletable, only renameable. Guarded here (not just in AreasScreen's UI)
+// so no other code path — e.g. convertAreaToSkill — can drop below 8.
 export function deleteItem(id: string): void {
+  const item = getItemWithMetadata(id);
+  if (item?.type === 'area') {
+    const meta = item.metadata ? JSON.parse(item.metadata) : {};
+    if (meta.canonical === true) return;
+  }
   getDb().runSync(
     `UPDATE items SET deletedAt = ?, updatedAt = ? WHERE id = ?`,
     [Date.now(), Date.now(), id]
@@ -2452,4 +2738,33 @@ export function getLastSessionSetsForExercise(exerciseId: string, excludeSession
     [exerciseId]
   );
   return getMostRecentSessionSets(logs, excludeSessionId);
+}
+
+// All completed workout-session createdAt timestamps since sinceMs, for the
+// Trends frequency heatmap.
+export function getWorkoutSessionDates(sinceMs: number): number[] {
+  const rows = getDb().getAllSync<{ createdAt: number }>(
+    `SELECT createdAt FROM items WHERE type = 'workout-session' AND status = 'completed' AND createdAt >= ? AND deletedAt IS NULL ORDER BY createdAt ASC`,
+    [sinceMs]
+  );
+  return rows.map((r) => r.createdAt);
+}
+
+// All workout-set-logged rows for one exercise, oldest first — unlike
+// getLastSessionSetsForExercise (capped at 200, most-recent-first, for "last
+// time" lookups), this is uncapped and chronological for a full progression chart.
+export function getExerciseSetLogHistory(exerciseId: string): ActivityLog[] {
+  return getDb().getAllSync<ActivityLog>(
+    `SELECT * FROM activityLogs WHERE entityId = ? AND actionType = 'workout-set-logged' ORDER BY timestamp ASC`,
+    [exerciseId]
+  );
+}
+
+// All workout-set-logged rows across every exercise in a time window, for
+// volume and muscle-group-balance aggregation.
+export function getWorkoutSetLogsInRange(startMs: number, endMs: number): ActivityLog[] {
+  return getDb().getAllSync<ActivityLog>(
+    `SELECT * FROM activityLogs WHERE actionType = 'workout-set-logged' AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC`,
+    [startMs, endMs]
+  );
 }
