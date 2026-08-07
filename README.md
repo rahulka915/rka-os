@@ -1,10 +1,14 @@
 # RKA OS
 
-A highly opinionated, local-first Personal Operating System — a native iOS app (React Native + Expo) designed to reduce the friction between knowing what should be done and actually doing it.
+A highly opinionated, local-first Personal Operating System — a native iOS app (React Native + Expo) designed to reduce the friction between knowing what should be done and actually doing it. A companion desktop web app shares the same codebase and data — see below.
 
 > **Note:** This project was previously under the folder name `personal-os`. It has been renamed to `rka-os` to align with the package name, GitHub repository, and official branding. See [NAMING_HISTORY.md](./NAMING_HISTORY.md) for details.
 >
-> This repo also previously shipped a companion Progressive Web App (Vite + React + Dexie.js at repo root). That PWA has been fully retired now that the mobile app covers everything it did — all app code lives at `apps/mobile/`.
+> This repo also previously shipped a *different, now-retired* companion Progressive Web App (Vite + React + Dexie.js at repo root, last touched 2026-06-23). That PWA has been fully retired now that the mobile app covers everything it did — all app code lives at `apps/mobile/`. **Do not confuse it with the desktop web app below, which is current and active.**
+
+## Desktop Web App
+
+`apps/mobile/` also ships a genuinely separate, actively-developed desktop/web target — not a revival of the retired PWA above, and not just a browser preview of the mobile screens. It's built with Expo's web support (`.web.tsx` platform-specific files alongside the native screens, e.g. `WorkoutsScreen.web.tsx` next to `WorkoutsScreen.tsx`), sharing the exact same SQLite-backed data layer (`db/database.ts`, `hooks/useDb.ts`) as iOS, but with its own screens (`apps/mobile/src/webApp/`), own theme (`theme/webTheme.ts`), own icon set (`lucide-react-native`), and a desktop-appropriate navigation model — a `Sidebar` of top-level views with a right-side sliding `DetailPanel`, instead of mobile's `react-navigation` screen stack. Run it with `npm run web` from `apps/mobile/`; it deploys to Firebase Hosting (`firebase.json`'s `hosting.public: apps/mobile/dist`, built via `npm run web:build`). See [`apps/mobile/CLAUDE.md`](apps/mobile/CLAUDE.md#desktop-web-app) for current screen parity and conventions.
 
 ## Product Vision
 

@@ -9,11 +9,11 @@
 
 ```
 rka-os/
-├── apps/mobile/          ← React Native iOS app (only app in this repo)
+├── apps/mobile/          ← React Native iOS app + a separate desktop web app (src/webApp/, see apps/mobile/CLAUDE.md)
 └── docs/migration/       ← This file + related guides
 ```
 
-The companion PWA that used to live at `src/` (repo root) has been fully retired — this is a mobile-only repo now.
+The *different, unrelated* Progressive Web App that used to live at `src/` (repo root, Vite + React + Dexie.js) has been fully retired. This repo is not web-free, though: `apps/mobile/src/webApp/` is a separate, current, actively-developed Expo-web desktop target sharing this same mobile app's SQLite data layer — see `apps/mobile/CLAUDE.md`'s "Desktop Web App" section. Don't conflate the two.
 
 ---
 

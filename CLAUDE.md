@@ -4,9 +4,11 @@
 
 **RKA OS** is a personal operating system app. It ships as a native iOS app built with React Native + Expo, living at `apps/mobile/` — see [`apps/mobile/CLAUDE.md`](apps/mobile/CLAUDE.md) for the platform-specific guide (stack, component structure, design patterns, known constraints).
 
-The project previously also shipped a Progressive Web App (Vite + React + Dexie.js at repo root); that PWA has been fully retired now that the mobile app covers everything it did. This root `CLAUDE.md` only covers repo-wide concerns (skills, git conventions, docs index, shared backend); all app-specific guidance lives in `apps/mobile/CLAUDE.md`.
+**Also shipped: a desktop web app**, `apps/mobile/src/webApp/` (Expo web, `.web.tsx` platform-specific screens, run via `npm run web` from `apps/mobile/`) — a genuinely separate, actively-developed target sharing the same SQLite-backed data layer as iOS but with its own screens, theme, and Sidebar+DetailPanel navigation model. Built 2026-07-30–08-01; deploys to Firebase Hosting. **This is not the retired PWA below** — see `apps/mobile/CLAUDE.md`'s "Desktop Web App" section for current screen parity and conventions before touching it.
 
-**Status:** Active development (mobile only)
+The project previously *also* shipped a different, since-retired Progressive Web App (Vite + React + Dexie.js at repo root, last touched 2026-06-23); that PWA has been fully retired now that the mobile app covers everything it did. This root `CLAUDE.md` only covers repo-wide concerns (skills, git conventions, docs index, shared backend); all app-specific guidance lives in `apps/mobile/CLAUDE.md`.
+
+**Status:** Active development — native iOS (primary) + desktop web (secondary, partial screen parity)
 
 ---
 
@@ -133,4 +135,4 @@ The launcher (Tauri v2 macOS app) handles starting/stopping dev servers for this
 Registered in the launcher as:
 - **RKA OS Mobile** — `npx expo start --go` on port 8081, path: `apps/mobile/`
 
-The launcher may still have a stale **RKA OS (PWA)** entry from before the web app was retired — that needs removing in a separate session against `../rka-launcher/`, since this repo can't edit it.
+The launcher may still have a stale **RKA OS (PWA)** entry left over from the *retired* Vite/Dexie PWA (not today's desktop web app, which isn't yet registered in the launcher at all) — that needs removing in a separate session against `../rka-launcher/`, since this repo can't edit it.

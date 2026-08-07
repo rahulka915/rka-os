@@ -1,5 +1,7 @@
 # Naming History & Project Context
 
+> **Note:** This document is a point-in-time snapshot of the naming decision as of June 24, 2026 — it predates the mobile migration and describes the project as a PWA, which has since been retired. For current architecture (native iOS app + a separate, current desktop web app), see root `CLAUDE.md`/`README.md` and `apps/mobile/CLAUDE.md`.
+
 ## Current Status (As of June 24, 2026)
 
 This project is officially called **RKA OS** (or `rka-os` in code).

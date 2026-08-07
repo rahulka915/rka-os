@@ -1,6 +1,88 @@
 # RKA OS — Handover Summary
-**Last Updated:** 2026-08-05
-**Status:** Mobile-only — React Native iOS (active). The companion Web PWA described in Session 1 below has since been fully retired; that section is kept as historical record only.
+**Last Updated:** 2026-08-07
+**Status:** Native iOS (primary, active) + a *separate, current* desktop web app (`apps/mobile/src/webApp/`, Expo web, built 2026-07-30–08-01, partial screen parity — see `apps/mobile/CLAUDE.md`'s "Desktop Web App" section). The *different, unrelated* Web PWA described in Session 1 below (Vite + React + Dexie.js, repo root) has been fully retired; that section is kept as historical record only. Do not conflate the two — one is dead, one is actively developed.
+
+---
+
+## 2026-08-07 — RepCount CSV import + Workout Trends screen, and a docs-drift fix (desktop web app)
+
+### Changes
+- **RepCount CSV import** (`scripts/repcount-import/`, `scripts/import-repcount.mjs`): a Mac-side, dependency-free Node CLI that parses a RepCount workout-history CSV export and writes `workout-session` items + `workout-set-logged` activityLogs to Firestore under the signed-in user's own uid via the app's own Firebase client SDK (real account sign-in, not Admin SDK) — the existing on-device Firestore sync (`firestoreSync.ts`) then pulls it into SQLite automatically, no app code changes needed. Dry-run by default; `--commit` to write; re-runs are idempotent (dedupes by `metadata.sourceStartAt` tagged on each imported session). User ran it successfully against a real ~3,500-row export (197 sessions, 2,408 sets, 47 exercises, Jan 2022–Oct 2025).
+- **Workout Trends screen** (native iOS only — see docs-drift note below): new `WorkoutTrendsScreen.tsx`, reachable via a "Trends →" link on `WorkoutsScreen.tsx`, registered in `MenuStack.tsx`. Four visualizations: `WorkoutFrequencyHeatmap.tsx` (16-week GitHub-contributions-style grid), `ExerciseProgressionChart.tsx` (searchable exercise picker + top-set-weight-per-session line chart), `VolumeBarChart.tsx` (week/month toggle, `reps*weight` sum per period), `MuscleBalanceList.tsx` (reuses `RiverStoneProgress`, not a new widget, per the design system's reuse-over-invention rule). Backed by three new SQL queries in `database.ts` (`getWorkoutSessionDates`/`getExerciseSetLogHistory`/`getWorkoutSetLogsInRange`) and pure aggregation functions in new `utils/workoutTrends.ts` (6 passing unit tests). Full design spec: `docs/superpowers/specs/2026-08-07-repcount-import-and-workout-trends-design.md`; implementation plan: `docs/superpowers/plans/2026-08-07-repcount-import-and-workout-trends.md`.
+- **Docs-drift fix — the desktop web app was undocumented in the "current state" docs.** While scoping whether Trends should also appear on web, discovered that `apps/mobile/src/webApp/` (a real, separate, actively-developed Expo-web desktop target, built 2026-07-30–08-01, sharing the same SQLite data layer as iOS) was never mentioned in `CLAUDE.md`/`AGENTS.md`/`README.md`/this file's status banner — those all still only described the *different*, already-retired Vite/Dexie PWA, which one of the specs (`docs/superpowers/specs/2026-08-01-web-exercise-library-and-template-builder-design.md`) had already flagged as stale but the fix never landed. Updated `CLAUDE.md`, `AGENTS.md`, `README.md`, `apps/mobile/CLAUDE.md` (new "Desktop Web App" section with current screen-parity list), and this file's status banner to describe both apps accurately and distinguish them by name everywhere the retired PWA is mentioned. Also added an "ARCHIVED" banner to `docs/AGENT_HANDOVER.md`, which was a full stale doc describing the old Dexie/Supabase architecture as current.
+- Workout Trends was deliberately **not** ported to the desktop web app in this pass — user chose to defer that; `apps/mobile/CLAUDE.md`'s screen-parity list now tracks it as a known gap.
+
+### Verification
+- `node --test scripts/repcount-import/parse.test.mjs` — 4/4 passing (quote-aware CSV parsing, session grouping, per-exercise set numbering).
+- `cd apps/mobile && npm test` — 180/180 passing, including 6 new `workoutTrends.test.ts` cases.
+- `npx tsc --noEmit` — no new errors from any touched file (pre-existing unrelated errors elsewhere, including expected false-alarm `.web.tsx` resolution errors, left untouched).
+- Real dry-run + `--commit` run against the user's actual CSV export, confirmed idempotent on re-run (0 net-new sessions second time).
+- Not yet verified in a running dev client/browser this session — next agent or the user should confirm the Trends screen renders real imported data on-device, and check empty states for exercises/periods with no logs.
+
+### Next steps
+- On-device check of Workout Trends against the newly-imported RepCount history (see above).
+- If desktop web parity is ever prioritized, build the equivalent screen in `apps/mobile/src/webApp/` reusing `utils/workoutTrends.ts` and the same SQL queries (no data-layer work needed, only new `.web.tsx` screen + wiring).
+- Register the desktop web app in `../rka-launcher/` (currently only "RKA OS Mobile" is registered) — separate session against that repo.
+
+---
+
+## 2026-08-07 — Medication focus timeline (onset/peak/fade curve, as ranges)
+
+### Changes
+- Inspired by another app's stimulant timeline screenshots the user shared. Per-medication opt-in — `MedicationMeta` gained `focusCurveEnabled?` plus six range fields: `onsetMinHours?`/`onsetMaxHours?`/`peakMinHours?`/`peakMaxHours?`/`fadeEndMinHours?`/`fadeEndMaxHours?` (`apps/mobile/src/db/database.ts`) — shipped first as single hour values, then revised same-session to ranges per the user's follow-up ("could be 1h30–2h30 to kick in, peak 3.5–5h, runs out 6–12h") since real onset/peak/wear-off varies dose to dose.
+- `MedicationsScreen.tsx`'s `MedFormSheet` gained a "Track focus timeline" toggle plus three min–max range rows (Onset / Peak / Wears off), validated so Save is blocked unless all six are set, each min <= max, and the three ranges' midpoints are ordered onset <= peak <= fadeEnd.
+- New `apps/mobile/src/utils/focusCurve.ts`: pure `computeFocusState(item, meta, lastLog)` derives a `building` / `peak` / `fading` phase from wall-clock time elapsed since the last dose, using range midpoints for the phase transition; returns `null` once elapsed passes the *latest* fade-end estimate (`fadeEndMaxHours`) or the feature isn't enabled/fully configured.
+- New `apps/mobile/src/components/FocusTimelineCard.tsx`: renders one card per medication with an active state — an SVG onset/peak/fade hill with shaded uncertainty bands over the peak and fade-off windows, a live "now" dot, and a plain-language range summary (e.g. "Building — peak between 8:30pm and 9:30pm"). Self-ticks every 60s since the phase depends only on the clock. Mounted at the top of `MedicationsScreen.tsx`, above "Needs Attention".
+- Documented in `apps/mobile/CLAUDE.md`.
+- Scoped via a brainstorming pass with the user; no separate spec doc was written since the user asked to skip straight to implementation once the two questions (per-medication opt-in vs. global, three-number onset/peak/fade-end model) were confirmed. The range revision came as a same-session follow-up, implemented directly without re-opening brainstorming.
+
+### Verification
+- `npx tsc --noEmit` shows no new errors from the touched files (pre-existing unrelated errors elsewhere in the repo untouched).
+- Not verified in a running dev client this session (RN/Expo app, no browser preview available) — user will test on-device: enable the toggle on a medication with a range per stage, log a dose, confirm the card appears with the right phase/labels and bands, and disappears after `fadeEndMaxHours`.
+
+---
+
+## 2026-08-07 — Medication "too soon" override with required reason
+
+### Changes
+- The `minHoursBetweenDoses` gate (`computeMedicationEligibility.canTake`) is now a caution the user can consciously override, not a hard block. New shared helper `apps/mobile/src/utils/medicationOverride.ts` (`promptTooSoonOverride`, `computeMinutesUntilNextDose`) shows the real wait time with a "Wait" / "Override…" choice; Override forces a typed reason via `Alert.prompt` (e.g. "advised by doctor", "exam tomorrow") — declining or leaving it blank re-prompts, there is no silent-allow path.
+- Wired into both take paths: `MedicationsScreen.tsx`'s `TodayRow.handleTake` and `MedicationQuickLogWidget.tsx`'s `promptTake` (Home quick-log).
+- `logMedicationTaken(itemId, takenAt?, startTimer?, amount?, overrideReason?)` (`apps/mobile/src/db/database.ts`) gained a 5th param, stored as `details.overrideReason` on the `medication-taken` activity log row; `useMedications().takeMedication` (`apps/mobile/src/hooks/useDb.ts`) passes it through.
+- `LogDoseSheet.tsx`'s `LogEntry` now renders a small orange "Taken early — `<reason>`" caption under any dose log that has one, so the override stays visible in history, not just at confirmation time.
+- Documented in `apps/mobile/CLAUDE.md`.
+
+### Verification
+- `npx tsc --noEmit` shows no new errors from the touched files (pre-existing unrelated errors elsewhere in the repo untouched).
+- Not verified in a running dev client this session (RN/Expo app, no browser preview available) — exercise on-device: trigger "Too soon" on a medication with `minHoursBetweenDoses` set, confirm Override requires non-empty text, confirm the reason shows up in the dose log history.
+
+---
+
+## 2026-08-06 — Approved negative-space logo reference crops
+
+### Changes
+- Cropped the four accepted logo directions (A3, F2, F3 and F4) out of the broad exploration board into `apps/mobile/assets/branding/logo-reference-crops/`.
+- Documented F3 as the structural base and the critical invariant that `RKA` is dark negative space formed between exactly eight light blocks, not separate foreground lettering.
+
+### Verification
+- Visually checked each crop contains one approved icon direction without neighbouring rejected concepts.
+- Reference-only change; no runtime logo or app icon changed.
+
+### Next step
+- Use the four crops together for a tightly constrained refinement generation, then test shortlisted geometry in monochrome and at 29pt before selecting production artwork.
+
+---
+
+## 2026-08-06 — Header icon pack v2 wired into AppHeader
+
+### Changes
+- Added `apps/mobile/assets/icons/header-v2/` with six transparent 512×512 runtime assets: Inbox empty/active/full, Settings, theme light and theme dark. Locked the selected visual directions: Inbox F simplified scroll tray, Settings H universal River Stone gear and Theme A sun/crescent medallion. Adjacent README documents count-state mapping, intended 34–36pt rendering and the non-runtime `source/` sheet.
+- Wired the v2 assets into `AppHeader.tsx`: `SettingsMedallionIcon.tsx` now points at `settings.png` (was the retired `assets/icons/header/settings-medallion.png`); a new `header/ThemeToggleIcon.tsx` stacks `theme-light.png`/`theme-dark.png` and crossfades between them on toggle via Reanimated opacity, collapsing to an immediate swap under Reduce Motion (`useReducedMotion`) — replaces the old heroicons `Moon`/`Sun` glyphs; `inboxIllustration()` swapped from `assets/illustrations/inbox/` to the `header-v2` set at the same 0 / 1–10 / >10 thresholds.
+- All three header buttons are now 44×44pt touch targets (was 36–40pt) with ~34pt artwork, `resizeMode="contain"`, no tinting; badge logic, haptics and accessibility labels preserved (theme button's label now states the target mode, e.g. "Switch to dark mode").
+- `InboxScrollCard.tsx` on Home's Today view intentionally still uses the older `assets/illustrations/inbox/` set — out of scope for this pass.
+
+### Verification
+- `npx tsc --noEmit` shows no new errors from the touched files (pre-existing unrelated errors elsewhere in the repo untouched).
+- Not verified in a running dev client this session (RN/Expo app, no browser preview available) — test both themes, all three Inbox states and Dynamic Type on-device before merging.
 
 ---
 

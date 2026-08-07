@@ -1,5 +1,7 @@
 # RKA OS - Agent Handover & Project Context
 
+> **⚠️ ARCHIVED — do not use this document for current architecture.** Everything below describes the Vite + React + Dexie.js + Supabase Progressive Web App that shipped at the repo root before the project's migration to a native iOS app. That PWA was **fully retired** (last touched 2026-06-23) once the mobile app at `apps/mobile/` covered everything it did. **This is unrelated to `apps/mobile/src/webApp/`**, a different, current, actively-developed desktop web app built 2026-07-30–08-01 that shares the mobile app's SQLite data layer — see `apps/mobile/CLAUDE.md`'s "Desktop Web App" section for that one. For current project state, use root `CLAUDE.md`/`AGENTS.md`, `apps/mobile/CLAUDE.md`, and `HANDOVER_SUMMARY.md`. Kept here only as a historical record of the pre-migration architecture.
+
 *This document is intended for AI coding assistants to quickly understand the project architecture, recent changes, and ongoing roadmaps when starting a new session.*
 
 ## 🏗️ Project Architecture

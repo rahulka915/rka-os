@@ -43,4 +43,4 @@ Token *values* are not duplicated as prose beyond what's needed to explain them 
 
 Interaction patterns already documented in `THINGS_3_DESIGN.md` aren't repeated in `reference/components.md` — that file links out instead.
 
-The companion PWA (and its docs — `SCROLL_LIMITS.md`, `FIX_LOG.md`, etc.) has been fully retired; this design system covers the mobile app only.
+The old companion PWA (and its docs — `SCROLL_LIMITS.md`, `FIX_LOG.md`, etc.) has been fully retired; this design system covers the native iOS app's tokens. It does not cover `apps/mobile/src/webApp/`'s desktop web app, which is a different, current, still-active target with its own separate theme (`theme/webTheme.ts`) — see `apps/mobile/CLAUDE.md`'s "Desktop Web App" section.

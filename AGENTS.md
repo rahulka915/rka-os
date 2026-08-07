@@ -4,13 +4,21 @@
 
 **RKA OS** is a personal operating system app. It ships as a native iOS app built with React Native + Expo, living at `apps/mobile/` — see [`apps/mobile/CLAUDE.md`](apps/mobile/CLAUDE.md) for the platform-specific guide (stack, component structure, design patterns, known constraints).
 
-The project previously also shipped a Progressive Web App (Vite + React + Dexie.js at repo root); that PWA has been fully retired now that the mobile app covers everything it did. This root `AGENTS.md` only covers repo-wide concerns (skills, git conventions, docs index, shared backend); all app-specific guidance lives in `apps/mobile/CLAUDE.md`.
+**Also shipped: a desktop web app**, `apps/mobile/src/webApp/` (Expo web, `.web.tsx` platform-specific screens, run via `npm run web` from `apps/mobile/`) — a genuinely separate, actively-developed target sharing the same SQLite-backed data layer as iOS but with its own screens, theme, and Sidebar+DetailPanel navigation model. Built 2026-07-30–08-01; deploys to Firebase Hosting. **This is not the retired PWA below** — see `apps/mobile/CLAUDE.md`'s "Desktop Web App" section for current screen parity and conventions before touching it.
 
-**Status:** Active development (mobile only)
+The project previously *also* shipped a different, since-retired Progressive Web App (Vite + React + Dexie.js at repo root, last touched 2026-06-23); that PWA has been fully retired now that the mobile app covers everything it did. This root `AGENTS.md` only covers repo-wide concerns (skills, git conventions, docs index, shared backend); all app-specific guidance lives in `apps/mobile/CLAUDE.md`.
+
+**Status:** Active development — native iOS (primary) + desktop web (secondary, partial screen parity)
+
+**Current desktop web app:** `apps/mobile/src/webApp/` + `App.web.tsx`, run via `npm run web`. Screen parity so far: Home, Inbox, Tasks, Areas/Projects, Calendar, Upcoming, Archive, Objects (To Get), Medications, Workouts (+ Exercise Library, Workout Template detail), Habits, Settings. Not yet ported: Potential, Achievements, Focus, Skills, Routines, and the new Workout Trends screen (2026-08-07, native-only so far — see `HANDOVER_SUMMARY.md`).
 
 **Current native baseline:** Expo SDK `57.0.9` with React Native `0.86.2`. Keep Expo native packages aligned with `npx expo install --check`; mixing earlier SDK 57 patch packages with the current `expo-modules-core` causes iOS launch-time `dyld` failures before JavaScript starts. After changing native or Babel-backed packages, restart Metro with `--clear` so it does not keep an older Worklets/Reanimated transform plugin in memory.
 
 **Current shared FAB:** `apps/mobile/src/components/fab/FabControl.tsx` renders the Create control as independently animated SVG/Reanimated lacquer, washi, ink and brush layers. The older `apps/mobile/assets/fab/` PNG sequence is reference/source art and is not loaded at runtime.
+
+**Header icon pack (shipped):** `apps/mobile/assets/icons/header-v2/` contains the simplified transparent soft-object assets for Settings, light/dark theme states and the three Inbox count states, wired into `apps/mobile/src/components/AppHeader.tsx` (`SettingsMedallionIcon`, `header/ThemeToggleIcon` — Reanimated crossfade, Reduce Motion-aware — and the inbox illustration picker). Its `source/` sheet is provenance only; see the adjacent README for runtime mapping and sizing.
+
+**Approved logo refinement references:** `apps/mobile/assets/branding/logo-reference-crops/` isolates A3/F2/F3/F4 from the accepted negative-space exploration. `F3` is the structural base; `RKA` must remain dark protected negative space formed between exactly eight light contribution blocks, never separately drawn lettering.
 
 **Current collection artwork:** `apps/mobile/src/components/icons/CollectionIcons.tsx` wraps the transparent, high-detail 3D PNGs under `apps/mobile/assets/icons/collections/` for Workout, Habit, To Get and Archive destination identity. Reuse these components instead of generic entity glyphs; keep system icons for universal archive actions.
 
@@ -184,4 +192,4 @@ The launcher (Tauri v2 macOS app) handles starting/stopping dev servers for this
 Registered in the launcher as:
 - **RKA OS Mobile** — `npx expo start --go` on port 8081, path: `apps/mobile/`
 
-The launcher may still have a stale **RKA OS (PWA)** entry from before the web app was retired — that needs removing in a separate session against `../rka-launcher/`, since this repo can't edit it.
+The launcher may still have a stale **RKA OS (PWA)** entry left over from the *retired* Vite/Dexie PWA (not today's desktop web app, which isn't yet registered in the launcher at all) — that needs removing in a separate session against `../rka-launcher/`, since this repo can't edit it.
