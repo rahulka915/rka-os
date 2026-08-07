@@ -39,13 +39,21 @@ export function WorkoutTrendsScreen() {
       .map((e) => ({ item: e.item }));
   }, [exercises]);
 
-  const now = Date.now();
+  // All the "trailing window" views (heatmap/volume/balance) below are
+  // meaningless anchored to the real wall-clock "now" for an account whose
+  // workout history is a one-time historical import (e.g. RepCount) with no
+  // recent activity — every window would show empty even though the data
+  // exists. Anchor them instead to the most recent workout session on
+  // record: for an active user that's ~today anyway (unchanged behavior),
+  // but for a lapsed/historical-only account it shows the actual last N
+  // periods of real data instead of an empty trailing window ending today.
+  const allSessionDates = useMemo(() => getWorkoutSessionDates(0), [exercises]);
+  const referenceNow = allSessionDates.length > 0 ? Math.max(...allSessionDates) : Date.now();
 
   const heatmapDays = useMemo(() => {
-    const sinceMs = now - HEATMAP_WEEKS * 7 * DAY_MS;
-    const sessionDates = getWorkoutSessionDates(sinceMs);
-    return computeFrequencyHeatmap(sessionDates, sinceMs, now);
-  }, [now]);
+    const sinceMs = referenceNow - HEATMAP_WEEKS * 7 * DAY_MS;
+    return computeFrequencyHeatmap(allSessionDates, sinceMs, referenceNow);
+  }, [allSessionDates, referenceNow]);
 
   const progressionPoints = useMemo(() => {
     if (!selectedExerciseId) return [];
@@ -60,23 +68,23 @@ export function WorkoutTrendsScreen() {
   }, [selectedExerciseId, progressionPoints.length]);
 
   const weeklyVolume = useMemo(() => {
-    const sinceMs = now - VOLUME_WEEKS_WINDOW * 7 * DAY_MS;
-    return computeVolumeByPeriod(getWorkoutSetLogsInRange(sinceMs, now), 'week').slice(-VOLUME_WEEKS_WINDOW);
-  }, [now]);
+    const sinceMs = referenceNow - VOLUME_WEEKS_WINDOW * 7 * DAY_MS;
+    return computeVolumeByPeriod(getWorkoutSetLogsInRange(sinceMs, referenceNow), 'week').slice(-VOLUME_WEEKS_WINDOW);
+  }, [referenceNow]);
 
   const monthlyVolume = useMemo(() => {
-    const sinceMs = now - VOLUME_MONTHS_WINDOW * 31 * DAY_MS;
-    return computeVolumeByPeriod(getWorkoutSetLogsInRange(sinceMs, now), 'month').slice(-VOLUME_MONTHS_WINDOW);
-  }, [now]);
+    const sinceMs = referenceNow - VOLUME_MONTHS_WINDOW * 31 * DAY_MS;
+    return computeVolumeByPeriod(getWorkoutSetLogsInRange(sinceMs, referenceNow), 'month').slice(-VOLUME_MONTHS_WINDOW);
+  }, [referenceNow]);
 
   const muscleBalance = useMemo(() => {
-    const sinceMs = now - BALANCE_WINDOW_DAYS * DAY_MS;
-    const logs = getWorkoutSetLogsInRange(sinceMs, now);
+    const sinceMs = referenceNow - BALANCE_WINDOW_DAYS * DAY_MS;
+    const logs = getWorkoutSetLogsInRange(sinceMs, referenceNow);
     const exerciseMuscleGroupById = Object.fromEntries(
       exercises.map((item) => [item.id, parseExerciseMeta(item.metadata).muscleGroup])
     );
     return computeMuscleGroupBalance(logs, exerciseMuscleGroupById);
-  }, [now, exercises]);
+  }, [referenceNow, exercises]);
 
   return (
     <LensSurface title="Trends">
