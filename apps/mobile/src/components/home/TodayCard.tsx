@@ -32,12 +32,16 @@ const TodayTaskRow = memo(function TodayTaskRow({
   isCompleting,
   onComplete,
   onOpen,
+  onMoveUp,
+  onMoveDown,
 }: {
   item: Item;
   isDark: boolean;
   isCompleting: boolean;
   onComplete: (item: Item) => void;
   onOpen: (item: Item) => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
 }) {
   const palette = getThemeColors(isDark);
   const isOverdue = item.status === 'overdue';
@@ -60,7 +64,7 @@ const TodayTaskRow = memo(function TodayTaskRow({
           {item.title}
         </Text>
       </TouchableOpacity>
-      <DragHandleButton color={palette.textMuted} />
+      <DragHandleButton color={palette.textMuted} onMoveUp={onMoveUp} onMoveDown={onMoveDown} />
     </View>
   );
 });
@@ -110,7 +114,7 @@ export function TodayCard({
   useEffect(() => {
     setOrdered(applyManualOrder(TODAY_LIST_KEY, items));
   }, [items]);
-  const { onDragStart, onIndexChange, onReorder } = useHapticReorder(TODAY_LIST_KEY, ordered, setOrdered);
+  const { onDragStart, onIndexChange, onReorder, moveItem } = useHapticReorder(TODAY_LIST_KEY, ordered, setOrdered);
 
   return (
     <View style={styles.container}>
@@ -155,6 +159,8 @@ export function TodayCard({
                 isCompleting={completingIds.has(item.id)}
                 onComplete={onComplete}
                 onOpen={onOpen}
+                onMoveUp={() => moveItem(item.id, 'up')}
+                onMoveDown={() => moveItem(item.id, 'down')}
               />
             )}
             onDragStart={onDragStart}

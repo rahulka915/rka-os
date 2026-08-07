@@ -163,6 +163,8 @@ const TimelineTaskRow = memo(function TimelineTaskRow({
   onItemActivate,
   onItemArchive,
   onLongPress,
+  onMoveUp,
+  onMoveDown,
 }: {
   item: Item;
   isDark: boolean;
@@ -172,6 +174,8 @@ const TimelineTaskRow = memo(function TimelineTaskRow({
   onItemActivate?: (id: string) => void;
   onItemArchive?: (id: string) => void;
   onLongPress: (item: Item) => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
 }) {
   const blocker = getBlockingTask(item.id);
   const projectTitle = getProjectTitle(item.id);
@@ -255,7 +259,7 @@ const TimelineTaskRow = memo(function TimelineTaskRow({
                 )}
               </View>
             </TouchableOpacity>
-            <DragHandleButton color={palette.textMuted} />
+            <DragHandleButton color={palette.textMuted} onMoveUp={onMoveUp} onMoveDown={onMoveDown} />
           </View>
 
           <View
@@ -290,6 +294,7 @@ function TimeBlockItems({
   onDragStart,
   onIndexChange,
   onReorder,
+  onMoveItem,
   onItemTap,
   onItemComplete,
   onItemActivate,
@@ -304,6 +309,7 @@ function TimeBlockItems({
   onDragStart: () => void;
   onIndexChange: () => void;
   onReorder: (params: { from: number; to: number }) => void;
+  onMoveItem: (itemId: string, direction: 'up' | 'down') => void;
   onItemTap?: (item: Item) => void;
   onItemComplete?: (id: string) => void;
   onItemActivate?: (id: string) => void;
@@ -340,6 +346,8 @@ function TimeBlockItems({
       onItemActivate={onItemActivate}
       onItemArchive={onItemArchive}
       onLongPress={handleLongPress}
+      onMoveUp={() => onMoveItem(item.id, 'up')}
+      onMoveDown={() => onMoveItem(item.id, 'down')}
     />
   );
 
@@ -599,6 +607,7 @@ export function TimelineSection({
                 onDragStart={reorderByBlock[block.key].onDragStart}
                 onIndexChange={reorderByBlock[block.key].onIndexChange}
                 onReorder={reorderByBlock[block.key].onReorder}
+                onMoveItem={reorderByBlock[block.key].moveItem}
                 onItemTap={onItemTap}
                 onItemComplete={onItemComplete}
                 onItemActivate={onItemActivate}

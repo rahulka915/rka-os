@@ -4,19 +4,20 @@ import * as Haptics from 'expo-haptics';
 import { reorderItems } from 'react-native-reorderable-list';
 import { setManualOrder } from '../db/database';
 
-// Rigid rather than Light: a crisp, mechanical detent as the row crosses each
-// neighbour is what reads as physical "resistance" while dragging. Heavy would
-// be too much here — this fires on every crossing, not once.
+// Light, not Rigid/Heavy: this is the per-swap "detent" that fires on every
+// neighbour crossing, potentially many times per drag. Apple's own reorder
+// surfaces (Home Screen, Reminders, Settings edit mode) use a light
+// selection-style tick here, not an impact style — anything heavier reads as
+// buzzy rather than "native" over a whole drag gesture.
 function tickHaptic() {
-  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid);
+  Haptics.selectionAsync();
 }
 
 // Shared drag-to-reorder behaviour for every manually-orderable list.
 //
 // The per-swap tick (onIndexChange) is the cue that makes reordering read as
-// native: iOS fires a light impact every time the dragged row crosses a
-// neighbour, not just on grab and drop. It must stay Light — it fires often,
-// and anything heavier is unpleasant.
+// native: iOS fires a light selection tick every time the dragged row
+// crosses a neighbour, not just on grab and drop.
 //
 // `isReordering` is exposed only to hide cosmetic overlays mid-drag; it has no
 // bearing on layout. Row height must stay a pure function of the item.
@@ -29,7 +30,7 @@ export function useHapticReorder<T extends { id: string }>(
 
   const beginReorder = useCallback(() => {
     setIsReordering(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   }, []);
 
   // onDragStart, onDragEnd and onIndexChange are all invoked on the UI runtime
@@ -55,10 +56,29 @@ export function useHapticReorder<T extends { id: string }>(
       const next = reorderItems(items, from, to);
       onReordered(next);
       setManualOrder(listKey, next.map((item) => item.id));
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     },
     [items, listKey, onReordered],
   );
 
-  return { isReordering, onDragStart, onIndexChange, onReorder };
+  // VoiceOver has no way to perform the drag gesture itself, so every
+  // reorderable list needs a non-gesture equivalent — this backs the drag
+  // handle's accessibilityActions (see DragHandleButton). Looks the item up
+  // by id rather than taking an index so callers don't need to thread index
+  // through their own row components just for this.
+  const moveItem = useCallback(
+    (itemId: string, direction: 'up' | 'down') => {
+      const from = items.findIndex((item) => item.id === itemId);
+      if (from === -1) return;
+      const to = direction === 'up' ? from - 1 : from + 1;
+      if (to < 0 || to >= items.length) return;
+      const next = reorderItems(items, from, to);
+      onReordered(next);
+      setManualOrder(listKey, next.map((item) => item.id));
+      Haptics.selectionAsync();
+    },
+    [items, listKey, onReordered],
+  );
+
+  return { isReordering, onDragStart, onIndexChange, onReorder, moveItem };
 }

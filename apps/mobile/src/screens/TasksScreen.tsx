@@ -48,6 +48,8 @@ const TaskRow = memo(function TaskRow({
   onComplete,
   onOpen,
   onLongPress,
+  onMoveUp,
+  onMoveDown,
 }: {
   item: Item;
   isDark: boolean;
@@ -58,6 +60,8 @@ const TaskRow = memo(function TaskRow({
   onComplete: (item: Item) => void;
   onOpen: (item: Item) => void;
   onLongPress: (item: Item) => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
 }) {
   const blocker = getBlockingTask(item.id);
   return (
@@ -93,7 +97,7 @@ const TaskRow = memo(function TaskRow({
             <Text style={[styles.rowSub, { color: palette.greige }]}>{checklistLabel(item)}</Text>
           )}
         </TouchableOpacity>
-        <DragHandleButton color={palette.textMuted} />
+        <DragHandleButton color={palette.textMuted} onMoveUp={onMoveUp} onMoveDown={onMoveDown} />
       </RiverStoneSurface>
     </View>
   );
@@ -238,7 +242,7 @@ export function TasksScreen() {
   // isReordering flag. Row HEIGHT is a pure function of the item (uniform
   // cell gap + badge keyed off the item's own blocker), never of position.
   // The connector line is a zero-layout overlay, hidden during a drag.
-  const makeRenderRow = (list: Item[], isReordering: boolean) => ({ item }: { item: Item }) => {
+  const makeRenderRow = (list: Item[], isReordering: boolean, moveItem: (itemId: string, direction: 'up' | 'down') => void) => ({ item }: { item: Item }) => {
     const projectTitle = getProjectTitle(item);
     const blocker = getBlockingTask(item.id);
     const index = list.findIndex((t) => t.id === item.id);
@@ -268,6 +272,8 @@ export function TasksScreen() {
           },
         })}
         onLongPress={handleLongPress}
+        onMoveUp={() => moveItem(item.id, 'up')}
+        onMoveDown={() => moveItem(item.id, 'down')}
       />
     );
   };
@@ -351,7 +357,7 @@ export function TasksScreen() {
                 <NestedReorderableList
                   data={active}
                   keyExtractor={(item, index) => item?.id ?? String(index)}
-                  renderItem={makeRenderRow(active, activeReorder.isReordering)}
+                  renderItem={makeRenderRow(active, activeReorder.isReordering, activeReorder.moveItem)}
                   onDragStart={activeReorder.onDragStart}
                   onIndexChange={activeReorder.onIndexChange}
                   onReorder={activeReorder.onReorder}
@@ -365,7 +371,7 @@ export function TasksScreen() {
                 <NestedReorderableList
                   data={someday}
                   keyExtractor={(item, index) => item?.id ?? String(index)}
-                  renderItem={makeRenderRow(someday, somedayReorder.isReordering)}
+                  renderItem={makeRenderRow(someday, somedayReorder.isReordering, somedayReorder.moveItem)}
                   onDragStart={somedayReorder.onDragStart}
                   onIndexChange={somedayReorder.onIndexChange}
                   onReorder={somedayReorder.onReorder}

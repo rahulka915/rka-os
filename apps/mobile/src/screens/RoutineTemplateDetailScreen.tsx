@@ -46,7 +46,7 @@ export function RoutineTemplateDetailScreen() {
 
   useFocusEffect(refresh);
 
-  const { onDragStart, onIndexChange, onReorder } = useHapticReorder(listKey, steps, setSteps);
+  const { onDragStart, onIndexChange, onReorder, moveItem } = useHapticReorder(listKey, steps, setSteps);
 
   const handleStart = () => {
     const existing = getActiveRoutineSession(routineId);
@@ -95,7 +95,11 @@ export function RoutineTemplateDetailScreen() {
             <Text style={[styles.rowTitle, { color: palette.text }]} numberOfLines={1}>{item.title}</Text>
             <Text style={[styles.rowSubtitle, { color: palette.textTertiary }]} numberOfLines={1}>{formatStepSummary(meta)}</Text>
           </View>
-          <DragHandleButton color={palette.textMuted} />
+          <DragHandleButton
+            color={palette.textMuted}
+            onMoveUp={() => moveItem(item.id, 'up')}
+            onMoveDown={() => moveItem(item.id, 'down')}
+          />
         </TouchableOpacity>
       </View>
     );

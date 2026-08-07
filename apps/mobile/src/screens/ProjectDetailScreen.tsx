@@ -51,6 +51,8 @@ const ProjectTaskRow = memo(function ProjectTaskRow({
   onComplete,
   onOpen,
   onLongPress,
+  onMoveUp,
+  onMoveDown,
 }: {
   item: Item;
   isDark: boolean;
@@ -62,6 +64,8 @@ const ProjectTaskRow = memo(function ProjectTaskRow({
   onComplete: (item: Item) => void;
   onOpen: (item: Item) => void;
   onLongPress: (item: Item) => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
 }) {
   const blocker = getBlockingTask(item.id);
   return (
@@ -90,7 +94,7 @@ const ProjectTaskRow = memo(function ProjectTaskRow({
             <Text style={[styles.rowTitle, { color: palette.textTertiary, fontSize: 12 }]}>{checklistLabel(item)}</Text>
           )}
         </TouchableOpacity>
-        <DragHandleButton color={palette.textMuted} />
+        <DragHandleButton color={palette.textMuted} onMoveUp={onMoveUp} onMoveDown={onMoveDown} />
       </View>
     </View>
   );
@@ -132,7 +136,7 @@ export function ProjectDetailScreen() {
     emojiInputRef.current?.blur();
   }, [projectId]);
 
-  const { isReordering, onDragStart, onIndexChange, onReorder } = useHapticReorder(listKey, tasks, setTasks);
+  const { isReordering, onDragStart, onIndexChange, onReorder, moveItem } = useHapticReorder(listKey, tasks, setTasks);
 
   useFocusEffect(refresh);
 
@@ -241,6 +245,8 @@ export function ProjectDetailScreen() {
           onComplete: ({ action }) => { if (action !== 'cancelled') refresh(); },
         })}
         onLongPress={handleLongPress}
+        onMoveUp={() => moveItem(item.id, 'up')}
+        onMoveDown={() => moveItem(item.id, 'down')}
       />
     );
   };

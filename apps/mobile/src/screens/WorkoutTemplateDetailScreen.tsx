@@ -66,7 +66,7 @@ export function WorkoutTemplateDetailScreen() {
 
   useFocusEffect(refresh);
 
-  const { onDragStart, onIndexChange, onReorder } = useHapticReorder(
+  const { onDragStart, onIndexChange, onReorder, moveItem } = useHapticReorder(
     listKey,
     rows.map((r) => r.block),
     (nextBlocks) => {
@@ -126,7 +126,11 @@ export function WorkoutTemplateDetailScreen() {
               {formatBlockSummary(parseBlockMeta(row.block.metadata))}
             </Text>
           </View>
-          <DragHandleButton color={palette.textMuted} />
+          <DragHandleButton
+            color={palette.textMuted}
+            onMoveUp={() => moveItem(item.id, 'up')}
+            onMoveDown={() => moveItem(item.id, 'down')}
+          />
         </TouchableOpacity>
       </View>
     );
