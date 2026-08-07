@@ -53,7 +53,15 @@ function loadFirebaseConfig() {
     if (!trimmed || trimmed.startsWith('#')) continue;
     const eq = trimmed.indexOf('=');
     if (eq === -1) continue;
-    vars[trimmed.slice(0, eq).trim()] = trimmed.slice(eq + 1).trim();
+    const key = trimmed.slice(0, eq).trim();
+    let value = trimmed.slice(eq + 1).trim();
+    // .env values are often wrapped in quotes (e.g. KEY="value") — strip a
+    // single matching pair so the literal quote characters don't end up
+    // inside the config value itself.
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    vars[key] = value;
   }
   const cfg = {
     apiKey: vars.EXPO_PUBLIC_FIREBASE_API_KEY,
