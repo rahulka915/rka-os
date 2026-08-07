@@ -81,13 +81,20 @@ export function WorkoutsScreen() {
   return (
     <LensSurface title="Workouts">
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <TouchableOpacity
-          onPress={() => navigation.navigate('ExerciseLibrary' as never)}
-          hitSlop={8}
-          style={styles.libraryLink}
-        >
-          <Text style={[styles.linkText, { color: palette.deeperBlue }]}>Exercise Library →</Text>
-        </TouchableOpacity>
+        <View style={styles.topLinksRow}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('ExerciseLibrary' as never)}
+            hitSlop={8}
+          >
+            <Text style={[styles.linkText, { color: palette.deeperBlue }]}>Exercise Library →</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => (navigation as any).navigate('WorkoutTrends')}
+            hitSlop={8}
+          >
+            <Text style={[styles.linkText, { color: palette.deeperBlue }]}>Trends →</Text>
+          </TouchableOpacity>
+        </View>
         {workouts.length === 0 ? (
           <>
             <Text style={[styles.heading, { color: palette.text }]}>Ready to train?</Text>
@@ -155,7 +162,9 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     gap: 12,
   },
-  libraryLink: {
+  topLinksRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     marginBottom: 4,
   },
   heading: {

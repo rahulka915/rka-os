@@ -14,6 +14,7 @@ import { ExerciseMuscleGroupScreen } from '../screens/ExerciseMuscleGroupScreen'
 import { ExerciseDetailScreen } from '../screens/ExerciseDetailScreen';
 import { WorkoutTemplateDetailScreen } from '../screens/WorkoutTemplateDetailScreen';
 import { WorkoutSessionScreen } from '../screens/WorkoutSessionScreen';
+import { WorkoutTrendsScreen } from '../screens/WorkoutTrendsScreen';
 import { RoutinesScreen } from '../screens/RoutinesScreen';
 import { RoutineTemplateDetailScreen } from '../screens/RoutineTemplateDetailScreen';
 import { RoutineSessionScreen } from '../screens/RoutineSessionScreen';
@@ -47,6 +48,7 @@ export function MenuStack() {
       <Stack.Screen name="ExerciseMuscleGroup" component={ExerciseMuscleGroupScreen} />
       <Stack.Screen name="ExerciseDetail" component={ExerciseDetailScreen} />
       <Stack.Screen name="WorkoutTemplateDetail" component={WorkoutTemplateDetailScreen} />
+      <Stack.Screen name="WorkoutTrends" component={WorkoutTrendsScreen} />
       <Stack.Screen name="WorkoutSession" component={WorkoutSessionScreen} />
       <Stack.Screen name="Routines" component={RoutinesScreen} />
       <Stack.Screen name="RoutineTemplateDetail" component={RoutineTemplateDetailScreen} />
