@@ -8,5 +8,9 @@
     "cli:github": "gh",
     "github:auth": "gh auth status",
     "github:repo": "gh repo view --web=false"
+  },
+  "dependencies": {
+    "firebase": "^12.17.1",
+    "uuid": "^14.0.1"
   }
 }
