@@ -50,6 +50,18 @@ for (var i = 0; i < n; i++) {
 // Largest pieces first, so piece-01 is the most substantial thing on the layer.
 order.sort(function (a, b) { return buckets[b].length - buckets[a].length; });
 
+// A second run must not reuse piece-NN names left by the first, or two items
+// share a name and rename-parts.sh can no longer resolve either of them.
+var taken = {};
+for (var i = 0; i < L.pageItems.length; i++) if (L.pageItems[i].name) taken[L.pageItems[i].name] = true;
+var counter = 0;
+function nextLabel() {
+  var lbl;
+  do { counter++; lbl = 'piece-' + (counter < 10 ? '0' : '') + counter; } while (taken[lbl]);
+  taken[lbl] = true;
+  return lbl;
+}
+
 var out = ['layer=' + LAYER + ' dry=' + DRY,
            'considered=' + n + ' clusters=' + order.length +
            ' skipped: named=' + skipped.named + ' oversized=' + skipped.oversized +
@@ -68,7 +80,7 @@ for (var c = 0; c < order.length; c++) {
     if (m.x1 > x1) x1 = m.x1;
     if (m.y1 < y1) y1 = m.y1;
   }
-  var label = 'piece-' + (c + 1 < 10 ? '0' : '') + (c + 1);
+  var label = nextLabel();
   // items != paths: a cluster member can itself be a group, so count leaves too.
   var lv = 0;
   for (var k = 0; k < idx.length; k++) lv += leaves(items[idx[k]].item);
