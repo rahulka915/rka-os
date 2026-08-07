@@ -46,14 +46,23 @@ export function ExerciseLibraryScreen() {
   };
 
   const handleSubmit = (draft: ExerciseDraft) => {
+    const metadata = {
+      muscleGroup: draft.muscleGroup,
+      muscleGroupDetail: draft.muscleGroupDetail,
+      secondaryMuscleGroups: draft.secondaryMuscleGroups,
+      equipment: draft.equipment,
+      movementFamily: draft.movementFamily ?? inferMovementFamily(draft.title),
+      notes: draft.notes,
+      imageKey: draft.imageKey,
+    };
     if (editTarget) {
-      updateItemMetadata(editTarget.id, { muscleGroup: draft.muscleGroup, equipment: draft.equipment, movementFamily: draft.movementFamily ?? inferMovementFamily(draft.title), notes: draft.notes, imageKey: draft.imageKey });
+      updateItemMetadata(editTarget.id, metadata);
       if (draft.title !== editTarget.title) {
         updateItemTitle(editTarget.id, draft.title);
       }
     } else {
       const id = createItem('exercise', draft.title, 'active');
-      updateItemMetadata(id, { muscleGroup: draft.muscleGroup, equipment: draft.equipment, movementFamily: draft.movementFamily ?? inferMovementFamily(draft.title), notes: draft.notes, imageKey: draft.imageKey });
+      updateItemMetadata(id, metadata);
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     refresh();

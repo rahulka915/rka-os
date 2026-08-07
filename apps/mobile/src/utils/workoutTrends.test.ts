@@ -62,7 +62,10 @@ test('computeMuscleGroupBalance sums volume per muscle group and sorts descendin
     log('2', 'ex-legs', t, { sessionId: 's1', setNumber: 1, reps: 10, weight: 30 }),  // 300 legs
     log('3', 'ex-chest', t, { sessionId: 's1', setNumber: 2, reps: 10, weight: 10 }), // +100 chest = 200
   ];
-  const result = computeMuscleGroupBalance(logs, { 'ex-chest': 'chest', 'ex-legs': 'legs' });
+  const result = computeMuscleGroupBalance(logs, {
+    'ex-chest': [{ group: 'chest', weight: 1 }],
+    'ex-legs': [{ group: 'legs', weight: 1 }],
+  });
   assert.deepEqual(result.map((r) => r.muscleGroup), ['legs', 'chest']);
   assert.equal(result[0].volume, 300);
   assert.equal(result[1].volume, 200);
@@ -70,11 +73,32 @@ test('computeMuscleGroupBalance sums volume per muscle group and sorts descendin
   assert.equal(Math.round(result[1].percent), 40);
 });
 
-test('computeMuscleGroupBalance skips sets whose exercise has no known muscle group', () => {
+test('computeMuscleGroupBalance skips sets whose exercise has no known muscle-group weights', () => {
   const t = Date.now();
   const logs = [log('1', 'unknown-ex', t, { sessionId: 's1', setNumber: 1, reps: 10, weight: 10 })];
   const result = computeMuscleGroupBalance(logs, {});
   assert.deepEqual(result, []);
+});
+
+test('computeMuscleGroupBalance splits a set\'s volume across primary and secondary groups per their weights', () => {
+  const t = Date.now();
+  // Bench Press: primary chest, secondary arms — 70/30 split. Squat: legs only.
+  const logs = [
+    log('1', 'bench', t, { sessionId: 's1', setNumber: 1, reps: 10, weight: 100 }), // 1000 total volume
+    log('2', 'squat', t, { sessionId: 's1', setNumber: 1, reps: 10, weight: 100 }),  // 1000 total volume
+  ];
+  const result = computeMuscleGroupBalance(logs, {
+    bench: [{ group: 'chest', weight: 0.7 }, { group: 'arms', weight: 0.3 }],
+    squat: [{ group: 'legs', weight: 1 }],
+  });
+  const byGroup = Object.fromEntries(result.map((r) => [r.muscleGroup, r.volume]));
+  assert.equal(byGroup.chest, 700);
+  assert.equal(byGroup.arms, 300);
+  assert.equal(byGroup.legs, 1000);
+  // Total volume across groups still equals the real total (1000 + 1000 = 2000),
+  // not double-counted, so percentages still sum to 100%.
+  const totalPercent = result.reduce((sum, r) => sum + r.percent, 0);
+  assert.ok(Math.abs(totalPercent - 100) < 1e-9);
 });
 
 test('computeFrequencyHeatmap returns one entry per day in range with session counts, 0 for rest days', () => {

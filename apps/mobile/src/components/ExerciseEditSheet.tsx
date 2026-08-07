@@ -4,6 +4,7 @@ import * as Haptics from 'expo-haptics';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getItemComposerMaterial, getThemeColors, spacing } from '../theme';
 import { BottomSheet } from './ui/BottomSheet';
+import { X } from '../icons';
 import {
   EQUIPMENT_LABELS,
   EQUIPMENT_OPTIONS,
@@ -12,11 +13,14 @@ import {
   type Equipment,
   type MovementFamily,
   type MuscleGroup,
+  type MuscleGroupAssignment,
 } from '../utils/exerciseLibrary';
 
 export interface ExerciseDraft {
   title: string;
   muscleGroup: MuscleGroup;
+  muscleGroupDetail?: string;
+  secondaryMuscleGroups?: MuscleGroupAssignment[];
   equipment?: Equipment;
   movementFamily?: MovementFamily;
   notes?: string;
@@ -38,6 +42,8 @@ export function ExerciseEditSheet({ visible, initialValue, onClose, onSubmit }: 
   const material = getItemComposerMaterial(isDark);
   const [title, setTitle] = useState('');
   const [muscleGroup, setMuscleGroup] = useState<MuscleGroup>('full-body');
+  const [muscleGroupDetail, setMuscleGroupDetail] = useState('');
+  const [secondaryGroups, setSecondaryGroups] = useState<MuscleGroupAssignment[]>([]);
   const [equipment, setEquipment] = useState<Equipment | undefined>(undefined);
   const [notes, setNotes] = useState('');
   const inputRef = useRef<TextInput>(null);
@@ -47,6 +53,8 @@ export function ExerciseEditSheet({ visible, initialValue, onClose, onSubmit }: 
     const draft = initialValue ?? EMPTY_DRAFT;
     setTitle(draft.title);
     setMuscleGroup(draft.muscleGroup);
+    setMuscleGroupDetail(draft.muscleGroupDetail ?? '');
+    setSecondaryGroups(draft.secondaryMuscleGroups ?? []);
     setEquipment(draft.equipment);
     setNotes(draft.notes ?? '');
     const t = setTimeout(() => inputRef.current?.focus(), 0);
@@ -54,11 +62,54 @@ export function ExerciseEditSheet({ visible, initialValue, onClose, onSubmit }: 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
+  // Switching primary away from a group already used as a secondary would
+  // create a duplicate assignment — drop that secondary row rather than let
+  // it silently collide (parseExerciseMeta would drop it on next read anyway,
+  // this just keeps what's on screen consistent with what gets saved).
+  const handleSelectPrimary = (group: MuscleGroup) => {
+    Haptics.selectionAsync();
+    setMuscleGroup(group);
+    setSecondaryGroups((prev) => prev.filter((s) => s.group !== group));
+  };
+
+  const addSecondaryGroup = () => {
+    const used = new Set([muscleGroup, ...secondaryGroups.map((s) => s.group)]);
+    const next = MUSCLE_GROUPS.find((g) => !used.has(g));
+    if (!next) return;
+    Haptics.selectionAsync();
+    setSecondaryGroups((prev) => [...prev, { group: next }]);
+  };
+
+  const updateSecondaryGroup = (index: number, group: MuscleGroup) => {
+    Haptics.selectionAsync();
+    setSecondaryGroups((prev) => prev.map((s, i) => (i === index ? { ...s, group } : s)));
+  };
+
+  const updateSecondaryDetail = (index: number, detail: string) => {
+    setSecondaryGroups((prev) => prev.map((s, i) => (i === index ? { ...s, detail } : s)));
+  };
+
+  const removeSecondaryGroup = (index: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSecondaryGroups((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const handleSave = () => {
     const trimmedTitle = title.trim();
     if (!trimmedTitle) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    onSubmit({ title: trimmedTitle, muscleGroup, equipment, notes: notes.trim() || undefined, imageKey: initialValue?.imageKey });
+    const cleanedSecondaries = secondaryGroups
+      .filter((s) => s.group !== muscleGroup)
+      .map((s) => ({ group: s.group, ...(s.detail?.trim() ? { detail: s.detail.trim() } : {}) }));
+    onSubmit({
+      title: trimmedTitle,
+      muscleGroup,
+      muscleGroupDetail: muscleGroupDetail.trim() || undefined,
+      secondaryMuscleGroups: cleanedSecondaries.length > 0 ? cleanedSecondaries : undefined,
+      equipment,
+      notes: notes.trim() || undefined,
+      imageKey: initialValue?.imageKey,
+    });
     onClose();
   };
 
@@ -127,6 +178,68 @@ export function ExerciseEditSheet({ visible, initialValue, onClose, onSubmit }: 
           );
         })}
       </ScrollView>
+      <TextInput
+        style={[styles.detailInput, { color: palette.text, borderColor: material.rim }]}
+        placeholder="Sub-region detail, optional (e.g. upper, long head)"
+        placeholderTextColor={palette.textTertiary}
+        value={muscleGroupDetail}
+        onChangeText={setMuscleGroupDetail}
+        keyboardAppearance={isDark ? 'dark' : 'light'}
+      />
+
+      <View style={styles.secondaryHeaderRow}>
+        <Text style={[styles.sectionLabel, styles.sectionLabelNoMargin, { color: palette.textTertiary }]}>
+          SECONDARY MUSCLE GROUPS
+        </Text>
+        {secondaryGroups.length < MUSCLE_GROUPS.length - 1 && (
+          <TouchableOpacity onPress={addSecondaryGroup} hitSlop={8}>
+            <Text style={[styles.addSecondaryText, { color: material.accent }]}>+ Add</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+      {secondaryGroups.length === 0 ? (
+        <Text style={[styles.emptyText, { color: palette.textTertiary }]}>
+          None — this exercise counts fully toward its primary group in Muscle Balance.
+        </Text>
+      ) : (
+        secondaryGroups.map((secondary, index) => (
+          <View key={index} style={styles.secondaryRow}>
+            <View style={styles.secondaryRowTop}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow} contentContainerStyle={styles.chipRowContent}>
+                {MUSCLE_GROUPS.filter((g) => g === secondary.group || (g !== muscleGroup && !secondaryGroups.some((s, i) => i !== index && s.group === g))).map((group) => {
+                  const selected = secondary.group === group;
+                  return (
+                    <TouchableOpacity
+                      key={group}
+                      style={[
+                        styles.chip,
+                        { borderColor: material.rim },
+                        selected && { backgroundColor: material.accent, borderColor: material.accent },
+                      ]}
+                      onPress={() => updateSecondaryGroup(index, group)}
+                    >
+                      <Text style={[styles.chipText, { color: selected ? material.onAccent : palette.text }]}>
+                        {MUSCLE_GROUP_LABELS[group]}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+              <TouchableOpacity onPress={() => removeSecondaryGroup(index)} hitSlop={8} style={styles.removeBtn}>
+                <X size={16} color={palette.textTertiary} strokeWidth={2} />
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              style={[styles.detailInput, { color: palette.text, borderColor: material.rim }]}
+              placeholder="Sub-region detail, optional"
+              placeholderTextColor={palette.textTertiary}
+              value={secondary.detail ?? ''}
+              onChangeText={(text) => updateSecondaryDetail(index, text)}
+              keyboardAppearance={isDark ? 'dark' : 'light'}
+            />
+          </View>
+        ))
+      )}
 
       <Text style={[styles.sectionLabel, { color: palette.textTertiary }]}>EQUIPMENT</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow} contentContainerStyle={styles.chipRowContent}>
@@ -227,4 +340,24 @@ const styles = StyleSheet.create({
     minHeight: 60,
     textAlignVertical: 'top',
   },
+  detailInput: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 8,
+    fontSize: 13,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginTop: 6,
+  },
+  secondaryHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 12,
+  },
+  sectionLabelNoMargin: { marginTop: 0, marginBottom: 0 },
+  addSecondaryText: { fontSize: 13, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
+  emptyText: { fontSize: 12, fontFamily: 'Inter_400Regular', marginTop: 6, lineHeight: 17 },
+  secondaryRow: { marginTop: 10 },
+  secondaryRowTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  removeBtn: { padding: 4 },
 });

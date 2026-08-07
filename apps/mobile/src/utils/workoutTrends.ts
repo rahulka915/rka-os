@@ -1,7 +1,7 @@
 // apps/mobile/src/utils/workoutTrends.ts
 import type { ActivityLog } from '../db/types';
 import { parseSetLogDetails } from './workoutSet.ts';
-import type { MuscleGroup } from './exerciseLibrary';
+import type { MuscleGroup, MuscleGroupWeight } from './exerciseLibrary';
 
 export interface ExerciseProgressionPoint {
   sessionDate: number;
@@ -91,23 +91,31 @@ export interface MuscleGroupVolume {
 }
 
 // Sums volume per muscle group across sets, using the caller-supplied
-// exerciseId -> muscleGroup lookup (sets for an exercise not in the map are
-// skipped — e.g. the exercise was deleted after logging). Sorted descending
-// by volume so the highest-volume group renders first.
+// exerciseId -> muscle-group-weights lookup (from exerciseLibrary's
+// getMuscleGroupWeights — sets for an exercise not in the map are skipped,
+// e.g. the exercise was deleted after logging). An exercise with only a
+// primary group contributes its full set volume there, same as before;
+// an exercise with secondary groups splits each set's volume across all
+// its assigned groups per their weights (primary 70%, secondaries share
+// the remaining 30%), so the sum of every group's volume still equals the
+// total volume logged and percentages still sum to ~100%. Sorted
+// descending by volume so the highest-volume group renders first.
 export function computeMuscleGroupBalance(
   logs: ActivityLog[],
-  exerciseMuscleGroupById: Record<string, MuscleGroup>
+  exerciseGroupWeightsById: Record<string, MuscleGroupWeight[]>
 ): MuscleGroupVolume[] {
   const volumeByGroup = new Map<MuscleGroup, number>();
   let total = 0;
 
   for (const log of logs) {
-    const muscleGroup = exerciseMuscleGroupById[log.entityId];
-    if (!muscleGroup) continue;
+    const weights = exerciseGroupWeightsById[log.entityId];
+    if (!weights || weights.length === 0) continue;
     const set = parseSetLogDetails(log.details);
     if (!set) continue;
     const volume = set.reps * set.weight;
-    volumeByGroup.set(muscleGroup, (volumeByGroup.get(muscleGroup) ?? 0) + volume);
+    for (const { group, weight } of weights) {
+      volumeByGroup.set(group, (volumeByGroup.get(group) ?? 0) + volume * weight);
+    }
     total += volume;
   }
 

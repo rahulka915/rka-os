@@ -79,12 +79,46 @@ export function inferMovementFamily(title: string): MovementFamily | 'other' {
   return MOVEMENT_FAMILY_RULES.find(([, pattern]) => pattern.test(title))?.[0] ?? 'other';
 }
 
+// A secondary muscle-group assignment: the group itself plus an optional
+// free-text sub-region label (e.g. "long head", "upper"). The label is
+// descriptive only — it never creates a new bucket in the Muscle Balance
+// chart, which stays at the 8 MUSCLE_GROUPS regardless of how much detail an
+// exercise records.
+export interface MuscleGroupAssignment {
+  group: MuscleGroup;
+  detail?: string;
+}
+
 export interface ExerciseMeta {
-  muscleGroup: MuscleGroup;
+  muscleGroup: MuscleGroup; // primary group — unchanged field/semantics, full back-compat with every existing exercise
+  muscleGroupDetail?: string; // optional sub-region label on the primary group
+  secondaryMuscleGroups?: MuscleGroupAssignment[]; // zero or more secondary groups; absent/empty = single-primary, unchanged behavior
   equipment?: Equipment;
   movementFamily?: MovementFamily;
   notes?: string;
   imageKey?: string;
+}
+
+// Primary gets the larger, fixed share of a set's volume; any secondary
+// groups split the remainder evenly. An exercise with no secondaries (the
+// default for every existing/imported exercise) is unaffected — primary
+// gets the full 1.0 weight, identical to today's single-muscle-group
+// behavior.
+const PRIMARY_VOLUME_WEIGHT = 0.7;
+
+export interface MuscleGroupWeight {
+  group: MuscleGroup;
+  weight: number;
+}
+
+export function getMuscleGroupWeights(meta: ExerciseMeta): MuscleGroupWeight[] {
+  const secondaries = meta.secondaryMuscleGroups ?? [];
+  if (secondaries.length === 0) return [{ group: meta.muscleGroup, weight: 1 }];
+  const secondaryWeight = (1 - PRIMARY_VOLUME_WEIGHT) / secondaries.length;
+  return [
+    { group: meta.muscleGroup, weight: PRIMARY_VOLUME_WEIGHT },
+    ...secondaries.map((s) => ({ group: s.group, weight: secondaryWeight })),
+  ];
 }
 
 export const MUSCLE_GROUPS: MuscleGroup[] = ['chest', 'back', 'shoulders', 'arms', 'legs', 'core', 'full-body', 'cardio'];
@@ -121,6 +155,19 @@ export function parseExerciseMeta(metadata?: string): ExerciseMeta {
     const parsed = JSON.parse(metadata);
     const muscleGroup: MuscleGroup = MUSCLE_GROUPS.includes(parsed.muscleGroup) ? parsed.muscleGroup : 'full-body';
     const meta: ExerciseMeta = { muscleGroup };
+    if (typeof parsed.muscleGroupDetail === 'string' && parsed.muscleGroupDetail.trim()) {
+      meta.muscleGroupDetail = parsed.muscleGroupDetail.trim();
+    }
+    if (Array.isArray(parsed.secondaryMuscleGroups)) {
+      const secondaries: MuscleGroupAssignment[] = parsed.secondaryMuscleGroups
+        .filter((s: unknown): s is { group: unknown; detail?: unknown } => typeof s === 'object' && s !== null)
+        .filter((s: { group: unknown }) => MUSCLE_GROUPS.includes(s.group as MuscleGroup) && s.group !== muscleGroup)
+        .map((s: { group: unknown; detail?: unknown }) => ({
+          group: s.group as MuscleGroup,
+          ...(typeof s.detail === 'string' && s.detail.trim() ? { detail: s.detail.trim() } : {}),
+        }));
+      if (secondaries.length > 0) meta.secondaryMuscleGroups = secondaries;
+    }
     if (EQUIPMENT_OPTIONS.includes(parsed.equipment)) meta.equipment = parsed.equipment;
     if (typeof parsed.movementFamily === 'string' && parsed.movementFamily in MOVEMENT_FAMILY_LABELS) {
       meta.movementFamily = parsed.movementFamily as MovementFamily;
@@ -134,7 +181,10 @@ export function parseExerciseMeta(metadata?: string): ExerciseMeta {
 }
 
 export function formatExerciseSubtitle(meta: ExerciseMeta): string {
-  const parts = [MUSCLE_GROUP_LABELS[meta.muscleGroup]];
+  const primaryLabel = meta.muscleGroupDetail
+    ? `${MUSCLE_GROUP_LABELS[meta.muscleGroup]} (${meta.muscleGroupDetail})`
+    : MUSCLE_GROUP_LABELS[meta.muscleGroup];
+  const parts = [primaryLabel];
   if (meta.equipment) parts.push(EQUIPMENT_LABELS[meta.equipment]);
   return parts.join(' · ');
 }

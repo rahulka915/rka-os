@@ -38,7 +38,14 @@ export function ExerciseDetailScreen() {
   useFocusEffect(load);
 
   const handleSubmit = (draft: ExerciseDraft) => {
-    updateItemMetadata(exerciseId, { muscleGroup: draft.muscleGroup, equipment: draft.equipment, notes: draft.notes, imageKey: draft.imageKey });
+    updateItemMetadata(exerciseId, {
+      muscleGroup: draft.muscleGroup,
+      muscleGroupDetail: draft.muscleGroupDetail,
+      secondaryMuscleGroups: draft.secondaryMuscleGroups,
+      equipment: draft.equipment,
+      notes: draft.notes,
+      imageKey: draft.imageKey,
+    });
     if (item && draft.title !== item.title) {
       updateItemTitle(exerciseId, draft.title);
     }

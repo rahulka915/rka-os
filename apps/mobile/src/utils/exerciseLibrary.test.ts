@@ -7,6 +7,7 @@ import {
   groupExercisesByMuscle,
   filterExercisesByQuery,
   pickGroupThumbnailImageKey,
+  getMuscleGroupWeights,
   MUSCLE_GROUPS,
 } from './exerciseLibrary.ts';
 import * as exerciseLibrary from './exerciseLibrary.ts';
@@ -43,6 +44,69 @@ test('parseExerciseMeta reads valid fields and drops invalid ones', () => {
 test('formatExerciseSubtitle joins muscle group and equipment', () => {
   assert.equal(formatExerciseSubtitle({ muscleGroup: 'chest', equipment: 'barbell' }), 'Chest · Barbell');
   assert.equal(formatExerciseSubtitle({ muscleGroup: 'core' }), 'Core');
+});
+
+test('formatExerciseSubtitle appends the primary sub-region detail in parens', () => {
+  assert.equal(
+    formatExerciseSubtitle({ muscleGroup: 'chest', muscleGroupDetail: 'upper', equipment: 'barbell' }),
+    'Chest (upper) · Barbell',
+  );
+});
+
+test('parseExerciseMeta reads secondaryMuscleGroups, dropping invalid groups and a duplicate of the primary', () => {
+  const meta = parseExerciseMeta(JSON.stringify({
+    muscleGroup: 'chest',
+    muscleGroupDetail: 'upper',
+    secondaryMuscleGroups: [
+      { group: 'arms', detail: 'triceps — long head' },
+      { group: 'shoulders' },
+      { group: 'chest' }, // duplicate of primary, must be dropped
+      { group: 'not-a-group' }, // invalid, must be dropped
+    ],
+  }));
+  assert.deepEqual(meta, {
+    muscleGroup: 'chest',
+    muscleGroupDetail: 'upper',
+    secondaryMuscleGroups: [
+      { group: 'arms', detail: 'triceps — long head' },
+      { group: 'shoulders' },
+    ],
+  });
+});
+
+test('parseExerciseMeta omits secondaryMuscleGroups entirely when the array is empty or fully invalid', () => {
+  assert.deepEqual(
+    parseExerciseMeta(JSON.stringify({ muscleGroup: 'chest', secondaryMuscleGroups: [] })),
+    { muscleGroup: 'chest' },
+  );
+  assert.deepEqual(
+    parseExerciseMeta(JSON.stringify({ muscleGroup: 'chest', secondaryMuscleGroups: [{ group: 'chest' }] })),
+    { muscleGroup: 'chest' },
+  );
+});
+
+test('getMuscleGroupWeights gives the primary 100% when there are no secondaries', () => {
+  assert.deepEqual(getMuscleGroupWeights({ muscleGroup: 'chest' }), [{ group: 'chest', weight: 1 }]);
+});
+
+test('getMuscleGroupWeights splits 70/30 between primary and one secondary', () => {
+  const weights = getMuscleGroupWeights({ muscleGroup: 'chest', secondaryMuscleGroups: [{ group: 'arms' }] });
+  assert.equal(weights.length, 2);
+  assert.equal(weights[0].group, 'chest');
+  assert.ok(Math.abs(weights[0].weight - 0.7) < 1e-9);
+  assert.equal(weights[1].group, 'arms');
+  assert.ok(Math.abs(weights[1].weight - 0.3) < 1e-9);
+});
+
+test('getMuscleGroupWeights splits the remaining 30% evenly across multiple secondaries', () => {
+  const weights = getMuscleGroupWeights({ muscleGroup: 'chest', secondaryMuscleGroups: [{ group: 'arms' }, { group: 'shoulders' }] });
+  assert.equal(weights.length, 3);
+  assert.equal(weights[0].group, 'chest');
+  assert.ok(Math.abs(weights[0].weight - 0.7) < 1e-9);
+  assert.equal(weights[1].group, 'arms');
+  assert.ok(Math.abs(weights[1].weight - 0.15) < 1e-9);
+  assert.equal(weights[2].group, 'shoulders');
+  assert.ok(Math.abs(weights[2].weight - 0.15) < 1e-9);
 });
 
 test('groupExercisesByMuscle buckets, sorts alphabetically, and drops empty groups', () => {

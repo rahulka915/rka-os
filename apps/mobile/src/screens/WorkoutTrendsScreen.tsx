@@ -16,7 +16,7 @@ import {
   computeVolumeByPeriod,
   computeMuscleGroupBalance,
 } from '../utils/workoutTrends';
-import { parseExerciseMeta } from '../utils/exerciseLibrary';
+import { parseExerciseMeta, getMuscleGroupWeights } from '../utils/exerciseLibrary';
 import { parseSetLogDetails } from '../utils/workoutSet';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -92,10 +92,10 @@ export function WorkoutTrendsScreen() {
   const monthlyVolume = useMemo(() => computeVolumeByPeriod(setLogsInRange, 'month'), [setLogsInRange]);
 
   const muscleBalance = useMemo(() => {
-    const exerciseMuscleGroupById = Object.fromEntries(
-      exercises.map((item) => [item.id, parseExerciseMeta(item.metadata).muscleGroup])
+    const exerciseGroupWeightsById = Object.fromEntries(
+      exercises.map((item) => [item.id, getMuscleGroupWeights(parseExerciseMeta(item.metadata))])
     );
-    return computeMuscleGroupBalance(setLogsInRange, exerciseMuscleGroupById);
+    return computeMuscleGroupBalance(setLogsInRange, exerciseGroupWeightsById);
   }, [setLogsInRange, exercises]);
 
   return (
