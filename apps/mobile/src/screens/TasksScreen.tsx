@@ -1,9 +1,10 @@
-import { useEffect, useState, memo } from 'react';
+import { useCallback, useEffect, useMemo, useState, memo } from 'react';
 import { View, Text, TouchableOpacity, Alert, StyleSheet } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { ScrollViewContainer, NestedReorderableList } from 'react-native-reorderable-list';
+import { runOnJS } from 'react-native-reanimated';
+import ReorderableList, { ScrollViewContainer, reorderItems } from 'react-native-reorderable-list';
 import { useTasks, useProjects, useCompletedItems } from '../hooks/useDb';
-import { deleteItem, updateItemStatus, setRelation, getRelation, getBlockingTask, applyManualOrder, planForToday, unplanToday, isPlannedForToday } from '../db/database';
+import { deleteItem, updateItemStatus, setRelation, getRelation, getBlockingTask, applyManualOrder, setManualOrder, planForToday, unplanToday, isPlannedForToday } from '../db/database';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
 import { LensSurface } from '../components/LensSurface';
@@ -23,9 +24,7 @@ import { RepeatBadge } from '../components/RepeatBadge';
 import { DependencyConnector } from '../components/DependencyConnector';
 import { promptSetDependency } from '../utils/dependencyPrompt';
 import { showActionSheet } from '../utils/actionSheet';
-import { useHapticReorder } from '../hooks/useHapticReorder';
 import { readChecklist, checklistProgress } from '../utils/checklist';
-import { nonVirtualizedListProps } from '../utils/nestedReorderableListProps';
 
 // Item-local, so it never makes a row's height depend on list position.
 function checklistLabel(item: Item): string | null {
@@ -38,6 +37,41 @@ function checklistLabel(item: Item): string | null {
 const CHECKBOX_CENTER_X = 32; // row paddingHorizontal(10) + half the 44pt disc touch target
 
 type TasksTab = 'tasks' | 'logbook';
+
+// Active and Someday used to be two separate NestedReorderableLists inside
+// one ScrollViewContainer — structurally correct per the library's own
+// design, but React Native's generic nested-VirtualizedList detector still
+// flagged it (it can't see the library's internal scroll coordination), and
+// in practice this combo produced real row-ghosting glitches, not just
+// console noise. Flattened into ONE root-level ReorderableList instead —
+// the same standalone pattern already used safely by ProjectDetailScreen —
+// with section labels as non-draggable rows in the same array. A dragged
+// task can never cross into the other section because DragHandleButton only
+// exists on task rows (headers have no handle, so can't initiate a drag)
+// and commitReorder clamps any drop index to the dragged row's own section.
+const HEADER_ACTIVE_ID = 'header:active';
+const HEADER_SOMEDAY_ID = 'header:someday';
+
+type TaskRowEntry =
+  | { id: string; kind: 'header'; label: string }
+  | { id: string; kind: 'task'; item: Item };
+
+function buildRows(active: Item[], someday: Item[]): TaskRowEntry[] {
+  const rows: TaskRowEntry[] = [];
+  if (active.length > 0) {
+    rows.push({ id: HEADER_ACTIVE_ID, kind: 'header', label: 'ACTIVE' });
+    for (const item of active) rows.push({ id: item.id, kind: 'task', item });
+  }
+  if (someday.length > 0) {
+    rows.push({ id: HEADER_SOMEDAY_ID, kind: 'header', label: 'SOMEDAY' });
+    for (const item of someday) rows.push({ id: item.id, kind: 'task', item });
+  }
+  return rows;
+}
+
+function tickHaptic() {
+  Haptics.selectionAsync();
+}
 
 const TaskRow = memo(function TaskRow({
   item,
@@ -104,6 +138,14 @@ const TaskRow = memo(function TaskRow({
   );
 });
 
+const SectionHeaderRow = memo(function SectionHeaderRow({ label, palette }: { label: string; palette: ReturnType<typeof getThemeColors> }) {
+  return (
+    <View style={styles.sectionHeaderCell}>
+      <Text style={[styles.sectionLabel, { color: palette.greige }]}>{label}</Text>
+    </View>
+  );
+});
+
 // No header "+" here — creating a plain task is identical to the dock FAB's
 // default action (see App.tsx, which defaults to status:
 // 'active' when focused on this screen). A second create entry point here
@@ -125,18 +167,84 @@ export function TasksScreen() {
   }, [composerRevision, refresh, refreshCompleted]);
 
   // Local, manually-orderable copies of the two sections — re-derived from
-  // `tasks` (owned by useTasks) whenever it changes, then drag-reordered
-  // in place via useHapticReorder, same pattern as ProjectDetailScreen.
+  // `tasks` (owned by useTasks) whenever it changes. `rows` is a pure,
+  // memoized projection of these two arrays into one flat list for
+  // rendering/reordering; it is never a separate source of truth.
   const [active, setActive] = useState<Item[]>([]);
   const [someday, setSomeday] = useState<Item[]>([]);
+  const [isReordering, setIsReordering] = useState(false);
 
   useEffect(() => {
     setActive(applyManualOrder('tasks:active', tasks.filter(t => t.status !== 'someday')));
     setSomeday(applyManualOrder('tasks:someday', tasks.filter(t => t.status === 'someday')));
   }, [tasks]);
 
-  const activeReorder = useHapticReorder('tasks:active', active, setActive);
-  const somedayReorder = useHapticReorder('tasks:someday', someday, setSomeday);
+  const rows = useMemo(() => buildRows(active, someday), [active, someday]);
+
+  const beginReorder = useCallback(() => {
+    setIsReordering(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  }, []);
+
+  const onDragStart = useCallback(() => {
+    'worklet';
+    runOnJS(beginReorder)();
+  }, [beginReorder]);
+
+  const onIndexChange = useCallback(() => {
+    'worklet';
+    runOnJS(tickHaptic)();
+  }, []);
+
+  // Shared by both drag-drop (onReorder) and VoiceOver's move-up/down
+  // actions. Clamps `to` inside the dragged row's own section — headers
+  // have no drag handle so `from` should never legitimately be one, but the
+  // clamp makes crossing into the other section structurally impossible
+  // either way, not just handle-gated.
+  const commitReorder = useCallback((from: number, to: number) => {
+    const fromRow = rows[from];
+    if (!fromRow || fromRow.kind !== 'task') return;
+
+    let sectionStart = 0;
+    for (let i = from - 1; i >= 0; i--) {
+      if (rows[i].kind === 'header') { sectionStart = i + 1; break; }
+    }
+    let sectionEnd = rows.length - 1;
+    for (let i = from + 1; i < rows.length; i++) {
+      if (rows[i].kind === 'header') { sectionEnd = i - 1; break; }
+    }
+    const clampedTo = Math.min(Math.max(to, sectionStart), sectionEnd);
+    if (clampedTo === from) return;
+
+    const nextRows = reorderItems(rows, from, clampedTo);
+    const sectionTaskItems = nextRows
+      .slice(sectionStart, sectionEnd + 1)
+      .filter((r): r is Extract<TaskRowEntry, { kind: 'task' }> => r.kind === 'task')
+      .map((r) => r.item);
+
+    const headerRow = rows[sectionStart - 1];
+    if (headerRow?.kind === 'header' && headerRow.id === HEADER_ACTIVE_ID) {
+      setActive(sectionTaskItems);
+      setManualOrder('tasks:active', sectionTaskItems.map((i) => i.id));
+    } else {
+      setSomeday(sectionTaskItems);
+      setManualOrder('tasks:someday', sectionTaskItems.map((i) => i.id));
+    }
+  }, [rows]);
+
+  const onReorder = useCallback(({ from, to }: { from: number; to: number }) => {
+    setIsReordering(false);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    commitReorder(from, to);
+  }, [commitReorder]);
+
+  const moveTask = useCallback((itemId: string, direction: 'up' | 'down') => {
+    const from = rows.findIndex((r) => r.kind === 'task' && r.item.id === itemId);
+    if (from === -1) return;
+    const to = direction === 'up' ? from - 1 : from + 1;
+    Haptics.selectionAsync();
+    commitReorder(from, to);
+  }, [rows, commitReorder]);
 
   const getProjectTitle = (item: Item): string | null => {
     const id = getRelation(item.id, 'project');
@@ -238,16 +346,21 @@ export function TasksScreen() {
     }, LACQUER_DISC_COMPLETION_DURATION);
   };
 
-  // Factory rather than one shared render function — each section (Active,
-  // Someday) is its own manually-orderable list with its own live array and
-  // isReordering flag. Row HEIGHT is a pure function of the item (uniform
-  // cell gap + badge keyed off the item's own blocker), never of position.
-  // The connector line is a zero-layout overlay, hidden during a drag.
-  const makeRenderRow = (list: Item[], isReordering: boolean, moveItem: (itemId: string, direction: 'up' | 'down') => void) => ({ item }: { item: Item }) => {
+  // Row HEIGHT is a pure function of the row (uniform cell gap + badge keyed
+  // off the item's own blocker), never of position. The connector line is a
+  // zero-layout overlay, hidden during a drag. Adjacency for the connector
+  // only looks at the previous TASK row (skipping past a header), so it
+  // never spans a section boundary.
+  const renderRow = ({ item: row }: { item: TaskRowEntry }) => {
+    if (row.kind === 'header') {
+      return <SectionHeaderRow label={row.label} palette={palette} />;
+    }
+    const item = row.item;
     const projectTitle = getProjectTitle(item);
     const blocker = getBlockingTask(item.id);
-    const index = list.findIndex((t) => t.id === item.id);
-    const prevItem = list[index - 1];
+    const index = rows.findIndex((r) => r.id === row.id);
+    const prevRow = rows[index - 1];
+    const prevItem = prevRow?.kind === 'task' ? prevRow.item : null;
     // Adjacency can run either way depending on creation order — the blocker
     // isn't always the row directly above; it can be the row directly below
     // instead (its own blocker points back up at us).
@@ -273,8 +386,8 @@ export function TasksScreen() {
           },
         })}
         onLongPress={handleLongPress}
-        onMoveUp={() => moveItem(item.id, 'up')}
-        onMoveDown={() => moveItem(item.id, 'down')}
+        onMoveUp={() => moveTask(item.id, 'up')}
+        onMoveDown={() => moveTask(item.id, 'down')}
       />
     );
   };
@@ -351,38 +464,20 @@ export function TasksScreen() {
             <Text style={[styles.emptySub, { color: palette.greige }]}>Tap the + in the dock to create one</Text>
           </View>
         ) : (
-          <ScrollViewContainer contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
-            {active.length > 0 && (
-              <View style={[styles.section, activeReorder.isReordering && styles.sectionDragging]}>
-                <Text style={[styles.sectionLabel, { color: palette.greige }]}>ACTIVE</Text>
-                <NestedReorderableList
-                  data={active}
-                  keyExtractor={(item, index) => item?.id ?? String(index)}
-                  renderItem={makeRenderRow(active, activeReorder.isReordering, activeReorder.moveItem)}
-                  onDragStart={activeReorder.onDragStart}
-                  onIndexChange={activeReorder.onIndexChange}
-                  onReorder={activeReorder.onReorder}
-                  scrollable={false}
-                  {...nonVirtualizedListProps(active.length)}
-                />
-              </View>
-            )}
-            {someday.length > 0 && (
-              <View style={[styles.section, somedayReorder.isReordering && styles.sectionDragging]}>
-                <Text style={[styles.sectionLabel, { color: palette.greige }]}>SOMEDAY</Text>
-                <NestedReorderableList
-                  data={someday}
-                  keyExtractor={(item, index) => item?.id ?? String(index)}
-                  renderItem={makeRenderRow(someday, somedayReorder.isReordering, somedayReorder.moveItem)}
-                  onDragStart={somedayReorder.onDragStart}
-                  onIndexChange={somedayReorder.onIndexChange}
-                  onReorder={somedayReorder.onReorder}
-                  scrollable={false}
-                  {...nonVirtualizedListProps(someday.length)}
-                />
-              </View>
-            )}
-          </ScrollViewContainer>
+          // A single root-level ReorderableList — not nested inside any
+          // ScrollView — replaces the old two-NestedReorderableLists-inside-
+          // ScrollViewContainer structure. Same standalone pattern as
+          // ProjectDetailScreen; this list IS the screen's scroll container.
+          <ReorderableList
+            data={rows}
+            keyExtractor={(row) => row.id}
+            renderItem={renderRow}
+            onDragStart={onDragStart}
+            onIndexChange={onIndexChange}
+            onReorder={onReorder}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+          />
         )
       ) : completedGroups.length === 0 ? (
         <View style={styles.empty}>
@@ -412,11 +507,9 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: 20,
   },
-  // Applied only to the section being reordered: the two sections are
-  // siblings, so without this a row dragged in Active paints under the
-  // Someday section below it.
-  sectionDragging: {
-    zIndex: 10,
+  sectionHeaderCell: {
+    marginBottom: 8,
+    marginTop: 12,
   },
   sectionLabel: {
     fontSize: 11,
@@ -424,7 +517,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_700Bold',
     letterSpacing: 0.6,
     textTransform: 'uppercase',
-    marginBottom: 8,
     paddingHorizontal: 4,
   },
   sectionRows: {
