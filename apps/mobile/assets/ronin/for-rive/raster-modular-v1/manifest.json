@@ -1,0 +1,62 @@
+{
+  "status": "assembly_candidate_requires_rive_pose_validation",
+  "sourceReference": "../../../model/ronin-cat-side-style-reference-v3.png",
+  "format": "transparent PNG",
+  "generationMethod": "identity-preserving raster generation on chroma-key sheets, followed by local alpha extraction",
+  "assemblyGuide": "assembly-guide.png",
+  "visualInventory": "contact-sheet.png",
+  "generationPromptRecord": "generation-prompts.md",
+  "targetArtboard": "Journey",
+  "targetStateMachine": "Journey Controller",
+  "importOrderBackToFront": [
+    "backpack.png",
+    "rear-upper-arm.png",
+    "rear-forearm.png",
+    "rear-hand.png",
+    "rear-thigh.png",
+    "rear-shin.png",
+    "rear-boot.png",
+    "torso-hips.png",
+    "front-thigh.png",
+    "front-shin.png",
+    "front-boot.png",
+    "front-upper-arm.png",
+    "front-forearm.png",
+    "front-hand.png",
+    "waist-sash.png",
+    "scabbard.png",
+    "sword.png",
+    "head-face.png",
+    "rear-hair.png",
+    "front-hair.png",
+    "headband-band.png",
+    "headband-tail-rear.png",
+    "headband-tail-front.png"
+  ],
+  "parts": {
+    "core": ["torso-hips.png", "head-face.png", "backpack.png", "waist-sash.png"],
+    "rearArm": ["rear-upper-arm.png", "rear-forearm.png", "rear-hand.png"],
+    "frontArm": ["front-upper-arm.png", "front-forearm.png", "front-hand.png"],
+    "rearLeg": ["rear-thigh.png", "rear-shin.png", "rear-boot.png"],
+    "frontLeg": ["front-thigh.png", "front-shin.png", "front-boot.png"],
+    "hairAndHeadband": ["rear-hair.png", "front-hair.png", "headband-band.png", "headband-tail-rear.png", "headband-tail-front.png"],
+    "weapon": ["sword.png", "scabbard.png"]
+  },
+  "recommendedPivots": {
+    "upperArms": "center of painted shoulder socket",
+    "forearms": "center of upper overlap opening",
+    "hands": "center of wrist overlap",
+    "thighs": "center of painted hip socket",
+    "shins": "center of upper knee overlap opening",
+    "boots": "center of ankle opening",
+    "head": "base-center of neck",
+    "headbandTails": "center of knot end"
+  },
+  "limitations": [
+    "This is an approximately 95-percent identity match, not a pixel-identical reconstruction.",
+    "The torso core includes concealed upper-leg socket stubs; keep them behind the independent thighs.",
+    "The head-face candidate includes some hair and headband pixels. Use the separate hair pieces only after visual overlap testing.",
+    "The first Rive assembly needs scale and seam tuning before animation authoring.",
+    "The cat is intentionally excluded and remains on the existing source until a separate modular cat pass."
+  ]
+}

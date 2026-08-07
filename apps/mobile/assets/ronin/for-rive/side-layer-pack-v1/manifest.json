@@ -1,0 +1,56 @@
+{
+  "status": "coarse_import_pack_requires_contour_separation_for_deformation",
+  "source": "../../side-view-vector-only.svg",
+  "viewBox": "0 0 1255 1255",
+  "importOrderBackToFront": [
+    "cat.svg",
+    "legs-and-boots.svg",
+    "hair-and-headband.svg",
+    "torso-and-sash.svg",
+    "face-and-front-hand.svg",
+    "backpack.svg",
+    "back-hand-and-sword.svg"
+  ],
+  "layers": [
+    {
+      "file": "cat.svg",
+      "sourceId": "CAT",
+      "riveName": "Cat_Root"
+    },
+    {
+      "file": "legs-and-boots.svg",
+      "sourceId": "LEGS_AND_BOOTS",
+      "riveName": "Side_Legs"
+    },
+    {
+      "file": "hair-and-headband.svg",
+      "sourceId": "HAIR_AND_HEADBAND",
+      "riveName": "Side_Head_Secondary"
+    },
+    {
+      "file": "torso-and-sash.svg",
+      "sourceId": "TORSO_AND_SASH",
+      "riveName": "Side_Torso"
+    },
+    {
+      "file": "face-and-front-hand.svg",
+      "sourceId": "FACE_AND_FRONT_HAND",
+      "riveName": "Side_Head_FrontHand"
+    },
+    {
+      "file": "backpack.svg",
+      "sourceId": "BACKPACK",
+      "riveName": "Side_Backpack"
+    },
+    {
+      "file": "back-hand-and-sword.svg",
+      "sourceId": "BACK_HAND_AND_SWORD",
+      "riveName": "Side_BackHand_Sword"
+    }
+  ],
+  "limitations": [
+    "The source outline still spans Ronin and cat.",
+    "Upper/lower limbs remain fused inside coarse Illustrator buckets.",
+    "Use these files for independent rigid transforms and redraw shared contours before mesh weighting."
+  ]
+}

@@ -1,0 +1,154 @@
+{
+  "source": "Rka-OS avatar 1.svg",
+  "output": "ronin-cat-walk-rive-source.svg",
+  "embeddedRasterRemoved": true,
+  "backgroundRemoved": true,
+  "primaryGroups": [
+    {
+      "name": "RONIN / Rear Boot",
+      "paths": 7
+    },
+    {
+      "name": "RONIN / Sword",
+      "paths": 9
+    },
+    {
+      "name": "RONIN / Body",
+      "paths": 64
+    },
+    {
+      "name": "RONIN / Hair + Bandana",
+      "paths": 22
+    },
+    {
+      "name": "CAT / Character",
+      "paths": 46
+    },
+    {
+      "name": "RONIN / Backpack",
+      "paths": 13
+    }
+  ],
+  "sharedDetailPaths": 5,
+  "totalVectorPaths": 166,
+  "rigReadiness": [
+    {
+      "part": "Ronin rear boot",
+      "status": "separate",
+      "group": "RONIN / Rear Boot"
+    },
+    {
+      "part": "Ronin sword",
+      "status": "separate",
+      "group": "RONIN / Sword"
+    },
+    {
+      "part": "Ronin backpack",
+      "status": "separate",
+      "group": "RONIN / Backpack"
+    },
+    {
+      "part": "Ronin hair and bandana",
+      "status": "partially-separated",
+      "group": "RONIN / Hair + Bandana"
+    },
+    {
+      "part": "Ronin head, torso, arms and legs",
+      "status": "fused-by-paint-order",
+      "group": "RONIN / Body"
+    },
+    {
+      "part": "Cat tail",
+      "status": "separate",
+      "group": "CAT / Character / Tail"
+    },
+    {
+      "part": "Cat head, body and legs",
+      "status": "fused-by-paint-order",
+      "group": "CAT / Character / Body Head and Legs"
+    }
+  ],
+  "suggestedPivots": {
+    "coordinateSpace": "1255x1255 artboard; verify after Rive import",
+    "ronin": {
+      "root": [
+        755,
+        820
+      ],
+      "head": [
+        735,
+        465
+      ],
+      "rearShoulder": [
+        665,
+        535
+      ],
+      "rearElbow": [
+        650,
+        670
+      ],
+      "rearWrist": [
+        690,
+        745
+      ],
+      "frontShoulder": [
+        815,
+        545
+      ],
+      "frontElbow": [
+        835,
+        645
+      ],
+      "frontWrist": [
+        865,
+        690
+      ],
+      "rearHip": [
+        710,
+        810
+      ],
+      "rearKnee": [
+        675,
+        900
+      ],
+      "rearAnkle": [
+        680,
+        970
+      ],
+      "frontHip": [
+        825,
+        805
+      ],
+      "frontKnee": [
+        850,
+        900
+      ],
+      "frontAnkle": [
+        885,
+        970
+      ]
+    },
+    "cat": {
+      "root": [
+        365,
+        890
+      ],
+      "head": [
+        445,
+        810
+      ],
+      "tailBase": [
+        285,
+        860
+      ],
+      "rearHip": [
+        330,
+        900
+      ],
+      "frontShoulder": [
+        430,
+        885
+      ]
+    }
+  }
+}
