@@ -9,6 +9,7 @@ import { ChevronRight } from '../../icons';
 import { getThemeColors } from '../../theme';
 import { applyManualOrder } from '../../db/database';
 import { useHapticReorder } from '../../hooks/useHapticReorder';
+import { nonVirtualizedListProps } from '../../utils/nestedReorderableListProps';
 import type { Item } from '../../db/types';
 import type { UpcomingGroup } from '../../utils/upcomingGrouping';
 
@@ -167,6 +168,7 @@ export function TodayCard({
             onIndexChange={onIndexChange}
             onReorder={onReorder}
             scrollable={false}
+            {...nonVirtualizedListProps(ordered.length)}
           />
         )
       ) : !hasUpcoming ? (

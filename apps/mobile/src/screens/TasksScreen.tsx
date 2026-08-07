@@ -25,6 +25,7 @@ import { promptSetDependency } from '../utils/dependencyPrompt';
 import { showActionSheet } from '../utils/actionSheet';
 import { useHapticReorder } from '../hooks/useHapticReorder';
 import { readChecklist, checklistProgress } from '../utils/checklist';
+import { nonVirtualizedListProps } from '../utils/nestedReorderableListProps';
 
 // Item-local, so it never makes a row's height depend on list position.
 function checklistLabel(item: Item): string | null {
@@ -362,6 +363,7 @@ export function TasksScreen() {
                   onIndexChange={activeReorder.onIndexChange}
                   onReorder={activeReorder.onReorder}
                   scrollable={false}
+                  {...nonVirtualizedListProps(active.length)}
                 />
               </View>
             )}
@@ -376,6 +378,7 @@ export function TasksScreen() {
                   onIndexChange={somedayReorder.onIndexChange}
                   onReorder={somedayReorder.onReorder}
                   scrollable={false}
+                  {...nonVirtualizedListProps(someday.length)}
                 />
               </View>
             )}

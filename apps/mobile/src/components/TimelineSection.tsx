@@ -25,6 +25,7 @@ import { showActionSheet } from '../utils/actionSheet';
 import { useHapticReorder } from '../hooks/useHapticReorder';
 import { readChecklist, checklistProgress } from '../utils/checklist';
 import { DeadlineBadge } from './DeadlineBadge';
+import { nonVirtualizedListProps } from '../utils/nestedReorderableListProps';
 
 
 // Bold palette — richer saturation than the muted/sunrise options explored
@@ -366,6 +367,7 @@ function TimeBlockItems({
         onReorder={onReorder}
         panGesture={panGesture}
         scrollable={false}
+        {...nonVirtualizedListProps(items.length)}
       />
     </View>
   );
