@@ -1,6 +1,6 @@
 // apps/mobile/src/components/workouts/VolumeBarChart.tsx
 import { useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Rect } from 'react-native-svg';
 import { getThemeColors } from '../../theme';
 import type { VolumePeriod } from '../../utils/workoutTrends';
@@ -8,6 +8,7 @@ import type { VolumePeriod } from '../../utils/workoutTrends';
 const VIEW_W = 320;
 const VIEW_H = 120;
 const BAR_GAP = 4;
+const MIN_BAR_WIDTH = 6; // below this, bars stop being legible — scroll instead of squeezing further
 
 interface VolumeBarChartProps {
   weeklyPeriods: VolumePeriod[];
@@ -15,15 +16,20 @@ interface VolumeBarChartProps {
   isDark: boolean;
 }
 
-// Simple SVG bar chart with a week/month toggle over a trailing window
-// (weeklyPeriods/monthlyPeriods are pre-sliced by the caller to the desired
-// trailing window, e.g. last 12 weeks / last 6 months).
+// Simple SVG bar chart with a week/month toggle over the caller's chosen
+// range (weeklyPeriods/monthlyPeriods span whatever window the Trends
+// screen's range selector currently has active). Long ranges (1Y/All) can
+// mean 50+ weekly bars — rather than squeeze them illegibly thin to fit one
+// screen width, the chart grows past MIN_BAR_WIDTH and scrolls horizontally,
+// same approach as the frequency heatmap.
 export function VolumeBarChart({ weeklyPeriods, monthlyPeriods, isDark }: VolumeBarChartProps) {
   const palette = getThemeColors(isDark);
   const [mode, setMode] = useState<'week' | 'month'>('week');
   const periods = mode === 'week' ? weeklyPeriods : monthlyPeriods;
   const maxVolume = Math.max(1, ...periods.map((p) => p.totalVolume));
-  const barWidth = periods.length > 0 ? (VIEW_W - BAR_GAP * (periods.length - 1)) / periods.length : 0;
+  const fittedBarWidth = periods.length > 0 ? (VIEW_W - BAR_GAP * (periods.length - 1)) / periods.length : 0;
+  const barWidth = Math.max(MIN_BAR_WIDTH, fittedBarWidth);
+  const chartWidth = periods.length > 0 ? periods.length * barWidth + (periods.length - 1) * BAR_GAP : VIEW_W;
 
   return (
     <View style={s.section}>
@@ -50,14 +56,16 @@ export function VolumeBarChart({ weeklyPeriods, monthlyPeriods, isDark }: Volume
       {periods.length === 0 ? (
         <Text style={[s.empty, { color: palette.textTertiary }]}>No logged sets in this window yet.</Text>
       ) : (
-        <Svg width="100%" height={VIEW_H} viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}>
-          {periods.map((p, i) => {
-            const barHeight = (p.totalVolume / maxVolume) * (VIEW_H - 8);
-            const x = i * (barWidth + BAR_GAP);
-            const y = VIEW_H - barHeight;
-            return <Rect key={p.periodLabel} x={x} y={y} width={barWidth} height={barHeight} rx={2} fill={palette.vermilion} />;
-          })}
-        </Svg>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <Svg width={chartWidth} height={VIEW_H} viewBox={`0 0 ${chartWidth} ${VIEW_H}`}>
+            {periods.map((p, i) => {
+              const barHeight = (p.totalVolume / maxVolume) * (VIEW_H - 8);
+              const x = i * (barWidth + BAR_GAP);
+              const y = VIEW_H - barHeight;
+              return <Rect key={p.periodLabel} x={x} y={y} width={barWidth} height={barHeight} rx={2} fill={palette.vermilion} />;
+            })}
+          </Svg>
+        </ScrollView>
       )}
     </View>
   );
