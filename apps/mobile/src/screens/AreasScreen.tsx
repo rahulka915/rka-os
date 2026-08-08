@@ -18,7 +18,7 @@ import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
 import { LensSurface } from '../components/LensSurface';
 import { QuickCreateSheet } from '../components/QuickCreateSheet';
-import { RiverStoneSurface } from '../components/ui/RiverStoneSurface';
+import { RiverStoneSurface } from '../components/riverstone';
 import { RiverStoneProgress } from '../components/ui/RiverStoneProgress';
 import { useRegisterFabHoldAction } from '../hooks/useFabHoldAction';
 import { showActionSheet } from '../utils/actionSheet';
@@ -192,8 +192,7 @@ export function AreasScreen() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
-          <RiverStoneSurface variant="card" isDark={isDark} style={styles.heroCard}>
-            <View style={styles.heroInner}>
+          <RiverStoneSurface variant="hero" mode={isDark ? 'dark' : 'light'} style={styles.heroCard} contentStyle={styles.heroInner}>
               <View style={styles.heroCopy}>
                 <Text style={[styles.heroTitle, { color: palette.ivory }]}>Overall Potential</Text>
                 <Text style={[styles.heroSubtitle, { color: palette.greige }]}>Your life in balance.</Text>
@@ -218,7 +217,6 @@ export function AreasScreen() {
                   <Heart size={14} color={palette.vermilion} strokeWidth={1.8} />
                 </TouchableOpacity>
               )}
-            </View>
           </RiverStoneSurface>
 
           <View style={styles.sectionHead}>
@@ -249,11 +247,10 @@ export function AreasScreen() {
                 >
                   <RiverStoneSurface
                     variant="card"
-                    isDark={isDark}
+                    mode={isDark ? 'dark' : 'light'}
                     style={[styles.card, isFocus && { borderColor: palette.vermilion, borderWidth: 1.5 }]}
-                    stretchToFill
+                    contentStyle={styles.cardContent}
                   >
-                    <View style={styles.cardContent}>
                       <View style={styles.cardHeadRow}>
                         <DomainIcon size={20} color={palette.antiqueBrass} strokeWidth={1.6} />
                         <Text style={[styles.cardScore, { color: palette.vermilion }]}>{score}%</Text>
@@ -270,7 +267,6 @@ export function AreasScreen() {
                         animate={false}
                         accessibilityLabel={`${area.title} progress`}
                       />
-                    </View>
                   </RiverStoneSurface>
                 </TouchableOpacity>
               );

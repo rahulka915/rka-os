@@ -2,21 +2,22 @@ import { useCallback, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
-import { getSkills, createSkill, deleteItem, getPrimaryAreaForSkill, getItemsByType } from '../db/database';
+import { getSkills, createSkill, deleteItem, getPrimaryAreaForSkill, getItemsByType, isSkillUnlocked } from '../db/database';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
 import { LensSurface } from '../components/LensSurface';
 import { QuickCreateSheet } from '../components/QuickCreateSheet';
-import { RiverStoneSurface } from '../components/ui/RiverStoneSurface';
+import { RiverStoneSurface } from '../components/riverstone';
 import { useRegisterFabHoldAction } from '../hooks/useFabHoldAction';
 import { showActionSheet } from '../utils/actionSheet';
-import { PuzzlePiece } from '../icons';
+import { PuzzlePiece, Lock } from '../icons';
 import type { Item } from '../db/types';
 
 interface SkillRow {
   item: Item;
   proficiency: number;
   primaryAreaTitle: string | null;
+  unlocked: boolean;
 }
 
 // Skills are a distinct capability layer from Domains: "Domains = areas of
@@ -41,6 +42,7 @@ export function SkillsScreen() {
           item,
           proficiency: typeof meta.proficiency === 'number' ? meta.proficiency : 0,
           primaryAreaTitle: primaryAreaId ? areasById.get(primaryAreaId) ?? null : null,
+          unlocked: isSkillUnlocked(item.id),
         };
       }),
     );
@@ -92,11 +94,13 @@ export function SkillsScreen() {
               onLongPress={() => handleLongPress(row)}
               delayLongPress={400}
               accessibilityRole="button"
-              accessibilityLabel={`${row.item.title}, ${row.proficiency}% proficiency${row.primaryAreaTitle ? `, ${row.primaryAreaTitle}` : ''}`}
+              accessibilityLabel={`${row.item.title}, ${row.proficiency}% proficiency${row.primaryAreaTitle ? `, ${row.primaryAreaTitle}` : ''}${row.unlocked ? '' : ', still learning'}`}
             >
-              <RiverStoneSurface variant="card" isDark={isDark} style={styles.card} stretchToFill>
-                <View style={styles.cardContent}>
-                  <PuzzlePiece size={26} color={palette.antiqueBrass} strokeWidth={1.6} />
+              <RiverStoneSurface variant="card" mode={isDark ? 'dark' : 'light'} style={styles.card} contentStyle={styles.cardContent}>
+                  <View style={styles.cardIconRow}>
+                    <PuzzlePiece size={26} color={palette.antiqueBrass} strokeWidth={1.6} />
+                    {!row.unlocked && <Lock size={14} color={palette.textTertiary} strokeWidth={2} />}
+                  </View>
                   <Text style={[styles.cardTitle, { color: palette.ivory }]} numberOfLines={2}>{row.item.title}</Text>
                   <View style={styles.cardFooter}>
                     <Text style={[styles.cardProficiency, { color: palette.vermilion }]}>{row.proficiency}%</Text>
@@ -104,7 +108,6 @@ export function SkillsScreen() {
                       <Text style={[styles.cardArea, { color: palette.greige }]} numberOfLines={1}>{row.primaryAreaTitle}</Text>
                     )}
                   </View>
-                </View>
               </RiverStoneSurface>
             </TouchableOpacity>
           ))}
@@ -142,6 +145,11 @@ const styles = StyleSheet.create({
   cardContent: {
     flex: 1,
     padding: 12,
+    justifyContent: 'space-between',
+  },
+  cardIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
   },
   cardTitle: {
