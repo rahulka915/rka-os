@@ -1,10 +1,19 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import MicrophoneIcon from 'react-native-heroicons/outline/MicrophoneIcon';
 import { BottomSheet } from '../ui/BottomSheet';
+import { MissionPickerSheet } from './MissionPickerSheet';
 import { useThemeContext } from '../../hooks/useThemeContext';
 import { getItemComposerMaterial, getThemeColors, spacing } from '../../theme';
 import type { ItemDraft } from './types';
+
+function todayDateString(): string {
+  return new Date().toISOString().split('T')[0];
+}
+
+function isPlannedToday(draft: ItemDraft): boolean {
+  return draft.metadata.plannedDate === todayDateString();
+}
 
 type CaptureSheetProps = {
   visible: boolean;
@@ -52,11 +61,32 @@ export function CaptureSheet({
     return () => clearTimeout(timer);
   }, [visible]);
 
+  const [missionPickerVisible, setMissionPickerVisible] = useState(false);
+
   if (!draft) return null;
   const canSave = Boolean(draft.title.trim()) && !busy;
   const context = contextLabel(draft);
 
+  const toggleToday = () => {
+    const metadata = { ...draft.metadata };
+    if (isPlannedToday(draft)) {
+      delete metadata.plannedDate;
+    } else {
+      metadata.plannedDate = todayDateString();
+    }
+    onChange({ metadata });
+  };
+
+  const selectMission = (mission: { id: string; title: string } | null) => {
+    onChange({
+      projectId: mission?.id,
+      projectTitle: mission?.title,
+    });
+    setMissionPickerVisible(false);
+  };
+
   return (
+    <>
     <BottomSheet
       visible={visible}
       onClose={onCancel}
@@ -78,9 +108,16 @@ export function CaptureSheet({
       }
     >
       {context ? (
-        <View style={[styles.contextChip, { backgroundColor: material.accentSoft, borderColor: material.rimStrong }]}>
+        <TouchableOpacity
+          style={[styles.contextChip, { backgroundColor: material.accentSoft, borderColor: material.rimStrong }]}
+          onPress={() => setMissionPickerVisible(true)}
+          disabled={busy}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="Change destination"
+        >
           <Text style={[styles.contextText, { color: material.accent }]} numberOfLines={1}>{context}</Text>
-        </View>
+        </TouchableOpacity>
       ) : null}
 
       <View style={styles.titleRow}>
@@ -123,6 +160,38 @@ export function CaptureSheet({
         keyboardAppearance={isDark ? 'dark' : 'light'}
       />
 
+      <View style={styles.quickRow}>
+        <TouchableOpacity
+          style={[
+            styles.quickChip,
+            { backgroundColor: isPlannedToday(draft) ? material.accentSoft : material.fill, borderColor: isPlannedToday(draft) ? material.rimStrong : 'transparent' },
+          ]}
+          onPress={toggleToday}
+          disabled={busy}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.quickChipText, { color: isPlannedToday(draft) ? material.accent : palette.textSecondary }]}>
+            Today
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.quickChip,
+            { backgroundColor: draft.projectTitle ? material.accentSoft : material.fill, borderColor: draft.projectTitle ? material.rimStrong : 'transparent' },
+          ]}
+          onPress={() => setMissionPickerVisible(true)}
+          disabled={busy}
+          activeOpacity={0.7}
+        >
+          <Text
+            style={[styles.quickChipText, { color: draft.projectTitle ? material.accent : palette.textSecondary }]}
+            numberOfLines={1}
+          >
+            {draft.projectTitle ?? 'Mission'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       {error ? <Text style={[styles.errorText, { color: palette.red }]}>{error}</Text> : null}
 
       <TouchableOpacity
@@ -137,6 +206,12 @@ export function CaptureSheet({
         <Text style={[styles.detailsChevron, { color: material.accent }]}>›</Text>
       </TouchableOpacity>
     </BottomSheet>
+    <MissionPickerSheet
+      visible={missionPickerVisible}
+      onClose={() => setMissionPickerVisible(false)}
+      onSelect={selectMission}
+    />
+    </>
   );
 }
 
@@ -201,6 +276,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     paddingBottom: 8,
+  },
+  quickRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingTop: 8,
+  },
+  quickChip: {
+    minHeight: 32,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
   },
   detailsButton: {
     minHeight: 44,
