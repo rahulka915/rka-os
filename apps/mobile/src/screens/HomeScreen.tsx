@@ -8,10 +8,10 @@ import * as Haptics from 'expo-haptics';
 import { AppHeader } from '../components/AppHeader';
 import { RiverStoneSurface } from '../components/riverstone';
 import { MedicationQuickLogWidget } from '../components/home/MedicationQuickLogWidget';
+import { WeatherWidget } from '../components/home/WeatherWidget';
 import { TodayCard } from '../components/home/TodayCard';
 import { HabitsWidget } from '../components/home/HabitsWidget';
 import { HomeTaskRow } from '../components/home/HomeTaskRow';
-import { RoninJourneyPrototype } from '../components/home/RoninJourneyPrototype';
 import { JourneySummaryStrip } from '../components/home/JourneySummaryStrip';
 import { useHomeData, useUpcomingPreview, useTodayHabits, useProjects } from '../hooks/useDb';
 import { useThemeContext } from '../hooks/useThemeContext';
@@ -353,12 +353,10 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
 
         {activeView === 'today' && (
         <>
-        <RoninJourneyPrototype
-          completedCount={todayItems.filter((item) => pendingActions.get(item.id) !== 'delete' && pendingActions.get(item.id) !== 'move' && (item.status === 'completed' || pendingActions.get(item.id) === 'complete')).length}
-          totalCount={todayItems.filter((item) => pendingActions.get(item.id) !== 'delete' && pendingActions.get(item.id) !== 'move').length}
-          isDark={isDark}
-          potentialPercent={potentialPercent}
-        />
+        {/* Journey hero (RoninJourneyPrototype) pulled off Home while the
+            new Rive avatar/animation work replaces it — the old Rive
+            runtime init on this card was a likely contributor to Home's
+            load lag. Re-add once the new rig ships. */}
         <JourneySummaryStrip
           isDark={isDark}
           potentialPercent={potentialPercent}
@@ -372,6 +370,9 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
         <View style={{ flexDirection: 'row', marginHorizontal: 12, marginTop: 8, gap: 8 }}>
           <View style={{ width: '31%' }}>
             <MedicationQuickLogWidget isDark={isDark} />
+          </View>
+          <View style={{ width: '31%' }}>
+            <WeatherWidget isDark={isDark} />
           </View>
         </View>
 
