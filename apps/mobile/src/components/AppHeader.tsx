@@ -87,6 +87,7 @@ const styles = StyleSheet.create({
   },
   right: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
   },
   circleButton: {
@@ -114,8 +115,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   inboxIllustration: {
-    width: 34,
-    height: 34,
+    // Larger than settings/theme's 34pt artwork — the satchel shape's own
+    // baked-in padding (now trimmed/normalized, but still a flatter aspect
+    // ratio than the circular medallions) reads as smaller at equal size,
+    // so it needs to run bigger to carry equal visual weight in the row.
+    width: 42,
+    height: 42,
   },
   badge: {
     position: 'absolute',

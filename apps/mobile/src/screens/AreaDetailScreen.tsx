@@ -26,7 +26,7 @@ import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
 import { LensSurface } from '../components/LensSurface';
 import { QuickCreateSheet } from '../components/QuickCreateSheet';
-import { KatanaProgress } from '../components/ui/KatanaProgress';
+import { RiverStoneProgress } from '../components/ui/RiverStoneProgress';
 import { useRegisterFabHoldAction } from '../hooks/useFabHoldAction';
 import type { Item } from '../db/types';
 import type { PotentialStatResult } from '../utils/potential';
@@ -34,7 +34,7 @@ import { ProjectPortfolioIcon } from '../components/icons/ProjectPortfolioIcon';
 import { PuzzlePiece } from '../icons';
 import { showActionSheet } from '../utils/actionSheet';
 
-const chapterBackdrop = require('../../assets/ronin/journey/sunset-trail-background-v1.png');
+const chapterBackdrop = require('../../assets/ronin/journey/sunset-trail-background-v1.jpg');
 
 interface AreaDetailRouteParams {
   areaId: string;
@@ -196,7 +196,7 @@ export function AreaDetailScreen() {
                 </Text>
               )}
             </View>
-            <KatanaProgress progress={domainScore / 100} size={16} accessibilityLabel={`${title} domain score`} style={styles.chapterProgress} />
+            <RiverStoneProgress progress={domainScore / 100} isDark={isDark} height={10} showLabel={false} accessibilityLabel={`${title} domain score`} style={styles.chapterProgress} />
             <Text style={[styles.chapterCaption, { color: palette.greige }]}>
               {maintenance < domainScore
                 ? 'Recent achievements are lifting this Domain above its everyday maintenance.'
@@ -261,7 +261,7 @@ export function AreaDetailScreen() {
                       <Text style={[styles.rowTitle, { color: palette.text }]} numberOfLines={1}>{stat.title}</Text>
                       <Text style={[styles.rowCount, { color: palette.textTertiary }]}>{percent}%</Text>
                     </View>
-                    <KatanaProgress progress={percent / 100} size={16} accessibilityLabel={`${stat.title} potential`} />
+                    <RiverStoneProgress progress={percent / 100} isDark={isDark} height={10} showLabel={false} accessibilityLabel={`${stat.title} potential`} />
                     {(statResults[stat.id]?.contributions.length ?? 0) > 0 && (
                       <Text style={[styles.contributingText, { color: palette.textTertiary }]} numberOfLines={1}>
                         {statResults[stat.id].contributions.map((c) => c.habitTitle).join(' · ')}
