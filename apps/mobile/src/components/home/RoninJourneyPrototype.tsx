@@ -13,7 +13,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
-import { RiverStoneSurface } from '../ui/RiverStoneSurface';
+import { RiverStoneSurface } from '../riverstone';
 import { RoninJourneyRiveWalker } from './RoninJourneyRiveWalker';
 
 // Warm off-white instead of pure #fff — softer against the sunset photo and
@@ -134,20 +134,19 @@ export function RoninJourneyPrototype({ completedCount, totalCount, isDark, pote
 
   return (
     <RiverStoneSurface
-      variant="card"
-      isDark={isDark}
-      backgroundColor="transparent"
-      style={styles.surface}
+      variant="hero"
+      mode={isDark ? 'dark' : 'light'}
+      style={[styles.surface, styles.card]}
+      background={<Image source={sunsetTrail} resizeMode="cover" style={styles.background} />}
     >
       <Pressable
-        style={styles.card}
+        style={StyleSheet.absoluteFill}
         onPress={handlePress}
         onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
         accessibilityRole="button"
         accessibilityLabel={`Today\u2019s path. ${progressLabel}. Ronin and cat.`}
         accessibilityHint="Tap for a reaction"
       >
-        <Image source={sunsetTrail} resizeMode="cover" style={styles.background} />
         <View pointerEvents="none" style={styles.scrim} />
         <LinearGradient
           pointerEvents="none"
