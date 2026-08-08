@@ -9,7 +9,7 @@ import { countDosesByDay } from '../utils/medicationDoseHistory';
 import { buildTimelineEntries, type TimelineEntry } from './timelineEntry';
 import type { WorkoutSetDetails } from '../utils/workoutSet';
 import { getMostRecentSessionSets } from '../utils/workoutSet';
-import { computePotentialStats, type PotentialStatResult } from '../utils/potential';
+import { computePotentialStats, parseHabitPotentialMeta, type PotentialStatResult } from '../utils/potential';
 import {
   domainScore,
   overallPotential,
@@ -146,6 +146,7 @@ function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_itemOrder_list ON itemOrder(listKey);
     CREATE INDEX IF NOT EXISTS idx_domainContributions_area ON domainContributions(areaId);
     CREATE INDEX IF NOT EXISTS idx_domainContributions_source ON domainContributions(sourceType, sourceId);
+    CREATE INDEX IF NOT EXISTS idx_activityLogs_entity ON activityLogs(entityId, actionType);
   `);
 
   try {
@@ -470,6 +471,30 @@ export function applyManualOrder<T extends { id: string }>(listKey: string, item
     if (posB === undefined) return -1;
     return posA - posB;
   });
+}
+
+// ── Tasks screen view (grouping/sort/filter) ────────────────────────────
+// A display preference, not app data — same appSettings-backed pattern as
+// hasSeenRoutinesIntro/markRoutinesIntroSeen. Kept as a plain, versionless
+// blob (see src/utils/taskViews.ts for the shape) rather than individual
+// keys, since it's read/written as one unit from a single sheet.
+export function getTasksViewConfig(): unknown {
+  return getAppSetting<unknown>('tasksViewConfig', null);
+}
+
+export function setTasksViewConfig(config: unknown): void {
+  setAppSetting('tasksViewConfig', config);
+}
+
+// Read-merge-write, same pattern as applyTaskTriage's priority write —
+// updateItemMetadata replaces the whole blob, so existing metadata must be
+// preserved. `priority: null` clears it (dropped into a "No Priority" group).
+export function setTaskPriority(id: string, priority: 'low' | 'medium' | 'high' | null): void {
+  const item = getItemWithMetadata(id);
+  const meta = item?.metadata ? JSON.parse(item.metadata) : {};
+  if (priority === null) delete meta.priority;
+  else meta.priority = priority;
+  updateItemMetadata(id, meta);
 }
 
 // Rollup: items relating to `targetId` via `relationType` (e.g. all projects in an area).
@@ -1242,27 +1267,52 @@ export function clearFocus(): void {
 
 // ── Domain score / Overall Potential ──────────────────────────────────────
 
-export function getPotentialStatResultsForArea(areaId: string, today: string): Record<string, PotentialStatResult> {
-  const stats = getPotentialStatsForArea(areaId);
-  const habits = getItemsByType('habit');
+// Only habits that are actually assigned to a potential-stat need their
+// occurrence history read at all — reading it for every habit regardless
+// (the previous behavior) meant a full activityLogs scan per habit that
+// never even factors into any Domain's maintenance score.
+function getCompletedDatesForPotentialHabits(habits: Item[]): Record<string, Set<string>> {
   const completedDatesByHabitId: Record<string, Set<string>> = {};
   for (const habit of habits) {
+    if (!parseHabitPotentialMeta(habit.metadata).potentialStat) continue;
     completedDatesByHabitId[habit.id] = getCompletedOccurrenceDates(habit.id);
   }
-  return computePotentialStats(habits, stats, completedDatesByHabitId, today);
+  return completedDatesByHabitId;
 }
 
-export function computeDomainMaintenance(areaId: string, today: string): number {
+export function getPotentialStatResultsForArea(
+  areaId: string,
+  today: string,
+  completedDatesByHabitId?: Record<string, Set<string>>,
+  allHabits?: Item[],
+): Record<string, PotentialStatResult> {
+  const stats = getPotentialStatsForArea(areaId);
+  const habits = allHabits ?? getItemsByType('habit');
+  const dates = completedDatesByHabitId ?? getCompletedDatesForPotentialHabits(habits);
+  return computePotentialStats(habits, stats, dates, today);
+}
+
+export function computeDomainMaintenance(
+  areaId: string,
+  today: string,
+  completedDatesByHabitId?: Record<string, Set<string>>,
+  allHabits?: Item[],
+): number {
   const stats = getPotentialStatsForArea(areaId);
   if (stats.length === 0) return 0;
-  const results = getPotentialStatResultsForArea(areaId, today);
+  const results = getPotentialStatResultsForArea(areaId, today, completedDatesByHabitId, allHabits);
   const percents = stats.map((stat) => results[stat.id]?.percent ?? 0);
   return percents.reduce((sum, p) => sum + p, 0) / percents.length;
 }
 
-export function computeDomainScore(areaId: string, now: number = Date.now()): number {
+export function computeDomainScore(
+  areaId: string,
+  now: number = Date.now(),
+  completedDatesByHabitId?: Record<string, Set<string>>,
+  allHabits?: Item[],
+): number {
   const today = formatDate(new Date(now));
-  const maintenance = computeDomainMaintenance(areaId, today);
+  const maintenance = computeDomainMaintenance(areaId, today, completedDatesByHabitId, allHabits);
   const rows = getActiveContributionsForArea(areaId);
   const contributions = rows.map((row) => ({
     magnitude: row.magnitude,
@@ -1272,14 +1322,40 @@ export function computeDomainScore(areaId: string, now: number = Date.now()): nu
   return domainScore(maintenance, contributions, now);
 }
 
+// Screens that need both per-Domain scores AND the overall figure (AreasScreen,
+// PotentialOverview) used to call computeDomainScore(area) in a loop and then
+// separately call computeOverallPotential(), which reran that exact same loop
+// again internally — doubling the per-habit activityLogs reads on top of the
+// per-Domain redundancy computeOverallPotential itself already fixes below.
+export function computeAllDomainScores(now: number = Date.now()): { scores: Record<string, number>; overall: number } {
+  const areas = getItemsByType('area');
+  if (areas.length === 0) return { scores: {}, overall: 0 };
+  const focus = getFocus();
+  const habits = getItemsByType('habit');
+  const completedDatesByHabitId = getCompletedDatesForPotentialHabits(habits);
+  const scores: Record<string, number> = {};
+  const weights: Record<string, number> = {};
+  for (const area of areas) {
+    scores[area.id] = computeDomainScore(area.id, now, completedDatesByHabitId, habits);
+    weights[area.id] = focus?.weights?.[area.id] ?? 1;
+  }
+  return { scores, overall: overallPotential(scores, weights) };
+}
+
 export function computeOverallPotential(now: number = Date.now()): number {
   const areas = getItemsByType('area');
   if (areas.length === 0) return 0;
   const focus = getFocus();
+  // Read every habit's occurrence history once, up front, instead of once
+  // per Domain inside computeDomainScore's loop below — with 8 canonical
+  // Domains this was previously an 8x redundant full activityLogs scan per
+  // habit on every call (every Home focus, every item save app-wide).
+  const habits = getItemsByType('habit');
+  const completedDatesByHabitId = getCompletedDatesForPotentialHabits(habits);
   const scores: Record<string, number> = {};
   const weights: Record<string, number> = {};
   for (const area of areas) {
-    scores[area.id] = computeDomainScore(area.id, now);
+    scores[area.id] = computeDomainScore(area.id, now, completedDatesByHabitId, habits);
     weights[area.id] = focus?.weights?.[area.id] ?? 1;
   }
   return overallPotential(scores, weights);
