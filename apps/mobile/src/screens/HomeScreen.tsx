@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import Animated, { FadeIn, ReduceMotion } from 'react-native-reanimated';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -30,10 +30,18 @@ import {
   getFocus,
 } from '../db/database';
 import { LACQUER_DISC_COMPLETION_DURATION } from '../components/ui/LacquerDiscControl';
+import { UndoToast, type UndoToastState } from '../components/ui/UndoToast';
 import { getThemeColors } from '../theme';
 import { showActionSheet } from '../utils/actionSheet';
 import { groupByScheduledDate } from '../utils/upcomingGrouping';
 import type { Item } from '../db/types';
+
+// Complete/delete/move-to-someday all read as instant (row disappears right
+// away) but don't actually commit to the DB until this window elapses —
+// Undo just cancels the pending timer, so it's a real cancel, not a second
+// write undoing the first. 4s matches iOS Mail's own undo-send-adjacent
+// convention: long enough to react, short enough not to feel like a delay.
+const UNDO_GRACE_MS = 4000;
 
 interface HomeScreenProps {
   onInboxPress: () => void;
@@ -70,6 +78,56 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
   const [logbookItems, setLogbookItems] = useState<Item[]>([]);
   const [potentialPercent, setPotentialPercent] = useState(0);
   const [focusLabel, setFocusLabel] = useState<string | null>(null);
+  // 'complete' keeps the item counted as done (for the Journey walker's
+  // ratio) while it's hidden from the task list; 'delete'/'move' drop it
+  // from both the list and any count entirely. Distinguishing the two
+  // matters here specifically — completing a task should move the walker
+  // immediately, not lag 4s behind the row disappearing.
+  const [pendingActions, setPendingActions] = useState<Map<string, 'complete' | 'delete' | 'move'>>(new Map());
+  const [undoToast, setUndoToast] = useState<UndoToastState | null>(null);
+  const pendingTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  useEffect(() => () => {
+    // Unmount mid-grace-window (e.g. app backgrounded and killed) — commit
+    // immediately rather than silently dropping the action.
+    for (const timer of pendingTimersRef.current.values()) clearTimeout(timer);
+  }, []);
+
+  // Shared by complete/delete/move-to-someday: hide the row immediately
+  // (via pendingActions, filtered out of every list below), show an Undo
+  // toast, and only actually run `commit` once the grace window elapses
+  // uncancelled. Keyed per-item so acting on a second row while one is
+  // still pending doesn't clobber the first's timer.
+  const scheduleUndoableAction = useCallback((itemId: string, kind: 'complete' | 'delete' | 'move', message: string, commit: () => void) => {
+    const existing = pendingTimersRef.current.get(itemId);
+    if (existing) clearTimeout(existing);
+    setPendingActions((current) => new Map(current).set(itemId, kind));
+    const timer = setTimeout(() => {
+      pendingTimersRef.current.delete(itemId);
+      commit();
+      setPendingActions((current) => {
+        const next = new Map(current);
+        next.delete(itemId);
+        return next;
+      });
+      setUndoToast((current) => (current?.onUndo === undoAction ? null : current));
+    }, UNDO_GRACE_MS);
+    pendingTimersRef.current.set(itemId, timer);
+
+    const undoAction = () => {
+      const t = pendingTimersRef.current.get(itemId);
+      if (t) clearTimeout(t);
+      pendingTimersRef.current.delete(itemId);
+      setPendingActions((current) => {
+        const next = new Map(current);
+        next.delete(itemId);
+        return next;
+      });
+      setUndoToast(null);
+      Haptics.selectionAsync();
+    };
+    setUndoToast({ message, onUndo: undoAction });
+  }, []);
 
   // Anytime/Upcoming/Someday are task-only (matching the dedicated Tasks/
   // Upcoming screens and GTD convention) — Domains/Missions/Habits/Workouts
@@ -135,16 +193,20 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
     }
     setCompletingIds((current) => new Set(current).add(item.id));
     setTimeout(() => {
-      updateItemStatus(item.id, 'completed');
-      refresh();
-      refreshViewLists();
       setCompletingIds((current) => {
         const next = new Set(current);
         next.delete(item.id);
         return next;
       });
+      // The disc's own completion animation already played (above); the
+      // status write itself is what's undoable, deferred behind the toast.
+      scheduleUndoableAction(item.id, 'complete', `"${item.title}" completed`, () => {
+        updateItemStatus(item.id, 'completed');
+        refresh();
+        refreshViewLists();
+      });
     }, LACQUER_DISC_COMPLETION_DURATION);
-  }, [completingIds, refresh, refreshViewLists]);
+  }, [completingIds, refresh, refreshViewLists, scheduleUndoableAction]);
 
   const handleItemTap = useCallback((item: Item) => {
     openItem({
@@ -167,20 +229,25 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
       {
         label: moveLabel,
         onPress: () => {
-          updateItemStatus(item.id, item.status === 'someday' ? 'active' : 'someday');
-          refreshViewLists();
+          const nextStatus = item.status === 'someday' ? 'active' : 'someday';
+          scheduleUndoableAction(item.id, 'move', `Moved to ${nextStatus === 'someday' ? 'Someday' : 'Active'}`, () => {
+            updateItemStatus(item.id, nextStatus);
+            refreshViewLists();
+          });
         },
       },
       {
         label: 'Delete',
         onPress: () => {
-          deleteItem(item.id);
-          refreshViewLists();
+          scheduleUndoableAction(item.id, 'delete', `"${item.title}" deleted`, () => {
+            deleteItem(item.id);
+            refreshViewLists();
+          });
         },
         destructive: true,
       },
     ]);
-  }, [handleItemTap, handleItemComplete, refreshViewLists]);
+  }, [handleItemTap, handleItemComplete, refreshViewLists, scheduleUndoableAction]);
 
   const renderSimpleRow = (item: Item, subtitle: string) => (
     <TouchableOpacity
@@ -267,8 +334,8 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
         {activeView === 'today' && (
         <>
         <RoninJourneyPrototype
-          completedCount={todayItems.filter((item) => item.status === 'completed').length}
-          totalCount={todayItems.length}
+          completedCount={todayItems.filter((item) => pendingActions.get(item.id) !== 'delete' && pendingActions.get(item.id) !== 'move' && (item.status === 'completed' || pendingActions.get(item.id) === 'complete')).length}
+          totalCount={todayItems.filter((item) => pendingActions.get(item.id) !== 'delete' && pendingActions.get(item.id) !== 'move').length}
           isDark={isDark}
           potentialPercent={potentialPercent}
         />
@@ -293,7 +360,7 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
 
         {/* Today */}
         <TodayCard
-          items={todayItems.filter((item) => item.status !== 'completed')}
+          items={todayItems.filter((item) => item.status !== 'completed' && !pendingActions.has(item.id))}
           completingIds={completingIds}
           onComplete={handleItemComplete}
           onOpen={handleItemTap}
@@ -307,10 +374,10 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
         {activeView !== 'today' && (
         <View style={{ marginHorizontal: 12, marginTop: 8 }}>
           {activeView === 'upcoming' && (
-            upcomingItems.length === 0 ? (
+            upcomingItems.filter((item) => !pendingActions.has(item.id)).length === 0 ? (
               <Text style={{ color: palette.textSecondary, fontSize: 14 }}>Nothing upcoming.</Text>
             ) : (
-              groupByScheduledDate(upcomingItems, formatDate(new Date())).map((group) => (
+              groupByScheduledDate(upcomingItems.filter((item) => !pendingActions.has(item.id)), formatDate(new Date())).map((group) => (
                 <View key={group.date} style={{ marginBottom: 20 }}>
                   <Text style={{ color: palette.textTertiary, fontSize: 11, fontWeight: '700', letterSpacing: 0.6, textTransform: 'uppercase', marginBottom: 8, paddingHorizontal: 4 }}>
                     {group.label}
@@ -334,10 +401,10 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
           )}
 
           {activeView === 'anytime' && (
-            anytimeItems.length === 0 ? (
+            anytimeItems.filter((item) => !pendingActions.has(item.id)).length === 0 ? (
               <Text style={{ color: palette.textSecondary, fontSize: 14 }}>Nothing here.</Text>
             ) : (
-              anytimeItems.map((item) => (
+              anytimeItems.filter((item) => !pendingActions.has(item.id)).map((item) => (
                 <HomeTaskRow
                   key={item.id}
                   item={item}
@@ -354,10 +421,10 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
           )}
 
           {activeView === 'someday' && (
-            somedayItems.length === 0 ? (
+            somedayItems.filter((item) => !pendingActions.has(item.id)).length === 0 ? (
               <Text style={{ color: palette.textSecondary, fontSize: 14 }}>Nothing filed for someday.</Text>
             ) : (
-              somedayItems.map((item) => (
+              somedayItems.filter((item) => !pendingActions.has(item.id)).map((item) => (
                 <HomeTaskRow
                   key={item.id}
                   item={item}
@@ -385,6 +452,8 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
 
         </Animated.View>
       </ScrollViewContainer>
+
+      <UndoToast state={undoToast} isDark={isDark} />
     </YStack>
   );
 }
