@@ -149,13 +149,26 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
     return id ? projects.find((p) => p.id === id)?.title ?? null : null;
   }, [projects]);
 
+  // Three independent, legitimate triggers for the same 4-read refresh
+  // (data change, tab focus, view-switcher change) all land on the very
+  // first render — each is correct on its own, but stacked on cold mount
+  // they meant 3 full computeOverallPotential() passes (an 8-domain scan
+  // each) before the user saw anything. The first effect below does the
+  // actual mount-time refresh unconditionally; the other two each skip
+  // only their own first firing (independent per-effect guards, since
+  // effect order isn't something to depend on) and behave normally for
+  // every trigger after that.
+  const isFirstFocusRef = useRef(true);
+  const isFirstActiveViewRef = useRef(true);
+
   // useHomeData only fetches on mount — Inbox lives in a sibling modal (App.tsx), not a child
   // of this screen, so bulk actions there (delete, triage) never trigger a refetch here on
   // their own, and this isn't a navigation transition so useFocusEffect wouldn't fire either.
   // Refetch whenever the Inbox modal closes, or an item save elsewhere bumps composerRevision.
   // One combined effect (not two) — on mount, and on any save while the Inbox happens to be
   // closed, both deps land in the same commit, so a separate per-dep effect would just fire
-  // the exact same 4 synchronous DB reads twice back-to-back for nothing.
+  // the exact same 4 synchronous DB reads twice back-to-back for nothing. This is the
+  // designated mount-time refresh — always runs.
   useEffect(() => {
     if (!inboxOpen) {
       refresh();
@@ -168,9 +181,14 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
   // Belt-and-suspenders: some write paths (e.g. HabitsScreen's own
   // quick-create) don't go through the shared item-composer flow, so they
   // never bump composerRevision — refreshing on every return to this tab
-  // catches those instead of leaving Home showing stale data.
+  // catches those instead of leaving Home showing stale data. Skips its
+  // own first (mount-time) firing — the effect above already covers it.
   useFocusEffect(
     useCallback(() => {
+      if (isFirstFocusRef.current) {
+        isFirstFocusRef.current = false;
+        return;
+      }
       refresh();
       refreshUpcoming();
       refreshHabits();
@@ -180,8 +198,13 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
 
   // Each of the 4 new lists is otherwise only refetched on save/focus (above) —
   // also refetch when the switcher lands on one, so a tab you haven't visited
-  // since the last change doesn't show stale data.
+  // since the last change doesn't show stale data. Skips its own first
+  // (mount-time) firing for the same reason as the focus effect above.
   useEffect(() => {
+    if (isFirstActiveViewRef.current) {
+      isFirstActiveViewRef.current = false;
+      return;
+    }
     refreshViewLists();
   }, [activeView, refreshViewLists]);
 
