@@ -76,9 +76,10 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
   // have their own dedicated places in the app, not mixed into these lists.
   const refreshViewLists = useCallback(() => {
     const today = formatDate(new Date());
+    const tasks = getItemsByType('task');
     setUpcomingItems(getUpcomingItems(today).filter((item) => item.type === 'task'));
-    setAnytimeItems(getItemsByType('task').filter((item) => item.status === 'active' && !item.scheduledDate));
-    setSomedayItems(getItemsByType('task').filter((item) => item.status === 'someday'));
+    setAnytimeItems(tasks.filter((item) => item.status === 'active' && !item.scheduledDate));
+    setSomedayItems(tasks.filter((item) => item.status === 'someday'));
     setLogbookItems(getCompletedItems());
     setPotentialPercent(computeOverallPotential());
     setFocusLabel(getFocus()?.label ?? null);
@@ -92,7 +93,10 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
   // useHomeData only fetches on mount — Inbox lives in a sibling modal (App.tsx), not a child
   // of this screen, so bulk actions there (delete, triage) never trigger a refetch here on
   // their own, and this isn't a navigation transition so useFocusEffect wouldn't fire either.
-  // Refetch whenever the Inbox modal closes.
+  // Refetch whenever the Inbox modal closes, or an item save elsewhere bumps composerRevision.
+  // One combined effect (not two) — on mount, and on any save while the Inbox happens to be
+  // closed, both deps land in the same commit, so a separate per-dep effect would just fire
+  // the exact same 4 synchronous DB reads twice back-to-back for nothing.
   useEffect(() => {
     if (!inboxOpen) {
       refresh();
@@ -100,14 +104,7 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
       refreshHabits();
       refreshViewLists();
     }
-  }, [inboxOpen, refresh, refreshUpcoming, refreshHabits, refreshViewLists]);
-
-  useEffect(() => {
-    refresh();
-    refreshUpcoming();
-    refreshHabits();
-    refreshViewLists();
-  }, [composerRevision, refresh, refreshUpcoming, refreshHabits, refreshViewLists]);
+  }, [inboxOpen, composerRevision, refresh, refreshUpcoming, refreshHabits, refreshViewLists]);
 
   // Belt-and-suspenders: some write paths (e.g. HabitsScreen's own
   // quick-create) don't go through the shared item-composer flow, so they
