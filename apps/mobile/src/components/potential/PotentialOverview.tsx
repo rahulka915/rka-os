@@ -4,7 +4,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { getItemsByType, computeAllDomainScores, getFocus } from '../../db/database';
 import { useThemeContext } from '../../hooks/useThemeContext';
 import { getThemeColors } from '../../theme';
-import { RiverStoneSurface } from '../ui/RiverStoneSurface';
+import { RiverStoneSurface } from '../riverstone';
 import { RiverStoneProgress } from '../ui/RiverStoneProgress';
 import { EnsoMeter } from '../ui/EnsoMeter';
 import { SteppingStones } from '../ui/SteppingStones';
@@ -51,8 +51,7 @@ export function PotentialOverview({ showAchievementsLink = true }: PotentialOver
 
   return (
     <View style={styles.stack}>
-      <RiverStoneSurface variant="card" isDark={isDark} style={styles.heroCard}>
-        <View style={styles.heroInner}>
+      <RiverStoneSurface variant="hero" mode={isDark ? 'dark' : 'light'} style={styles.heroCard} contentStyle={styles.heroInner}>
           <Text style={[styles.heroEyebrow, { color: palette.antiqueBrass }]}>YOUR LIFE IN BALANCE</Text>
           <Text style={[styles.heroTitle, { color: palette.ivory }]}>Potential</Text>
           {domains.length === 0 ? (
@@ -99,21 +98,21 @@ export function PotentialOverview({ showAchievementsLink = true }: PotentialOver
               />
             </View>
           )}
-        </View>
       </RiverStoneSurface>
 
       <TouchableOpacity
-        style={[styles.focusRow, { backgroundColor: isDark ? palette.fillStrong : palette.surface, borderColor: palette.separatorStrong }]}
         onPress={() => (navigation as any).navigate('Focus')}
         activeOpacity={0.75}
         accessibilityRole="button"
         accessibilityLabel={focus ? `Current Focus: ${focus.label}. Edit` : 'No Focus set. Tap to set one'}
       >
-        <View style={styles.focusCopy}>
-          <Text style={[styles.sectionLabel, { color: palette.textTertiary }]}>CURRENT FOCUS</Text>
-          <Text style={[styles.focusLabel, { color: palette.text }]}>{focus?.label ?? 'No focus set'}</Text>
-        </View>
-        <Text style={[styles.focusLink, { color: palette.vermilion }]}>{focus ? 'Edit' : 'Set'}</Text>
+        <RiverStoneSurface variant="list" mode={isDark ? 'dark' : 'light'} contentStyle={styles.focusRow}>
+          <View style={styles.focusCopy}>
+            <Text style={[styles.sectionLabel, { color: palette.textTertiary }]}>CURRENT FOCUS</Text>
+            <Text style={[styles.focusLabel, { color: palette.text }]}>{focus?.label ?? 'No focus set'}</Text>
+          </View>
+          <Text style={[styles.focusLink, { color: palette.vermilion }]}>{focus ? 'Edit' : 'Set'}</Text>
+        </RiverStoneSurface>
       </TouchableOpacity>
 
       <View style={styles.domainsSection}>
@@ -124,21 +123,28 @@ export function PotentialOverview({ showAchievementsLink = true }: PotentialOver
           <View style={styles.rows}>
             {domains.map((domain) => {
               const DomainIcon = getDomainIcon(domain.title);
+              const isFocus = domain.id === focusDomainId;
               return (
                 <TouchableOpacity
                   key={domain.id}
-                  style={[styles.domainRow, { backgroundColor: isDark ? palette.fillStrong : palette.surface, borderColor: domain.id === focusDomainId ? palette.vermilion : palette.separatorStrong }]}
                   activeOpacity={0.75}
                   onPress={() => goToDomain(domain.id)}
                   accessibilityRole="button"
-                  accessibilityLabel={`${domain.title}, ${Math.round(domain.score)}% potential${domain.id === focusDomainId ? ', current focus' : ''}`}
+                  accessibilityLabel={`${domain.title}, ${Math.round(domain.score)}% potential${isFocus ? ', current focus' : ''}`}
                 >
-                  <DomainIcon size={28} color={palette.antiqueBrass} strokeWidth={1.6} />
-                  <View style={styles.domainCopy}>
-                    <Text style={[styles.domainTitle, { color: palette.text }]} numberOfLines={1}>{domain.title}</Text>
-                    <RiverStoneProgress progress={domain.score / 100} isDark={isDark} height={10} showLabel={false} accessibilityLabel={`${domain.title} score`} />
-                  </View>
-                  <Text style={[styles.domainPercent, { color: palette.textTertiary }]}>{Math.round(domain.score)}%</Text>
+                  <RiverStoneSurface
+                    variant="list"
+                    mode={isDark ? 'dark' : 'light'}
+                    contentStyle={styles.domainRow}
+                    style={isFocus ? { borderRadius: 14, borderWidth: 1.5, borderColor: palette.vermilion } : undefined}
+                  >
+                    <DomainIcon size={28} color={palette.antiqueBrass} strokeWidth={1.6} />
+                    <View style={styles.domainCopy}>
+                      <Text style={[styles.domainTitle, { color: palette.text }]} numberOfLines={1}>{domain.title}</Text>
+                      <RiverStoneProgress progress={domain.score / 100} isDark={isDark} height={10} showLabel={false} accessibilityLabel={`${domain.title} score`} />
+                    </View>
+                    <Text style={[styles.domainPercent, { color: palette.textTertiary }]}>{Math.round(domain.score)}%</Text>
+                  </RiverStoneSurface>
                 </TouchableOpacity>
               );
             })}
@@ -148,14 +154,15 @@ export function PotentialOverview({ showAchievementsLink = true }: PotentialOver
 
       {showAchievementsLink && (
         <TouchableOpacity
-          style={[styles.focusRow, { backgroundColor: isDark ? palette.fillStrong : palette.surface, borderColor: palette.separatorStrong }]}
           onPress={() => (navigation as any).navigate('Achievements')}
           activeOpacity={0.75}
           accessibilityRole="button"
           accessibilityLabel="View Achievements"
         >
-          <Text style={[styles.focusLabel, { color: palette.text }]}>Achievements</Text>
-          <Text style={[styles.focusLink, { color: palette.vermilion }]}>View</Text>
+          <RiverStoneSurface variant="list" mode={isDark ? 'dark' : 'light'} contentStyle={styles.focusRow}>
+            <Text style={[styles.focusLabel, { color: palette.text }]}>Achievements</Text>
+            <Text style={[styles.focusLink, { color: palette.vermilion }]}>View</Text>
+          </RiverStoneSurface>
         </TouchableOpacity>
       )}
     </View>
@@ -177,8 +184,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
@@ -192,8 +197,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
