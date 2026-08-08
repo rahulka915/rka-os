@@ -3,16 +3,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
-import { Moon, Sun } from '../icons';
 import { SettingsMedallionIcon } from './icons/SettingsMedallionIcon';
+import { ThemeToggleIcon } from './header/ThemeToggleIcon';
 
-// Same three illustration states InboxScrollCard uses on Home's Today
-// view — kept in sync here so the header button always matches whatever
-// that card would show, not a generic icon.
+// header-v2 icon pack state mapping (see assets/icons/header-v2/README.md).
 function inboxIllustration(inboxCount: number) {
-  if (inboxCount === 0) return require('../../assets/illustrations/inbox/inbox-empty.png');
-  if (inboxCount > 10) return require('../../assets/illustrations/inbox/inbox-full.png');
-  return require('../../assets/illustrations/inbox/inbox-active.png');
+  if (inboxCount === 0) return require('../../assets/icons/header-v2/inbox-empty.png');
+  if (inboxCount > 10) return require('../../assets/icons/header-v2/inbox-full.png');
+  return require('../../assets/icons/header-v2/inbox-active.png');
 }
 
 interface AppHeaderProps {
@@ -48,16 +46,12 @@ export function AppHeader({ onSettingsPress, onInboxPress, inboxCount = 0 }: App
 
       <RNView style={styles.right}>
         <TouchableOpacity
-          style={[styles.circleButton, { backgroundColor: palette.fill, borderColor: palette.separator }]}
+          style={styles.circleButton}
           onPress={press(toggle)}
           accessibilityRole="button"
-          accessibilityLabel="Toggle dark mode"
+          accessibilityLabel={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
         >
-          {isDark ? (
-            <Moon size={18} color="#9DB4FF" strokeWidth={1.75} />
-          ) : (
-            <Sun size={18} color={palette.textSecondary} strokeWidth={1.75} />
-          )}
+          <ThemeToggleIcon isDark={isDark} size={34} />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -73,7 +67,7 @@ export function AppHeader({ onSettingsPress, onInboxPress, inboxCount = 0 }: App
             accessibilityIgnoresInvertColors
           />
           {inboxCount > 0 && (
-            <RNView style={styles.badge}>
+            <RNView style={[styles.badge, { backgroundColor: palette.badgeAccent }]}>
               <Text style={styles.badgeText}>{inboxCount}</Text>
             </RNView>
           )}
@@ -96,10 +90,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   circleButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: StyleSheet.hairlineWidth,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -110,14 +102,14 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   settingsButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
   inboxButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -132,7 +124,6 @@ const styles = StyleSheet.create({
     minWidth: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: '#D9506B',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 3,

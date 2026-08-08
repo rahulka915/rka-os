@@ -46,10 +46,7 @@ export function UndoToast({ state, isDark }: UndoToastProps) {
       pointerEvents="box-none"
       style={[styles.wrap, { bottom: insets.bottom + TRAY_CLEARANCE }]}
     >
-      <View
-        style={[styles.pill, { backgroundColor: isDark ? '#2a2a3a' : '#26203c' }]}
-        accessibilityRole="alert"
-      >
+      <View style={styles.pill} accessibilityRole="alert">
         <Text style={styles.message} numberOfLines={1}>{state.message}</Text>
         <TouchableOpacity
           onPress={state.onUndo}
@@ -79,6 +76,10 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingLeft: 16,
     paddingRight: 8,
+    // Fixed dark chrome regardless of app theme — same convention as iOS's
+    // own system toasts/snackbars, which stay dark for contrast even in a
+    // light-mode host app rather than tracking the surrounding palette.
+    backgroundColor: '#26203c',
     height: 48,
     borderRadius: 24,
     width: '100%',

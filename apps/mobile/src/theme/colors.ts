@@ -62,6 +62,10 @@ export const colors = {
   antiqueBrassSoft: 'rgba(139,105,54,0.12)',
   vermilion: '#A8402C',
   vermilionSoft: 'rgba(168,64,44,0.12)',
+
+  // Count-badge accent (header inbox badge) — same value in both palettes,
+  // so the badge stays readable/consistent regardless of theme.
+  badgeAccent: '#D9506B',
 } as const;
 
 export const darkColors = {
@@ -114,6 +118,9 @@ export const darkColors = {
   antiqueBrassSoft: 'rgba(212,176,120,0.16)',
   vermilion: '#C1503A',
   vermilionSoft: 'rgba(193,80,58,0.18)',
+
+  // See the light-mode `colors` comment above — same value both modes.
+  badgeAccent: '#D9506B',
 } as const;
 
 export const themeColors = {

@@ -123,7 +123,14 @@ export function TodayCard({
           pressed treatment) instead of a flat surface fill, matching the
           Today/Upcoming/Anytime/Someday tabs above and the tab bar. */}
       <View style={styles.segmentedControl}>
-        <TouchableOpacity style={styles.segment} onPress={() => setActiveTab('today')}>
+        <TouchableOpacity
+          style={styles.segment}
+          onPress={() => setActiveTab('today')}
+          hitSlop={7}
+          accessibilityRole="tab"
+          accessibilityLabel="Today"
+          accessibilityState={{ selected: activeTab === 'today' }}
+        >
           {activeTab === 'today' ? (
             <RiverStoneSurface variant="chip" mode={isDark ? 'dark' : 'light'} shape="regular" style={styles.segmentChip} contentStyle={styles.segmentChipContent}>
               <Text style={[styles.segmentLabelActive, { color: palette.text }]}>Today</Text>
@@ -132,7 +139,14 @@ export function TodayCard({
             <Text style={[styles.segmentLabelInactive, styles.segmentChipContent, { color: palette.textTertiary }]}>Today</Text>
           )}
         </TouchableOpacity>
-        <TouchableOpacity style={styles.segment} onPress={() => setActiveTab('upcoming')}>
+        <TouchableOpacity
+          style={styles.segment}
+          onPress={() => setActiveTab('upcoming')}
+          hitSlop={7}
+          accessibilityRole="tab"
+          accessibilityLabel="Upcoming"
+          accessibilityState={{ selected: activeTab === 'upcoming' }}
+        >
           {activeTab === 'upcoming' ? (
             <RiverStoneSurface variant="chip" mode={isDark ? 'dark' : 'light'} shape="regular" style={styles.segmentChip} contentStyle={styles.segmentChipContent}>
               <Text style={[styles.segmentLabelActive, { color: palette.text }]}>Upcoming</Text>
@@ -192,6 +206,8 @@ export function TodayCard({
             style={[styles.row, styles.viewAllRow, { backgroundColor: palette.surface }]}
             activeOpacity={0.7}
             onPress={onViewUpcoming}
+            accessibilityRole="button"
+            accessibilityLabel="View all upcoming"
           >
             <Text style={[styles.rowTitle, { color: palette.textSecondary }]}>View all</Text>
             <ChevronRight size={16} color={palette.textMuted} strokeWidth={1.7} />

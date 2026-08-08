@@ -301,9 +301,18 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
           // groove the selection rests in, matching the tab bar's material
           // elsewhere in the app. Inactive tabs stay flat text, same as the
           // tab bar's unselected icons.
+          // hitSlop compensates for the 30pt visual height staying below the
+          // 44pt touch-target floor — same pattern as DragHandleButton's
+          // compact glyph — rather than growing the "carved groove" chip
+          // itself, which is a deliberate compact tray shape.
+          const a11yProps = {
+            accessibilityRole: 'tab' as const,
+            accessibilityLabel: chip.label,
+            accessibilityState: { selected: isActive },
+          };
           if (isActive) {
             return (
-              <TouchableOpacity key={chip.key} style={{ flexShrink: 0 }} onPress={onPress}>
+              <TouchableOpacity key={chip.key} style={{ flexShrink: 0 }} onPress={onPress} hitSlop={7} {...a11yProps}>
                 <RiverStoneSurface
                   variant="chip"
                   mode={isDark ? 'dark' : 'light'}
@@ -321,6 +330,8 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
               key={chip.key}
               style={{ flexShrink: 0, height: 30, paddingHorizontal: 14, justifyContent: 'center' }}
               onPress={onPress}
+              hitSlop={7}
+              {...a11yProps}
             >
               <Text style={{ fontSize: 12, fontFamily: 'Inter_500Medium', fontWeight: '500', color: palette.textTertiary }}>{chip.label}</Text>
             </TouchableOpacity>
@@ -329,7 +340,10 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
       </ScrollView>
 
       <ScrollViewContainer showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 16 }}>
-        <Animated.View key={activeView} entering={FadeIn.duration(200).reduceMotion(ReduceMotion.Never)}>
+        {/* ReduceMotion.System (the default when unspecified) — the tab-switch
+            fade previously forced .Never, which ignores the user's actual
+            Reduce Motion setting instead of respecting it. */}
+        <Animated.View key={activeView} entering={FadeIn.duration(200).reduceMotion(ReduceMotion.System)}>
 
         {activeView === 'today' && (
         <>
