@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import Animated, { FadeIn, ReduceMotion } from 'react-native-reanimated';
+import Animated, { FadeIn, useReducedMotion } from 'react-native-reanimated';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { ScrollViewContainer } from 'react-native-reorderable-list';
 import { YStack } from 'tamagui';
@@ -63,6 +63,7 @@ const VIEW_CHIPS: Array<{ key: HomeView; label: string }> = [
 export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpcoming }: HomeScreenProps) {
   const navigation = useNavigation();
   const { isDark } = useThemeContext();
+  const reducedMotion = useReducedMotion();
   const palette = getThemeColors(isDark);
   const { revision: composerRevision } = useItemComposer();
   const openItem = useOpenItem();
@@ -340,10 +341,15 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
       </ScrollView>
 
       <ScrollViewContainer showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 16 }}>
-        {/* ReduceMotion.System (the default when unspecified) — the tab-switch
-            fade previously forced .Never, which ignores the user's actual
-            Reduce Motion setting instead of respecting it. */}
-        <Animated.View key={activeView} entering={FadeIn.duration(200).reduceMotion(ReduceMotion.System)}>
+        {/* No `entering` prop at all under Reduce Motion, rather than trusting
+            FadeIn's own .reduceMotion(System) config to skip to the final
+            frame — that left this view stuck at FadeIn's initial opacity:0
+            (content present, permanently invisible) instead of jumping to
+            visible. Checking the setting directly and omitting the animation
+            outright (same approach RoninJourneyPrototype already uses) is
+            reliable; the previous forced .Never was very likely a workaround
+            for this exact failure mode, not an oversight. */}
+        <Animated.View key={activeView} entering={reducedMotion ? undefined : FadeIn.duration(200)}>
 
         {activeView === 'today' && (
         <>
