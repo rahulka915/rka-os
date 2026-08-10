@@ -1,6 +1,6 @@
 import { Image, type ImageStyle, type StyleProp } from 'react-native';
 
-const settingsMedallionArtwork = require('../../../assets/icons/header/settings-medallion.png');
+const settingsMedallionArtwork = require('../../../assets/icons/header-v2/settings.png');
 
 interface SettingsMedallionIconProps {
   size?: number;

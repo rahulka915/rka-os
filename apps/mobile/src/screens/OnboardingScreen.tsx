@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ComponentType } from 'react';
 import {
   Image,
   Keyboard,
@@ -15,15 +15,17 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
-import { KatanaProgress } from '../components/ui/KatanaProgress';
-import { AreaBonsaiIcon } from '../components/icons/AreaBonsaiIcon';
-import { Briefcase, Users, Banknotes, PuzzlePiece, ChartBar, Flag, Star, Lock, Dumbbell } from '../icons';
+import { RiverStoneProgress } from '../components/ui/RiverStoneProgress';
+import { ChartBar, Flag, Star } from '../icons';
+import { getDomainIcon } from '../utils/domainIcons';
 import {
   createItem,
   setRelation,
   createPotentialStat,
   setFocus,
   computeOverallPotential,
+  updateItemMetadata,
+  CANONICAL_DOMAIN_TITLES,
 } from '../db/database';
 
 const heroDawn = require('../../assets/hero-dawn.png');
@@ -32,25 +34,22 @@ type Step = 'intro' | 'domains' | 'loop' | 'focus';
 
 interface SuggestedDomain {
   title: string;
-  Icon: typeof Briefcase;
+  Icon: ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
 }
 
-// Fixed 8-Domain default (the traditional Harada life-balance count) so the
-// Harada wheel visualization always renders as a proper 8-spoke wheel while
-// the visual design is still being iterated on, rather than a shape that
-// varies per user. Pre-selected below, not just suggested — still fully
-// editable (deselect, rename via custom-add, or add more later from the
-// Domains screen).
-const SUGGESTED_DOMAINS: SuggestedDomain[] = [
-  { title: 'Health & Wellbeing', Icon: AreaBonsaiIcon as unknown as typeof Briefcase },
-  { title: 'Career', Icon: Briefcase },
-  { title: 'Finance', Icon: Banknotes },
-  { title: 'Relationships', Icon: Users },
-  { title: 'Creativity', Icon: PuzzlePiece },
-  { title: 'Growth', Icon: ChartBar },
-  { title: 'Discipline', Icon: Lock },
-  { title: 'Fitness & Performance', Icon: Dumbbell },
-];
+// Fixed 8-Domain baseline (the traditional Harada life-balance count) so the
+// Harada wheel visualization always renders as a proper 8-spoke wheel. Every
+// user gets these 8 as a mandatory minimum — they can be renamed (from the
+// Domains screen, via Edit) but never deselected here or deleted later; only
+// custom, user-added Domains beyond these 8 can be removed. Created with
+// metadata.canonical = true (see handleContinueDomains / createCanonicalDomains)
+// so AreasScreen can block Delete/Convert-to-Skill on them.
+// The same custom icon resolver is shared with Domains, Potential and Domain
+// detail so the fixed eight identities never drift between screens.
+const SUGGESTED_DOMAINS: SuggestedDomain[] = CANONICAL_DOMAIN_TITLES.map((title) => ({
+  title,
+  Icon: getDomainIcon(title),
+}));
 
 interface CreatedDomain {
   id: string;
@@ -89,12 +88,25 @@ export function OnboardingScreen({ onDone }: OnboardingScreenProps) {
     [customDomains]
   );
 
+  const isMandatoryTitle = (title: string) => SUGGESTED_DOMAINS.some((d) => d.title === title);
+
   const toggleTitle = (title: string) => {
+    if (isMandatoryTitle(title)) return; // the 8 baseline Domains can't be deselected
     Haptics.selectionAsync();
     setSelectedTitles((current) =>
       current.includes(title) ? current.filter((t) => t !== title) : [...current, title]
     );
   };
+
+  // Shared by both onboarding paths that can create the baseline 8: the
+  // normal Domains step (handleContinueDomains) and the intro's "Skip
+  // setup" (which must still guarantee the mandatory minimum, not zero).
+  const createCanonicalDomains = (): CreatedDomain[] =>
+    SUGGESTED_DOMAINS.map((d) => {
+      const id = createItem('area', d.title, 'active');
+      updateItemMetadata(id, { canonical: true });
+      return { id, title: d.title };
+    });
 
   const addCustomDomain = () => {
     const trimmed = customTitle.trim();
@@ -118,7 +130,11 @@ export function OnboardingScreen({ onDone }: OnboardingScreenProps) {
   const handleBeginDomains = () => setStep('domains');
 
   const handleContinueDomains = () => {
-    const created = selectedTitles.map((title) => ({ id: createItem('area', title), title }));
+    const created = selectedTitles.map((title) => {
+      const id = createItem('area', title, 'active');
+      if (isMandatoryTitle(title)) updateItemMetadata(id, { canonical: true });
+      return { id, title };
+    });
     setDomains(created);
     setLoopIndex(0);
     setMissionTitle('');
@@ -176,11 +192,11 @@ export function OnboardingScreen({ onDone }: OnboardingScreenProps) {
                 maintained over time, not just which tasks you checked off.
               </Text>
               <Text style={[styles.body, { color: palette.textSecondary }]}>
-                Set a few up now. You can rename, add, or remove anything later.
+                You start with 8 baseline Domains — rename them anytime, and add more of your own later.
               </Text>
               <View style={styles.spacer} />
               <View style={styles.footer}>
-                <TouchableOpacity onPress={onDone} hitSlop={12}>
+                <TouchableOpacity onPress={() => { createCanonicalDomains(); onDone(); }} hitSlop={12}>
                   <Text style={[styles.ghostBtn, { color: palette.textSecondary }]}>Skip setup</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -197,15 +213,17 @@ export function OnboardingScreen({ onDone }: OnboardingScreenProps) {
         {step === 'domains' && (
           <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
             <Text style={[styles.eyebrow, { color: palette.textTertiary }]}>STEP 1 OF 3</Text>
-            <Text style={[styles.title, { color: palette.text }]}>Pick your Domains</Text>
+            <Text style={[styles.title, { color: palette.text }]}>Your 8 Domains</Text>
             <Text style={[styles.body, { color: palette.textSecondary }]}>
-              Tap the ones that resonate. Rename, add your own, or remove any later.
+              These 8 are the baseline everyone starts with — you can rename them later, but not remove
+              them. Add your own on top; those you can remove anytime.
             </Text>
 
             <View style={styles.chips}>
               {allChipTitles.map((title) => {
                 const suggestion = SUGGESTED_DOMAINS.find((d) => d.title === title);
                 const Icon = suggestion?.Icon;
+                const mandatory = isMandatoryTitle(title);
                 const selected = selectedTitles.includes(title);
                 return (
                   <TouchableOpacity
@@ -215,10 +233,12 @@ export function OnboardingScreen({ onDone }: OnboardingScreenProps) {
                       {
                         borderColor: selected ? palette.red : palette.separator,
                         backgroundColor: selected ? `${palette.red}22` : 'transparent',
+                        opacity: mandatory ? 0.9 : 1,
                       },
                     ]}
                     onPress={() => toggleTitle(title)}
-                    activeOpacity={0.75}
+                    activeOpacity={mandatory ? 1 : 0.75}
+                    accessibilityLabel={mandatory ? `${title}, included by default` : title}
                   >
                     {Icon && (
                       <Icon size={16} color={selected ? palette.red : palette.textTertiary} strokeWidth={1.9} />
@@ -359,9 +379,10 @@ export function OnboardingScreen({ onDone }: OnboardingScreenProps) {
                 <Text style={[styles.eyebrow, { color: palette.textTertiary }]}>
                   OVERALL POTENTIAL SO FAR
                 </Text>
-                <KatanaProgress
+                <RiverStoneProgress
                   progress={finalPotential / 100}
-                  size={20}
+                  isDark={isDark}
+                  height={12}
                   accessibilityLabel="Overall potential preview"
                 />
               </View>

@@ -5,6 +5,7 @@ import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
 import { SettingsMedallionIcon } from './icons/SettingsMedallionIcon';
 import { ThemeToggleIcon } from './header/ThemeToggleIcon';
+import { SyncIndicator } from './header/SyncIndicator';
 
 // header-v2 icon pack state mapping (see assets/icons/header-v2/README.md).
 function inboxIllustration(inboxCount: number) {
@@ -42,7 +43,10 @@ export function AppHeader({ onSettingsPress, onInboxPress, inboxCount = 0 }: App
         <SettingsMedallionIcon size={34} />
       </TouchableOpacity>
 
-      <Text style={[styles.wordmark, { color: palette.textSecondary }]}>RKA</Text>
+      <RNView style={styles.wordmarkGroup}>
+        <Text style={[styles.wordmark, { color: palette.textSecondary }]}>RKA</Text>
+        <SyncIndicator />
+      </RNView>
 
       <RNView style={styles.right}>
         <TouchableOpacity
@@ -89,6 +93,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  wordmarkGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   circleButton: {
     width: 44,

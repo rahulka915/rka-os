@@ -2,10 +2,13 @@ import { useState, useEffect, useCallback } from 'react';
 import { Platform } from 'react-native';
 import {
   getInboxItems,
+  getInboxCount,
   getTodayItems,
   getTodayInstances,
   getTodayLogs,
   getItemsByStatus,
+  getItemCountByStatus,
+  getActiveTaskItems,
   getItemsByType,
   createItem,
   updateItemStatus,
@@ -29,9 +32,18 @@ import {
   formatDate,
   getUnscheduledItems,
   getItemCountsForRange,
+  getBackwardPlans,
+  getBackwardPlan,
+  getPlanBlocks,
+  type PlanBlockWithSteps,
+  getDailyCheckIn,
+  getDailyCheckIns,
+  getDailyCheckInsForDate,
+  upsertDailyCheckIn,
 } from '../db/database';
-import type { Item, ItemInstance } from '../db/types';
+import type { DailyCheckInRow, Item, ItemInstance } from '../db/types';
 import type { TimelineEntry } from '../db/database';
+import type { DailyCheckInAnswers, DailyCheckInPhase } from '../utils/dailyCheckIn';
 import { resolveTimeBucket, type TimeOfDay } from '../utils/time';
 import { groupByScheduledDate, type UpcomingGroup } from '../utils/upcomingGrouping';
 import { buildHabitRowData, type HabitRowData } from '../utils/habits';
@@ -103,8 +115,8 @@ export function useHomeData() {
       merged.push(item);
     }
     setTodayItems(merged);
-    setInboxCount(getInboxItems().length);
-    setUpcomingCount(getItemsByStatus('active').length);
+    setInboxCount(getInboxCount());
+    setUpcomingCount(getItemCountByStatus('active'));
   }, []);
 
   useDbRefresh(refresh);
@@ -158,8 +170,8 @@ export function useMedications() {
     }
   }, [medications]);
 
-  const takeMedication = useCallback((id: string, takenAt?: number, startTimer = false) => {
-    logMedicationTaken(id, takenAt, startTimer);
+  const takeMedication = useCallback((id: string, takenAt?: number, startTimer = false, overrideReason?: string) => {
+    logMedicationTaken(id, takenAt, startTimer, 1, overrideReason);
     if (startTimer) startTimerForLatestLog(id);
     refresh();
   }, [refresh, startTimerForLatestLog]);
@@ -249,7 +261,7 @@ export function useAreas() {
 export function useTasks() {
   const [tasks, setTasks] = useState<Item[]>([]);
   const refresh = useCallback(() => {
-    setTasks(getItemsByType('task').filter(t => t.status !== 'inbox' && t.status !== 'completed'));
+    setTasks(getActiveTaskItems());
   }, []);
   useDbRefresh(refresh);
   return { tasks, refresh };
@@ -317,6 +329,77 @@ export function useTodayHabits() {
   }, []);
   useDbRefresh(refresh);
   return { habits, refresh };
+}
+
+export function useBackwardPlans() {
+  const [plans, setPlans] = useState<Item[]>([]);
+  const refresh = useCallback(() => {
+    setPlans(getBackwardPlans());
+  }, []);
+  useDbRefresh(refresh);
+  return { plans, refresh };
+}
+
+// Live workspace data for one Plan Backwards plan: the anchor item, its
+// ordered blocks (+steps), and a minute-granularity `now` — minute ticking is
+// sufficient for the time budget (spec section 23) without the re-render cost
+// of a per-second timer. Screens should also call `refresh` from
+// useFocusEffect so completions made elsewhere (e.g. a routine session) are
+// reflected immediately when this screen regains focus.
+export function useBackwardPlan(planId: string | undefined) {
+  const [plan, setPlan] = useState<Item | null>(null);
+  const [blocks, setBlocks] = useState<PlanBlockWithSteps[]>([]);
+  const [now, setNow] = useState(() => new Date());
+
+  const refresh = useCallback(() => {
+    if (!planId) {
+      setPlan(null);
+      setBlocks([]);
+      return;
+    }
+    setPlan(getBackwardPlan(planId));
+    setBlocks(getPlanBlocks(planId));
+  }, [planId]);
+
+  useDbRefresh(refresh);
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return { plan, blocks, now, refresh };
+}
+
+export function useDailyCheckIns(dateKey: string) {
+  const [morning, setMorning] = useState<DailyCheckInRow | null>(null);
+  const [evening, setEvening] = useState<DailyCheckInRow | null>(null);
+  const [recent, setRecent] = useState<DailyCheckInRow[]>([]);
+
+  const refresh = useCallback(() => {
+    setMorning(getDailyCheckIn(dateKey, 'morning'));
+    setEvening(getDailyCheckIn(dateKey, 'evening'));
+    setRecent(getDailyCheckIns());
+  }, [dateKey]);
+
+  useDbRefresh(refresh);
+
+  const save = useCallback((phase: DailyCheckInPhase, answers: DailyCheckInAnswers) => {
+    const row = upsertDailyCheckIn(dateKey, phase, answers);
+    refresh();
+    return row;
+  }, [dateKey, refresh]);
+
+  return { morning, evening, recent, refresh, save };
+}
+
+export function useDailyCheckInsForDate(dateKey: string) {
+  const [rows, setRows] = useState<DailyCheckInRow[]>([]);
+  const refresh = useCallback(() => {
+    setRows(getDailyCheckInsForDate(dateKey));
+  }, [dateKey]);
+  useDbRefresh(refresh);
+  return { rows, refresh };
 }
 
 export function completeAllInTimeBlock(bucket: 'anytime' | 'morning' | 'afternoon' | 'evening'): void {

@@ -1,4 +1,4 @@
-export type ItemType = 'area' | 'project' | 'task' | 'habit' | 'medication' | 'workout-template' | 'workout-block' | 'exercise' | 'workout-session' | 'meal' | 'object' | 'potential-stat' | 'achievement' | 'focus' | 'routine' | 'routine-step' | 'routine-session' | 'skill';
+export type ItemType = 'area' | 'project' | 'task' | 'habit' | 'medication' | 'workout-template' | 'workout-block' | 'exercise' | 'workout-session' | 'meal' | 'object' | 'potential-stat' | 'achievement' | 'focus' | 'routine' | 'routine-step' | 'routine-session' | 'skill' | 'backward-plan';
 export type ItemStatus = 'inbox' | 'active' | 'someday' | 'scheduled' | 'due-today' | 'overdue' | 'completed' | 'skipped' | 'archived' | 'cancelled';
 
 // Object's own possession-tracking lifecycle — independent of the generic ItemStatus
@@ -62,6 +62,54 @@ export interface ItemOrderRow {
 export interface AppSettingRow {
   key: string;
   value: string;
+  updatedAt: number;
+}
+
+export interface DailyCheckInRow {
+  id: string;
+  dateKey: string;
+  phase: 'morning' | 'evening';
+  answers: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+// Plan Backwards: a plan block belongs to one 'backward-plan' item (planId)
+// and is NOT itself an item — its placement/buffer/completion state is
+// plan-instance-specific and must never leak back into a reusable 'routine'
+// template. A 'routine' block copies its steps into planBlockSteps at
+// add-time (see addPlanBlockRoutine); a 'task'/'travel' block has no steps
+// and tracks its own completedAt directly on this row.
+export interface PlanBlockRow {
+  id: string;
+  planId: string;
+  type: 'routine' | 'task' | 'travel';
+  title: string;
+  orderIndex: number;
+  placement: 'auto' | 'anytime-before' | 'keep-near-event';
+  bufferMinutes: number | null;
+  durationMinutes: number | null;
+  actualMinutes: number | null;
+  routineTemplateId: string | null;
+  linkedItemId: string | null;
+  completedAt: number | null;
+  travelConfig: string | null;
+  notes: string | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface PlanBlockStepRow {
+  id: string;
+  blockId: string;
+  templateStepId: string | null;
+  title: string;
+  estimatedMinutes: number;
+  actualMinutes: number | null;
+  orderIndex: number;
+  placement: 'auto' | 'anytime-before' | 'keep-near-event';
+  completedAt: number | null;
+  createdAt: number;
   updatedAt: number;
 }
 

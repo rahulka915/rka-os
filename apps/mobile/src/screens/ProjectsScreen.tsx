@@ -1,9 +1,9 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Alert, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { useProjects, useAreas } from '../hooks/useDb';
-import { createItem, deleteItem, updateItemStatus, setRelation, getRelation, getProjectItemCount } from '../db/database';
+import { createItem, deleteItem, updateItemStatus, setRelation, getRelation, getProjectItemCount, getSkillForMission, getItemWithMetadata } from '../db/database';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
 import { LensSurface } from '../components/LensSurface';
@@ -23,12 +23,28 @@ export function ProjectsScreen() {
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
   const [createOpen, setCreateOpen] = useState(false);
-  const areaTitleById = new Map(areas.map(area => [area.id, area.title]));
+  const areaTitleById = useMemo(() => new Map(areas.map(area => [area.id, area.title])), [areas]);
 
   useRegisterFabHoldAction(useCallback(() => setCreateOpen(true), []));
 
   const active = projects.filter(p => p.status !== 'someday');
   const someday = projects.filter(p => p.status === 'someday');
+
+  // Per-Mission row data (domain/skill badge + task count) is derived from
+  // several DB reads each; computing it once here when the project/area lists
+  // change — instead of inside renderRow — keeps those reads off every
+  // re-render (renderRow ran 2-4 synchronous queries per row per render).
+  const rowDataById = useMemo(() => {
+    const map = new Map<string, { areaTitle?: string; skillTitle?: string; count: number }>();
+    for (const item of projects) {
+      const areaId = getRelation(item.id, 'area');
+      const areaTitle = areaId ? areaTitleById.get(areaId) : undefined;
+      const skillId = !areaId ? getSkillForMission(item.id) : null;
+      const skillTitle = skillId ? getItemWithMetadata(skillId)?.title : undefined;
+      map.set(item.id, { areaTitle, skillTitle, count: getProjectItemCount(item.id) });
+    }
+    return map;
+  }, [projects, areaTitleById]);
 
   const handleCreate = (title: string) => {
     createItem('project', title, 'active');
@@ -79,10 +95,9 @@ export function ProjectsScreen() {
   };
 
   const renderRow = (item: Item) => {
-    const meta = item.metadata ? JSON.parse(item.metadata) : {};
-    const icon: string | undefined = typeof meta.icon === 'string' ? meta.icon : undefined;
-    const areaId = getRelation(item.id, 'area');
-    const areaTitle = areaId ? areaTitleById.get(areaId) : undefined;
+    const rowData = rowDataById.get(item.id);
+    const areaTitle = rowData?.areaTitle;
+    const skillTitle = rowData?.skillTitle;
 
     return (
       <TouchableOpacity
@@ -93,7 +108,9 @@ export function ProjectsScreen() {
         onLongPress={() => handleLongPress(item)}
         delayLongPress={400}
       >
-        {icon ? <Text style={styles.rowIconEmoji}>{icon}</Text> : <ProjectPlaceholderIcon size={34} />}
+        <View style={[styles.missionIcon, { borderColor: palette.separatorStrong }]}>
+          <ProjectPlaceholderIcon size={25} color={palette.antiqueBrass} />
+        </View>
         <View style={styles.rowTitleGroup}>
           <Text style={[styles.rowTitle, { color: palette.text }]} numberOfLines={1}>{item.title}</Text>
           {areaTitle ? (
@@ -102,9 +119,15 @@ export function ProjectsScreen() {
                 {areaTitle}
               </Text>
             </View>
+          ) : skillTitle ? (
+            <View style={[styles.areaBadge, { backgroundColor: palette.fill }]}>
+              <Text style={[styles.areaBadgeText, { color: palette.textSecondary }]} numberOfLines={1}>
+                via {skillTitle}
+              </Text>
+            </View>
           ) : null}
         </View>
-        <Text style={[styles.rowCount, { color: palette.textTertiary }]}>{getProjectItemCount(item.id)}</Text>
+        <Text style={[styles.rowCount, { color: palette.textTertiary }]}>{rowData?.count ?? 0}</Text>
       </TouchableOpacity>
     );
   };
@@ -183,10 +206,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontFamily: 'Inter_600SemiBold',
   },
-  rowIconEmoji: {
-    fontSize: 28,
-    width: 34,
-    textAlign: 'center',
+  missionIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   areaBadge: {
     alignSelf: 'flex-start',

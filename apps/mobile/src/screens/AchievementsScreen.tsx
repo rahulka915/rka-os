@@ -6,8 +6,9 @@ import { getAllAchievements, getAreaForAchievement, getItemsByType, createAchiev
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
 import { LensSurface } from '../components/LensSurface';
+import { RiverStoneSurface } from '../components/riverstone';
 import { showActionSheet } from '../utils/actionSheet';
-import { Sparkles, Plus } from '../icons';
+import { Sparkles, Plus, Trophy } from '../icons';
 import type { Item } from '../db/types';
 
 interface AchievementRow {
@@ -123,12 +124,23 @@ export function AchievementsScreen() {
       }
     >
       {rows.length === 0 ? (
-        <View style={styles.empty}>
-          <Sparkles size={36} color={palette.textTertiary} strokeWidth={1.5} />
-          <Text style={[styles.emptyTitle, { color: palette.text }]}>No achievements yet</Text>
-          <Text style={[styles.emptySub, { color: palette.textSecondary }]}>
-            Completed achievement-worthy Missions land here automatically — or tap + to add one retrospectively.
-          </Text>
+        <View style={styles.emptyContent}>
+          <RiverStoneSurface variant="hero" mode={isDark ? 'dark' : 'light'} contentStyle={styles.emptyHero}>
+            <View style={[styles.trophyDisc, { borderColor: palette.antiqueBrass }]}>
+              <Trophy size={30} color={palette.antiqueBrass} strokeWidth={1.5} />
+            </View>
+            <Text style={[styles.emptyTitle, { color: palette.ivory }]}>Your collection begins here</Text>
+            <Text style={[styles.emptySub, { color: palette.greige }]}>Completed milestone-worthy Missions appear automatically. You can also add a past achievement with +.</Text>
+          </RiverStoneSurface>
+          <Text style={[styles.collectionLabel, { color: palette.antiqueBrass }]}>YOUR COLLECTION</Text>
+          <View style={styles.shelf}>
+            {[0, 1, 2].map((slot) => (
+              <View key={slot} style={[styles.emptySlot, { borderColor: palette.separatorStrong }]}>
+                <Sparkles size={18} color={palette.textTertiary} strokeWidth={1.4} />
+              </View>
+            ))}
+          </View>
+          <Text style={[styles.shelfCaption, { color: palette.textSecondary }]}>Each milestone becomes a reflection of who you are becoming.</Text>
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
@@ -141,7 +153,9 @@ export function AchievementsScreen() {
                 onLongPress={() => handleLongPress(row)}
                 delayLongPress={400}
               >
-                <Sparkles size={22} color={palette.red} strokeWidth={1.75} />
+                <View style={[styles.rowMedallion, { borderColor: row.contributesToScore ? palette.antiqueBrass : cardBorder }]}>
+                  <Trophy size={19} color={row.contributesToScore ? palette.antiqueBrass : palette.textTertiary} strokeWidth={1.6} />
+                </View>
                 <View style={styles.rowCopy}>
                   <Text style={[styles.rowTitle, { color: palette.text }]} numberOfLines={1}>{row.item.title}</Text>
                   <Text style={[styles.rowSub, { color: palette.textTertiary }]} numberOfLines={1}>
@@ -183,13 +197,9 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     fontFamily: 'Inter_500Medium',
   },
-  empty: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 32,
-  },
+  emptyContent: { paddingHorizontal: 16, paddingTop: 8, gap: 18 },
+  emptyHero: { alignItems: 'center', paddingHorizontal: 24, paddingVertical: 28, gap: 10 },
+  trophyDisc: { width: 62, height: 62, borderRadius: 31, borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
   emptyTitle: {
     fontSize: 18,
     fontWeight: '700',
@@ -200,5 +210,11 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
     fontWeight: '400',
     textAlign: 'center',
+    lineHeight: 20,
   },
+  collectionLabel: { fontSize: 10, fontFamily: 'Inter_800ExtraBold', fontWeight: '800', letterSpacing: 1 },
+  shelf: { flexDirection: 'row', justifyContent: 'space-between' },
+  emptySlot: { width: '31%', aspectRatio: 1, borderRadius: 18, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center' },
+  shelfCaption: { fontSize: 13, lineHeight: 19, textAlign: 'center', fontFamily: 'Newsreader_600SemiBold' },
+  rowMedallion: { width: 38, height: 38, borderRadius: 19, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center' },
 });

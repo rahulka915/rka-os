@@ -13,8 +13,7 @@ See DESIGN_CHECKLIST.md for the final integration notes. The rest of this doc is
 the original brief.
 
 Audience: whoever/whatever produces the actual art (Codex or a human illustrator), then an executing
-agent to wire the result in. This follows the same pattern as `RONIN_HERO_BUILD_PLAN.md`'s handoff for
-the chibi Ronin character art.
+agent to wire the result in.
 
 ## Context (read first)
 

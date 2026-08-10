@@ -10,7 +10,9 @@ import { QuickCreateSheet } from '../components/QuickCreateSheet';
 import { RiverStoneSurface } from '../components/riverstone';
 import { useRegisterFabHoldAction } from '../hooks/useFabHoldAction';
 import { showActionSheet } from '../utils/actionSheet';
-import { PuzzlePiece, Lock } from '../icons';
+import { PuzzlePiece } from '../icons';
+import { SkillIdentityIcon } from '../components/icons/SkillIdentityIcon';
+import { getSkillProficiencyLabel } from '../utils/skillIconKey';
 import type { Item } from '../db/types';
 
 interface SkillRow {
@@ -98,12 +100,13 @@ export function SkillsScreen() {
             >
               <RiverStoneSurface variant="card" mode={isDark ? 'dark' : 'light'} style={styles.card} contentStyle={styles.cardContent}>
                   <View style={styles.cardIconRow}>
-                    <PuzzlePiece size={26} color={palette.antiqueBrass} strokeWidth={1.6} />
-                    {!row.unlocked && <Lock size={14} color={palette.textTertiary} strokeWidth={2} />}
+                    <View style={[styles.identityDisc, { borderColor: palette.separatorStrong }]}>
+                      <SkillIdentityIcon title={row.item.title} size={27} color={palette.antiqueBrass} />
+                    </View>
                   </View>
                   <Text style={[styles.cardTitle, { color: palette.ivory }]} numberOfLines={2}>{row.item.title}</Text>
                   <View style={styles.cardFooter}>
-                    <Text style={[styles.cardProficiency, { color: palette.vermilion }]}>{row.proficiency}%</Text>
+                    <Text style={[styles.cardProficiency, { color: palette.vermilion }]}>{getSkillProficiencyLabel(row.proficiency)}</Text>
                     {row.primaryAreaTitle && (
                       <Text style={[styles.cardArea, { color: palette.greige }]} numberOfLines={1}>{row.primaryAreaTitle}</Text>
                     )}
@@ -136,11 +139,11 @@ const styles = StyleSheet.create({
     rowGap: 12,
   },
   cardWrap: {
-    width: '31%',
+    width: '48%',
     minHeight: 44,
   },
   card: {
-    aspectRatio: 0.92,
+    minHeight: 150,
   },
   cardContent: {
     flex: 1,
@@ -152,15 +155,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  identityDisc: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   cardTitle: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '700',
     fontFamily: 'Inter_700Bold',
     marginTop: 8,
   },
   cardFooter: { gap: 2 },
   cardProficiency: {
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: '700',
     fontFamily: 'Inter_700Bold',
   },

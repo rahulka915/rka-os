@@ -1,5 +1,5 @@
 import * as SQLite from 'expo-sqlite';
-import { Item, ItemInstance, ActivityLog, DomainContributionRow } from './types';
+import { Item, ItemInstance, ActivityLog, DomainContributionRow, DailyCheckInRow } from './types';
 import 'react-native-get-random-values';
 import { v4 as uuidv4 } from 'uuid';
 import { getTimeOfDayFromHour, normalizeTimeInput, timeToMinutes, type TimeOfDay } from '../utils/time';
@@ -23,6 +23,9 @@ import {
   type RoutineStepMeta,
   type RoutineSessionMeta,
 } from '../utils/routineMeta';
+import { parseBackwardPlanMeta, type BackwardPlanMeta, type PlacementBehavior, type TravelConfig } from '../utils/backwardPlanMeta';
+import type { DailyCheckInAnswers, DailyCheckInPhase } from '../utils/dailyCheckIn';
+import type { PlanBlockRow, PlanBlockStepRow } from './types';
 
 // Re-exported so `import type { TimelineEntry } from '../db/database'` keeps
 // working for CalendarScreen and useDb.
@@ -31,6 +34,16 @@ export type { TimelineEntry } from './timelineEntry';
 import { getCurrentSyncUserId, pushItemToFirestore, pushItemRelationToFirestore, deleteItemRelationFromFirestore, pushItemOrderBatchToFirestore, pushAppSettingToFirestore, pushActivityLogToFirestore } from '../services/firestoreSync';
 
 let db: SQLite.SQLiteDatabase;
+
+function nowMs(): number {
+  return globalThis.performance?.now?.() ?? Date.now();
+}
+
+function logDevTiming(label: string, startedAt: number): void {
+  if (!__DEV__) return;
+  const elapsed = Math.round(nowMs() - startedAt);
+  if (elapsed >= 8) console.warn(`[startup-perf] ${label} took ${elapsed}ms`);
+}
 
 export function syncItemToRemote(id: string): void {
   const userId = getCurrentSyncUserId();
@@ -41,11 +54,63 @@ export function syncItemToRemote(id: string): void {
   }
 }
 
+// __DEV__-only guardrail: every synchronous SQLite call blocks the single JS
+// thread that also handles taps and rendering, so any one that runs long is a
+// direct source of the lag this app must never have. We wrap the sync methods
+// once, at the single chokepoint every query already funnels through, and warn
+// (with the offending SQL) whenever a call exceeds one frame (~16ms). This is
+// a development tripwire — it catches N+1s, unbounded scans, and huge-batch
+// applies the moment they're written, instead of months later on a full DB.
+// Compiled out entirely in production (the `if (!__DEV__) return` short-circuit
+// leaves the raw native object untouched).
+function instrumentDbForDev(rawDb: SQLite.SQLiteDatabase): SQLite.SQLiteDatabase {
+  if (!__DEV__) return rawDb;
+  const SLOW_MS = 16;
+  const methods = ['getAllSync', 'getFirstSync', 'runSync', 'execSync', 'withTransactionSync'] as const;
+  for (const method of methods) {
+    const original = (rawDb as any)[method];
+    if (typeof original !== 'function') continue;
+    (rawDb as any)[method] = function instrumented(this: unknown, ...args: any[]) {
+      const start = nowMs();
+      try {
+        return original.apply(this, args);
+      } finally {
+        const elapsed = nowMs() - start;
+        if (elapsed >= SLOW_MS) {
+          const label = typeof args[0] === 'string' ? args[0].replace(/\s+/g, ' ').trim().slice(0, 140) : method;
+          console.warn(`[db-perf] ${method} blocked the JS thread ${Math.round(elapsed)}ms — ${label}`);
+        }
+      }
+    };
+  }
+  return rawDb;
+}
+
 export function getDb(): SQLite.SQLiteDatabase {
   if (!db) {
+    const bootStart = nowMs();
+    let stepStart = bootStart;
     db = SQLite.openDatabaseSync('rka-os.db');
+    logDevTiming('SQLite.openDatabaseSync', stepStart);
+    stepStart = nowMs();
+    // Default rollback-journal mode fsyncs the main DB file on every COMMIT —
+    // a fixed ~15-25ms cost per write transaction on iOS flash regardless of
+    // transaction size (confirmed: a single-row INSERT blocked the thread as
+    // long as a multi-row chunk). WAL only appends to a separate -wal file on
+    // commit and checkpoints back to the main file periodically instead, so
+    // writes stop paying a synchronous fsync tax on the JS thread.
+    db.execSync('PRAGMA journal_mode = WAL;');
+    logDevTiming('PRAGMA journal_mode=WAL', stepStart);
+    stepStart = nowMs();
     initSchema();
+    logDevTiming('initSchema', stepStart);
+    stepStart = nowMs();
     migratePotentialStats();
+    logDevTiming('migratePotentialStats', stepStart);
+    logDevTiming('getDb cold init', bootStart);
+    // Instrument after one-time schema/migration work so steady-state queries
+    // are what's measured, not the legitimately heavier first-boot setup.
+    db = instrumentDbForDev(db);
   }
   return db;
 }
@@ -96,6 +161,16 @@ function initSchema() {
       updatedAt INTEGER NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS dailyCheckIns (
+      id TEXT PRIMARY KEY,
+      dateKey TEXT NOT NULL,
+      phase TEXT NOT NULL,
+      answers TEXT NOT NULL,
+      createdAt INTEGER NOT NULL,
+      updatedAt INTEGER NOT NULL,
+      UNIQUE(dateKey, phase)
+    );
+
     -- Generic Notion-style relation edges between items (e.g. a task related to a project
     -- via relationType 'project', a project related to an area via relationType 'area').
     -- One row per (sourceId, relationType) — each source has at most one target per relation
@@ -138,7 +213,59 @@ function initSchema() {
       createdAt INTEGER NOT NULL
     );
 
+    -- Plan Backwards: a plan revolves around one anchor 'backward-plan' item
+    -- (see items.type) whose metadata holds Goal/Start/Expected/Latest/End
+    -- time + location + an optional device-calendar event reference (never
+    -- written back to — see services/deviceCalendar.ts). Its ordered plan
+    -- blocks (routine/task/travel) live here rather than as 'items' rows,
+    -- since a block's placement/buffer/completion is plan-instance-specific
+    -- and must never leak back into a reusable routine template (see
+    -- planBlockSteps below, and addPlanBlockRoutine's copy-not-link
+    -- instantiation).
+    CREATE TABLE IF NOT EXISTS planBlocks (
+      id TEXT PRIMARY KEY,
+      planId TEXT NOT NULL,
+      type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      orderIndex INTEGER NOT NULL DEFAULT 0,
+      placement TEXT NOT NULL DEFAULT 'auto',
+      bufferMinutes INTEGER,
+      durationMinutes INTEGER,
+      actualMinutes INTEGER,
+      routineTemplateId TEXT,
+      linkedItemId TEXT,
+      completedAt INTEGER,
+      travelConfig TEXT,
+      notes TEXT,
+      createdAt INTEGER NOT NULL,
+      updatedAt INTEGER NOT NULL
+    );
+
+    -- Plan-instance steps for a 'routine'-type planBlock, copied from the
+    -- routine template's routine-step items when the routine is added to a
+    -- plan (see addPlanBlockRoutine). templateStepId is a soft, non-live
+    -- reference kept only so a future duration-learning pass can trace a
+    -- step instance back to its template step — completing/editing a step
+    -- here never mutates the template, and vice versa.
+    CREATE TABLE IF NOT EXISTS planBlockSteps (
+      id TEXT PRIMARY KEY,
+      blockId TEXT NOT NULL,
+      templateStepId TEXT,
+      title TEXT NOT NULL,
+      estimatedMinutes INTEGER NOT NULL,
+      actualMinutes INTEGER,
+      orderIndex INTEGER NOT NULL DEFAULT 0,
+      placement TEXT NOT NULL DEFAULT 'auto',
+      completedAt INTEGER,
+      createdAt INTEGER NOT NULL,
+      updatedAt INTEGER NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_items_status ON items(status);
+    CREATE INDEX IF NOT EXISTS idx_items_status_deleted_created ON items(status, deletedAt, createdAt DESC);
+    CREATE INDEX IF NOT EXISTS idx_items_type_deleted_status_created ON items(type, deletedAt, status, createdAt DESC);
+    CREATE INDEX IF NOT EXISTS idx_items_task_unscheduled ON items(type, status, deletedAt, scheduledDate, createdAt DESC);
+    CREATE INDEX IF NOT EXISTS idx_items_completed_logbook ON items(status, deletedAt, completedAt DESC, updatedAt DESC);
     CREATE INDEX IF NOT EXISTS idx_items_scheduledDate ON items(scheduledDate);
     CREATE INDEX IF NOT EXISTS idx_instances_scheduledDate ON itemInstances(scheduledDate);
     CREATE INDEX IF NOT EXISTS idx_instances_itemId ON itemInstances(itemId);
@@ -147,6 +274,11 @@ function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_domainContributions_area ON domainContributions(areaId);
     CREATE INDEX IF NOT EXISTS idx_domainContributions_source ON domainContributions(sourceType, sourceId);
     CREATE INDEX IF NOT EXISTS idx_activityLogs_entity ON activityLogs(entityId, actionType);
+    CREATE INDEX IF NOT EXISTS idx_activityLogs_action_timestamp ON activityLogs(actionType, timestamp DESC);
+    CREATE INDEX IF NOT EXISTS idx_activityLogs_entity_action_timestamp ON activityLogs(entityId, actionType, timestamp DESC);
+    CREATE INDEX IF NOT EXISTS idx_dailyCheckIns_date ON dailyCheckIns(dateKey);
+    CREATE INDEX IF NOT EXISTS idx_planBlocks_plan ON planBlocks(planId);
+    CREATE INDEX IF NOT EXISTS idx_planBlockSteps_block ON planBlockSteps(blockId);
   `);
 
   try {
@@ -310,12 +442,55 @@ export function uuid(): string {
 export type TimerWidgetPresentation = 'compact' | 'expanded' | 'minimized' | 'hidden';
 export type VisibleTimerWidgetPresentation = Exclude<TimerWidgetPresentation, 'hidden'>;
 
+// ── Daily Check-Ins ────────────────────────────────────────────────────
+
+export function upsertDailyCheckIn(dateKey: string, phase: DailyCheckInPhase, answers: DailyCheckInAnswers): DailyCheckInRow {
+  const now = Date.now();
+  const existing = getDailyCheckIn(dateKey, phase);
+  const id = existing?.id ?? uuid();
+  const createdAt = existing?.createdAt ?? now;
+  getDb().runSync(
+    `INSERT INTO dailyCheckIns (id, dateKey, phase, answers, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(dateKey, phase) DO UPDATE SET
+       answers = excluded.answers,
+       updatedAt = excluded.updatedAt`,
+    [id, dateKey, phase, JSON.stringify(answers), createdAt, now],
+  );
+  return getDailyCheckIn(dateKey, phase)!;
+}
+
+export function getDailyCheckIn(dateKey: string, phase: DailyCheckInPhase): DailyCheckInRow | null {
+  return getDb().getAllSync<DailyCheckInRow>(
+    `SELECT * FROM dailyCheckIns WHERE dateKey = ? AND phase = ? LIMIT 1`,
+    [dateKey, phase],
+  )[0] ?? null;
+}
+
+export function getDailyCheckInsForDate(dateKey: string): DailyCheckInRow[] {
+  return getDb().getAllSync<DailyCheckInRow>(
+    `SELECT * FROM dailyCheckIns WHERE dateKey = ? ORDER BY CASE phase WHEN 'morning' THEN 0 ELSE 1 END`,
+    [dateKey],
+  );
+}
+
+export function getDailyCheckIns(limit = 30): DailyCheckInRow[] {
+  return getDb().getAllSync<DailyCheckInRow>(
+    `SELECT * FROM dailyCheckIns ORDER BY dateKey DESC, CASE phase WHEN 'morning' THEN 0 ELSE 1 END LIMIT ?`,
+    [limit],
+  );
+}
+
 // ── Items ──────────────────────────────────────────────────────────────
 
 export function getInboxItems(): Item[] {
   return getDb().getAllSync<Item>(
     `SELECT * FROM items WHERE status = 'inbox' AND deletedAt IS NULL ORDER BY createdAt DESC`
   );
+}
+
+export function getInboxCount(): number {
+  return getItemCountByStatus('inbox');
 }
 
 export function getTodayItems(): Item[] {
@@ -343,9 +518,37 @@ export function getItemsByStatus(status: string): Item[] {
   );
 }
 
+export function getItemCountByStatus(status: string): number {
+  return getDb().getFirstSync<{ count: number }>(
+    `SELECT COUNT(*) as count FROM items WHERE status = ? AND deletedAt IS NULL`,
+    [status]
+  )?.count ?? 0;
+}
+
+export function getAnytimeTaskItems(): Item[] {
+  return getDb().getAllSync<Item>(
+    `SELECT * FROM items WHERE type = 'task' AND status = 'active' AND scheduledDate IS NULL
+       AND deletedAt IS NULL ORDER BY createdAt DESC`
+  );
+}
+
+export function getActiveTaskItems(): Item[] {
+  return getDb().getAllSync<Item>(
+    `SELECT * FROM items WHERE type = 'task' AND status NOT IN ('inbox', 'completed', 'archived')
+       AND deletedAt IS NULL ORDER BY createdAt DESC`
+  );
+}
+
+export function getSomedayTaskItems(): Item[] {
+  return getDb().getAllSync<Item>(
+    `SELECT * FROM items WHERE type = 'task' AND status = 'someday' AND deletedAt IS NULL ORDER BY createdAt DESC`
+  );
+}
+
 export function getCompletedItems(): Item[] {
   return getDb().getAllSync<Item>(
-    `SELECT * FROM items WHERE status = 'completed' AND deletedAt IS NULL ORDER BY COALESCE(completedAt, updatedAt) DESC`
+    `SELECT * FROM items WHERE status = 'completed' AND deletedAt IS NULL
+       ORDER BY completedAt DESC, updatedAt DESC`
   );
 }
 
@@ -559,6 +762,30 @@ export function getPotentialStatsForArea(areaId: string): Item[] {
   return getRelatedItemsByType(areaId, 'potentialStatArea', 'potential-stat');
 }
 
+// Batched counterpart of getPotentialStatsForArea — one join query for every
+// area instead of one query per area. Used by computeOverallPotential/
+// computeAllDomainScores, which otherwise ran this query once per canonical
+// Domain (8x) on every Home refresh.
+export function getPotentialStatsForAreas(areaIds: string[]): Record<string, Item[]> {
+  const result: Record<string, Item[]> = {};
+  for (const areaId of areaIds) result[areaId] = [];
+  if (areaIds.length === 0) return result;
+  const placeholders = areaIds.map(() => '?').join(',');
+  const rows = getDb().getAllSync<Item & { __areaId: string }>(
+    `SELECT items.*, itemRelations.targetId as __areaId FROM items
+     JOIN itemRelations ON itemRelations.sourceId = items.id
+     WHERE itemRelations.targetId IN (${placeholders}) AND itemRelations.relationType = 'potentialStatArea'
+       AND items.type = 'potential-stat' AND items.deletedAt IS NULL
+     ORDER BY items.createdAt DESC`,
+    areaIds
+  );
+  for (const row of rows) {
+    const { __areaId, ...item } = row;
+    result[__areaId].push(item as Item);
+  }
+  return result;
+}
+
 export function getAreaForPotentialStat(statId: string): string | null {
   return getRelation(statId, 'potentialStatArea');
 }
@@ -655,6 +882,22 @@ export function getActiveContributionsForArea(areaId: string): DomainContributio
     `SELECT * FROM domainContributions WHERE areaId = ? AND excludedAt IS NULL`,
     [areaId]
   );
+}
+
+// Batched counterpart of getActiveContributionsForArea — one query for every
+// area instead of one query per area (same rationale as
+// getPotentialStatsForAreas above).
+export function getActiveContributionsForAreas(areaIds: string[]): Record<string, DomainContributionRow[]> {
+  const result: Record<string, DomainContributionRow[]> = {};
+  for (const areaId of areaIds) result[areaId] = [];
+  if (areaIds.length === 0) return result;
+  const placeholders = areaIds.map(() => '?').join(',');
+  const rows = getDb().getAllSync<DomainContributionRow>(
+    `SELECT * FROM domainContributions WHERE areaId IN (${placeholders}) AND excludedAt IS NULL`,
+    areaIds
+  );
+  for (const row of rows) result[row.areaId].push(row);
+  return result;
 }
 
 // Most recent contribution row (active or excluded) for a given source —
@@ -1285,8 +1528,9 @@ export function getPotentialStatResultsForArea(
   today: string,
   completedDatesByHabitId?: Record<string, Set<string>>,
   allHabits?: Item[],
+  statsForArea?: Item[],
 ): Record<string, PotentialStatResult> {
-  const stats = getPotentialStatsForArea(areaId);
+  const stats = statsForArea ?? getPotentialStatsForArea(areaId);
   const habits = allHabits ?? getItemsByType('habit');
   const dates = completedDatesByHabitId ?? getCompletedDatesForPotentialHabits(habits);
   return computePotentialStats(habits, stats, dates, today);
@@ -1297,10 +1541,11 @@ export function computeDomainMaintenance(
   today: string,
   completedDatesByHabitId?: Record<string, Set<string>>,
   allHabits?: Item[],
+  statsForArea?: Item[],
 ): number {
-  const stats = getPotentialStatsForArea(areaId);
+  const stats = statsForArea ?? getPotentialStatsForArea(areaId);
   if (stats.length === 0) return 0;
-  const results = getPotentialStatResultsForArea(areaId, today, completedDatesByHabitId, allHabits);
+  const results = getPotentialStatResultsForArea(areaId, today, completedDatesByHabitId, allHabits, stats);
   const percents = stats.map((stat) => results[stat.id]?.percent ?? 0);
   return percents.reduce((sum, p) => sum + p, 0) / percents.length;
 }
@@ -1310,10 +1555,12 @@ export function computeDomainScore(
   now: number = Date.now(),
   completedDatesByHabitId?: Record<string, Set<string>>,
   allHabits?: Item[],
+  statsForArea?: Item[],
+  contributionsForArea?: DomainContributionRow[],
 ): number {
   const today = formatDate(new Date(now));
-  const maintenance = computeDomainMaintenance(areaId, today, completedDatesByHabitId, allHabits);
-  const rows = getActiveContributionsForArea(areaId);
+  const maintenance = computeDomainMaintenance(areaId, today, completedDatesByHabitId, allHabits, statsForArea);
+  const rows = contributionsForArea ?? getActiveContributionsForArea(areaId);
   const contributions = rows.map((row) => ({
     magnitude: row.magnitude,
     halfLifeDays: row.halfLifeDays,
@@ -1333,10 +1580,13 @@ export function computeAllDomainScores(now: number = Date.now()): { scores: Reco
   const focus = getFocus();
   const habits = getItemsByType('habit');
   const completedDatesByHabitId = getCompletedDatesForPotentialHabits(habits);
+  const areaIds = areas.map((area) => area.id);
+  const statsByArea = getPotentialStatsForAreas(areaIds);
+  const contributionsByArea = getActiveContributionsForAreas(areaIds);
   const scores: Record<string, number> = {};
   const weights: Record<string, number> = {};
   for (const area of areas) {
-    scores[area.id] = computeDomainScore(area.id, now, completedDatesByHabitId, habits);
+    scores[area.id] = computeDomainScore(area.id, now, completedDatesByHabitId, habits, statsByArea[area.id], contributionsByArea[area.id]);
     weights[area.id] = focus?.weights?.[area.id] ?? 1;
   }
   return { scores, overall: overallPotential(scores, weights) };
@@ -1352,10 +1602,17 @@ export function computeOverallPotential(now: number = Date.now()): number {
   // habit on every call (every Home focus, every item save app-wide).
   const habits = getItemsByType('habit');
   const completedDatesByHabitId = getCompletedDatesForPotentialHabits(habits);
+  // Same batching for the per-Domain potential-stat and contribution reads
+  // themselves — these used to be 2 queries per Domain (16 total across the
+  // 8 canonical Domains) on every call; now 2 queries total regardless of
+  // Domain count.
+  const areaIds = areas.map((area) => area.id);
+  const statsByArea = getPotentialStatsForAreas(areaIds);
+  const contributionsByArea = getActiveContributionsForAreas(areaIds);
   const scores: Record<string, number> = {};
   const weights: Record<string, number> = {};
   for (const area of areas) {
-    scores[area.id] = computeDomainScore(area.id, now, completedDatesByHabitId, habits);
+    scores[area.id] = computeDomainScore(area.id, now, completedDatesByHabitId, habits, statsByArea[area.id], contributionsByArea[area.id]);
     weights[area.id] = focus?.weights?.[area.id] ?? 1;
   }
   return overallPotential(scores, weights);
@@ -1667,6 +1924,265 @@ export function hasSeenRoutinesIntro(): boolean {
 
 export function markRoutinesIntroSeen(): void {
   setAppSetting('hasSeenRoutinesIntro', true);
+}
+
+// --- Plan Backwards -------------------------------------------------------
+// A backward plan is an 'items' row (type='backward-plan') — title/scheduled-
+// Date/notes use the standard item columns, Goal/Start/Expected/Latest/End
+// time + location + an optional device-calendar reference live in metadata
+// as BackwardPlanMeta (utils/backwardPlanMeta.ts). Its ordered plan blocks
+// (routine/task/travel) are dedicated planBlocks/planBlockSteps rows, not
+// items — see the schema comment in initSchema for why. A 'routine' block
+// COPIES its steps from the routine template into planBlockSteps at add-time
+// (never a live link), so completing a step in today's plan never mutates
+// the reusable template, and editing the template later never retroactively
+// changes an already-instantiated plan (spec: reusable routine vs instance).
+
+export function createBackwardPlan(title: string, date: string, meta: BackwardPlanMeta = {}, notes?: string): string {
+  const id = createItem('backward-plan', title, 'active', date, notes);
+  updateItemMetadata(id, meta as unknown as Record<string, any>);
+  return id;
+}
+
+export function getBackwardPlans(): Item[] {
+  return getItemsByType('backward-plan')
+    .filter((plan) => !plan.archivedAt && !plan.deletedAt)
+    .sort((a, b) => (a.scheduledDate ?? '').localeCompare(b.scheduledDate ?? ''));
+}
+
+export function getBackwardPlan(planId: string): Item | null {
+  return getItemWithMetadata(planId);
+}
+
+export function updateBackwardPlan(
+  planId: string,
+  updates: Partial<{ title: string; date: string | null; notes: string | null }>,
+  metaUpdates?: Partial<BackwardPlanMeta>,
+): void {
+  if (updates.title !== undefined || updates.date !== undefined || updates.notes !== undefined) {
+    updateItem(planId, { title: updates.title, scheduledDate: updates.date, notes: updates.notes });
+  }
+  if (metaUpdates) {
+    const current = getItemWithMetadata(planId);
+    const currentMeta = parseBackwardPlanMeta(current?.metadata);
+    updateItemMetadata(planId, { ...currentMeta, ...metaUpdates });
+  }
+}
+
+export function deleteBackwardPlan(planId: string): void {
+  const blocks = getDb().getAllSync<{ id: string }>(`SELECT id FROM planBlocks WHERE planId = ?`, [planId]);
+  for (const block of blocks) {
+    getDb().runSync(`DELETE FROM planBlockSteps WHERE blockId = ?`, [block.id]);
+  }
+  getDb().runSync(`DELETE FROM planBlocks WHERE planId = ?`, [planId]);
+  deleteItem(planId);
+}
+
+function nextPlanBlockOrderIndex(planId: string): number {
+  const row = getDb().getFirstSync<{ maxOrder: number | null }>(
+    `SELECT MAX(orderIndex) as maxOrder FROM planBlocks WHERE planId = ?`,
+    [planId]
+  );
+  return (row?.maxOrder ?? -1) + 1;
+}
+
+// Copies the routine template's current steps into planBlockSteps — a
+// snapshot, not a live link. durationSeconds (routine-step's native unit)
+// converts to whole minutes since plan blocks work in minute granularity.
+export function addPlanBlockRoutine(
+  planId: string,
+  routineTemplateId: string,
+  opts?: { bufferMinutes?: number; placement?: PlacementBehavior },
+): string {
+  const routine = getItemWithMetadata(routineTemplateId);
+  const templateSteps = getRoutineSteps(routineTemplateId);
+  const now = Date.now();
+  const blockId = uuidv4();
+  getDb().runSync(
+    `INSERT INTO planBlocks (id, planId, type, title, orderIndex, placement, bufferMinutes, durationMinutes, actualMinutes, routineTemplateId, linkedItemId, completedAt, travelConfig, notes, createdAt, updatedAt)
+     VALUES (?, ?, 'routine', ?, ?, ?, ?, NULL, NULL, ?, NULL, NULL, NULL, NULL, ?, ?)`,
+    [
+      blockId,
+      planId,
+      routine?.title ?? 'Routine',
+      nextPlanBlockOrderIndex(planId),
+      opts?.placement ?? 'auto',
+      opts?.bufferMinutes ?? null,
+      routineTemplateId,
+      now,
+      now,
+    ]
+  );
+  templateSteps.forEach((step, index) => {
+    const meta = parseRoutineStepMeta(step.metadata);
+    const estimatedMinutes = Math.max(1, Math.round((meta.durationSeconds ?? 300) / 60));
+    getDb().runSync(
+      `INSERT INTO planBlockSteps (id, blockId, templateStepId, title, estimatedMinutes, actualMinutes, orderIndex, placement, completedAt, createdAt, updatedAt)
+       VALUES (?, ?, ?, ?, ?, NULL, ?, 'auto', NULL, ?, ?)`,
+      [uuidv4(), blockId, step.id, step.title, estimatedMinutes, index, now, now]
+    );
+  });
+  return blockId;
+}
+
+export function addPlanBlockTask(
+  planId: string,
+  title: string,
+  durationMinutes: number,
+  opts?: { placement?: PlacementBehavior; bufferMinutes?: number; linkedItemId?: string },
+): string {
+  const now = Date.now();
+  const blockId = uuidv4();
+  getDb().runSync(
+    `INSERT INTO planBlocks (id, planId, type, title, orderIndex, placement, bufferMinutes, durationMinutes, actualMinutes, routineTemplateId, linkedItemId, completedAt, travelConfig, notes, createdAt, updatedAt)
+     VALUES (?, ?, 'task', ?, ?, ?, ?, ?, NULL, NULL, ?, NULL, NULL, NULL, ?, ?)`,
+    [
+      blockId,
+      planId,
+      title,
+      nextPlanBlockOrderIndex(planId),
+      opts?.placement ?? 'auto',
+      opts?.bufferMinutes ?? null,
+      durationMinutes,
+      opts?.linkedItemId ?? null,
+      now,
+      now,
+    ]
+  );
+  return blockId;
+}
+
+export function getTravelBlockForPlan(planId: string): PlanBlockRow | null {
+  return getDb().getAllSync<PlanBlockRow>(
+    `SELECT * FROM planBlocks WHERE planId = ? AND type = 'travel' LIMIT 1`,
+    [planId]
+  )[0] ?? null;
+}
+
+// Travel is a single toggleable feature per plan (spec-adjacent: you travel
+// once to the anchor event, not several times), not a repeatable "Add" item
+// like Routine/Task — so this upserts the plan's one travel block instead of
+// always inserting a new row. Duration/buffer live BOTH at the row's own
+// columns (so calculateBlockRequiredDuration/buildBackwardsSchedule, which
+// only look at PlanBlockCalc's generic fields, work without a type-specific
+// carve-out) AND inside travelConfig (source/distanceMeters/estimatedAt,
+// startLocation/destination/mode — fields no other block type has).
+export function upsertPlanBlockTravel(
+  planId: string,
+  title: string,
+  config: TravelConfig,
+  opts?: { placement?: PlacementBehavior },
+): string {
+  const now = Date.now();
+  const travelConfigJson = JSON.stringify(config);
+  const placement = opts?.placement ?? 'keep-near-event';
+  const existing = getTravelBlockForPlan(planId);
+  if (existing) {
+    getDb().runSync(
+      `UPDATE planBlocks SET title = ?, placement = ?, bufferMinutes = ?, durationMinutes = ?, travelConfig = ?, updatedAt = ? WHERE id = ?`,
+      [title, placement, config.bufferMinutes ?? 0, config.durationMinutes, travelConfigJson, now, existing.id]
+    );
+    return existing.id;
+  }
+  const blockId = uuidv4();
+  getDb().runSync(
+    `INSERT INTO planBlocks (id, planId, type, title, orderIndex, placement, bufferMinutes, durationMinutes, actualMinutes, routineTemplateId, linkedItemId, completedAt, travelConfig, notes, createdAt, updatedAt)
+     VALUES (?, ?, 'travel', ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, ?, NULL, ?, ?)`,
+    [blockId, planId, title, nextPlanBlockOrderIndex(planId), placement, config.bufferMinutes ?? 0, config.durationMinutes, travelConfigJson, now, now]
+  );
+  return blockId;
+}
+
+export function updatePlanBlock(
+  blockId: string,
+  updates: Partial<{
+    title: string;
+    placement: PlacementBehavior;
+    bufferMinutes: number | null;
+    durationMinutes: number | null;
+    travelConfig: string | null;
+    notes: string | null;
+  }>,
+): void {
+  const fields: string[] = [];
+  const values: any[] = [];
+  for (const [key, value] of Object.entries(updates)) {
+    if (value === undefined) continue;
+    fields.push(`${key} = ?`);
+    values.push(value);
+  }
+  if (fields.length === 0) return;
+  fields.push('updatedAt = ?');
+  values.push(Date.now());
+  values.push(blockId);
+  getDb().runSync(`UPDATE planBlocks SET ${fields.join(', ')} WHERE id = ?`, values);
+}
+
+export function deletePlanBlock(blockId: string): void {
+  getDb().runSync(`DELETE FROM planBlockSteps WHERE blockId = ?`, [blockId]);
+  getDb().runSync(`DELETE FROM planBlocks WHERE id = ?`, [blockId]);
+}
+
+export interface PlanBlockWithSteps extends PlanBlockRow {
+  steps: PlanBlockStepRow[];
+}
+
+export function getPlanBlocks(planId: string): PlanBlockWithSteps[] {
+  const blocks = getDb().getAllSync<PlanBlockRow>(
+    `SELECT * FROM planBlocks WHERE planId = ? ORDER BY orderIndex ASC`,
+    [planId]
+  );
+  return blocks.map((block) => ({
+    ...block,
+    steps:
+      block.type === 'routine'
+        ? getDb().getAllSync<PlanBlockStepRow>(
+            `SELECT * FROM planBlockSteps WHERE blockId = ? ORDER BY orderIndex ASC`,
+            [block.id]
+          )
+        : [],
+  }));
+}
+
+export function togglePlanBlockComplete(blockId: string, completed: boolean): void {
+  getDb().runSync(
+    `UPDATE planBlocks SET completedAt = ?, updatedAt = ? WHERE id = ?`,
+    [completed ? Date.now() : null, Date.now(), blockId]
+  );
+}
+
+// Records actualMinutes (elapsed since the block/routine session started
+// tracking, where available) alongside completion — the data model this
+// leaves in place for a future duration-learning pass, per spec section 9.
+export function togglePlanBlockStepComplete(stepId: string, completed: boolean, actualMinutes?: number): void {
+  getDb().runSync(
+    `UPDATE planBlockSteps SET completedAt = ?, actualMinutes = ?, updatedAt = ? WHERE id = ?`,
+    [completed ? Date.now() : null, completed ? actualMinutes ?? null : null, Date.now(), stepId]
+  );
+}
+
+export function reorderPlanBlocks(planId: string, orderedBlockIds: string[]): void {
+  const now = Date.now();
+  orderedBlockIds.forEach((id, index) => {
+    getDb().runSync(`UPDATE planBlocks SET orderIndex = ?, updatedAt = ? WHERE id = ? AND planId = ?`, [index, now, id, planId]);
+  });
+}
+
+export function reorderPlanBlockSteps(blockId: string, orderedStepIds: string[]): void {
+  const now = Date.now();
+  orderedStepIds.forEach((id, index) => {
+    getDb().runSync(`UPDATE planBlockSteps SET orderIndex = ?, updatedAt = ? WHERE id = ? AND blockId = ?`, [index, now, id, blockId]);
+  });
+}
+
+// Usual departure point, prefilled into a new Travel block's startLocation —
+// stored as a plain app setting (not per-plan) so it's set once and reused.
+export function getDefaultDeparturePoint(): string {
+  return getAppSetting<string>('planBackwards.defaultDeparture', '');
+}
+
+export function setDefaultDeparturePoint(location: string): void {
+  setAppSetting('planBackwards.defaultDeparture', location);
 }
 
 export function isPlannedForToday(item: Item): boolean {

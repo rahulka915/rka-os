@@ -1,11 +1,11 @@
-import { FolderKanban } from '../../icons';
+import { MissionTargetIcon } from './DomainIcons';
 
 interface ProjectPlaceholderIconProps {
   size?: number;
   color?: string;
 }
 
-// Neutral default icon for missions with no custom emoji set (see metadata.icon).
+// One stable identity for every Mission; Domain and progress provide context.
 export function ProjectPlaceholderIcon({ size = 24, color = '#8E8E93' }: ProjectPlaceholderIconProps) {
-  return <FolderKanban size={size} color={color} strokeWidth={1.75} />;
+  return <MissionTargetIcon size={size} color={color} strokeWidth={1.7} />;
 }

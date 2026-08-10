@@ -1,6 +1,16 @@
 import type { ComponentType } from 'react';
 import { AreaBonsaiIcon } from '../components/icons/AreaBonsaiIcon';
-import { Briefcase, Banknotes, Users, PuzzlePiece, ChartBar, Lock, Dumbbell } from '../icons';
+import {
+  CareerDomainIcon,
+  CreativityDomainIcon,
+  DisciplineDomainIcon,
+  FinanceDomainIcon,
+  FitnessDomainIcon,
+  GrowthDomainIcon,
+  HealthDomainIcon,
+  RelationshipsDomainIcon,
+} from '../components/icons/DomainIcons';
+import { getDomainIconKey } from './domainIconKey';
 
 type DomainIconComponent = ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
 
@@ -9,18 +19,18 @@ type DomainIconComponent = ComponentType<{ size?: number; color?: string; stroke
 // user-renamed "Health" both resolve. Falls back to AreaBonsaiIcon (the
 // original generic Domain glyph) for any custom Domain title that doesn't
 // match one of the 8.
-const DOMAIN_ICON_RULES: Array<{ match: RegExp; Icon: DomainIconComponent }> = [
-  { match: /health|wellbeing/i, Icon: AreaBonsaiIcon as unknown as DomainIconComponent },
-  { match: /career|work/i, Icon: Briefcase },
-  { match: /financ|money/i, Icon: Banknotes },
-  { match: /relationship|family|friend/i, Icon: Users },
-  { match: /creativ|craft/i, Icon: PuzzlePiece },
-  { match: /growth|mind|learn/i, Icon: ChartBar },
-  { match: /disciplin/i, Icon: Lock },
-  { match: /fitness|performance/i, Icon: Dumbbell },
-];
+const DOMAIN_ICONS: Record<ReturnType<typeof getDomainIconKey>, DomainIconComponent> = {
+  health: HealthDomainIcon,
+  finance: FinanceDomainIcon,
+  career: CareerDomainIcon,
+  fitness: FitnessDomainIcon,
+  discipline: DisciplineDomainIcon,
+  growth: GrowthDomainIcon,
+  creativity: CreativityDomainIcon,
+  relationships: RelationshipsDomainIcon,
+  overall: AreaBonsaiIcon as unknown as DomainIconComponent,
+};
 
 export function getDomainIcon(title: string): DomainIconComponent {
-  const rule = DOMAIN_ICON_RULES.find((r) => r.match.test(title));
-  return rule ? rule.Icon : (AreaBonsaiIcon as unknown as DomainIconComponent);
+  return DOMAIN_ICONS[getDomainIconKey(title)];
 }

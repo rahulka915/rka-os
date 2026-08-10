@@ -1,8 +1,261 @@
 # RKA OS — Handover Summary
-**Last Updated:** 2026-08-07
+**Last Updated:** 2026-08-10
 **Status:** Native iOS (primary, active) + a *separate, current* desktop web app (`apps/mobile/src/webApp/`, Expo web, built 2026-07-30–08-01, partial screen parity — see `apps/mobile/CLAUDE.md`'s "Desktop Web App" section). The *different, unrelated* Web PWA described in Session 1 below (Vite + React + Dexie.js, repo root) has been fully retired; that section is kept as historical record only. Do not conflate the two — one is dead, one is actively developed.
 
 ---
+
+## 2026-08-10 — App-wide lag / cold-start-hang hardening
+
+A pass to eliminate the "app hangs a beat or two after open" symptom on a proper (swipe-closed) relaunch, on `feature/routines-quantified-habits`. Root discipline established: **nothing heavy runs on the critical path; background work yields to interaction.** The JS thread is single-threaded and the data layer is 100% synchronous SQLite (186 sync calls, 0 async), so any heavy work on mount/render is felt directly.
+
+### Changes
+- **Deferred sync startup:** `useBackup.ts` no longer attaches the 6 Firestore `onSnapshot` listeners inline when auth resolves — it defers via `InteractionManager.runAfterInteractions` (with a 3s hard-cap fallback via a local `scheduleWhenIdle` helper, so a starved interaction queue can't leave sync permanently unstarted). This was the main cold-start hang: applying the first full-collection snapshot competed with first-frame render and first taps.
+- **Batched sync reads:** `firestoreSync.ts`'s listeners applied one synchronous SQLite `SELECT` *per changed doc* to read local timestamps for the newer-wins comparison — a full-collection first sync meant hundreds/thousands of native-bridge round trips on the JS thread. Now one batched `WHERE id IN (...)` read per snapshot (`loadLocalTimestamps`, chunked at 500). Write path/conflict logic byte-for-byte unchanged.
+- **Subtle sync indicator:** new `services/syncStatus.ts` (framework-free store, `beginInitialSync`/`markInitialSyncListenerDone`/`resetSyncStatus`, 12s safety timeout) + `hooks/useSyncStatus.ts` (useSyncExternalStore) + `components/header/SyncIndicator.tsx` (a small pulsing dot in `AppHeader` beside the "RKA" wordmark, reduce-motion aware, `pointerEvents="none"`). Shows only during the initial post-cold-start catch-up; clears when all 6 listeners have delivered their first snapshot.
+- **`computeOverallPotential` N+1 removed** (`database.ts`): was 2 SQLite queries *per Domain* (`getPotentialStatsForArea` + `getActiveContributionsForArea`) — ~16 across the 8 canonical Domains, on every Home refresh/item-save. New batched `getPotentialStatsForAreas`/`getActiveContributionsForAreas` (one query each); threaded through `computeDomainScore`/`computeDomainMaintenance`/`getPotentialStatResultsForArea` via optional precomputed params (single-area callers like `AreaDetailScreen` unchanged).
+- **Render-time DB query storms removed** (were re-running on *every* render, not just mount): `ProjectsScreen` (2–4 queries/row → precomputed `rowDataById` memo), `AreaDetailScreen` (`getProjectItemCount` ×2/row → `projectCounts` memo), `AreasScreen` (`getAreaProjectCount`/row → folded into the focus-effect precompute), `TasksScreen` (`getProjectTitle` + up-to-2 `getBlockingTask`/row, during drag → `projectTitleById`/`blockerIdById` memos), `MedicationsScreen` (`getLastTakenLog`/med → `lastLogByMedId` memo; `computeFocusState` stays per-render so the 60s timeline still advances).
+- **Home mount de-duplication:** removed the redundant second mount-refresh in `HomeScreen` (the `useHomeData`/`useUpcomingPreview`/`useTodayHabits` hooks already self-refresh on mount) and the duplicate `refresh()` in `PlanBackwardsCountdownWidget`; memoized Home's derived list filters. `WeatherWidget` now always renders its card shell with a placeholder while loading (no more row height jump). Removed an eager boot-time `requestLocationPermission()` from `App.tsx` (it requested the throttled "Always Allow" upgrade and its delayed prompt read as a mid-navigation hang; geofencing still requests lazily in `addGeofence`).
+- **Dev guardrail:** `getDb()` wraps the sync SQLite methods in `__DEV__` only (`instrumentDbForDev`) and `console.warn`s with the offending SQL whenever a call blocks the JS thread ≥16ms — a tripwire so future N+1s/scans surface at write time. Compiled out in production.
+
+### Verification
+- `npx tsc --noEmit` — no new errors from any touched file. The single remaining `database.ts` `skill`/`mission` arg error is pre-existing and untouched.
+- `node --test` on `potential.test.ts` + `domainScoring.test.ts` — 24/24 pass (scoring math unchanged; only the DB-read shape around it changed).
+- **On-device follow-up (same day): the guardrail caught the real culprit.** A physical relaunch still froze ~10s on first navigation. The `__DEV__` db-perf guardrail printed the smoking gun in Metro:
+  ```
+  [db-perf] withTransactionSync blocked the JS thread 162ms / 182ms / 306ms / 330ms
+  FirebaseError: [code=resource-exhausted]: Write stream exhausted maximum allowed queued writes.
+  [backup] background push failed [FirebaseError: Missing or insufficient permissions.]
+  ```
+  1. **The freeze is Firestore sync applying a whole subcollection in ONE synchronous `withTransactionSync`** (160–330ms per listener; several back-to-back = the multi-second hang). The batched-READS fix above didn't cover it because the dominant cost was the WRITE volume in one transaction. **Fixed:** `firestoreSync.ts`'s six listeners now apply changes through a shared `applyDocChangesInChunks` helper — 100 writes per short transaction, yielding the JS thread (`setTimeout 0`) between chunks so no single synchronous block exceeds a frame. Same newer-wins/write logic and `markFirst` sync-indicator wiring, just chunked. `tsc` clean, potential/domain tests still pass.
+  2. **⚠️ SEPARATE BACKEND ISSUE — NOT FIXED, needs action outside the RN client.** Firestore is **rejecting** the sync/backup writes (`Missing or insufficient permissions`) so they queue, retry, and exhaust the write stream (`Write stream exhausted`). This is constant background churn and explains why there's so much to re-apply each launch. **Action:** review/deploy Firestore security rules so the authenticated user can write their own `users/{uid}/{items,itemInstances,itemRelations,itemOrder,appSettings,activityLogs}` subcollections + backup doc, and confirm `auth.currentUser.uid` matches the rules' path. Until then sync never persists to the cloud and the app keeps retrying.
+- **Still to confirm on next relaunch:** with chunking in place, the on-navigation freeze should be gone even while the (still-failing) writes churn in the background.
+
+### 2026-08-10 (later) — freeze root cause corrected; redundant backfill removed
+Instrumented `firestoreSync.ts` with `[sync-perf]` logging and did a clean swipe-closed relaunch. The evidence **corrected two claims above**:
+- **The chunking fix (point 1) worked.** Worst JS-thread block this run was **26ms** (one `SELECT * FROM items`); the 2528-row `activityLogs` apply spread 398ms across 26 yielded chunks. The 162–330ms `withTransactionSync` blocks are gone.
+- **Point 2 (rules/permissions) was a dead end.** The deployed Firestore rules already match `firebase/firestore.rules` and cover every path the client writes (verified: `firebase deploy --only firestore:rules` was a no-op "already up to date"; composite `backups` index is deployed). The `Missing or insufficient permissions` / `Write stream exhausted` messages were a *downstream symptom* of the SDK write queue backing up, not a real rules rejection.
+- **The actual "hangs a couple seconds after open" culprit: `backfillLocalToRemote`.** Commented "one-time reconciliation" but nothing gated it — every cold start it did three sequential full-collection `getDocs` (items/itemInstances/itemRelations), re-downloading exactly what the six `onSnapshot` listeners already fetch. Measured: **23.3s wall, 0 pushes.** Pure redundant network + double deserialization on the JS thread.
+- **Fix:** deleted the standalone `backfillLocalToRemote`. The push-local-only-rows step is now folded into each listener's *first snapshot* via `pushLocalOnlyRows` + `buildRemoteVersionMap`, reusing the remote collection the listener already delivered — zero extra `getDocs`. Pushes are sequenced one-at-a-time (`setTimeout` between each) so a large reconciliation can't re-trigger `Write stream exhausted`. Existence-only semantics preserved for `itemRelations`. `tsc` clean, 24/24 potential+domain tests pass. Instrumentation removed. **Recommend removing the stale "SEPARATE BACKEND ISSUE" action item — no backend change is needed.**
+
+### 2026-08-10 (later still) — residual lag traced to activityLogs re-sync; watermark fix
+The prior fixes helped but the user still reported *slight* cold-start lag + a delayed first FAB tap, and — crucially — framed it as a **regression** ("app was seamless until a couple days ago"). Worked it with on-device `[boot]`/`[db-perf]` logging over a live Metro tail, isolating each suspect with reversible A/B flags rather than guessing. Findings, in order:
+- **SQLite was in the default rollback-journal mode**, which `fsync`s the main DB file on *every* COMMIT — a fixed ~15–25ms per write transaction on iOS flash *regardless of transaction size* (confirmed: a single-row INSERT blocked the thread as long as a multi-row chunk). **Fix:** `getDb()` now runs `PRAGMA journal_mode = WAL` right after `openDatabaseSync`, before schema/migration. WAL appends to a `-wal` file on commit and checkpoints separately, so writes stop paying a synchronous fsync tax. This alone removed the steady stream of `[db-perf]` COMMIT/withTransactionSync warnings.
+- **`firestoreSync.ts`'s `buildRemoteVersionMap` walked the entire collection calling `.data()` on every doc** — forcing Firestore proto→JS deserialization for the whole `items`/`itemInstances`/`itemRelations` collection in one unyielded pass *outside* `applyDocChangesInChunks`' chunking (and, for items/instances, a *second* deserialization on top of the chunked write pass). Invisible to `[db-perf]` since it never touches SQLite. **Fix:** the version map is now accumulated inside the already-chunked `applyChange` callback — one pass, chunked, no duplicate deserialization. `applyDocChangesInChunks` also shrunk its chunk 10→5 and swapped the `setTimeout(16)` yield for `requestAnimationFrame` (guarantees a paint between chunks instead of just yielding the event loop).
+- **Home stripped to reduce mount-time query load:** per user request, removed all Home widgets except `MedicationQuickLogWidget` (Journey/Potential strip, Daily Check-In, Weather, Plan Backwards countdown, Habits — deleted from the tree, not hidden, so nothing queries for them on cold start) and the nested Today/Upcoming segmented control inside `TodayCard` (redundant with Home's top-level Today/Upcoming/Anytime/Someday/Logbook chips). Home's secondary views are now strictly **task-only** (`getTodayItems`/`getCompletedItems` aren't type-scoped at the query level, so Today + Logbook filter `type === 'task'` client-side; Anytime/Someday already SQL-scoped). Dropped `useUpcomingPreview`/`useTodayHabits`/`useDailyCheckIns`/`computeOverallPotential`/`getFocus` from `HomeScreen`, plus the `onViewUpcoming` prop + its `App.tsx` wiring.
+- **`requestNotificationPermission` re-requested every boot** (`useNotifications.ts`) — `requestPermissionsAsync()` is a ~295ms native round-trip even when already granted (no prompt shown, just a status query). **Fix:** read the cheap `getPermissionsAsync()` first and only escalate to a real request while status is `undetermined`. Dropped the `[boot]` number from ~295ms to ~7–14ms.
+- **THE main culprit — `activityLogs` cold-start re-sync (a data-growth regression).** `activityLogs` is append-only and only grows; the sync code is 2 weeks old but the *data* crossed a pain threshold recently. On every cold start Firestore delivered the *entire* collection as "added" and the chunked apply loop re-processed all of it across many frames — running a few seconds post-launch, exactly when the user reached for the FAB. Confirmed by A/B-gating the listener off (FAB became instant). **Fix (watermark):** the `activityLogs` listener now uses `query(ref, where('createdAt', '>', watermark))` instead of the full collection, where `watermark` is a **device-LOCAL** value (`_local.activityLogsSyncWatermark` key in `appSettings`, written directly in `firestoreSync.ts` so it is never pushed to Firestore — must not sync across devices). It seeds from the local table's `MAX(createdAt)` when unset, so a device that already holds history is cheap on the very first post-fix launch. `onComplete` advances + persists the watermark. This turns cold-start cost from O(all history) back to O(rows since last launch) — it cannot creep back the way it did. **Tradeoff (accepted by user):** a cross-device EDIT or DELETE of an *old* activityLog (createdAt ≤ watermark) won't propagate through this listener; a full backup/restore still reconciles it. Fine for a mostly single-user app.
+
+**Architecture note (came up with the user):** the lag was never a *network* problem, and enabling Firestore's own offline cache would not have helped — SQLite *is* the local cache (dual-write: SQLite primary + durable, Firestore layered on top only for cross-device sync). The cost was the JS thread re-*applying* remote docs into SQLite each launch, not fetching them. (Also: this app uses the JS `firebase` SDK with plain `getFirestore` — no `persistentLocalCache`; on RN that SDK's Firestore persistence is memory-only regardless.)
+
+**Verification:** on-device, cold start + FAB + navigation all instant with the watermark fix and the full River Stone material restored (a brief flat-material A/B confirmed the material was a minor contributor, not the cause). `tsc` clean on all touched files. Temporary `[boot]` instrumentation and both A/B experiment flags removed (the `RIVERSTONE_FLAT_EXPERIMENT` flag remains in `RiverStoneSurface.tsx`, defaulted `false`, as a dormant escape hatch). The permanent `[db-perf]`/`[startup-perf]` `__DEV__` guardrails in `database.ts` are unchanged.
+
+---
+
+## 2026-08-10 — Daily Check-In / Daily Log v1
+
+Built the native-first structured daily logging ritual from the approved design/spec (`docs/superpowers/specs/2026-08-10-daily-check-in-design.md`) and implementation plan (`docs/plans/2026-08-10-daily-check-in.md`).
+
+### Changes
+- **Schema:** new dedicated `dailyCheckIns` SQLite table (`dateKey`, `phase`, `answers`, timestamps, unique `(dateKey, phase)`) plus `DailyCheckInRow` type and repository functions (`upsertDailyCheckIn`, `getDailyCheckIn`, `getDailyCheckInsForDate`, `getDailyCheckIns`). This table is intentionally separate from `items`: check-ins are logs, not tasks.
+- **Pure logic:** new `src/utils/dailyCheckIn.ts` (+ tests) covers local date assignment, including the `12:00 AM - 2:00 AM` previous-day Evening Debrief rule, Home prompt-window selection, safe answer parsing, editability (today/yesterday only), and explainable priority suggestion ranking.
+- **Native UI:** Home now renders `DailyCheckInCard.tsx` under the Journey summary. It shows Morning Check-In, midday catch-up, Evening Debrief, or Today Logged based on time windows and saved entries.
+- **Stepper flow:** `DailyCheckInFlowScreen.tsx` implements onboarding-style morning/evening flows with label chips, optional notes, explainable suggested priorities, freeform priorities, evening priority outcomes, friction/helped chips and review/save.
+- **History:** `DailyLogScreen.tsx` shows reverse-chronological daily summaries, reachable from Home and Profile. Today/yesterday are editable; older rows are read-only.
+- **Web compatibility:** `database.web.ts` exposes in-memory Daily Check-In functions only so shared hooks remain bundle-safe. Desktop web UI parity is not built yet and is documented as a gap.
+- **Docs:** updated `apps/mobile/SCHEMA.md`, `apps/mobile/CLAUDE.md`, and `AGENTS.md` with the feature contract and the hard rule that saving a check-in never mutates task status/order/schedule, Potential, Domain scoring, Focus weights, habits, routines or achievements.
+
+### Verification
+- `node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test src/utils/dailyCheckIn.test.ts` — 10/10 passing.
+- `npm run typecheck` — no new Daily Check-In errors surfaced; still reports the existing Expo web `.web.tsx` resolution false alarms plus the pre-existing `database.ts` skill contribution type error.
+- Full `npm test` still expected to show the pre-existing missing Ronin authoring manifest failure unless that separate Ronin cleanup lands first.
+
+### Next steps
+- On-device pass through the Home card, morning save/edit, evening save/edit, Profile → Daily Log, and post-midnight date behavior.
+- Future pass: assistant read-only context and suggestion flow; desktop web Daily Log parity if prioritized.
+
+---
+
+## 2026-08-08 — Plan Backwards v1 (new deadline/anchor-based planning workspace)
+
+Implemented the full v1 of Plan Backwards end-to-end in one sweep on `feature/routines-quantified-habits` — a standalone screen (`Menu` → "Plan Backwards", not folded into Today yet, per spec) where the user sets a Goal Time and works backwards to see what must happen before it.
+
+### Changes
+- **Schema:** two new tables, `planBlocks`/`planBlockSteps` (`apps/mobile/src/db/database.ts`'s `initSchema`), plus a new `items.type` value `'backward-plan'`. Plan components (Routine/Task/Travel) are dedicated rows, not `items`, because their placement/buffer/completion state is plan-instance-specific — adding an existing Routine template to a plan **copies** its steps (`addPlanBlockRoutine`), never links live, so completing a step today never mutates the reusable template. See `apps/mobile/SCHEMA.md`'s new `planBlocks`/`planBlockSteps` section and `backward-plan` entity row for the full column reference.
+- **Domain math:** `apps/mobile/src/utils/backwardPlanCalc.ts` — pure, tested functions (`calculateTimeRemaining`, `calculateRoutineRemainingDuration`, `calculatePlanRequiredDuration`, `calculateUnallocatedTime`, `calculateLeaveBy`, `buildBackwardsSchedule`, `formatDurationMinutes`). `apps/mobile/src/utils/backwardPlanMeta.ts` holds the metadata shapes (`BackwardPlanMeta`, `TravelConfig`, `PlacementBehavior`).
+- **Repository:** ~20 new functions in `database.ts`'s "Plan Backwards" section (create/update/delete plan, add/update/delete/reorder blocks and steps, toggle completion, default-departure-point setting).
+- **Hook:** `useBackwardPlans`/`useBackwardPlan` in `useDb.ts` (minute-tick recalculation).
+- **UI:** `PlanBackwardsScreen.tsx` (list + empty state), `PlanBackwardsDetailScreen.tsx` (anchor card, three-metric time budget, backwards-ordered plan blocks with expandable routine steps, over-capacity warning, notes), `AnchorEventEditSheet.tsx` (create/edit anchor incl. optional device-calendar link — read-only, never writes back), `AddPlanBlockSheet.tsx` (tabbed Routine/Task/Travel add flow). Registered in `MenuStack.tsx` + `MenuScreen.tsx`.
+- **Travel/routing:** manual-duration fallback only for v1 — no live Apple Maps/MapKit routing wired up (`TravelConfig`'s shape is structured so that can be added later without a data-model change). This is the one spec item deliberately deferred; everything else in the spec was implemented.
+- **Tests:** `backwardPlanCalc.test.ts`, 17 new passing tests (completed-step exclusion, buffer inclusion/exclusion, deficit, Leave By, backwards ordering, zero-width completed-block slot).
+
+### Verification
+- `cd apps/mobile && npm test` — 203/204 passing; the 1 failure (`roninJourneyAnimation.test.ts`, missing `storybook-journey-rig.manifest.json`) is pre-existing and unrelated — that asset was already deleted in the working tree per the 2026-08-08 Ronin Rive entry below, before this work started.
+- `npx tsc --noEmit` — no new errors from any touched file. Fixed two pre-existing `Record<ItemType, string>` maps (`ArchiveScreen.tsx`, `HomeScreenExperimental.tsx`) that were already missing a `skill` entry from an earlier change; added both `skill` and `backward-plan` while there. Three remaining errors (`database.ts` skill/mission arg, `AreaDetailScreen.tsx` `absoluteFillObject`) are pre-existing and untouched by this work.
+- Not yet verified in a running dev client — next step is an on-device pass through the "Today test scenario" from the spec (see below).
+
+### Next steps
+- On-device verification: open Plan Backwards from Menu, tap "Add Event", set title "Friend's dinner" + Goal Time 8:00 PM, add a "Get Ready" routine (Shower/Shave/Hair/Get dressed), a "Wrap present" task, and a Travel block — confirm the three metrics update live, and that completing a step (e.g. Shave) immediately drops it from Time Required while staying visible struck-through.
+- Desktop web port — not yet ported (`apps/mobile/CLAUDE.md`'s screen-parity list tracks this).
+
+## 2026-08-08 (later same day) — Live Apple Maps routing for Plan Backwards' Travel block
+
+Closed the one deferred spec item from the entry above: Travel blocks can now fetch a real ETA from Apple's Maps Server API instead of manual-duration-only. User explicitly chose Apple over Google Maps Platform (avoids a GCP billing dependency, stays in-ecosystem) after being asked to weigh the tradeoffs.
+
+### Architecture
+- **New `functions/` package** (Firebase Cloud Functions, 2nd gen, TypeScript) — `getAppleMapsToken`, an `onCall` function that signs an ES256 JWT (`iss`=Team ID, `kid`=Key ID, `exp`=15 min) with a private key held only as a Cloud Functions secret, exchanges it via Apple's `GET /v1/token`, and returns `{ accessToken, expiresInSeconds }` to the client. **The private key never leaves the server** — this is the whole reason a Cloud Function exists here rather than signing on-device; a mobile app bundle is not a safe place for a long-lived signing key (it can be extracted and abused to mint unlimited tokens under this project's identity).
+- **Client** (`apps/mobile/src/services/appleMaps.ts`): caches the short-lived access token in memory, then calls Apple's `GET /v1/geocode` (address → coordinates) and `GET /v1/etas` (coordinates + `transportType` → `expectedTravelTimeSeconds`/`distanceMeters`) directly — no further server round-trip needed once it has a token. `estimateTravel(start, destination, mode)` is the one entry point `AddPlanBlockSheet.tsx`'s Travel tab calls; it geocodes both ends then fetches the ETA, returning `null` at any failure point (bad address, no network, no token, Apple 401/429/500) so the UI falls back to manual entry exactly as if live routing didn't exist — never blocks the feature, never fakes a number.
+- Response parsing (`parseGeocodeResponse`/`parseEtaResponse`) lives in `apps/mobile/src/utils/appleMapsParsing.ts` — split out from the service on purpose, since that file imports Firebase/React Native and can't run under this repo's plain-Node test runner; the parsing logic itself has no such dependency and is fully unit-tested (6 passing tests).
+- `TravelConfig` (`apps/mobile/src/utils/backwardPlanMeta.ts`) gained `source: 'manual' | 'live'`, `distanceMeters`, `estimatedAt`. Editing any travel input after a live estimate (start/destination/mode/duration) resets `source` back to `'manual'` in `AddPlanBlockSheet.tsx` — a stale "Live" tag is worse than none. The Plan Backwards detail screen shows "· Live · X km" next to Leave By for travel blocks with a live estimate.
+- Verified Apple's exact endpoint/field names (`/v1/token`, `/v1/geocode`, `/v1/etas`, `expectedTravelTimeSeconds`, `distanceMeters`, `transportType` enum values) against Apple's live developer documentation before writing the integration, rather than from memory.
+
+### What you (the user) need to do before this actually works
+Nothing here can be done by the agent — they require your Apple Developer and Firebase account access:
+1. **Apple Developer** (developer.apple.com → Certificates, Identifiers & Profiles): create a **Maps ID**, then a **Maps Server API key** (a private key, downloaded once as a `.p8` file) associated with it. Note the **Team ID** (top-right of the account page) and the **Key ID** (shown when you create the key).
+2. **Upgrade the `rka-os` Firebase project to the Blaze (pay-as-you-go) plan** if it isn't already — Cloud Functions require Blaze even for low-volume usage (there's still a generous free tier within it).
+3. From `functions/`, run `firebase functions:secrets:set APPLE_MAPS_TEAM_ID`, `firebase functions:secrets:set APPLE_MAPS_KEY_ID`, and `firebase functions:secrets:set APPLE_MAPS_PRIVATE_KEY` (paste the full `.p8` file contents, including the `-----BEGIN/END PRIVATE KEY-----` lines, when prompted for the last one).
+4. `cd functions && npm install && firebase deploy --only functions`.
+5. Until steps 1-4 are done, the "Get live ETA from Apple Maps" button in the app will silently fail and fall back to manual entry — this is expected, not a bug, and requires no code change once the above is complete.
+
+### Verification
+- `cd functions && npm install && npx tsc --noEmit && npm run build` — clean, no errors, `lib/index.js` produced.
+- `cd apps/mobile && npm test` — 209/210 passing (same 1 pre-existing, unrelated Ronin-asset failure as the entry above), including 6 new `appleMapsParsing.test.ts` cases.
+- `npx tsc --noEmit` (apps/mobile) — no new errors.
+
+### Live deploy (done same session, with the user)
+User provisioned the Apple Developer Maps ID/key and upgraded `rka-os` to Blaze themselves; ran the actual `firebase functions:secrets:set` (×3) and `firebase deploy --only functions` commands together in-session. `getAppleMapsToken` is live in `us-central1`; also fixed a `firebase functions:artifacts:setpolicy` warning (container image cleanup) surfaced during that deploy. Not yet confirmed with a real on-device tap of "Get live ETA" — the code path is live end-to-end but hasn't been exercised from the app itself yet.
+
+## 2026-08-08 (later still) — Apple Maps location search-as-you-type
+
+Follow-up to the entry above: replaced plain free-text Location/From/To fields with a real search-and-select flow, now that Apple Maps is wired up.
+
+- **New:** `apps/mobile/src/components/LocationSearchField.tsx` — debounced (300ms, 3+ char minimum) dropdown backed by `searchLocations()` (`services/appleMaps.ts`, hitting Apple's `/v1/searchAutocomplete`). Each result carries its own `{latitude, longitude}` from Apple, so picking a suggestion never needs a follow-up geocode call. Stale slower responses are dropped via a request-id guard so a fast second keystroke's results can't be overwritten by a slow first keystroke's. Typing without picking a suggestion still works as plain free text — same fail-soft principle as the rest of the Apple Maps integration (empty/no-network/no-token just means no dropdown, never a blocked field).
+- **Changed:** `AnchorEventEditSheet.tsx`'s Location field and `AddPlanBlockSheet.tsx`'s Travel From/To fields now use `LocationSearchField` instead of a plain `TextInput`.
+- **New pure parser:** `parseSearchAutocompleteResponse` in `apps/mobile/src/utils/appleMapsParsing.ts` (3 new tests, verified against Apple's live current docs for the endpoint's exact field names before implementing).
+
+### Verification
+- `cd apps/mobile && npm test` — 212/213 passing (same 1 pre-existing, unrelated Ronin-asset failure), including the 3 new autocomplete-parsing tests.
+- `npx tsc --noEmit` — no new errors (fixed two real type errors surfaced while building this: a `useRef` needing an explicit generic default, and a `.filter` type-predicate mismatch in the parser).
+
+### On-device bug found + fixed same session
+User tested on-device: dropdown was empty for every query, no visible error (fails soft by design, which made this silent). Diagnosed by minting a real token from the deployed Cloud Function via curl and hitting Apple's live endpoints directly — `geocode`/`etas` matched their docs exactly, but `/v1/searchAutocomplete`'s `location` field is actually `{latitude, longitude}` at runtime, not the `{lat, lng}` shape Apple's own documentation shows. `parseSearchAutocompleteResponse` now reads both shapes defensively. Confirmed working on-device afterward (real results with distances, matching native Maps' behavior once the location-bias entry below also landed).
+
+### Verification
+- `cd apps/mobile && npm test` — 213/214 passing (same 1 pre-existing failure), tests updated to assert the real `latitude`/`longitude` shape as primary with `lat`/`lng` as a secondary accepted case.
+- `npx tsc --noEmit` — clean.
+
+## 2026-08-08 (final) — Rank location search results by proximity, like native Maps
+
+User compared against the native Apple Maps app's search (screenshot showed "9.7 mi", "4.7 mi" distance-ranked results) and asked for the same. Apple's `/v1/searchAutocomplete` supports `userLocation`/`searchLocation` params for exactly this.
+
+- **New:** `apps/mobile/src/services/deviceLocation.ts` — `getApproximateLocation()`, same `expo-location` foreground-permission pattern as `services/locationReminders.ts`, tries `getLastKnownPositionAsync` first (instant) before a fresh GPS fix, cached 5 min module-wide (so multiple `LocationSearchField`s on one screen — e.g. Travel's From and To — only prompt/fetch once), fails soft to `null` on denial/error.
+- **Changed:** `searchLocations(query, near?)` in `services/appleMaps.ts` now accepts an optional bias coordinate, sent as both `userLocation`/`searchLocation` query params. `LocationSearchField.tsx` fetches the device location lazily on first focus (no permission prompt until the field is actually used) and passes it through.
+- Updated `NSLocationWhenInUseUsageDescription` in `app.json` to mention both existing purposes (location-based reminders + now, search ranking) — **requires a new dev-client build to take effect**, since Info.plist strings are baked in at build time, not hot-reloadable.
+
+### Verification
+- `npx tsc --noEmit` (apps/mobile) — clean, same 3 pre-existing unrelated errors as every other entry above.
+- `npm test` — 213/214 (unchanged; no new pure-function surface added here to test beyond what's already covered).
+- Not yet re-verified on-device after this specific change (bias params) — worth confirming search results now favor nearby places the way the native Maps comparison showed.
+
+## 2026-08-08 (final, final) — Per-result ETA badges in the Travel search dropdown
+
+User asked for one more thing from the native Maps comparison: showing estimated travel time next to each search result once a start point is set.
+
+- **New:** `parseEtasResponse` (`appleMapsParsing.ts`) — batched-response counterpart to the existing single-destination `parseEtaResponse`, position-aligned array output (never drops/reorders, `null` for a malformed entry) so callers can zip it against their own results by index. `getEtasBatch(origin, destinations[], mode)` (`services/appleMaps.ts`) calls `/v1/etas` once with up to 10 pipe-separated destinations (Apple's own cap) rather than one request per row.
+- **Changed:** `LocationSearchField` gained optional `etaOrigin`/`etaMode` props — when both are present, one batched ETA call fires per settled results list, and each dropdown row shows its own duration badge. `AddPlanBlockSheet.tsx`'s Travel "To" field now passes these, sourced from a `travelStartCoords` state captured for free via the "From" field's `onSelectPlace` (no extra geocode call) and cleared on any manual edit to "From" — a badge is never left showing numbers computed from a since-changed origin.
+- Live-verified the batched endpoint directly via curl (2 destinations in one `/v1/etas` call, response order matched request order) before wiring it into the UI.
+
+### Verification
+- `cd apps/mobile && npm test` — 216/217 passing (same 1 pre-existing, unrelated failure), including 3 new `parseEtasResponse` tests.
+- `npx tsc --noEmit` — clean, same 3 pre-existing unrelated errors.
+- Not yet exercised on-device.
+
+## 2026-08-08 (truly final) — Weather widget on Home, using the banked WeatherKit credentials
+
+User asked to set up WeatherKit while already in the Apple Developer certificates flow (separate tangent from Plan Backwards' Maps work); once the key was banked, asked to actually build a plain weather widget on Home now (hero-background-matches-weather explicitly deferred to later).
+
+### Architecture
+- **`functions/src/index.ts`**: new `getWeather` onCall function — a full proxy, unlike `getAppleMapsToken`. WeatherKit has no token-exchange step (Maps' `/v1/token` has no WeatherKit equivalent); the self-signed JWT itself is the bearer token, so the function signs it AND calls `weatherkit.apple.com/api/v1/weather/en/{lat}/{lng}?dataSets=currentWeather&timezone=...` itself, relaying the JSON straight to the client. One call site meant a client-side token cache (like Maps has) would've been pure overhead. Verified WeatherKit's JWT shape against Apple's live docs before implementing — it genuinely differs from Maps': header needs `id: "{teamId}.{bundleId}"`, payload needs `sub: "{bundleId}"` (`com.rahul.rkaos`, since WeatherKit was enabled directly on the App ID rather than via a separate Services ID). `jsonwebtoken`'s TS types don't know about WeatherKit's `id` header field — needed a type-cast, documented inline as intentional, not a mistake.
+- **`apps/mobile/src/utils/weatherParsing.ts`**: pure `parseCurrentWeather`/`describeConditionCode`/`getWeatherEmoji` (6 tests) — same split-for-testability pattern as `appleMapsParsing.ts`.
+- **`apps/mobile/src/services/weather.ts`**: `getCurrentWeather(lat, lng)`, ~1km-rounded-coordinate cache, 20 min TTL, fails soft to `null`.
+- **`apps/mobile/src/components/home/WeatherWidget.tsx`**: square `RiverStoneSurface` card, same slot/sizing convention as `MedicationQuickLogWidget` (now sits next to it in `HomeScreen.tsx`'s widget row — the row's own comment already anticipated "how much room is left for more widgets"). Renders nothing at all until real data lands; no loading placeholder, no error state — a denied-permission or WeatherKit-down device just doesn't see the widget, same fail-soft principle as every other Apple integration in this app. Tap re-fetches, bypassing cache.
+- Reuses `getApproximateLocation()` (`services/deviceLocation.ts`, built for the location-search bias work above) — no separate permission prompt for weather.
+
+### Deploy
+- `firebase deploy --only functions` — clean deploy, both `getAppleMapsToken` (updated) and `getWeather` (created) live in `us-central1`.
+- **Live-tested via curl immediately after deploy and hit a real, expected issue:** `401 {"reason":"NOT_ENABLED"}` from WeatherKit. This is a known Apple-side activation lag — after first enabling the WeatherKit capability on an App ID and generating its key, the service can take minutes to a few hours to actually activate, even though the portal shows everything saved. The auth itself succeeded (Apple recognized the JWT/key/app correctly — a signature or config error would've been a different failure, not `NOT_ENABLED`), so no code changes needed; it should just start working once Apple's backend catches up. Not yet re-verified after the propagation window.
+
+### Verification
+- `cd functions && npx tsc --noEmit && npm run build` — clean after fixing the `jwt.JwtHeader` cast.
+- `cd apps/mobile && npm test` — 222/223 passing (same 1 pre-existing, unrelated failure), including 6 new `weatherParsing.test.ts` cases.
+- `npx tsc --noEmit` (apps/mobile) — clean, same 3 pre-existing unrelated errors as every entry above.
+- Not yet confirmed rendering real data on-device — pending the WeatherKit activation window above.
+
+### Resolved (2026-08-09)
+WeatherKit activated on Apple's end — confirmed via curl, `getWeather` now returns real `currentWeather` data (temperature/conditionCode/humidity/etc, London test coords). `WeatherWidget.tsx`'s temporary placeholder (dimmed "--°" card, added purely so the widget's shape was visible on Home during the activation wait) has been reverted to the originally-intended fail-soft-to-nothing behavior (`if (!weather) return null`), matching `MedicationQuickLogWidget`'s convention.
+
+### Next steps
+- Hero-background-matches-weather (explicitly deferred by the user) — `conditionCode` is already available client-side (`CurrentWeather.conditionCode`) whenever that's picked up.
+
+## 2026-08-08 (actually truly final) — Travel selection bug fix, default departure setting, Maps deep-link stopgap
+
+User hit a real bug testing Travel's location search (tapping a suggestion did nothing, field stayed as typed text) and asked for two more things: a way to set a default departure location outside the Travel flow, and a map preview.
+
+- **Bug fixed:** `AddPlanBlockSheet.tsx`'s Travel tab's own nested `<ScrollView>` (separate from `BottomSheet`'s built-in one, needed because this sheet has tab-switched content) was missing `keyboardShouldPersistTaps="handled"` — classic RN gotcha: the first tap on a location suggestion just dismisses the keyboard instead of firing the row's `onPress`, requiring a second tap that the user never got to try. Fixed on both tab ScrollViews.
+- **New:** `apps/mobile/src/components/DefaultDepartureSheet.tsx` + a "PLAN BACKWARDS" section in `SettingsScreen.tsx` — set the default departure location explicitly instead of only implicitly (via typing it once in a Travel block). Backed by the already-existing `getDefaultDeparturePoint`/`setDefaultDeparturePoint`.
+- **Map preview:** confirmed (live docs, not memory) Apple's Maps Server API has no static-map-image endpoint — a real in-app preview needs `expo-maps` (native module, needs an EAS dev-client rebuild, can't be tested with a simple reload). User's call: skip the rebuild for now, use a Maps-app deep-link stopgap instead, **and make sure `expo-maps` is included whenever the next dev-client rebuild happens for any other reason** — noted prominently in `apps/mobile/CLAUDE.md`'s Plan Backwards section so it isn't lost. Shipped now: `apps/mobile/src/utils/appleMapsLink.ts`'s `buildAppleMapsDirectionsUrl` (Apple's documented `maps.apple.com` URL scheme, 4 tests), wired as an "Open in Maps" button in `AddPlanBlockSheet.tsx`'s Travel tab and a long-press action on travel blocks in `PlanBackwardsDetailScreen.tsx`.
+
+### Verification
+- `cd apps/mobile && npm test` — 226/227 passing (same 1 pre-existing, unrelated failure), including 4 new `appleMapsLink.test.ts` cases.
+- `npx tsc --noEmit` — clean, same 3 pre-existing unrelated errors as every entry above.
+- Not yet re-tested on-device — the selection bug fix in particular should be confirmed by repeating the exact repro (Travel tab, type 3+ chars in From, tap a suggestion).
+
+### Next steps
+- **Remember `expo-maps` for the next EAS dev-client build** — this is the one action item most likely to get lost since it's contingent on a future, unrelated rebuild.
+- On-device re-test of the Travel selection fix.
+
+## 2026-08-08 (the actual final one) — Travel redesigned as a toggle; fixed a real "0m required" bug
+
+User's on-device testing of the fix above surfaced two more things: 3 duplicate "Travel to Grasso" blocks appeared (each showing "0m" instead of the real duration), and direct product feedback that Travel shouldn't be an "Add" flow at all — "it should be just a thing built in that we choose to enable or not."
+
+### The bug (found by inspection, not guessing)
+`addPlanBlockTravel` wrote `durationMinutes`/`bufferMinutes` only inside the `travelConfig` JSON blob, never into the `planBlocks` row's own same-named columns. `calculateBlockRequiredDuration`/`buildBackwardsSchedule` (`backwardPlanCalc.ts`) are intentionally type-agnostic — they read those row columns for every block type, no per-type branching. So every travel block silently contributed `0m` to Time Required, while "Leave By" still looked right only because the detail screen computed that separately, straight from `travelConfig`. This is exactly the kind of bug the pure-function test suite couldn't catch, since the calc functions themselves were already correctly tested — the bug was in what got handed to them.
+
+### The redesign (user chose: toggle lives in the anchor card)
+- **`functions`-side unaffected** — this was all client/DB.
+- **`apps/mobile/src/db/database.ts`**: `addPlanBlockTravel` replaced by `upsertPlanBlockTravel(planId, title, config)` + `getTravelBlockForPlan(planId)` — finds-or-updates the plan's one travel block instead of always inserting, and writes duration/buffer to both the row columns (fixing the bug above) and `travelConfig` (for `startLocation`/`destination`/`mode`/`source`/`distanceMeters`/`estimatedAt`, which no other block type has).
+- **New `apps/mobile/src/components/TravelToggleCard.tsx`**: a `Switch` + inline fields (reusing `LocationSearchField`, the mode chips, Get-live-ETA, Open-in-Maps — same building blocks as before, just relocated), debounced (500ms) auto-save on every field change, no separate Save button. Seeds its local state from the DB row exactly once per block id (a ref guard) specifically so its own debounced saves triggering a parent refresh can never clobber whatever the user is mid-typing.
+- **`AddPlanBlockSheet.tsx`**: Travel tab removed entirely — only Routine/Task remain, both still genuinely repeatable.
+- **`PlanBackwardsDetailScreen.tsx`**: renders `TravelToggleCard` directly under the anchor card; `handleAddBlock` lost its travel branch (unreachable now that `NewPlanBlockInput` no longer has a `'travel'` variant — TS confirmed this compiles clean with the branch gone). The backwards-ordered block list below is untouched — a travel block, once toggled on, still appears there with its own Leave By, same as before.
+- This also directly answers the "why doesn't it re-check the ETA" question from the same message — Get-live-ETA is now available any time on the toggle card itself, not just at first creation, so refreshing an estimate later never requires re-adding.
+
+### Verification
+- `npx tsc --noEmit` (apps/mobile) — clean, same 3 pre-existing unrelated errors as every entry above; confirmed zero leftover references to the removed `addPlanBlockTravel` anywhere in `src/`.
+- `npm test` — 226/227 passing (same 1 pre-existing, unrelated failure) — no new pure-function surface here to add tests for (the fix was DB-integration-level, and this repo has no DB test harness, consistent with every other DB-layer change in this Plan Backwards work).
+- Not yet re-tested on-device — worth confirming: toggling Travel on/off in the anchor card creates/removes exactly one block (no duplicates), editing fields updates the same block, and Time Required now actually includes the travel duration+buffer.
+
+## 2026-08-08 (genuinely the last one today) — Plan Backwards countdown widget on Home
+
+User asked for a Home-screen widget showing live time-remaining for a plan, "so we can see how much time." Landed in the third slot of the widget row Medication/Weather already sit in — that row's own comment ("3 square widgets fit side by side") had been anticipating exactly this since before Plan Backwards existed.
+
+- **New:** `apps/mobile/src/components/home/PlanBackwardsCountdownWidget.tsx` — picks the soonest plan with a future Goal Time across all plans, shows Time Remaining live (60s tick, same granularity as everywhere else in Plan Backwards) and either the plan's title or "`X` short" in red once Unallocated goes negative. Tap navigates into that plan. Renders nothing with no qualifying plan (same fail-soft convention as Medication/Weather).
+- **Refactor enabling it:** `dateTimeFromParts` and a new `planBlockRowToCalc` (3 new tests) moved from being private helpers inside `PlanBackwardsDetailScreen.tsx` into exported functions on `backwardPlanCalc.ts`, so the widget and the detail screen share one implementation instead of the widget needing its own copy. `planBlockRowToCalc` takes a duck-typed row shape rather than importing `PlanBlockWithSteps` from `db/database.ts`, preserving `backwardPlanCalc.ts`'s "never touches SQLite" property.
+
+### Verification
+- `npx tsc --noEmit` (apps/mobile) — clean, same 3 pre-existing unrelated errors as every entry above.
+- `npm test` — 229/230 passing (same 1 pre-existing, unrelated failure), including 3 new tests for the extracted functions.
+- Not yet exercised on-device.
+
+## 2026-08-08 — Ronin Rive rig rebuilt; ALL prior Ronin/Rive docs deleted
+
+**`RONIN RIG 1` is now the only Ronin/Rive project, and `apps/mobile/RONIN_RIVE.md` is its single source of truth.** Read that file and nothing else for rig state.
+
+Deleted deliberately, and **not to be revived or reconstructed**: `RIVE_AUTOMATION_PLAYBOOK.md`, `RONIN_RIVE_HANDOFF.md`, `apps/mobile/RONIN_{ART_V5_NOTES,HERO_BUILD_PLAN,RIG_PARTS_BRIEF,STATE_MACHINE_DESIGN,V3_GENERATION_SPEC}.md`, five `docs/**/*ronin*` design/plan specs, `ronin-cat-walk-rig-notes.md`, and eight `apps/mobile/assets/ronin/for-rive/*.json` geometry/manifest/recovery dumps (including `storybook-journey-rig.manifest.json` and `ronin-v3-skeleton.json`). They described art, bone ids and migration plans that no longer exist; keeping them caused repeated re-derivation of dead plans. `AGENTS.md`, `apps/mobile/CLAUDE.md` and the project memory were rewritten to point only at `RONIN_RIVE.md`.
+
+**Rig state:** 2340×1080 artboard matched to the donor cat. 19 bones, 2-bone IK on both shins to targets outside the chain, `ronin-travel` → `ronin-scale` (feet-pivoted) → `ronin-anchor` transform chain. `Ronin` ViewModel drives absolute-coordinate travel through an interpolating converter (`characterX`/`characterY`/`depthScale`/`walktime`/`facing`/`gait`/`station`). Nine clips: `idle`, `walk`, `run`, `sit`, `lift`, `coffee`, `kick`, `face-center/left/right`. A click-to-walk room with couch/coffee/weights/ball stations plus free floor clicks via `alignTarget` on a `toSource`-bound probe, with depth scaling by station.
+
+**Known gaps** (all listed in `RONIN_RIVE.md` §9): free floor clicks don't set `facing` (needs a comparator converter, GUI-only); `walktime` is fixed regardless of distance; `breathe`/`idle-variation`/`wave` states reference deleted clips; leg art is skinned to thigh+shin only so foot bones drive nothing; nothing has been watched at speed by an agent.
+
+**Unchanged:** the shipping app still loads `assets/rka_journey_rig.riv`. `RONIN RIG 1` has not been exported over it, so `RoninJourneyRiveWalker.tsx` and `src/domain/ronin/journeyAnimation.ts` remain as they were.
 
 ## 2026-08-07 — RepCount CSV import + Workout Trends screen, and a docs-drift fix (desktop web app)
 
@@ -1257,3 +1510,44 @@ PWA-specific docs (`FIX_LOG.md`, `AUDIT_LOG.md`, `SCROLL_*.md`, `IOS_BOTTOM_NAV.
 - Current root-level visible inventory includes head, torso, front/rear thighs, front upper arm, multiple forearm candidates and a combined rear-arm capsule. Bone handles still provide the apparent lower legs, feet and hand circles; those are not independent artwork shapes.
 - Attempted to create actual hand ellipses through computer control, but the editor unexpectedly changed from 34% to 5% zoom and produced zero-length ellipse objects. They are named `Placeholder_Hand_Front` / `Placeholder_Hand_Rear` but must be redrawn at normal zoom before parenting.
 - Do not rebuild bone parenting until the missing hand, shin and foot artwork shapes exist and the duplicate `Placeholder_Forearm_Front` candidates are visually resolved.
+## 2026-08-07 — Ronin raster modular v2 A-pose pack
+
+- Added `apps/mobile/assets/ronin/for-rive/raster-modular-v2/` with chroma-source sheets, transparent isolated parts, an assembled alignment reference, `manifest.json`, and `README.md`.
+- The pack follows the explicit requested names: one continuous arm per side (shoulder→wrist), one continuous trouser leg per side (hip→ankle), separate hands and boots, and no segmented limb or joint-patch tiles.
+- The user’s headline count says 17 while the named list totals 18; this is recorded in the manifest without silently omitting a named piece.
+- No runtime `.riv` asset or app component was changed. Next step is importing these transparent parts into a Rive authoring artboard and binding the listed assembly order.
+
+## 2026-08-07 — Ronin v2 replacement core sheet
+
+- Added `source/core-replacements-green.png` and transparent replacements for a sleeveless torso, shorts-only pelvis, and matched flat non-directional boots under `raster-modular-v2/replacements/`.
+- Existing v2 parts remain intact; these are intended as drop-in replacements during Rive assembly.
+
+## 2026-08-10 — Ronin production asset sheet 01
+
+- Added `apps/mobile/assets/ronin/production-asset-sheet-01-core-body-geometry.png`, a high-resolution transparent PNG disassembly sheet containing exactly 15 front-facing core body components: neck, torso, pelvis, paired arm/sleeve pieces, paired wrapped forearms, paired hands, paired upper/lower trouser pieces, and paired boots.
+- Added the flat chroma-key source as `production-asset-sheet-01-core-body-geometry-chroma.png` for reproducibility; the production deliverable is the alpha PNG.
+- The sheet was generated from the supplied front-facing storybook Ronin reference and visually checked for separated pieces, restrained vector-friendly texture, hidden joint construction, and no head, sash, accessories, alternate pose, or assembled character.
+- No runtime code, Rive file, schema, or component structure was changed. Next: import the transparent parts into the Rive authoring file and validate scale, pivots, overlap and mesh deformation against the existing skeleton.
+# 2026-08-10 — Progression UI and custom identity system
+
+- Added a custom, small-size vector identity for all eight canonical Domains (`DomainIcons.tsx` + tested `domainIconKey.ts`). The bonsai is now reserved for Overall Potential/fallback; Health uses an open hand with a leaf and Fitness uses a simplified bicep.
+- Standardised Missions on one scalable target mark across lists, detail/context surfaces, calendar and creation; the Missions list no longer renders per-project emoji artwork.
+- Added title-aware custom Skill identities and human-readable proficiency stages; expanded Skill cards to a calmer two-column layout and added the Skill identity to its detail summary.
+- Separated Me from the full Potential screen: Me keeps the compact Harada balance summary, Focus, weekly guidance and recent achievement; Potential retains the full Domain detail and expandable Harada view.
+- Constrained Domain Detail artwork to 220pt, added its Domain icon, improved fixed-Domain title wrapping, and replaced the empty Achievements page with a compact trophy-collection state.
+- Verification: the 5 new icon/proficiency tests pass; the iOS Expo export completes; `git diff --check` passes. The full suite is 237/238 with only the pre-existing deleted Rive-manifest test failing. Full TypeScript remains blocked by pre-existing active-worktree errors in missing desktop-web modules and `database.ts`'s `"skill"` contribution type.
+
+# 2026-08-10 — Cold-start lag investigation
+
+- Reproduced the pasted Metro warning outside Expo with a minimal Babel transform: `@tamagui/babel-plugin` loads Tamagui's static extractor, which requires `@tamagui/core/dist/native.cjs`; that in turn requires React Native's untranspiled Pressability internals under Node 24 and throws `Unexpected token '{'`.
+- Removed the optional Tamagui Babel extractor from `apps/mobile/babel.config.js`; runtime Tamagui remains provided by `TamaguiProvider`, and Reanimated stays last in the Babel plugin list.
+- Added dev-only startup timing in `apps/mobile/src/db/database.ts` for `SQLite.openDatabaseSync`, `initSchema`, `migratePotentialStats`, and total `getDb` cold init so the next device launch reports whether synchronous SQLite boot is the remaining freeze source.
+- Ran Metro with `npx expo start --dev-client --port 8082 --clear` and opened the app on-device. The cleared-cache bundle was slow (~99.7s, expected with `--clear`), but the Tamagui warning storm was gone. SQLite cold init was not the freeze: `SQLite.openDatabaseSync` ~8ms, `initSchema` ~12ms, total `getDb cold init` ~21ms.
+- The actual remaining startup hitches were post-launch full-table/large sync work: automatic AppState background backup serialized `SELECT * FROM items` and `SELECT * FROM activityLogs` (activity logs ~48-54ms) and then failed with `[backup] background push failed [FirebaseError: Missing or insufficient permissions.]`; first Firestore sync chunks still produced back-to-back `withTransactionSync` blocks (~16-29ms).
+- Removed the automatic AppState background backup from `App.tsx`. Manual Settings backup remains. Realtime Firestore sync is the live cross-device path; full snapshot backup should not serialize the whole SQLite DB during background/cold-start transitions.
+- Tightened Firestore first-snapshot apply chunks from 100 -> 25 docs and deferred local-only reconciliation scans by 10s. The reconciliation scan now reads only `id`/`updatedAt` first and fetches full rows only if a local-only row actually needs pushing.
+- Added `activityLogs(actionType, timestamp DESC)` and `activityLogs(entityId, actionType, timestamp DESC)` indexes for medication timer/recent-log startup queries. `SCHEMA.md`, `CLAUDE.md`, and `AGENTS.md` were updated with the performance/backup/index contract.
+- Verification during hot reload: backup full-table `activityLogs` scan disappeared; no new `[backup] background push failed`; remaining startup warnings dropped to small sync chunks around 17ms and one indexed medication query. The one-time index creation bumped `initSchema` to ~33ms once, then quieted.
+- Follow-up after the user still felt lag on clean cold reopen: Home was still preloading **all** secondary tabs (`Upcoming`, `Anytime`, `Someday`, `Logbook`) plus Potential on first mount even though the initial view is Today. Fixed by lazy-loading only the selected secondary tab, replacing `getItemsByType('task')` + JS filters with indexed `getAnytimeTaskItems`/`getSomedayTaskItems`, indexing the Logbook order (`status, deletedAt, completedAt DESC, updatedAt DESC`), and deferring the initial Potential/focus summary through `InteractionManager.runAfterInteractions`.
+- App-wide follow-up scan found the same hidden-tab shape in two other places and one broad task scan in an interactive flow. `HomeScreenExperimental` now matches Home's lazy secondary-list behavior and skips its duplicate mount refreshes; `TasksScreen` no longer hydrates completed Logbook rows while the Tasks segment is active; `useTasks`/Daily Check-In suggestions now use indexed `getActiveTaskItems()` instead of fetching all task rows and filtering in JS.
+- `npm test` remains blocked by the pre-existing deleted Ronin manifest fixture, and `npm run typecheck` remains blocked by pre-existing desktop-web module resolution errors plus the existing `"skill"` contribution type mismatch.

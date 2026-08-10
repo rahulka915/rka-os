@@ -17,6 +17,7 @@ const { getReactNativePersistence } = require('@firebase/auth') as {
   }) => Persistence;
 };
 import { getFirestore, type Firestore } from 'firebase/firestore';
+import { getFunctions, type Functions } from 'firebase/functions';
 
 const apiKey = process.env.EXPO_PUBLIC_FIREBASE_API_KEY?.trim();
 const authDomain = process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN?.trim();
@@ -30,6 +31,7 @@ export const hasFirebaseConfig = Boolean(apiKey && authDomain && projectId && ap
 let app: FirebaseApp | null = null;
 let auth: Auth | null = null;
 let firestore: Firestore | null = null;
+let functions: Functions | null = null;
 
 if (hasFirebaseConfig) {
   app = initializeApp({ apiKey, authDomain, projectId, storageBucket, messagingSenderId, appId });
@@ -41,6 +43,7 @@ if (hasFirebaseConfig) {
     ? getAuth(app)
     : initializeAuth(app, { persistence: getReactNativePersistence(AsyncStorage) });
   firestore = getFirestore(app);
+  functions = getFunctions(app);
 }
 
-export { app, auth, firestore };
+export { app, auth, firestore, functions };

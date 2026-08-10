@@ -21,14 +21,17 @@ import {
   deleteSkillMilestone,
   setSkillMilestoneContributesToScore,
   computeSkillPracticeSummary,
+  isSkillUnlocked,
+  setSkillUnlocked,
   formatDate,
 } from '../db/database';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
 import { LensSurface } from '../components/LensSurface';
 import { showActionSheet } from '../utils/actionSheet';
-import { Sparkles, Flame, ListChecks } from '../icons';
+import { Sparkles, Flame, ListChecks, Lock, LockOpen } from '../icons';
 import { ProjectPortfolioIcon } from '../components/icons/ProjectPortfolioIcon';
+import { SkillIdentityIcon } from '../components/icons/SkillIdentityIcon';
 import { getDomainIcon } from '../utils/domainIcons';
 import type { Item } from '../db/types';
 
@@ -53,6 +56,7 @@ export function SkillDetailScreen() {
   const palette = getThemeColors(isDark);
 
   const [proficiency, setProficiency] = useState(0);
+  const [unlocked, setUnlocked] = useState(false);
   const [primaryAreaId, setPrimaryAreaId] = useState<string | null>(null);
   const [secondaryAreaIds, setSecondaryAreaIds] = useState<string[]>([]);
   const [areas, setAreas] = useState<Item[]>([]);
@@ -66,6 +70,7 @@ export function SkillDetailScreen() {
     const item = getItemWithMetadata(skillId);
     const meta = item?.metadata ? JSON.parse(item.metadata) : {};
     setProficiency(typeof meta.proficiency === 'number' ? meta.proficiency : 0);
+    setUnlocked(isSkillUnlocked(skillId));
     setPrimaryAreaId(getPrimaryAreaForSkill(skillId));
     setSecondaryAreaIds(getSecondaryAreasForSkill(skillId));
     setAreas(getItemsByType('area'));
@@ -81,6 +86,18 @@ export function SkillDetailScreen() {
   const handleSetProficiency = (value: number) => {
     Haptics.selectionAsync();
     updateSkillProficiency(skillId, value);
+    refresh();
+  };
+
+  const handleToggleUnlocked = () => {
+    if (unlocked) {
+      showActionSheet('Lock this skill?', [
+        { label: 'Lock — mark "still learning"', destructive: true, onPress: () => { setSkillUnlocked(skillId, false); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); refresh(); } },
+      ]);
+      return;
+    }
+    setSkillUnlocked(skillId, true);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     refresh();
   };
 
@@ -151,6 +168,29 @@ export function SkillDetailScreen() {
   return (
     <LensSurface title={title}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <TouchableOpacity
+          style={[styles.lockBanner, { backgroundColor: unlocked ? `${palette.antiqueBrass}18` : cardBg, borderColor: unlocked ? palette.antiqueBrass : cardBorder }]}
+          onPress={handleToggleUnlocked}
+          accessibilityRole="button"
+          accessibilityLabel={unlocked ? 'Unlocked skill — tap to lock' : 'Still learning — tap to unlock'}
+        >
+          <View style={[styles.skillIdentityDisc, { borderColor: unlocked ? palette.antiqueBrass : cardBorder }]}>
+            <SkillIdentityIcon title={title} size={30} color={unlocked ? palette.antiqueBrass : palette.textSecondary} />
+          </View>
+          {unlocked ? (
+            <LockOpen size={18} color={palette.antiqueBrass} strokeWidth={1.8} />
+          ) : (
+            <Lock size={18} color={palette.textTertiary} strokeWidth={1.8} />
+          )}
+          <View style={styles.lockTextGroup}>
+            <Text style={[styles.primaryDomain, { color: palette.antiqueBrass }]}>{primaryAreaTitle ? `PRIMARY DOMAIN · ${primaryAreaTitle}` : 'SET A PRIMARY DOMAIN'}</Text>
+            <Text style={[styles.lockTitle, { color: unlocked ? palette.text : palette.textSecondary }]}>{unlocked ? 'Unlocked' : 'Still learning'}</Text>
+            <Text style={[styles.lockSub, { color: palette.textTertiary }]}>
+              {unlocked ? 'Milestones can contribute to Potential.' : 'Not unlocked yet — milestones won’t affect Potential.'}
+            </Text>
+          </View>
+        </TouchableOpacity>
+
         <View style={styles.proficiencySection}>
           <Text style={[styles.sectionLabel, { color: palette.textTertiary }]}>PROFICIENCY</Text>
           <View style={styles.levelRow}>
@@ -271,6 +311,8 @@ export function SkillDetailScreen() {
             <Text style={[styles.emptySub, { color: palette.textSecondary }]}>No milestones yet — add one when you reach a real turning point.</Text>
           ) : milestones.map((milestone) => {
             const meta = milestone.metadata ? JSON.parse(milestone.metadata) : {};
+            const contributes = meta.contributesToScore !== false;
+            const suffix = !contributes ? ' · display only' : !unlocked ? ' · locked' : '';
             return (
               <TouchableOpacity
                 key={milestone.id}
@@ -282,7 +324,7 @@ export function SkillDetailScreen() {
               >
                 <Sparkles size={18} color={palette.red} strokeWidth={1.8} />
                 <Text style={[styles.rowTitle, { color: palette.text }]} numberOfLines={1}>{milestone.title}</Text>
-                <Text style={[styles.rowMeta, { color: palette.textTertiary }]}>{meta.earnedAt}{meta.contributesToScore === false ? ' · display only' : ''}</Text>
+                <Text style={[styles.rowMeta, { color: palette.textTertiary }]}>{meta.earnedAt}{suffix}</Text>
               </TouchableOpacity>
             );
           })}
@@ -294,7 +336,23 @@ export function SkillDetailScreen() {
 
 const styles = StyleSheet.create({
   content: { paddingHorizontal: 16, paddingBottom: 40 },
-  proficiencySection: { gap: 10, marginBottom: 20 },
+  lockBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginTop: 16,
+    minHeight: 44,
+  },
+  lockTextGroup: { flex: 1, gap: 2 },
+  skillIdentityDisc: { width: 52, height: 52, borderRadius: 26, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center' },
+  primaryDomain: { fontSize: 9, fontFamily: 'Inter_800ExtraBold', fontWeight: '800', letterSpacing: 0.7 },
+  lockTitle: { fontSize: 15, fontWeight: '700', fontFamily: 'Inter_700Bold' },
+  lockSub: { fontSize: 12, fontWeight: '500', fontFamily: 'Inter_500Medium' },
+  proficiencySection: { gap: 10, marginBottom: 20, marginTop: 20 },
   levelRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   levelChip: { borderRadius: 16, borderWidth: 1.5, paddingHorizontal: 12, paddingVertical: 10, minHeight: 44, justifyContent: 'center' },
   levelText: { fontSize: 12, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },

@@ -44,18 +44,24 @@ export function AreasScreen() {
   const [editTarget, setEditTarget] = useState<Item | null>(null);
   const [scores, setScores] = useState<Record<string, number>>({});
   const [skillCounts, setSkillCounts] = useState<Record<string, number>>({});
+  const [projectCounts, setProjectCounts] = useState<Record<string, number>>({});
   const [overall, setOverall] = useState(0);
   const [focus, setFocus] = useState<FocusData | null>(null);
 
   useFocusEffect(
     useCallback(() => {
       const nextSkillCounts: Record<string, number> = {};
+      const nextProjectCounts: Record<string, number> = {};
       for (const area of areas) {
         nextSkillCounts[area.id] = getSkillsForArea(area.id).length;
+        // Precomputed here (once on focus) rather than in the grid's render
+        // map, where it ran a COUNT query per Domain on every re-render.
+        nextProjectCounts[area.id] = getAreaProjectCount(area.id);
       }
       const { scores, overall: nextOverall } = computeAllDomainScores();
       setScores(scores);
       setSkillCounts(nextSkillCounts);
+      setProjectCounts(nextProjectCounts);
       setOverall(nextOverall);
       setFocus(getFocus());
     }, [areas]),
@@ -225,7 +231,7 @@ export function AreasScreen() {
 
           <View style={styles.grid}>
             {areas.map((area) => {
-              const count = getAreaProjectCount(area.id);
+              const count = projectCounts[area.id] ?? 0;
               const skillCount = skillCounts[area.id] ?? 0;
               const score = Math.round(scores[area.id] ?? 0);
               const DomainIcon = getDomainIcon(area.title);
@@ -255,7 +261,7 @@ export function AreasScreen() {
                         <DomainIcon size={20} color={palette.antiqueBrass} strokeWidth={1.6} />
                         <Text style={[styles.cardScore, { color: palette.vermilion }]}>{score}%</Text>
                       </View>
-                      <Text style={[styles.cardTitle, { color: palette.ivory }]} numberOfLines={1}>{area.title}</Text>
+                      <Text style={[styles.cardTitle, { color: palette.ivory }]} numberOfLines={2}>{area.title}</Text>
                       <Text style={[styles.cardMeta, { color: palette.greige }]} numberOfLines={1}>
                         {metaParts.length > 0 ? metaParts.join(' · ') : 'No activity yet'}
                       </Text>
@@ -326,6 +332,7 @@ const styles = StyleSheet.create({
   cardContent: {
     padding: 10,
     gap: 4,
+    minHeight: 116,
   },
   cardHeadRow: {
     flexDirection: 'row',
@@ -336,6 +343,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     fontFamily: 'Inter_700Bold',
+    minHeight: 34,
   },
   cardScore: {
     fontSize: 15,

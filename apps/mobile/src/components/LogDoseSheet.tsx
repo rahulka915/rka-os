@@ -4,7 +4,7 @@ import * as Haptics from 'expo-haptics';
 import { YStack, XStack, Text, Input, View } from 'tamagui';
 import { getMedicationLogs, deleteMedicationLog, editMedicationLog, resumeMedicationTimer, getPersistentMedicationTimers, pauseMedicationTimer, stopMedicationTimer, resetMedicationTimer } from '../db/database';
 import type { ActivityLog } from '../db/types';
-import { X, Clock, Calendar, Trash2, Pencil, Check, PlayCircle, StopCircle, Pause, TimerReset } from '../icons';
+import { X, Clock, Calendar, Trash2, Pencil, Check, PlayCircle, StopCircle, Pause, TimerReset, AlertTriangle } from '../icons';
 import { MedicationBottleIcon } from './icons/MedicationBottleIcon';
 import { BottomSheet } from './ui/BottomSheet';
 import { useThemeContext } from '../hooks/useThemeContext';
@@ -26,6 +26,8 @@ type MedicationLogDetails = {
   startedAt?: number;
   stoppedAt?: number;
   notified?: boolean;
+  /** Set when this dose was taken before the medication's minimum gap and the user explicitly overrode the "Too soon" caution. */
+  overrideReason?: string;
 };
 
 function parseLogDetails(details?: string | null): MedicationLogDetails {
@@ -169,21 +171,31 @@ function LogEntry({
   }
 
   return (
-    <XStack alignItems="center" gap="$2" paddingVertical="$1">
-      <View width={6} height={6} borderRadius="$6" backgroundColor="$blue" flexShrink={0} />
-      <Text flex={1} fontSize="$2" color="$textSecondary">{formatLogTime(log.timestamp)}</Text>
-      {!isTimerActive && (
-        <TouchableOpacity onPress={handleResumeTimer} hitSlop={10} style={{ padding: 6 }}>
-          <PlayCircle size={13} color={palette.blue} strokeWidth={1.5} />
+    <YStack paddingVertical="$1" gap="$1">
+      <XStack alignItems="center" gap="$2">
+        <View width={6} height={6} borderRadius="$6" backgroundColor="$blue" flexShrink={0} />
+        <Text flex={1} fontSize="$2" color="$textSecondary">{formatLogTime(log.timestamp)}</Text>
+        {!isTimerActive && (
+          <TouchableOpacity onPress={handleResumeTimer} hitSlop={10} style={{ padding: 6 }}>
+            <PlayCircle size={13} color={palette.blue} strokeWidth={1.5} />
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setEditing(true); }} hitSlop={10} style={{ padding: 6 }}>
+          <Pencil size={13} color={palette.textTertiary} strokeWidth={1.5} />
         </TouchableOpacity>
+        <TouchableOpacity onPress={handleDelete} hitSlop={10} style={{ padding: 6 }}>
+          <Trash2 size={13} color={palette.red} strokeWidth={1.5} />
+        </TouchableOpacity>
+      </XStack>
+      {details.overrideReason && (
+        <XStack alignItems="center" gap="$1" paddingLeft={18}>
+          <AlertTriangle size={11} color={palette.orange} strokeWidth={1.75} />
+          <Text fontSize="$1" color={palette.orange} flex={1} numberOfLines={2}>
+            Taken early — {details.overrideReason}
+          </Text>
+        </XStack>
       )}
-      <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setEditing(true); }} hitSlop={10} style={{ padding: 6 }}>
-        <Pencil size={13} color={palette.textTertiary} strokeWidth={1.5} />
-      </TouchableOpacity>
-      <TouchableOpacity onPress={handleDelete} hitSlop={10} style={{ padding: 6 }}>
-        <Trash2 size={13} color={palette.red} strokeWidth={1.5} />
-      </TouchableOpacity>
-    </XStack>
+    </YStack>
   );
 }
 

@@ -15,7 +15,7 @@ import {
   ToGetParcelIcon,
   WorkoutTrainingIcon,
 } from '../components/icons/CollectionIcons';
-import { Sparkles, Flag, ListChecks, PuzzlePiece } from '../icons';
+import { Sparkles, Flag, ListChecks, PuzzlePiece, Navigation } from '../icons';
 
 const CALENDAR_GOLD = '#D4B078';
 
@@ -65,6 +65,14 @@ export function MenuScreen() {
       icon: ListChecks,
       iconSize: 38,
       accent: palette.purple,
+    },
+    {
+      route: 'PlanBackwards',
+      label: 'Plan Backwards',
+      sub: 'Work backwards from a Goal Time',
+      icon: Navigation,
+      iconSize: 38,
+      accent: palette.vermilion,
     },
     {
       route: 'Skills',

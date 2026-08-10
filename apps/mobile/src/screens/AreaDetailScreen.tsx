@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Alert, StyleSheet, Image } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
@@ -31,7 +31,8 @@ import { useRegisterFabHoldAction } from '../hooks/useFabHoldAction';
 import type { Item } from '../db/types';
 import type { PotentialStatResult } from '../utils/potential';
 import { ProjectPortfolioIcon } from '../components/icons/ProjectPortfolioIcon';
-import { PuzzlePiece } from '../icons';
+import { SkillIdentityIcon } from '../components/icons/SkillIdentityIcon';
+import { getDomainIcon } from '../utils/domainIcons';
 import { showActionSheet } from '../utils/actionSheet';
 
 const chapterBackdrop = require('../../assets/ronin/journey/sunset-trail-background-v1.jpg');
@@ -70,6 +71,15 @@ export function AreaDetailScreen() {
   }, [areaId]);
 
   useFocusEffect(refresh);
+
+  // Per-Mission task count read once when the mission list changes, not twice
+  // per row on every render (it was called in both the a11y label and the
+  // visible count text).
+  const projectCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const p of projects) map.set(p.id, getProjectItemCount(p.id));
+    return map;
+  }, [projects]);
 
   useRegisterFabHoldAction(useCallback(() => setCreateOpen(true), []));
 
@@ -175,15 +185,19 @@ export function AreaDetailScreen() {
   const cardBorder = isDark ? palette.separatorStrong : palette.separator;
 
   const trendDelta = Math.round(domainScore - maintenance);
+  const DomainIcon = getDomainIcon(title);
 
   return (
     <LensSurface title={title}>
       <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
         <View style={styles.chapterHeader}>
-          <Image source={chapterBackdrop} style={StyleSheet.absoluteFillObject} resizeMode="cover" accessible={false} />
+          <Image source={chapterBackdrop} style={StyleSheet.absoluteFill} resizeMode="cover" accessible={false} />
           <View style={[styles.chapterScrim, { backgroundColor: isDark ? 'rgba(15,15,26,0.72)' : 'rgba(15,15,26,0.55)' }]} />
           <View style={styles.chapterContent}>
-            <Text style={[styles.chapterEyebrow, { color: palette.antiqueBrass }]}>DOMAIN</Text>
+            <View style={styles.chapterIdentityRow}>
+              <DomainIcon size={21} color={palette.antiqueBrass} strokeWidth={1.7} />
+              <Text style={[styles.chapterEyebrow, { color: palette.antiqueBrass }]}>DOMAIN</Text>
+            </View>
             <Text style={[styles.chapterTitle, { color: palette.ivory }]}>{title}</Text>
             <View style={styles.chapterScoreRow}>
               <Text style={[styles.scorePercent, { color: palette.ivory }]}>{Math.round(domainScore)}%</Text>
@@ -223,11 +237,11 @@ export function AreaDetailScreen() {
                   onLongPress={() => handleLongPress(item)}
                   delayLongPress={400}
                   accessibilityRole="button"
-                  accessibilityLabel={`${item.title}, ${getProjectItemCount(item.id)} tasks`}
+                  accessibilityLabel={`${item.title}, ${projectCounts.get(item.id) ?? 0} tasks`}
                 >
                   <ProjectPortfolioIcon size={32} />
                   <Text style={[styles.rowTitle, { color: palette.text }]} numberOfLines={1}>{item.title}</Text>
-                  <Text style={[styles.rowCount, { color: palette.textTertiary }]}>{getProjectItemCount(item.id)}</Text>
+                  <Text style={[styles.rowCount, { color: palette.textTertiary }]}>{projectCounts.get(item.id) ?? 0}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -290,7 +304,7 @@ export function AreaDetailScreen() {
                     accessibilityRole="button"
                     accessibilityLabel={`${skill.title}, ${proficiency}% proficiency`}
                   >
-                    <PuzzlePiece size={24} color={palette.antiqueBrass} strokeWidth={1.6} />
+                    <SkillIdentityIcon title={skill.title} size={24} color={palette.antiqueBrass} />
                     <Text style={[styles.rowTitle, { color: palette.text }]} numberOfLines={1}>{skill.title}</Text>
                     <Text style={[styles.rowCount, { color: palette.textTertiary }]}>{proficiency}%</Text>
                   </TouchableOpacity>
@@ -350,10 +364,10 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     overflow: 'hidden',
     marginBottom: 20,
-    minHeight: 200,
+    height: 220,
   },
   chapterScrim: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   chapterContent: {
     padding: 20,
@@ -366,6 +380,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_700Bold',
     letterSpacing: 1.2,
   },
+  chapterIdentityRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   chapterTitle: {
     fontFamily: 'Newsreader_600SemiBold',
     fontSize: 28,

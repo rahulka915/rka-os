@@ -8,6 +8,12 @@ import type { RiverStoneSurfaceProps } from "./types";
 
 const TRANSPARENT = "rgba(0,0,0,0)";
 
+// TEMP perf experiment — flip to true to render every RiverStoneSurface as a
+// single flat View (its face color only, no gradient/shadow layers) instead of
+// the full ~7-layer material. Used to A/B whether the material's native render
+// cost is the app-wide cold-start/interaction lag. Revert once measured.
+const RIVERSTONE_FLAT_EXPERIMENT = false;
+
 // Strips backgroundColor AND opacity out of a layer style so it can be
 // handed to LinearGradient's `style` prop: backgroundColor would paint a
 // solid box underneath the gradient (the original hard-edged "sticker"
@@ -59,6 +65,21 @@ function RiverStoneSurfaceComponent({
     () => getRiverStoneToken(variant, mode),
     [variant, mode],
   );
+  if (RIVERSTONE_FLAT_EXPERIMENT) {
+    return (
+      <View
+        testID={testID}
+        pointerEvents={disabled ? "none" : "auto"}
+        style={[layers.container, style]}
+      >
+        <View style={layers.face}>
+          {background}
+          <View style={[layers.content, contentStyle]}>{children}</View>
+        </View>
+      </View>
+    );
+  }
+
   const isChip = variant === "chip";
   const isFlush = shape === "flush";
   const insetShadowColor = mode === "dark" ? "0,0,0" : "60,50,30";

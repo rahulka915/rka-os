@@ -11,7 +11,7 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.rahul.rkaos",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "RKA OS uses your location to trigger location-based reminders.",
+        "NSLocationWhenInUseUsageDescription": "RKA OS uses your location to trigger location-based reminders and to rank nearby results when you search for a place.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "RKA OS uses your location in the background to trigger reminders when you arrive or leave places.",
         "NSHealthShareUsageDescription": "RKA OS reads your health data (steps, workouts, sleep) to give you a complete picture of your day.",
         "NSHealthUpdateUsageDescription": "RKA OS writes workout and medication data to Apple Health.",

@@ -54,6 +54,12 @@ export { default as Briefcase } from 'react-native-heroicons/outline/BriefcaseIc
 export { default as Users } from 'react-native-heroicons/outline/UsersIcon';
 export { default as Banknotes } from 'react-native-heroicons/outline/BanknotesIcon';
 export { default as PuzzlePiece } from 'react-native-heroicons/outline/PuzzlePieceIcon';
+export { default as LockOpen } from 'react-native-heroicons/outline/LockOpenIcon';
 export { default as ChartBar } from 'react-native-heroicons/outline/ChartBarIcon';
 export { default as Star } from 'react-native-heroicons/outline/StarIcon';
 export { default as Trophy } from 'react-native-heroicons/outline/TrophyIcon';
+export { default as MoreHorizontal } from 'react-native-heroicons/outline/EllipsisHorizontalIcon';
+export { default as Filter } from 'react-native-heroicons/outline/FunnelIcon';
+export { default as ChevronDownUp } from 'react-native-heroicons/outline/ChevronUpDownIcon';
+export { default as MapPin } from 'react-native-heroicons/outline/MapPinIcon';
+export { default as Navigation } from 'react-native-heroicons/outline/PaperAirplaneIcon';

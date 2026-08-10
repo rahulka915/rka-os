@@ -28,6 +28,8 @@ const TYPE_LABELS: Record<ItemType, string> = {
   routine: 'Routine',
   'routine-step': 'Routine',
   'routine-session': 'Routine',
+  skill: 'Skill',
+  'backward-plan': 'Plan Backwards',
 };
 
 export function ArchiveScreen() {

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -6,104 +6,19 @@ import * as Haptics from 'expo-haptics';
 import { RiverStoneSurface } from '../components/riverstone';
 import { HeaderStoneButton } from '../components/header/HeaderStoneButton';
 import { ThemeStoneButton } from '../components/header/ThemeStoneButton';
+import { DefaultDepartureSheet } from '../components/DefaultDepartureSheet';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { useBackup } from '../hooks/useBackup';
-import { Archive, ChevronLeft, CheckCircle2, Upload, Compass } from '../icons';
+import { getDefaultDeparturePoint, setDefaultDeparturePoint } from '../db/database';
+import { Archive, ChevronLeft, CheckCircle2, Upload, Compass, MapPin } from '../icons';
 import { getThemeColors, spacing } from '../theme';
-import type { RoninMood } from '../domain/ronin/types';
-import { getMoodClip, isOneShotClip } from '../domain/ronin/roninModel';
-import { useRoninGlbBase64 } from '../domain/ronin/useRoninGlbBase64';
-import DomProbe from '../components/home/DomProbe';
-import Ronin3DDom from '../components/home/Ronin3DDom';
-import { RoninPreview } from '../components/home/RoninPreview';
 import { HeroEnvironmentWorkbench } from '../components/hero/environment';
 
 const SETTINGS_GOLD = '#D4B078';
 
-const BENCH_MOODS: RoninMood[] = ['normal', 'focused', 'tired', 'overwhelmed', 'resolved'];
-
-interface Ronin3DBenchProps {
-  mood: RoninMood;
-  onMoodChange: (mood: RoninMood) => void;
-}
-
-// __DEV__-only workbench for the DOM-component 3D companion, moved here from
-// ProfileScreen (see FLOWS.md) — kept off the main tab bar so it isn't just a
-// tap away next to the sign-in form, only reachable via Home's settings entry.
-function Ronin3DBench({ mood, onMoodChange }: Ronin3DBenchProps) {
-  const { isDark } = useThemeContext();
-  const palette = getThemeColors(isDark);
-  const [status, setStatus] = useState('loading scene…');
-  const { glbBase64, error: glbError } = useRoninGlbBase64();
-
-  const clip = useMemo(() => getMoodClip(mood), [mood]);
-
-  return (
-    <View style={devStyles.bench}>
-      <Text style={[devStyles.benchTitle, { color: palette.textSecondary }]}>Ronin 3D bench (dev only)</Text>
-      <View style={devStyles.benchProbe}>
-        <DomProbe dom={{ matchContents: true }} />
-      </View>
-      {/* fixed slate backdrop (not palette.fill): the character is black-clad,
-          so the bench needs a mid-tone behind him to judge shading/rim light */}
-      <View style={[devStyles.benchPanel, { borderColor: palette.fill, backgroundColor: '#4a5261' }]}>
-        {glbBase64 ? (
-          // absoluteFill (not centered/percentage sizing): the dom-webview
-          // collapses to ~0 without an explicit box — same mount pattern as
-          // the Home hero seam in RoninCharacter.
-          <View style={StyleSheet.absoluteFill}>
-            <Ronin3DDom
-              glbBase64={glbBase64}
-              animation={clip.animation}
-              fallbackAnimation={clip.fallbackAnimation}
-              oneShot={isOneShotClip(clip.animation)}
-              blinkEnabled={mood !== 'resolved'}
-              onSceneReady={async () => {
-                console.log('[RONIN_BENCH] scene ready');
-                setStatus('ready');
-              }}
-              onSceneError={async (message: string) => {
-                console.log('[RONIN_BENCH] scene error —', message);
-                setStatus(`error: ${message}`);
-              }}
-              dom={{ style: devStyles.benchDom, scrollEnabled: false }}
-            />
-          </View>
-        ) : (
-          <View style={devStyles.benchFallback}>
-            <Text style={[devStyles.benchStatus, { color: palette.textMuted }]}>
-              {glbError ? `GLB load error: ${glbError}` : 'reading GLB…'}
-            </Text>
-          </View>
-        )}
-      </View>
-      <Text style={[devStyles.benchStatus, { color: palette.textSecondary }]}>
-        {glbError ? `GLB: ${glbError}` : `scene: ${status} · mood: ${mood} · clip: ${clip.animation}`}
-      </Text>
-      <View style={devStyles.benchMoods}>
-        {BENCH_MOODS.map((m) => (
-          <Pressable
-            key={m}
-            onPress={() => onMoodChange(m)}
-            style={[
-              devStyles.moodChip,
-              { backgroundColor: m === mood ? palette.text : palette.fill },
-            ]}
-          >
-            <Text style={[devStyles.moodChipLabel, { color: m === mood ? palette.bg : palette.textSecondary }]}>
-              {m}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-    </View>
-  );
-}
-
 function DevToolsSection() {
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
-  const [mood, setMood] = useState<RoninMood>('normal');
   const [heroWorkbenchOpen, setHeroWorkbenchOpen] = useState(false);
 
   return (
@@ -123,10 +38,6 @@ function DevToolsSection() {
         </Pressable>
         {heroWorkbenchOpen && <HeroEnvironmentWorkbench />}
       </View>
-      <Ronin3DBench mood={mood} onMoodChange={setMood} />
-      <View style={devStyles.previewSection}>
-        <RoninPreview mood={mood} style={devStyles.preview} />
-      </View>
     </>
   );
 }
@@ -137,6 +48,8 @@ export function SettingsScreen() {
   const { isDark, toggle } = useThemeContext();
   const palette = getThemeColors(isDark);
   const backup = useBackup();
+  const [defaultDeparture, setDefaultDepartureState] = useState(() => getDefaultDeparturePoint());
+  const [departureSheetOpen, setDepartureSheetOpen] = useState(false);
   const syncTitle = backup.isSignedIn ? 'Backup and sync' : 'Sign in to sync';
   const syncDetail = backup.error
     ? 'Backup needs attention'
@@ -262,10 +175,48 @@ export function SettingsScreen() {
           </RiverStoneSurface>
         </TouchableOpacity>
 
+        <Text style={[styles.sectionLabel, { color: palette.textTertiary }]}>PLAN BACKWARDS</Text>
+        <TouchableOpacity
+          activeOpacity={0.84}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+            setDepartureSheetOpen(true);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Default departure location"
+        >
+          <RiverStoneSurface
+            variant="list"
+            mode={isDark ? 'dark' : 'light'}
+            shape="regular"
+            contentStyle={styles.settingRow}
+          >
+            <View style={[styles.iconFrame, { backgroundColor: palette.purpleSoft }]}>
+              <MapPin size={21} color={palette.purple} strokeWidth={1.9} />
+            </View>
+            <View style={styles.settingCopy}>
+              <Text style={[styles.settingTitle, { color: palette.text }]}>Default departure location</Text>
+              <Text style={[styles.settingDetail, { color: palette.textSecondary }]}>
+                {defaultDeparture || 'Not set — prefills Travel’s "From" field'}
+              </Text>
+            </View>
+          </RiverStoneSurface>
+        </TouchableOpacity>
+
         {__DEV__ && <DevToolsSection />}
 
         <Text style={[styles.version, { color: palette.textTertiary }]}>RKA OS · Personal operating system</Text>
       </ScrollView>
+
+      <DefaultDepartureSheet
+        visible={departureSheetOpen}
+        initialValue={defaultDeparture}
+        onClose={() => setDepartureSheetOpen(false)}
+        onSubmit={(location) => {
+          setDefaultDeparturePoint(location);
+          setDefaultDepartureState(location);
+        }}
+      />
     </View>
   );
 }
@@ -372,64 +323,5 @@ const devStyles = StyleSheet.create({
   heroWorkbenchToggleState: {
     fontSize: 12,
     fontFamily: 'Inter_500Medium',
-  },
-  bench: {
-    width: '100%',
-    marginTop: 8,
-    gap: 10,
-  },
-  benchTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    fontFamily: 'Inter_600SemiBold',
-    textAlign: 'center',
-  },
-  benchProbe: {
-    alignSelf: 'center',
-    width: 120,
-    height: 32,
-  },
-  benchPanel: {
-    width: '100%',
-    height: 480,
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    overflow: 'hidden',
-  },
-  benchFallback: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  benchDom: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: 'transparent',
-  },
-  benchStatus: {
-    fontSize: 12,
-    textAlign: 'center',
-  },
-  benchMoods: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  moodChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 16,
-  },
-  moodChipLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    fontFamily: 'Inter_600SemiBold',
-  },
-  previewSection: {
-    width: '100%',
-  },
-  preview: {
-    width: '100%',
   },
 });

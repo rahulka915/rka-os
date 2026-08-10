@@ -26,7 +26,9 @@ Each arrow is one `itemRelations` edge, labeled with its `relationType` — read
 
 ### `items` — the master table
 
-Every entity type (`area`, `project`, `task`, `habit`, `medication`, `workout-template`, `workout-block`, `exercise`, `workout-session`, `meal`, `potential-stat`, `achievement`, `focus`) is a row here, discriminated by `type`.
+Every entity type (`area`, `project`, `task`, `habit`, `medication`, `workout-template`, `workout-block`, `exercise`, `workout-session`, `meal`, `potential-stat`, `achievement`, `focus`, `routine`, `routine-step`, `routine-session`, `skill`, `backward-plan`) is a row here, discriminated by `type`.
+
+Startup-critical item list queries are indexed by status/type plus `deletedAt` and `createdAt DESC`; Home, badge counts and Inbox call these during launch, so keep those indexes aligned with the query shapes. Home's secondary Today-adjacent tabs (Upcoming/Anytime/Someday/Logbook) are intentionally lazy-loaded after selection, and Logbook uses the completedAt/updatedAt index instead of a `COALESCE` sort.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -73,6 +75,22 @@ Currently used relations:
 
 Supporting tables, not part of the entity/relation model: `itemInstances` tracks per-day scheduling instances of recurring items; `activityLogs` is an audit trail (dose logs, status changes); `appSettings` is a flat key-value store.
 
+`activityLogs` is indexed for both entity-scoped history (`entityId`, `actionType`, `timestamp DESC`) and action-wide recency scans (`actionType`, `timestamp DESC`), because medication timers and recent logs run during app startup and must not full-scan the growing audit trail.
+
+### `dailyCheckIns` — Morning Check-In / Evening Debrief logs
+
+Dedicated structured daily-log rows, deliberately separate from `items` so check-ins never become tasks and never affect Today completion. Each local date can have at most one row per phase.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | TEXT PK | uuid |
+| `dateKey` | TEXT | local date, `YYYY-MM-DD`; Evening Debrief opened between midnight and 2:00 AM attaches to the previous local date |
+| `phase` | TEXT | `'morning'` \| `'evening'` |
+| `answers` | TEXT | JSON `DailyCheckInAnswers` from `src/utils/dailyCheckIn.ts`: structured chip values, notes, priority snapshots and evening outcomes |
+| `createdAt` / `updatedAt` | INTEGER | epoch ms |
+
+API (`src/db/database.ts`): `upsertDailyCheckIn`, `getDailyCheckIn`, `getDailyCheckInsForDate`, `getDailyCheckIns`. Saving a check-in writes only this table. It must not update task status/order/schedule, Potential, Domain scoring, Focus weights, habit streaks, routine sessions, or achievements. Linked priorities store a title snapshot plus optional `taskId`/reason/outcome so history stays readable if the task is renamed, archived, completed or deleted later.
+
 ### `domainContributions` — live Domain scoring effects
 
 One row per completion-event's *current, decaying* effect on a Domain's score — kept deliberately separate from the permanent `items` rows (`project`, `achievement`) that record history, so the scoring formula/defaults can be re-tuned, or one contribution soft-disabled, without ever touching that history. See `src/utils/domainScoring.ts` for the decay/lift math and `src/db/database.ts`'s `completeMission`/`setMissionAchievementEligible`/`computeDomainScore` for how rows here get created and read.
@@ -90,6 +108,34 @@ One row per completion-event's *current, decaying* effect on a Domain's score �
 | `createdAt` | INTEGER | epoch ms |
 
 At most one row is active per completion event: completing a Mission creates exactly one (Mission-tier for ordinary Missions, Achievement-tier instead-of for `achievementEligible` ones — never both). Toggling `achievementEligible` after completion excludes one tier's row and reactivates/creates the other, always preserving the original `occurredAt`.
+
+### `planBlocks` / `planBlockSteps` — Plan Backwards plan components
+
+Not part of the `items`/`itemRelations` model — a plan's ordered components (Routine/Task/Travel) are plan-instance-specific (placement, buffer, completion) and must never leak back into a reusable `routine` template, so they're dedicated tables rather than `items` rows. Owned by one `backward-plan` item via `planId`.
+
+| Table | Column | Type | Notes |
+|---|---|---|---|
+| `planBlocks` | `id` | TEXT PK | uuid |
+| | `planId` | TEXT | the owning `backward-plan` item |
+| | `type` | TEXT | `'routine'` \| `'task'` \| `'travel'` |
+| | `title` | TEXT | |
+| | `orderIndex` | INTEGER | manual order within the plan |
+| | `placement` | TEXT | `'auto'` \| `'anytime-before'` \| `'keep-near-event'` |
+| | `bufferMinutes` | INTEGER? | reserved but not shown as a fake task |
+| | `durationMinutes` | INTEGER? | task/travel manual estimate (routine blocks derive duration from their steps) |
+| | `actualMinutes` | INTEGER? | reserved for future duration learning |
+| | `routineTemplateId` | TEXT? | the `routine` item this block was instantiated from (routine blocks only) |
+| | `linkedItemId` | TEXT? | optional existing `task` item this block represents |
+| | `completedAt` | INTEGER? | task/travel completion; routine blocks derive completion from their steps |
+| | `travelConfig` | TEXT? | JSON `TravelConfig`: `{ startLocation?, destination?, mode, durationMinutes, bufferMinutes?, source?, distanceMeters?, estimatedAt? }`. `source: 'live'` means `durationMinutes` came from a real Apple Maps ETA (`src/services/appleMaps.ts` — see below); editing any travel input afterward resets it to `'manual'`, never left stale. |
+| | `notes` | TEXT? | |
+| `planBlockSteps` | `id` | TEXT PK | uuid |
+| | `blockId` | TEXT | the owning `planBlocks` row (`type='routine'`) |
+| | `templateStepId` | TEXT? | soft, non-live reference back to the `routine-step` item it was copied from |
+| | `title` / `estimatedMinutes` / `actualMinutes` | | copied from the template at add-time, then independent |
+| | `orderIndex` / `placement` / `completedAt` | | plan-instance-specific, never written back to the template |
+
+API (`src/db/database.ts`, "Plan Backwards" section): `createBackwardPlan`, `getBackwardPlans`/`getBackwardPlan`, `updateBackwardPlan`, `deleteBackwardPlan`, `addPlanBlockRoutine` (copies the routine template's current steps — a snapshot, not a live link), `addPlanBlockTask`, `upsertPlanBlockTravel`/`getTravelBlockForPlan` (Travel is a single toggleable feature per plan, not repeatable like Routine/Task — upsert finds-or-creates the plan's one travel block rather than always inserting; writes `durationMinutes`/`bufferMinutes` to both the row's own columns AND inside `travelConfig`, since the generic block-duration math only reads the row columns), `updatePlanBlock`/`deletePlanBlock`, `getPlanBlocks`, `togglePlanBlockComplete`/`togglePlanBlockStepComplete`, `reorderPlanBlocks`/`reorderPlanBlockSteps`, `getDefaultDeparturePoint`/`setDefaultDeparturePoint` (a plain `appSettings` key). Pure time-budget math lives in `src/utils/backwardPlanCalc.ts` (`calculateTimeRemaining`, `calculateRoutineRemainingDuration`, `calculatePlanRequiredDuration`, `calculateUnallocatedTime`, `calculateLeaveBy`, `buildBackwardsSchedule`) — see its tests for the completed-step-exclusion and backwards-ordering behavior.
 
 ## Entity type reference
 
@@ -112,6 +158,7 @@ At most one row is active per completion event: completing a Mission creates exa
 | `achievement` | built | `earnedAt` (YYYY-MM-DD, the real date — separate from `createdAt` so retrospective/backdated trophies don't inflate current Potential), `source` (`'mission'` \| `'milestone'` \| `'manual'`), `sourceId` (originating Mission/milestone item id, if auto-created), `contributesToScore` (boolean — `false` = display-only trophy, no `domainContributions` row; toggling this after creation must go through `setAchievementContributesToScore`, which is the only thing that actually creates/reactivates/excludes the `domainContributions` row — the flag alone does nothing) |
 | `focus` | built | `weights` (`Record<areaId, number>`) — singleton row (title = the focus label); absence means equal (1x) weighting for every Domain |
 | `skill` | built | `proficiency` (0-100, manual rating — never derived), `secondaryAreaIds` (`string[]`, plain array — not `itemRelations`, since a skill can have several secondary Domains and `itemRelations` only supports one target per `(sourceId, relationType)`). Primary Domain is a real relation, `skillArea`. Habits/routines/missions link via `habitSkill`/`routineSkill`/`missionSkill` (organizational only — no scoring effect). Milestones link via `achievementSkill` (mutually exclusive with `achievementArea` on the same achievement); a milestone marked `contributesToScore` writes `sourceType: 'skill'` `domainContributions` rows (`SKILL_CONTRIBUTION_DEFAULTS`: magnitude 0.3, halfLife 45d — smaller than Mission/Achievement tiers) at full weight on the primary Domain and half weight on each secondary Domain. This is the ONLY path from a Skill to Domain scoring — linked habits/routines/missions keep contributing solely through their own existing channel, never double-counted through the Skill layer. |
+| `backward-plan` | built | Plan Backwards anchor event. `title`/`scheduledDate`/`notes` use the standard item columns; `metadata` is `BackwardPlanMeta` (`src/utils/backwardPlanMeta.ts`): `{ goalTime, startTime?, expectedTime?, latestTime?, endTime?, location?, deviceCalendarEventId? }` — all times `'HH:MM'` 24h strings. Only `goalTime` is required; it is deliberately distinct from `startTime` (an event's official start is not the same as the user's personal Goal Time to be there). `deviceCalendarEventId` is a read-only reference into the device calendar (`src/services/deviceCalendar.ts`) — never written back to. The plan's ordered components live in `planBlocks`/`planBlockSteps` (see above), never as `items` rows. |
 
 `project` also gains a `metadata.achievementEligible` boolean (default `false`) — set at any time, before or after completion, and read at completion time to decide whether completing the Mission creates a permanent `achievement` trophy + Achievement-tier `domainContributions` row, or just an ordinary Mission-tier `domainContributions` row. Toggling it after completion runs the upgrade/downgrade flow in `setMissionAchievementEligible` (excludes one contribution tier, reactivates/creates the other, keeps the original completion date, never deletes the trophy once created).
 

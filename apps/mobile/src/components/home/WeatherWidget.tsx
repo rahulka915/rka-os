@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { getApproximateLocation } from '../../services/deviceLocation';
 import { getCurrentWeather } from '../../services/weather';
+import { reverseGeocode } from '../../services/appleMaps';
 import { describeConditionCode, getWeatherEmoji, type CurrentWeather } from '../../utils/weatherParsing';
 import { RiverStoneSurface } from '../riverstone';
 import { getThemeColors } from '../../theme';
@@ -11,32 +12,51 @@ interface WeatherWidgetProps {
   isDark: boolean;
 }
 
+type WeatherStatus = 'loading' | 'ready' | 'unavailable';
+
 // Same square-card slot as MedicationQuickLogWidget, next to it in Home's
-// widget row.
-//
-// TEMPORARY: the long-term intent (see git history) is fail-soft-to-nothing
-// — no placeholder, no error state, the widget just silently doesn't appear
-// when there's no data, same as MedicationQuickLogWidget. Currently showing
-// a placeholder instead, at the user's request, purely so the widget's
-// layout/shape is visible on Home while waiting out WeatherKit's first-
-// activation propagation window (HANDOVER_SUMMARY.md 2026-08-08 — auth
-// succeeded, WeatherKit returned 401 NOT_ENABLED, expected to clear on its
-// own). Revert to `if (!weather) return null;` once real data is confirmed
-// flowing, rather than keeping this placeholder as a permanent loading state.
+// widget row. Always renders the card shell (even before data lands) so the
+// widget row's height is stable from first paint — the fetch is async and on
+// a cold launch can take a real moment, and the old "render nothing until
+// data arrives" approach meant the whole row visibly grew taller once
+// weather popped in. A genuine failure (denied permission, offline,
+// WeatherKit down) still collapses the widget to nothing once we know
+// there's no data coming, same fail-soft principle as before — the shell is
+// only shown while a result is still pending.
+// Location name is a nice-to-have, fetched alongside weather but never
+// required for the card to render — condition text still shows if the
+// reverse-geocode call fails while the weather call succeeds.
 export function WeatherWidget({ isDark }: WeatherWidgetProps) {
   const palette = getThemeColors(isDark);
   const [weather, setWeather] = useState<CurrentWeather | null>(null);
+  const [locationName, setLocationName] = useState<string | null>(null);
+  const [status, setStatus] = useState<WeatherStatus>('loading');
 
   const load = useCallback(async () => {
+    setStatus('loading');
     const coords = await getApproximateLocation();
-    if (!coords) return;
-    const current = await getCurrentWeather(coords.latitude, coords.longitude);
-    if (current) setWeather(current);
+    if (!coords) {
+      setStatus('unavailable');
+      return;
+    }
+    const [current, name] = await Promise.all([
+      getCurrentWeather(coords.latitude, coords.longitude),
+      reverseGeocode(coords.latitude, coords.longitude),
+    ]);
+    if (current) {
+      setWeather(current);
+      setStatus('ready');
+    } else {
+      setStatus('unavailable');
+    }
+    if (name) setLocationName(name);
   }, []);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  if (status === 'unavailable') return null;
 
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -44,14 +64,23 @@ export function WeatherWidget({ isDark }: WeatherWidgetProps) {
   };
 
   return (
-    <TouchableOpacity onPress={handlePress} activeOpacity={0.75} style={styles.touchWrap}>
+    <TouchableOpacity onPress={handlePress} activeOpacity={0.75} style={styles.touchWrap} disabled={status === 'loading'}>
       <RiverStoneSurface variant="card" mode={isDark ? 'dark' : 'light'} style={styles.squareCard} contentStyle={styles.fill}>
-        <View style={[styles.content, !weather && styles.contentPlaceholder]}>
-          <Text style={styles.emoji}>{weather ? getWeatherEmoji(weather.conditionCode) : '⛅'}</Text>
-          <Text style={[styles.temperature, { color: palette.text }]}>{weather ? `${Math.round(weather.temperature)}°` : '--°'}</Text>
-          <Text style={[styles.condition, { color: palette.textTertiary }]} numberOfLines={1}>
-            {weather ? describeConditionCode(weather.conditionCode) : 'Waiting for weather'}
-          </Text>
+        <View style={styles.content}>
+          {status === 'loading' || !weather ? (
+            <View style={[styles.placeholderDot, { backgroundColor: palette.textTertiary }]} />
+          ) : (
+            <>
+              <Text style={styles.emoji}>{getWeatherEmoji(weather.conditionCode)}</Text>
+              <Text style={[styles.temperature, { color: palette.text }]}>{Math.round(weather.temperature)}°</Text>
+              {locationName ? (
+                <Text style={[styles.location, { color: palette.text }]} numberOfLines={1}>{locationName}</Text>
+              ) : null}
+              <Text style={[styles.condition, { color: palette.textTertiary }]} numberOfLines={1}>
+                {describeConditionCode(weather.conditionCode)}
+              </Text>
+            </>
+          )}
         </View>
       </RiverStoneSurface>
     </TouchableOpacity>
@@ -76,20 +105,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 2,
   },
-  // Dims the placeholder state so it doesn't read as real data at a glance.
-  contentPlaceholder: {
-    opacity: 0.45,
+  placeholderDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    opacity: 0.5,
   },
   emoji: {
-    fontSize: 22,
+    fontSize: 20,
   },
   temperature: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
     fontFamily: 'Inter_700Bold',
   },
+  location: {
+    fontSize: 11,
+    fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
+    textAlign: 'center',
+  },
   condition: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '500',
     fontFamily: 'Inter_500Medium',
     textAlign: 'center',

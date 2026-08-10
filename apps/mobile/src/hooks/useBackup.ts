@@ -1,5 +1,5 @@
 import { createContext, createElement, type ReactNode, useCallback, useContext, useEffect, useState } from 'react';
-import { Platform } from 'react-native';
+import { InteractionManager, Platform } from 'react-native';
 import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
@@ -35,6 +35,30 @@ function stopSync(): void {
   else stopRealtimeSync();
 }
 
+// Runs `cb` once the app is interactive (so it never competes with cold-start
+// rendering or the user's first taps), but never later than a hard cap — a
+// runaway animation could in principle hold InteractionManager's queue open
+// forever, and "sync silently never starts" would be a far worse failure than
+// "sync starts a beat early". Returns a canceller for when auth changes or the
+// provider unmounts before it fires.
+function scheduleWhenIdle(cb: () => void): { cancel: () => void } {
+  let done = false;
+  const run = () => {
+    if (done) return;
+    done = true;
+    cb();
+  };
+  const handle = InteractionManager.runAfterInteractions(run);
+  const timer = setTimeout(run, 3000);
+  return {
+    cancel: () => {
+      done = true;
+      handle.cancel();
+      clearTimeout(timer);
+    },
+  };
+}
+
 function useBackupState() {
   const [user, setUser] = useState<User | null>(null);
   const [lastBackupAt, setLastBackupAt] = useState<string | null>(null);
@@ -49,11 +73,29 @@ function useBackupState() {
   useEffect(() => {
     if (!hasFirebaseConfig || !auth) return;
 
+    // A not-yet-run deferred sync start, so a later auth change (or unmount)
+    // can cancel it before it fires.
+    let pendingStart: { cancel: () => void } | null = null;
+
     const unsubscribe = onAuthStateChanged(auth, (nextUser) => {
       setUser(nextUser);
+      if (pendingStart) {
+        pendingStart.cancel();
+        pendingStart = null;
+      }
       if (nextUser) {
         refreshLastBackup(nextUser.uid);
-        startSync(nextUser.uid);
+        // Defer sync startup until the app is interactive. Attaching the six
+        // Firestore listeners — and applying their first full-collection
+        // snapshot into SQLite — is the single heaviest thing that happens
+        // right after auth resolves; running it inline blocked cold-start
+        // rendering and the user's first taps (the "hangs a couple seconds
+        // after open" symptom). runAfterInteractions lets capture/navigation
+        // win the thread first; the header sync indicator covers the gap.
+        pendingStart = scheduleWhenIdle(() => {
+          pendingStart = null;
+          startSync(nextUser.uid);
+        });
       } else {
         stopSync();
         setLastBackupAt(null);
@@ -61,6 +103,7 @@ function useBackupState() {
     });
 
     return () => {
+      if (pendingStart) pendingStart.cancel();
       unsubscribe();
       stopSync();
     };

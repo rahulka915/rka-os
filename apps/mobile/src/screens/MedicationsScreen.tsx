@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useMemo, useState, useEffect } from 'react';
 import { Modal, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Alert, View as RNView, Text as RNText, StyleSheet, TextInput, SectionList, Switch } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useMedications } from '../hooks/useDb';
@@ -18,6 +18,9 @@ import { MedicationBottleIcon } from '../components/icons/MedicationBottleIcon';
 import { ensureMedicationTimerAutoStop } from '../services/medicationTimerController';
 import { presentMedicationTimer } from '../utils/timerPresentation';
 import { showActionSheet } from '../utils/actionSheet';
+import { computeMinutesUntilNextDose, promptTooSoonOverride } from '../utils/medicationOverride';
+import { computeFocusState, type FocusState } from '../utils/focusCurve';
+import { FocusTimelineCard } from '../components/FocusTimelineCard';
 
 const AUTO_STOP_PRESETS = [4, 5, 8, 12, 18, 24] as const;
 
@@ -77,7 +80,7 @@ function NeedsAttentionRow({ item, isDark, onRestock }: NeedsAttentionRowProps) 
 interface TodayRowProps {
   item: Item;
   isDark: boolean;
-  onTake: (startTimer?: boolean) => void;
+  onTake: (startTimer?: boolean, overrideReason?: string) => void;
   onTakeHalf: (startTimer?: boolean) => void;
   onLogPast: () => void;
   onEdit: () => void;
@@ -95,21 +98,27 @@ function TodayRow({ item, isDark, onTake, onTakeHalf, onLogPast, onEdit, onDelet
   // The confirm itself offers both "Take" and "Take + Timer" — most doses do want
   // a timer, so that choice belongs on the primary one-tap path, not buried behind
   // a separate long-press gesture.
-  const handleTake = () => {
-    if (!canTake) {
-      const minsLeft = Math.ceil(meta.minHoursBetweenDoses! * 60 - (Date.now() - lastLog!.timestamp) / 60000);
-      Alert.alert('Too soon', `Next dose in ${minsLeft < 60 ? `${minsLeft}m` : `${Math.ceil(minsLeft / 60)}h`}`, [{ text: 'OK' }]);
-      return;
-    }
+  const confirmTake = (overrideReason?: string) => {
     if (stock === 0) {
       Alert.alert('Out of stock', 'No doses remaining.', [{ text: 'OK' }]);
       return;
     }
     Alert.alert(`Take ${item.title}`, meta.dose ?? 'Record dose?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Take', onPress: () => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); onTake(false); } },
-      { text: 'Take + Timer', onPress: () => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); onTake(true); } },
+      { text: 'Take', onPress: () => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); onTake(false, overrideReason); } },
+      { text: 'Take + Timer', onPress: () => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); onTake(true, overrideReason); } },
     ]);
+  };
+
+  // Too-soon is a caution, not a hard block — Override requires a typed
+  // reason (e.g. "advised by doctor") that travels with the dose log.
+  const handleTake = () => {
+    if (!canTake) {
+      const minsLeft = computeMinutesUntilNextDose(meta.minHoursBetweenDoses!, lastLog!.timestamp);
+      promptTooSoonOverride(minsLeft, (reason) => confirmTake(reason));
+      return;
+    }
+    confirmTake();
   };
 
   const handleTakeHalf = () => {
@@ -235,6 +244,13 @@ function MedFormSheet({ visible, onClose, onSaved, isDark, editTarget }: MedForm
   const [minHours, setMinHours] = useState('');
   const [splitDoseEnabled, setSplitDoseEnabled] = useState(false);
   const [autoStopHours, setAutoStopHours] = useState('24');
+  const [focusCurveEnabled, setFocusCurveEnabled] = useState(false);
+  const [onsetMinHours, setOnsetMinHours] = useState('');
+  const [onsetMaxHours, setOnsetMaxHours] = useState('');
+  const [peakMinHours, setPeakMinHours] = useState('');
+  const [peakMaxHours, setPeakMaxHours] = useState('');
+  const [fadeEndMinHours, setFadeEndMinHours] = useState('');
+  const [fadeEndMaxHours, setFadeEndMaxHours] = useState('');
   const [containerLabel, setContainerLabel] = useState('');
   const [containerSize, setContainerSize] = useState('');
   const [containersPerRestock, setContainersPerRestock] = useState('');
@@ -253,6 +269,13 @@ function MedFormSheet({ visible, onClose, onSaved, isDark, editTarget }: MedForm
       setMinHours(meta.minHoursBetweenDoses !== undefined ? String(meta.minHoursBetweenDoses) : '');
       setSplitDoseEnabled(!!meta.splitDoseEnabled);
       setAutoStopHours(String(meta.autoStopAfterHours ?? 24));
+      setFocusCurveEnabled(!!meta.focusCurveEnabled);
+      setOnsetMinHours(meta.onsetMinHours !== undefined ? String(meta.onsetMinHours) : '');
+      setOnsetMaxHours(meta.onsetMaxHours !== undefined ? String(meta.onsetMaxHours) : '');
+      setPeakMinHours(meta.peakMinHours !== undefined ? String(meta.peakMinHours) : '');
+      setPeakMaxHours(meta.peakMaxHours !== undefined ? String(meta.peakMaxHours) : '');
+      setFadeEndMinHours(meta.fadeEndMinHours !== undefined ? String(meta.fadeEndMinHours) : '');
+      setFadeEndMaxHours(meta.fadeEndMaxHours !== undefined ? String(meta.fadeEndMaxHours) : '');
       setContainerLabel(meta.containerLabel ?? '');
       setContainerSize(meta.containerSize !== undefined ? String(meta.containerSize) : '');
       setContainersPerRestock(meta.containersPerRestock !== undefined ? String(meta.containersPerRestock) : '');
@@ -261,18 +284,49 @@ function MedFormSheet({ visible, onClose, onSaved, isDark, editTarget }: MedForm
       setPackagingNote(meta.packagingNote ?? '');
     } else {
       setTitle(''); setDose(''); setStock(''); setMinHours(''); setSplitDoseEnabled(false); setAutoStopHours('24');
+      setFocusCurveEnabled(false);
+      setOnsetMinHours(''); setOnsetMaxHours(''); setPeakMinHours(''); setPeakMaxHours(''); setFadeEndMinHours(''); setFadeEndMaxHours('');
       setContainerLabel(''); setContainerSize(''); setContainersPerRestock('');
       setSheetsPerContainer(''); setPillsPerSheet(''); setPackagingNote('');
     }
   }, [visible, editTarget]);
 
+  const parsedOnsetMin = onsetMinHours ? parseFloat(onsetMinHours) : undefined;
+  const parsedOnsetMax = onsetMaxHours ? parseFloat(onsetMaxHours) : undefined;
+  const parsedPeakMin = peakMinHours ? parseFloat(peakMinHours) : undefined;
+  const parsedPeakMax = peakMaxHours ? parseFloat(peakMaxHours) : undefined;
+  const parsedFadeEndMin = fadeEndMinHours ? parseFloat(fadeEndMinHours) : undefined;
+  const parsedFadeEndMax = fadeEndMaxHours ? parseFloat(fadeEndMaxHours) : undefined;
+  const focusTimingValid = (() => {
+    if (
+      parsedOnsetMin === undefined || parsedOnsetMax === undefined ||
+      parsedPeakMin === undefined || parsedPeakMax === undefined ||
+      parsedFadeEndMin === undefined || parsedFadeEndMax === undefined
+    ) {
+      return false;
+    }
+    if (parsedOnsetMin > parsedOnsetMax || parsedPeakMin > parsedPeakMax || parsedFadeEndMin > parsedFadeEndMax) return false;
+    const onsetMid = (parsedOnsetMin + parsedOnsetMax) / 2;
+    const peakMid = (parsedPeakMin + parsedPeakMax) / 2;
+    const fadeEndMid = (parsedFadeEndMin + parsedFadeEndMax) / 2;
+    return onsetMid <= peakMid && peakMid <= fadeEndMid;
+  })();
+  const canSave = !!title.trim() && (!focusCurveEnabled || focusTimingValid);
+
   const handleSave = () => {
-    if (!title.trim()) return;
+    if (!canSave) return;
     const packaging: MedicationMeta = {
       dose: dose.trim() || undefined,
       minHoursBetweenDoses: minHours ? parseFloat(minHours) : undefined,
       splitDoseEnabled,
       autoStopAfterHours: autoStopHours && parseFloat(autoStopHours) > 0 ? parseFloat(autoStopHours) : 24,
+      focusCurveEnabled,
+      onsetMinHours: parsedOnsetMin,
+      onsetMaxHours: parsedOnsetMax,
+      peakMinHours: parsedPeakMin,
+      peakMaxHours: parsedPeakMax,
+      fadeEndMinHours: parsedFadeEndMin,
+      fadeEndMaxHours: parsedFadeEndMax,
       containerLabel: containerLabel.trim() || undefined,
       containerSize: containerSize ? parseInt(containerSize) : undefined,
       containersPerRestock: containersPerRestock ? parseInt(containersPerRestock) : undefined,
@@ -383,6 +437,65 @@ function MedFormSheet({ visible, onClose, onSaved, isDark, editTarget }: MedForm
                 ) : null}
               </RNView>
             ))}
+
+            <RNView style={s.field}>
+              <RNView style={s.splitDoseRow}>
+                <RNView style={{ flex: 1 }}>
+                  <RNText style={[s.splitDoseLabel, { color: palette.text }]}>Track focus timeline</RNText>
+                  <RNText style={[s.splitDoseSub, { color: palette.textSecondary }]}>
+                    Model onset, peak and fade-off after each dose — e.g. for stimulants
+                  </RNText>
+                </RNView>
+                <Switch
+                  value={focusCurveEnabled}
+                  onValueChange={(value) => {
+                    setFocusCurveEnabled(value);
+                    Haptics.selectionAsync().catch(() => {});
+                  }}
+                  trackColor={{ false: palette.fill, true: palette.blue }}
+                />
+              </RNView>
+              {focusCurveEnabled && (
+                <RNView style={s.focusCurveFields}>
+                  {[
+                    { label: 'Onset (hours to kick in)', min: onsetMinHours, setMin: setOnsetMinHours, max: onsetMaxHours, setMax: setOnsetMaxHours, placeholder: ['0.5', '1'] },
+                    { label: 'Peak (hours to peak effect)', min: peakMinHours, setMin: setPeakMinHours, max: peakMaxHours, setMax: setPeakMaxHours, placeholder: ['1.5', '2.5'] },
+                    { label: 'Wears off (hours until faded)', min: fadeEndMinHours, setMin: setFadeEndMinHours, max: fadeEndMaxHours, setMax: setFadeEndMaxHours, placeholder: ['6', '12'] },
+                  ].map(({ label, min, setMin, max, setMax, placeholder }) => (
+                    <RNView key={label} style={s.focusCurveField}>
+                      <RNText style={[s.fieldLabel, { color: palette.textTertiary }]}>{label}</RNText>
+                      <RNView style={s.focusCurveRangeRow}>
+                        <TextInput
+                          style={[s.focusCurveRangeInput, { color: palette.text, borderColor: palette.separator, backgroundColor: palette.fill }]}
+                          placeholder={placeholder[0]}
+                          placeholderTextColor={palette.textMuted}
+                          value={min}
+                          onChangeText={setMin}
+                          keyboardType="decimal-pad"
+                          keyboardAppearance={isDark ? 'dark' : 'light'}
+                        />
+                        <RNText style={[s.focusCurveRangeDash, { color: palette.textTertiary }]}>–</RNText>
+                        <TextInput
+                          style={[s.focusCurveRangeInput, { color: palette.text, borderColor: palette.separator, backgroundColor: palette.fill }]}
+                          placeholder={placeholder[1]}
+                          placeholderTextColor={palette.textMuted}
+                          value={max}
+                          onChangeText={setMax}
+                          keyboardType="decimal-pad"
+                          keyboardAppearance={isDark ? 'dark' : 'light'}
+                        />
+                      </RNView>
+                    </RNView>
+                  ))}
+                  {!focusTimingValid && (
+                    <RNText style={[s.fieldHelp, { color: palette.orange }]}>
+                      All six are required (each as a min–max range), and the onset/peak/wears-off midpoints must be in order.
+                    </RNText>
+                  )}
+                </RNView>
+              )}
+            </RNView>
+
             <RNText style={[s.fieldHelp, { color: palette.textMuted }]}>Auto-stop only limits how long the app tracks the stopwatch. It is not medical clearance guidance.</RNText>
           </ScrollView>
 
@@ -392,8 +505,8 @@ function MedFormSheet({ visible, onClose, onSaved, isDark, editTarget }: MedForm
             </TouchableOpacity>
             <TouchableOpacity
               onPress={handleSave}
-              disabled={!title.trim()}
-              style={[s.saveBtn, { backgroundColor: palette.deeperBlue, opacity: title.trim() ? 1 : 0.3 }]}
+              disabled={!canSave}
+              style={[s.saveBtn, { backgroundColor: palette.deeperBlue, opacity: canSave ? 1 : 0.3 }]}
             >
               <RNText style={[s.saveText, { color: isDark ? '#182229' : '#ffffff' }]}>Save</RNText>
             </TouchableOpacity>
@@ -457,6 +570,23 @@ export function MedicationsScreen() {
   const [historyTarget, setHistoryTarget] = useState<Item | null>(null);
 
   useRegisterFabHoldAction(useCallback(() => setAddOpen(true), []));
+
+  // getLastTakenLog is a DB read per medication; cache it on the medication
+  // list so it isn't re-queried on every render (this screen re-renders on a
+  // 60s tick for the focus timeline). computeFocusState itself stays per-render
+  // — it's pure and reads the wall clock, so the timeline still advances.
+  const lastLogByMedId = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof getLastTakenLog>>();
+    for (const item of medications) map.set(item.id, getLastTakenLog(item.id));
+    return map;
+  }, [medications]);
+
+  const focusStates: FocusState[] = medications
+    .map((item) => {
+      const meta: MedicationMeta = item.metadata ? JSON.parse(item.metadata) : {};
+      return computeFocusState(item, meta, lastLogByMedId.get(item.id) ?? null);
+    })
+    .filter((state): state is FocusState => state !== null);
 
   const handleDelete = (item: Item) => {
     Alert.alert(`Delete ${item.title}?`, 'This cannot be undone.', [
@@ -535,6 +665,8 @@ export function MedicationsScreen() {
         </RNView>
       ) : (
         <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
+          <FocusTimelineCard states={focusStates} isDark={isDark} />
+
           {needsAttention.length > 0 && (
             <RNView style={s.section}>
               <RNText style={[s.sectionLabel, { color: palette.textTertiary }]}>NEEDS ATTENTION</RNText>
@@ -554,7 +686,7 @@ export function MedicationsScreen() {
                   key={item.id}
                   item={item}
                   isDark={isDark}
-                  onTake={(startTimer) => takeMedication(item.id, undefined, startTimer)}
+                  onTake={(startTimer, overrideReason) => takeMedication(item.id, undefined, startTimer, overrideReason)}
                   onTakeHalf={(startTimer) => takeHalfDose(item.id, undefined, startTimer)}
                   onLogPast={() => setLogTarget(item)}
                   onEdit={() => setEditTarget(item)}
@@ -841,6 +973,29 @@ const s = StyleSheet.create({
   splitDoseSub: {
     fontSize: 12,
     marginTop: 2,
+  },
+  focusCurveFields: {
+    marginTop: 14,
+    gap: 14,
+  },
+  focusCurveField: {
+    gap: 6,
+  },
+  focusCurveRangeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  focusCurveRangeInput: {
+    flex: 1,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+  },
+  focusCurveRangeDash: {
+    fontSize: 15,
   },
   presetChip: {
     minWidth: 44,

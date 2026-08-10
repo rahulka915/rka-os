@@ -34,7 +34,8 @@ import { buildTimelineEntries } from './timelineEntry';
 import { getTimeOfDayFromHour, normalizeTimeInput, timeToMinutes, type TimeOfDay } from '../utils/time';
 import { countDosesByDay } from '../utils/medicationDoseHistory';
 import { resolveAutoStopAfterMs } from '../domain/medicationTimer/timerMath';
-import type { Item, ItemInstance, ActivityLog } from './types';
+import type { DailyCheckInRow, Item, ItemInstance, ActivityLog } from './types';
+import type { DailyCheckInAnswers, DailyCheckInPhase } from '../utils/dailyCheckIn';
 import {
   getItemsSnapshot,
   getActivityLogsSnapshot,
@@ -57,6 +58,8 @@ function notImplementedOnWeb(name: string): never {
   throw new Error(`${name} is not implemented on web yet`);
 }
 
+const webDailyCheckIns: DailyCheckInRow[] = [];
+
 // ── Items ──────────────────────────────────────────────────────────────
 // Each query below is a direct port of the SQL predicate in database.ts,
 // evaluated over the in-memory Firestore mirror instead of SQLite.
@@ -67,6 +70,39 @@ export function formatDate(date: Date): string {
 
 export function uuid(): string {
   return uuidv4();
+}
+
+export function upsertDailyCheckIn(dateKey: string, phase: DailyCheckInPhase, answers: DailyCheckInAnswers): DailyCheckInRow {
+  const now = Date.now();
+  const existingIndex = webDailyCheckIns.findIndex((row) => row.dateKey === dateKey && row.phase === phase);
+  const existing = existingIndex >= 0 ? webDailyCheckIns[existingIndex] : null;
+  const row: DailyCheckInRow = {
+    id: existing?.id ?? uuid(),
+    dateKey,
+    phase,
+    answers: JSON.stringify(answers),
+    createdAt: existing?.createdAt ?? now,
+    updatedAt: now,
+  };
+  if (existingIndex >= 0) webDailyCheckIns[existingIndex] = row;
+  else webDailyCheckIns.push(row);
+  return row;
+}
+
+export function getDailyCheckIn(dateKey: string, phase: DailyCheckInPhase): DailyCheckInRow | null {
+  return webDailyCheckIns.find((row) => row.dateKey === dateKey && row.phase === phase) ?? null;
+}
+
+export function getDailyCheckInsForDate(dateKey: string): DailyCheckInRow[] {
+  return webDailyCheckIns
+    .filter((row) => row.dateKey === dateKey)
+    .sort((a, b) => (a.phase === 'morning' ? 0 : 1) - (b.phase === 'morning' ? 0 : 1));
+}
+
+export function getDailyCheckIns(limit = 30): DailyCheckInRow[] {
+  return [...webDailyCheckIns]
+    .sort((a, b) => b.dateKey.localeCompare(a.dateKey) || ((a.phase === 'morning' ? 0 : 1) - (b.phase === 'morning' ? 0 : 1)))
+    .slice(0, limit);
 }
 
 export function getInboxItems(): Item[] {
@@ -96,6 +132,32 @@ export function getUpcomingItems(fromDate: string): Item[] {
 export function getItemsByStatus(status: string): Item[] {
   return getItemsSnapshot()
     .filter((i) => i.status === status && i.deletedAt == null)
+    .sort((a, b) => b.createdAt - a.createdAt);
+}
+
+export function getItemCountByStatus(status: string): number {
+  return getItemsSnapshot().filter((i) => i.status === status && i.deletedAt == null).length;
+}
+
+export function getInboxCount(): number {
+  return getItemCountByStatus('inbox');
+}
+
+export function getAnytimeTaskItems(): Item[] {
+  return getItemsSnapshot()
+    .filter((i) => i.type === 'task' && i.status === 'active' && i.scheduledDate == null && i.deletedAt == null)
+    .sort((a, b) => b.createdAt - a.createdAt);
+}
+
+export function getActiveTaskItems(): Item[] {
+  return getItemsSnapshot()
+    .filter((i) => i.type === 'task' && i.deletedAt == null && i.status !== 'inbox' && i.status !== 'completed' && i.status !== 'archived')
+    .sort((a, b) => b.createdAt - a.createdAt);
+}
+
+export function getSomedayTaskItems(): Item[] {
+  return getItemsSnapshot()
+    .filter((i) => i.type === 'task' && i.status === 'someday' && i.deletedAt == null)
     .sort((a, b) => b.createdAt - a.createdAt);
 }
 
@@ -1064,5 +1126,3 @@ export function setTimerWidgetPreferences(_preferences: Partial<TimerWidgetPrefe
 export function getLastTakenLog(itemId: string): ActivityLog | null {
   return getMedicationLogs(itemId, 1)[0] ?? null;
 }
-
-

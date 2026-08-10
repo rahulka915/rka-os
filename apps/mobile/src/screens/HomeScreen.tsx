@@ -1,19 +1,16 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import Animated, { FadeIn, useReducedMotion } from 'react-native-reanimated';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import { ScrollViewContainer } from 'react-native-reorderable-list';
 import { YStack } from 'tamagui';
 import * as Haptics from 'expo-haptics';
 import { AppHeader } from '../components/AppHeader';
 import { RiverStoneSurface } from '../components/riverstone';
 import { MedicationQuickLogWidget } from '../components/home/MedicationQuickLogWidget';
-import { WeatherWidget } from '../components/home/WeatherWidget';
 import { TodayCard } from '../components/home/TodayCard';
-import { HabitsWidget } from '../components/home/HabitsWidget';
 import { HomeTaskRow } from '../components/home/HomeTaskRow';
-import { JourneySummaryStrip } from '../components/home/JourneySummaryStrip';
-import { useHomeData, useUpcomingPreview, useTodayHabits, useProjects } from '../hooks/useDb';
+import { useHomeData, useProjects } from '../hooks/useDb';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { useItemComposer } from '../components/item-composer';
 import { useOpenItem } from '../hooks/useOpenItem';
@@ -21,13 +18,12 @@ import {
   getBlockingTask,
   updateItemStatus,
   getUpcomingItems,
-  getItemsByType,
+  getAnytimeTaskItems,
+  getSomedayTaskItems,
   getCompletedItems,
   getRelation,
   deleteItem,
   formatDate,
-  computeOverallPotential,
-  getFocus,
 } from '../db/database';
 import { LACQUER_DISC_COMPLETION_DURATION } from '../components/ui/LacquerDiscControl';
 import { UndoToast, type UndoToastState } from '../components/ui/UndoToast';
@@ -47,7 +43,6 @@ interface HomeScreenProps {
   onInboxPress: () => void;
   inboxOpen: boolean;
   onSettingsPress: () => void;
-  onViewUpcoming: () => void;
 }
 
 type HomeView = 'today' | 'upcoming' | 'anytime' | 'someday' | 'logbook';
@@ -60,16 +55,13 @@ const VIEW_CHIPS: Array<{ key: HomeView; label: string }> = [
   { key: 'logbook', label: 'Logbook' },
 ];
 
-export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpcoming }: HomeScreenProps) {
-  const navigation = useNavigation();
+export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress }: HomeScreenProps) {
   const { isDark } = useThemeContext();
   const reducedMotion = useReducedMotion();
   const palette = getThemeColors(isDark);
   const { revision: composerRevision } = useItemComposer();
   const openItem = useOpenItem();
   const { inboxCount, todayItems, refresh } = useHomeData();
-  const { groups: upcomingGroups, refresh: refreshUpcoming } = useUpcomingPreview();
-  const { habits: todayHabits, refresh: refreshHabits } = useTodayHabits();
   const { projects } = useProjects();
   const [completingIds, setCompletingIds] = useState<Set<string>>(new Set());
   const [activeView, setActiveView] = useState<HomeView>('today');
@@ -77,8 +69,7 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
   const [anytimeItems, setAnytimeItems] = useState<Item[]>([]);
   const [somedayItems, setSomedayItems] = useState<Item[]>([]);
   const [logbookItems, setLogbookItems] = useState<Item[]>([]);
-  const [potentialPercent, setPotentialPercent] = useState(0);
-  const [focusLabel, setFocusLabel] = useState<string | null>(null);
+  const activeViewRef = useRef<HomeView>('today');
   // 'complete' keeps the item counted as done (for the Journey walker's
   // ratio) while it's hidden from the task list; 'delete'/'move' drop it
   // from both the list and any count entirely. Distinguishing the two
@@ -93,6 +84,10 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
     // immediately rather than silently dropping the action.
     for (const timer of pendingTimersRef.current.values()) clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    activeViewRef.current = activeView;
+  }, [activeView]);
 
   // Shared by complete/delete/move-to-someday: hide the row immediately
   // (via pendingActions, filtered out of every list below), show an Undo
@@ -130,53 +125,61 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
     setUndoToast({ message, onUndo: undoAction });
   }, []);
 
-  // Anytime/Upcoming/Someday are task-only (matching the dedicated Tasks/
-  // Upcoming screens and GTD convention) — Domains/Missions/Habits/Workouts
-  // have their own dedicated places in the app, not mixed into these lists.
-  const refreshViewLists = useCallback(() => {
+  // Secondary Home lists are task-only (matching the dedicated Tasks/Upcoming
+  // screens and GTD convention), and lazy so cold launch on Today does not
+  // build every hidden tab. getCompletedItems/getUpcomingItems aren't
+  // type-scoped at the query level (they return any entity type), so both
+  // filter to 'task' client-side, same as anytime/someday already do at the
+  // query level.
+  const refreshActiveViewList = useCallback((view: HomeView) => {
     const today = formatDate(new Date());
-    const tasks = getItemsByType('task');
-    setUpcomingItems(getUpcomingItems(today).filter((item) => item.type === 'task'));
-    setAnytimeItems(tasks.filter((item) => item.status === 'active' && !item.scheduledDate));
-    setSomedayItems(tasks.filter((item) => item.status === 'someday'));
-    setLogbookItems(getCompletedItems());
-    setPotentialPercent(computeOverallPotential());
-    setFocusLabel(getFocus()?.label ?? null);
+    if (view === 'upcoming') {
+      setUpcomingItems(getUpcomingItems(today).filter((item) => item.type === 'task'));
+    } else if (view === 'anytime') {
+      setAnytimeItems(getAnytimeTaskItems());
+    } else if (view === 'someday') {
+      setSomedayItems(getSomedayTaskItems());
+    } else if (view === 'logbook') {
+      setLogbookItems(getCompletedItems().filter((item) => item.type === 'task'));
+    }
   }, []);
+
+  const refreshHomeSummaries = useCallback(() => {
+    refreshActiveViewList(activeViewRef.current);
+  }, [refreshActiveViewList]);
 
   const getProjectTitle = useCallback((item: Item): string | null => {
     const id = getRelation(item.id, 'project');
     return id ? projects.find((p) => p.id === id)?.title ?? null : null;
   }, [projects]);
 
-  // Three independent, legitimate triggers for the same 4-read refresh
+  // Three independent, legitimate triggers for the same refresh
   // (data change, tab focus, view-switcher change) all land on the very
   // first render — each is correct on its own, but stacked on cold mount
-  // they meant 3 full computeOverallPotential() passes (an 8-domain scan
-  // each) before the user saw anything. The first effect below does the
-  // actual mount-time refresh unconditionally; the other two each skip
-  // only their own first firing (independent per-effect guards, since
-  // effect order isn't something to depend on) and behave normally for
-  // every trigger after that.
+  // they'd triple the same DB reads before the user saw anything. The first
+  // effect below skips its own first firing entirely (useHomeData already
+  // ran those reads once on its own mount, via useDb.ts's useDbRefresh);
+  // the other two each skip only their own first
+  // firing too (independent per-effect guards, since effect order isn't
+  // something to depend on) and behave normally for every trigger after that.
   const isFirstFocusRef = useRef(true);
   const isFirstActiveViewRef = useRef(true);
+  const isFirstMountRef = useRef(true);
 
   // useHomeData only fetches on mount — Inbox lives in a sibling modal (App.tsx), not a child
   // of this screen, so bulk actions there (delete, triage) never trigger a refetch here on
   // their own, and this isn't a navigation transition so useFocusEffect wouldn't fire either.
   // Refetch whenever the Inbox modal closes, or an item save elsewhere bumps composerRevision.
-  // One combined effect (not two) — on mount, and on any save while the Inbox happens to be
-  // closed, both deps land in the same commit, so a separate per-dep effect would just fire
-  // the exact same 4 synchronous DB reads twice back-to-back for nothing. This is the
-  // designated mount-time refresh — always runs.
   useEffect(() => {
     if (!inboxOpen) {
+      if (isFirstMountRef.current) {
+        isFirstMountRef.current = false;
+        return;
+      }
       refresh();
-      refreshUpcoming();
-      refreshHabits();
-      refreshViewLists();
+      refreshHomeSummaries();
     }
-  }, [inboxOpen, composerRevision, refresh, refreshUpcoming, refreshHabits, refreshViewLists]);
+  }, [inboxOpen, composerRevision, refresh, refreshHomeSummaries]);
 
   // Belt-and-suspenders: some write paths (e.g. HabitsScreen's own
   // quick-create) don't go through the shared item-composer flow, so they
@@ -190,10 +193,8 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
         return;
       }
       refresh();
-      refreshUpcoming();
-      refreshHabits();
-      refreshViewLists();
-    }, [refresh, refreshUpcoming, refreshHabits, refreshViewLists]),
+      refreshHomeSummaries();
+    }, [refresh, refreshHomeSummaries]),
   );
 
   // Each of the 4 new lists is otherwise only refetched on save/focus (above) —
@@ -205,8 +206,8 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
       isFirstActiveViewRef.current = false;
       return;
     }
-    refreshViewLists();
-  }, [activeView, refreshViewLists]);
+    refreshActiveViewList(activeView);
+  }, [activeView, refreshActiveViewList]);
 
   const handleItemComplete = useCallback((item: Item) => {
     if (completingIds.has(item.id)) return;
@@ -227,10 +228,10 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
       scheduleUndoableAction(item.id, 'complete', `"${item.title}" completed`, () => {
         updateItemStatus(item.id, 'completed');
         refresh();
-        refreshViewLists();
+        refreshHomeSummaries();
       });
     }, LACQUER_DISC_COMPLETION_DURATION);
-  }, [completingIds, refresh, refreshViewLists, scheduleUndoableAction]);
+  }, [completingIds, refresh, refreshHomeSummaries, scheduleUndoableAction]);
 
   const handleItemTap = useCallback((item: Item) => {
     openItem({
@@ -238,11 +239,11 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
       onComplete: ({ action }) => {
         if (action !== 'cancelled') {
           refresh();
-          refreshViewLists();
+          refreshHomeSummaries();
         }
       },
     });
-  }, [openItem, refresh, refreshViewLists]);
+  }, [openItem, refresh, refreshHomeSummaries]);
 
   const handleTaskLongPress = useCallback((item: Item) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
@@ -256,7 +257,7 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
           const nextStatus = item.status === 'someday' ? 'active' : 'someday';
           scheduleUndoableAction(item.id, 'move', `Moved to ${nextStatus === 'someday' ? 'Someday' : 'Active'}`, () => {
             updateItemStatus(item.id, nextStatus);
-            refreshViewLists();
+            refreshHomeSummaries();
           });
         },
       },
@@ -265,13 +266,13 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
         onPress: () => {
           scheduleUndoableAction(item.id, 'delete', `"${item.title}" deleted`, () => {
             deleteItem(item.id);
-            refreshViewLists();
+            refreshHomeSummaries();
           });
         },
         destructive: true,
       },
     ]);
-  }, [handleItemTap, handleItemComplete, refreshViewLists, scheduleUndoableAction]);
+  }, [handleItemTap, handleItemComplete, refreshHomeSummaries, scheduleUndoableAction]);
 
   const renderSimpleRow = (item: Item, subtitle: string) => (
     <TouchableOpacity
@@ -298,6 +299,31 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
     </TouchableOpacity>
   );
 
+  // Each list was previously re-filtered inline on every render (and, for
+  // Upcoming/Anytime/Someday, filtered a second time for the empty-state
+  // check right next to the filter used for the actual map) — memoized here
+  // so a render that doesn't touch these inputs (e.g. a pendingActions-only
+  // change in a different view) doesn't re-filter every list from scratch.
+  const visibleTodayItems = useMemo(
+    () => todayItems.filter((item) => item.type === 'task' && item.status !== 'completed' && !pendingActions.has(item.id)),
+    [todayItems, pendingActions],
+  );
+  const visibleUpcomingItems = useMemo(
+    () => upcomingItems.filter((item) => !pendingActions.has(item.id)),
+    [upcomingItems, pendingActions],
+  );
+  const groupedUpcomingItems = useMemo(
+    () => groupByScheduledDate(visibleUpcomingItems, formatDate(new Date())),
+    [visibleUpcomingItems],
+  );
+  const visibleAnytimeItems = useMemo(
+    () => anytimeItems.filter((item) => !pendingActions.has(item.id)),
+    [anytimeItems, pendingActions],
+  );
+  const visibleSomedayItems = useMemo(
+    () => somedayItems.filter((item) => !pendingActions.has(item.id)),
+    [somedayItems, pendingActions],
+  );
   return (
     <YStack flex={1} backgroundColor="$bg">
       <AppHeader
@@ -376,40 +402,20 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
 
         {activeView === 'today' && (
         <>
-        {/* Journey hero (RoninJourneyPrototype) pulled off Home while the
-            new Rive avatar/animation work replaces it — the old Rive
-            runtime init on this card was a likely contributor to Home's
-            load lag. Re-add once the new rig ships. */}
-        <JourneySummaryStrip
-          isDark={isDark}
-          potentialPercent={potentialPercent}
-          focusLabel={focusLabel}
-          onPress={() => (navigation as any).navigate('Menu', { screen: 'Potential' })}
-        />
-
-        {/* Quick actions: Medication logging (Inbox now lives in the header).
-            Sized to a third of the row (3 square widgets fit side by side) so
-            we can see how much room is left for more widgets on this row. */}
-        <View style={{ flexDirection: 'row', marginHorizontal: 12, marginTop: 8, gap: 8 }}>
-          <View style={{ width: '31%' }}>
-            <MedicationQuickLogWidget isDark={isDark} />
-          </View>
-          <View style={{ width: '31%' }}>
-            <WeatherWidget isDark={isDark} />
-          </View>
+        {/* Home stripped down to medication logging + the task list — every
+            other widget (Journey/Potential strip, Daily Check-In, Weather,
+            Plan Backwards countdown, Habits) removed rather than hidden, so
+            there's nothing left mounting/querying on cold start besides
+            these two. */}
+        <View style={{ marginHorizontal: 12, marginTop: 8, width: '31%' }}>
+          <MedicationQuickLogWidget isDark={isDark} />
         </View>
 
-        {/* Habits */}
-        <HabitsWidget habits={todayHabits} refresh={refreshHabits} isDark={isDark} />
-
-        {/* Today */}
         <TodayCard
-          items={todayItems.filter((item) => item.status !== 'completed' && !pendingActions.has(item.id))}
+          items={visibleTodayItems}
           completingIds={completingIds}
           onComplete={handleItemComplete}
           onOpen={handleItemTap}
-          upcomingGroups={upcomingGroups}
-          onViewUpcoming={onViewUpcoming}
           isDark={isDark}
         />
         </>
@@ -418,10 +424,10 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
         {activeView !== 'today' && (
         <View style={{ marginHorizontal: 12, marginTop: 8 }}>
           {activeView === 'upcoming' && (
-            upcomingItems.filter((item) => !pendingActions.has(item.id)).length === 0 ? (
+            visibleUpcomingItems.length === 0 ? (
               <Text style={{ color: palette.textSecondary, fontSize: 14 }}>Nothing upcoming.</Text>
             ) : (
-              groupByScheduledDate(upcomingItems.filter((item) => !pendingActions.has(item.id)), formatDate(new Date())).map((group) => (
+              groupedUpcomingItems.map((group) => (
                 <View key={group.date} style={{ marginBottom: 20 }}>
                   <Text style={{ color: palette.textTertiary, fontSize: 11, fontWeight: '700', letterSpacing: 0.6, textTransform: 'uppercase', marginBottom: 8, paddingHorizontal: 4 }}>
                     {group.label}
@@ -445,10 +451,10 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
           )}
 
           {activeView === 'anytime' && (
-            anytimeItems.filter((item) => !pendingActions.has(item.id)).length === 0 ? (
+            visibleAnytimeItems.length === 0 ? (
               <Text style={{ color: palette.textSecondary, fontSize: 14 }}>Nothing here.</Text>
             ) : (
-              anytimeItems.filter((item) => !pendingActions.has(item.id)).map((item) => (
+              visibleAnytimeItems.map((item) => (
                 <HomeTaskRow
                   key={item.id}
                   item={item}
@@ -465,10 +471,10 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress, onViewUpc
           )}
 
           {activeView === 'someday' && (
-            somedayItems.filter((item) => !pendingActions.has(item.id)).length === 0 ? (
+            visibleSomedayItems.length === 0 ? (
               <Text style={{ color: palette.textSecondary, fontSize: 14 }}>Nothing filed for someday.</Text>
             ) : (
-              somedayItems.filter((item) => !pendingActions.has(item.id)).map((item) => (
+              visibleSomedayItems.map((item) => (
                 <HomeTaskRow
                   key={item.id}
                   item={item}

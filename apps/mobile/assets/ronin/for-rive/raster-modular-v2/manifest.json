@@ -1,0 +1,25 @@
+{
+  "pack": "ronin-raster-modular-v2",
+  "pose": "front-facing A-pose",
+  "declaredCount": 17,
+  "explicitPartCount": 18,
+  "countNote": "The supplied list names seven head pieces, so the explicit names total 18. No named piece was silently omitted.",
+  "parts": [
+    "head-face", "hair-back", "hair-front", "headband", "headband-tail-L", "headband-tail-R", "neck",
+    "torso-gi", "sash", "pelvis",
+    "arm-L", "arm-R", "hand-L", "hand-R",
+    "leg-L", "leg-R", "boot-L", "boot-R"
+  ],
+  "assemblyOrder": [
+    "pelvis", "leg-L", "leg-R", "boot-L", "boot-R", "torso-gi", "sash", "neck",
+    "arm-L", "arm-R", "hand-L", "hand-R", "head-face", "hair-back", "hair-front",
+    "headband", "headband-tail-L", "headband-tail-R"
+  ],
+  "sourceSheets": ["source/core-a-pose-green.png", "source/limbs-a-pose-green.png"],
+  "alignmentReference": "reference/assembled-front-a-pose-crop.png",
+  "optionalAdditive": "Additional hand poses may be added later only if they preserve the hand bbox and wrist anchor for Solo swaps.",
+  "replacements": {
+    "source": "source/core-replacements-green.png",
+    "parts": ["replacements/torso-sleeveless.png", "replacements/pelvis-shorts.png", "replacements/boots-flat-nondirectional.png"]
+  }
+}

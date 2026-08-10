@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { getItemsByType, computeAllDomainScores, getFocus } from '../../db/database';
+import { getItemsByType, computeAllDomainScores, getFocus, getAllAchievements } from '../../db/database';
 import { useThemeContext } from '../../hooks/useThemeContext';
 import { getThemeColors } from '../../theme';
 import { RiverStoneSurface } from '../riverstone';
@@ -16,15 +16,13 @@ import type { FocusData } from '../../db/database';
 interface PotentialOverviewProps {
   /** Hides the "Achievements" link row — Profile embeds this without it since its own account section covers that ground differently. */
   showAchievementsLink?: boolean;
+  mode?: 'potential' | 'me';
 }
 
-// The actual Potential content (hero Overall/Harada card, Current Focus row,
-// per-Domain list, Achievements link) — a single source of truth so
-// PotentialScreen and ProfileScreen's "Me is the Potential" section render
-// identically instead of drifting into two bespoke UIs. Renders its own
-// vertical stack of sections (no ScrollView) so a parent screen's own
-// ScrollView can host it directly, alongside other content above/below.
-export function PotentialOverview({ showAchievementsLink = true }: PotentialOverviewProps) {
+// Shared Harada data and visual language with two deliberate information
+// hierarchies: Potential owns the full Domain breakdown, while Me is a compact
+// personal summary with Focus, weekly guidance and a recent milestone.
+export function PotentialOverview({ showAchievementsLink = true, mode = 'potential' }: PotentialOverviewProps) {
   const navigation = useNavigation();
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
@@ -32,6 +30,7 @@ export function PotentialOverview({ showAchievementsLink = true }: PotentialOver
   const [domains, setDomains] = useState<Array<Item & { score: number }>>([]);
   const [focus, setFocus] = useState<FocusData | null>(null);
   const [wheelOpen, setWheelOpen] = useState(false);
+  const [recentAchievement, setRecentAchievement] = useState<Item | null>(null);
 
   const load = useCallback(() => {
     const areas = getItemsByType('area');
@@ -39,6 +38,7 @@ export function PotentialOverview({ showAchievementsLink = true }: PotentialOver
     setDomains(areas.map((area) => ({ ...area, score: scores[area.id] ?? 0 })));
     setOverall(nextOverall);
     setFocus(getFocus());
+    setRecentAchievement(getAllAchievements()[0] ?? null);
   }, []);
 
   useFocusEffect(load);
@@ -52,8 +52,8 @@ export function PotentialOverview({ showAchievementsLink = true }: PotentialOver
   return (
     <View style={styles.stack}>
       <RiverStoneSurface variant="hero" mode={isDark ? 'dark' : 'light'} style={styles.heroCard} contentStyle={styles.heroInner}>
-          <Text style={[styles.heroEyebrow, { color: palette.antiqueBrass }]}>YOUR LIFE IN BALANCE</Text>
-          <Text style={[styles.heroTitle, { color: palette.ivory }]}>Potential</Text>
+          <Text style={[styles.heroEyebrow, { color: palette.antiqueBrass }]}>{mode === 'me' ? 'YOUR OVERALL POTENTIAL' : 'YOUR LIFE IN BALANCE'}</Text>
+          {mode === 'potential' && <Text style={[styles.heroTitle, { color: palette.ivory }]}>Potential</Text>}
           {domains.length === 0 ? (
             <View style={styles.heroOverallRow}>
               <EnsoMeter progress={overall / 100} isDark={isDark} accessibilityLabel="Overall potential" />
@@ -78,10 +78,10 @@ export function PotentialOverview({ showAchievementsLink = true }: PotentialOver
               />
             </>
           )}
-          <Text style={[styles.overallSubtext, { color: palette.greige }]}>
+          {mode === 'potential' && <Text style={[styles.overallSubtext, { color: palette.greige }]}>
             A live reflection of how well your Domains are currently being maintained — not a level or XP total.
-          </Text>
-          {domains.length > 1 && (
+          </Text>}
+          {mode === 'potential' && domains.length > 1 && (
             <TouchableOpacity onPress={() => setWheelOpen((v) => !v)} hitSlop={10} accessibilityRole="button">
               <Text style={[styles.wheelLink, { color: palette.vermilion }]}>{wheelOpen ? 'Hide Harada Map' : 'View Harada Map'}</Text>
             </TouchableOpacity>
@@ -115,7 +115,25 @@ export function PotentialOverview({ showAchievementsLink = true }: PotentialOver
         </RiverStoneSurface>
       </TouchableOpacity>
 
-      <View style={styles.domainsSection}>
+      {mode === 'me' && (
+        <RiverStoneSurface variant="list" mode={isDark ? 'dark' : 'light'} contentStyle={styles.insightCard}>
+          <Text style={[styles.sectionLabel, { color: palette.antiqueBrass }]}>THIS WEEK</Text>
+          <Text style={[styles.insightTitle, { color: palette.text }]}>Small steps build lasting change.</Text>
+          <Text style={[styles.insightBody, { color: palette.textSecondary }]}>Check in daily and keep your current Focus moving.</Text>
+        </RiverStoneSurface>
+      )}
+
+      {mode === 'me' && (
+        <TouchableOpacity onPress={() => (navigation as any).navigate('Achievements')} activeOpacity={0.75} accessibilityRole="button" accessibilityLabel="View recent achievement">
+          <RiverStoneSurface variant="list" mode={isDark ? 'dark' : 'light'} contentStyle={styles.insightCard}>
+            <Text style={[styles.sectionLabel, { color: palette.antiqueBrass }]}>RECENT ACHIEVEMENT</Text>
+            <Text style={[styles.insightTitle, { color: palette.text }]}>{recentAchievement?.title ?? 'Your first milestone awaits'}</Text>
+            <Text style={[styles.insightBody, { color: palette.textSecondary }]}>{recentAchievement ? 'A reflection of the progress you are building.' : 'Complete a meaningful Mission or add one retrospectively.'}</Text>
+          </RiverStoneSurface>
+        </TouchableOpacity>
+      )}
+
+      {mode === 'potential' && <View style={styles.domainsSection}>
         <Text style={[styles.sectionLabel, { color: palette.textTertiary }]}>DOMAINS</Text>
         {domains.length === 0 ? (
           <Text style={[styles.emptySub, { color: palette.textSecondary }]}>No Domains yet — create one from the Domains screen.</Text>
@@ -150,7 +168,7 @@ export function PotentialOverview({ showAchievementsLink = true }: PotentialOver
             })}
           </View>
         )}
-      </View>
+      </View>}
 
       {showAchievementsLink && (
         <TouchableOpacity
@@ -204,4 +222,7 @@ const styles = StyleSheet.create({
   domainTitle: { fontSize: 15, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
   domainPercent: { fontSize: 14, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
   emptySub: { fontFamily: 'Inter_400Regular', fontSize: 14, fontWeight: '400' },
+  insightCard: { paddingHorizontal: 16, paddingVertical: 14, gap: 4 },
+  insightTitle: { fontSize: 15, fontWeight: '700', fontFamily: 'Inter_700Bold' },
+  insightBody: { fontSize: 12, lineHeight: 17, fontFamily: 'Inter_400Regular' },
 });

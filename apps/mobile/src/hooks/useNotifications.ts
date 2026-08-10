@@ -13,6 +13,14 @@ Notifications.setNotificationHandler({
 });
 
 export async function requestNotificationPermission(): Promise<boolean> {
+  // getPermissionsAsync is a cheap status read; requestPermissionsAsync is the
+  // heavier native round-trip that also surfaces the OS prompt. Once permission
+  // is already decided (granted or denied) — which it is on every boot after the
+  // first — re-requesting every launch just paid ~300ms to the notification
+  // daemon for a status we could have read cheaply. Only escalate to a real
+  // request while it's still undetermined.
+  const existing = await Notifications.getPermissionsAsync();
+  if (existing.status !== 'undetermined') return existing.status === 'granted';
   const { status } = await Notifications.requestPermissionsAsync();
   return status === 'granted';
 }

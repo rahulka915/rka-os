@@ -18,6 +18,10 @@ import { WorkoutTrendsScreen } from '../screens/WorkoutTrendsScreen';
 import { RoutinesScreen } from '../screens/RoutinesScreen';
 import { RoutineTemplateDetailScreen } from '../screens/RoutineTemplateDetailScreen';
 import { RoutineSessionScreen } from '../screens/RoutineSessionScreen';
+import { PlanBackwardsScreen } from '../screens/PlanBackwardsScreen';
+import { PlanBackwardsDetailScreen } from '../screens/PlanBackwardsDetailScreen';
+import { DailyCheckInFlowScreen } from '../screens/DailyCheckInFlowScreen';
+import { DailyLogScreen } from '../screens/DailyLogScreen';
 import { SkillsScreen } from '../screens/SkillsScreen';
 import { SkillDetailScreen } from '../screens/SkillDetailScreen';
 import { MedicationsScreen } from '../screens/MedicationsScreen';
@@ -53,6 +57,10 @@ export function MenuStack() {
       <Stack.Screen name="Routines" component={RoutinesScreen} />
       <Stack.Screen name="RoutineTemplateDetail" component={RoutineTemplateDetailScreen} />
       <Stack.Screen name="RoutineSession" component={RoutineSessionScreen} />
+      <Stack.Screen name="PlanBackwards" component={PlanBackwardsScreen} />
+      <Stack.Screen name="PlanBackwardsDetail" component={PlanBackwardsDetailScreen} />
+      <Stack.Screen name="DailyCheckInFlow" component={DailyCheckInFlowScreen} />
+      <Stack.Screen name="DailyLog" component={DailyLogScreen} />
       <Stack.Screen name="Skills" component={SkillsScreen} />
       <Stack.Screen name="SkillDetail" component={SkillDetailScreen} />
       <Stack.Screen name="Medications" component={MedicationsScreen} />

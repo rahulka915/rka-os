@@ -251,6 +251,12 @@ function SheetContainer({
                 backgroundColor: palette.surface,
                 borderColor: palette.separator,
                 paddingBottom: Math.max(insets.bottom, spacing[4]),
+                // fullHeight sheets (unlike topAnchored, which pads the KeyboardAvoidingView
+                // wrap above the sheet) fill the entire screen themselves, so the safe-area
+                // top inset has to land inside the sheet's own padding — otherwise the
+                // header row (Cancel/Save) renders straight under the status bar / Dynamic
+                // Island instead of below it.
+                ...(fullHeight ? { paddingTop: insets.top + spacing[2] } : null),
               },
               shadows.sheet,
               sheetStyle,

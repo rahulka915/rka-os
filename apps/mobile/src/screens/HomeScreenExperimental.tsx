@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, ScrollView, Text, TouchableOpacity, View, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeContext } from '../hooks/useThemeContext';
@@ -7,7 +7,7 @@ import { useItemComposer } from '../components/item-composer';
 import { useOpenItem } from '../hooks/useOpenItem';
 import { getTimelineDurationMinutes } from '../utils/timelineItem';
 import { getTodayDeviceEvents, type DeviceCalendarEvent } from '../services/deviceCalendar';
-import { getUpcomingItems, getItemsByStatus, getCompletedItems, formatDate } from '../db/database';
+import { getUpcomingItems, getAnytimeTaskItems, getSomedayTaskItems, getCompletedItems, formatDate } from '../db/database';
 import { Settings, Moon, Sun, Inbox as InboxIcon } from '../icons';
 import type { Item, ItemType } from '../db/types';
 
@@ -55,6 +55,8 @@ const TYPE_COLORS: Record<ItemType, string> = {
   routine: '#14B8A6',
   'routine-step': '#14B8A6',
   'routine-session': '#14B8A6',
+  skill: '#6B7280',
+  'backward-plan': '#A8402C',
 };
 
 function typeColor(type: ItemType): string {
@@ -149,13 +151,25 @@ export function HomeScreenExperimental({ onInboxPress, inboxOpen, onHeroPress }:
   const [anytimeItems, setAnytimeItems] = useState<Item[]>([]);
   const [somedayItems, setSomedayItems] = useState<Item[]>([]);
   const [logbookItems, setLogbookItems] = useState<Item[]>([]);
+  const activeViewRef = useRef<ExperimentalView>('today');
+  const isFirstInboxEffectRef = useRef(true);
+  const isFirstComposerEffectRef = useRef(true);
 
-  const refreshLists = () => {
-    setUpcomingItems(getUpcomingItems(formatDate(new Date())));
-    setAnytimeItems(getItemsByStatus('active').filter((item) => !item.scheduledDate));
-    setSomedayItems(getItemsByStatus('someday'));
-    setLogbookItems(getCompletedItems());
-  };
+  useEffect(() => {
+    activeViewRef.current = activeView;
+  }, [activeView]);
+
+  const refreshActiveViewList = useCallback((view: ExperimentalView) => {
+    if (view === 'upcoming') {
+      setUpcomingItems(getUpcomingItems(formatDate(new Date())).filter((item) => item.type === 'task'));
+    } else if (view === 'anytime') {
+      setAnytimeItems(getAnytimeTaskItems());
+    } else if (view === 'someday') {
+      setSomedayItems(getSomedayTaskItems());
+    } else if (view === 'logbook') {
+      setLogbookItems(getCompletedItems());
+    }
+  }, []);
 
   // useHomeData only fetches on mount — Inbox lives in a sibling modal (App.tsx), not a
   // child of this screen, so triaging there never triggers a refetch here on its own.
@@ -164,22 +178,29 @@ export function HomeScreenExperimental({ onInboxPress, inboxOpen, onHeroPress }:
   // including a fresh FAB capture that never touches the Inbox modal at all).
   useEffect(() => {
     if (!inboxOpen) {
+      if (isFirstInboxEffectRef.current) {
+        isFirstInboxEffectRef.current = false;
+        return;
+      }
       refresh();
-      refreshLists();
+      refreshActiveViewList(activeViewRef.current);
     }
-  }, [inboxOpen, refresh]);
+  }, [inboxOpen, refresh, refreshActiveViewList]);
 
   useEffect(() => {
+    if (isFirstComposerEffectRef.current) {
+      isFirstComposerEffectRef.current = false;
+      return;
+    }
     refresh();
-    refreshLists();
-  }, [composerRevision, refresh]);
+    refreshActiveViewList(activeViewRef.current);
+  }, [composerRevision, refresh, refreshActiveViewList]);
 
-  // Each of the 4 new lists is fetched once on mount via the effect above; refetch
-  // again whenever the switcher lands on one, so a tab you haven't visited since
-  // the last save/complete doesn't show stale data.
+  // Secondary lists stay lazy, matching the shipping Home screen: the app opens
+  // on Today, so hidden tabs query only after the switcher lands on them.
   useEffect(() => {
-    refreshLists();
-  }, [activeView]);
+    refreshActiveViewList(activeView);
+  }, [activeView, refreshActiveViewList]);
   const [deviceEvents, setDeviceEvents] = useState<DeviceCalendarEvent[]>([]);
   const appStateRef = useRef(AppState.currentState);
 

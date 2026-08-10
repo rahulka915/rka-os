@@ -62,11 +62,8 @@ import { PersistentTimerBanner } from './src/components/PersistentTimerBanner';
 import { RoutineResumeBanner } from './src/components/RoutineResumeBanner';
 import { AppLoadingScreen } from './src/components/AppLoadingScreen';
 import { requestNotificationPermission, setBadgeCount } from './src/hooks/useNotifications';
-import { getInboxItems, getDb, getItemsByType } from './src/db/database';
+import { getInboxCount, getDb, getItemsByType } from './src/db/database';
 import { registerBackgroundSync } from './src/services/backgroundSync';
-import { requestLocationPermission } from './src/services/locationReminders';
-import { auth, hasFirebaseConfig } from './src/lib/firebase';
-import { pushBackup } from './src/services/backupSync';
 import { reconcileMedicationTimers } from './src/services/medicationTimerController';
 import { BackupProvider } from './src/hooks/useBackup';
 
@@ -278,7 +275,6 @@ function NavigationLayer({
                         onInboxPress={() => setInboxOpen(true)}
                         inboxOpen={inboxOpen}
                         onSettingsPress={() => (navigation.getParent() as any)?.navigate('Settings')}
-                        onViewUpcoming={() => (navigation as any).navigate('Menu', { screen: 'Upcoming' })}
                       />
                     )
                   )}
@@ -385,15 +381,21 @@ export default function App() {
     async function init() {
       await reconcileMedicationTimers().catch(() => {});
       const granted = await requestNotificationPermission();
-      if (granted) setBadgeCount(getInboxItems().length);
+      if (granted) setBadgeCount(getInboxCount());
       await registerBackgroundSync();
-      await requestLocationPermission().catch(() => {});
+      // Location permission (including the "Always Allow" background
+      // upgrade) is requested lazily by addGeofence() in locationReminders.ts
+      // when a location reminder is actually created — not eagerly here.
+      // iOS throttles the foreground->background upgrade prompt and often
+      // surfaces it a few seconds after this eager request, right as the
+      // user starts navigating: a native permission alert blocks input
+      // underneath it, which read as the app "hanging" shortly after launch.
     }
     init();
   }, []);
 
   useEffect(() => {
-    if (!inboxOpen) setBadgeCount(getInboxItems().length);
+    if (!inboxOpen) setBadgeCount(getInboxCount());
   }, [inboxOpen]);
 
   useEffect(() => {
@@ -401,17 +403,6 @@ export default function App() {
       if (nextState === 'active') {
         await reconcileMedicationTimers().catch(() => {});
         return;
-      }
-      if (nextState !== 'background' && nextState !== 'inactive') return;
-      if (!hasFirebaseConfig || !auth) return;
-
-      try {
-        const user = auth.currentUser;
-        if (user) {
-          await pushBackup(user.uid);
-        }
-      } catch (err) {
-        console.warn('[backup] background push failed', err);
       }
     });
 

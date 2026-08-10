@@ -44,3 +44,12 @@ tmp/imagegen/
 __pycache__/
 *.pyc
 .rig-tmp/
+
+# Design working files (Illustrator/Rive source, screenshots) — kept local, not in app repo
+Illustrator Documents/
+RIVE References/
+Screenshots (from App)/
+*.ai
+
+# Impeccable tool cache
+.impeccable/

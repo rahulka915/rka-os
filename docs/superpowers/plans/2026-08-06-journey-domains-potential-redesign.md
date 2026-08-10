@@ -1,0 +1,26 @@
+# Journey/Domains/Potential/Focus Redesign — Implementation Plan
+
+**Goal:** Restyle the Home Journey card, Potential, Focus, and Domain-detail screens to the "warm midnight storybook" direction (deep midnight bg, ivory text, muted brass, restrained vermilion, River Stone surfaces), add a Harada-style connective visualization, without changing scoring logic, navigation structure, or data model.
+
+## Locked decisions (research findings that shape scope)
+
+- Two `RiverStoneSurface` components exist (`ui/` = canonical/wired, `riverstone/` = parallel/older, used only by ProfileScreen today). All new work uses `ui/RiverStoneSurface`. ProfileScreen's existing header is left alone (out of scope — brief doesn't name Profile for full redesign).
+- No dimensional "collection" icon exists for Domains/Mind/Career/etc. — cannot generate new art in this pass. Reuse existing heroicon-outline glyphs (as AreaDetailScreen already does) restyled with brass/vermilion, not fabricated 3D icons.
+- Bottom nav (Home/Calendar/Menu/Profile) stays unchanged per brief. No new tab. "Journey overview" (A) = Home's journey card. "Domains/Potential overview + detail" (C) = PotentialScreen + AreaDetailScreen. "Chapter header" (D) = AreaDetailScreen's new header. "Harada visualization" (B) = a shared wheel component embedded compact in PotentialScreen and full-size behind a "View Harada Map" link (no new screen file needed beyond one small route).
+- No domain-level score *history* is stored (only live decaying contributions) — cannot show a real time-trend line without inventing data. Will show "maintenance baseline vs. current (with achievement lift)" as an honest directional cue instead of a fabricated trend graph.
+- Routines have no Domain linkage in the data model — "contributing habits/tasks/routines" on Domain detail will show Missions + Potential Stats + the habits feeding each stat (all real, already-wired data); routines are correctly excluded (this matches the existing double-counting guardrail).
+- `Newsreader_600SemiBold` is the already-loaded editorial serif — reuse it for titles ("sparingly" per brief means section/screen titles only, not body/data text, which stays Inter).
+- Reduce Motion pattern to replicate: `AccessibilityInfo.isReduceMotionEnabled()` + `'reduceMotionChanged'` subscription, `reduceMotion: ReduceMotion.Never` on Reanimated calls with locally-branched reduced durations/amplitudes (keep informational motion, drop decorative motion) — see `RoninJourneyPrototype.tsx`.
+
+## Tasks
+
+1. **`HaradaWheel.tsx`** (new, `src/components/potential/`) — SVG radial layout: center node (Overall Potential % + Current Focus label) + up to 8 domain nodes on a circle, thin brass connecting lines, vermilion ring on the Focus domain, each node a real ≥44pt tap target navigating to `AreaDetail`. Two sizes via a `size: 'compact' | 'full'` prop (compact = embedded top of PotentialScreen; full = pushed as its own route from a "View Harada Map" link). Accessible: each node gets `accessibilityLabel="{title}, {percent}% potential"`, `accessibilityRole="button"`.
+2. **`PotentialScreen.tsx` redesign** — River Stone hero-ish header, `HaradaWheel size="compact"` up top, "View Harada Map" link opening `size="full"`, Current Focus row restyled, Domain list below kept as the accessible flat fallback (VoiceOver users get real rows, not just the wheel), Achievements link restyled. Same data calls as today (`computeDomainScore`, `computeOverallPotential`, `getFocus`) — no logic changes.
+3. **`AreaDetailScreen.tsx` redesign** — chapter-style header (River Stone hero variant, reuse existing landscape art as tinted backdrop, domain title + score + the maintenance-vs-current directional cue), Pillars section (Potential Stats, restyled rows), Missions section (restyled rows), Achievements section (restyled rows). Same data/actions as today.
+4. **Home Journey card (`RoninJourneyPrototype.tsx`)** — token/copy alignment with the new palette where it doesn't conflict with the existing (recently-verdict-pending) prototype; add a compact Overall Potential + Current Focus summary strip below the hero (new, reuses the `potentialPercent` prop already passed in, plus a `getFocus()` read) — this is the piece mockup A has that today's card lacks.
+5. **`FocusScreen.tsx`** — token-level restyle (River Stone rows, brass/vermilion accents), functionality unchanged.
+6. **`ProfileScreen.tsx`'s Potential card only** — token-level restyle to match (leave the rest of the screen/header alone).
+7. **Accessibility + Reduce Motion pass** — labels/roles on every new interactive element, 44pt targets, Reduce Motion branching on any new animation, verify no fixed-height text containers that would clip at large Dynamic Type sizes.
+8. **Docs** — `apps/mobile/DESIGN_CHECKLIST.md` (check off touched screens), `CLAUDE.md`/`SCHEMA.md` note if any new component API is worth referencing, `HANDOVER_SUMMARY.md` session entry.
+
+Each task is its own commit, isolated from the large amount of unrelated dirty content already sitting in these files (same technique used throughout this session: reconstruct against HEAD, apply via `git apply --cached`, sync working tree, verify with `diff` before committing).

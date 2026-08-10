@@ -3,6 +3,7 @@ import * as Haptics from 'expo-haptics';
 import { useMedications } from '../../hooks/useDb';
 import { computeMedicationEligibility } from '../../utils/medicationState';
 import { showActionSheet } from '../../utils/actionSheet';
+import { computeMinutesUntilNextDose, promptTooSoonOverride } from '../../utils/medicationOverride';
 import { MedicationBottleIcon } from '../icons/MedicationBottleIcon';
 import { RiverStoneSurface } from '../riverstone';
 import { getThemeColors } from '../../theme';
@@ -34,19 +35,25 @@ export function MedicationQuickLogWidget({ isDark }: MedicationQuickLogWidgetPro
       }
     }
 
+    const canTakeHalf = !!meta.splitDoseEnabled && !hasPendingHalf;
+    const confirmTake = (overrideReason?: string) => {
+      Alert.alert(`Take ${item.title}`, meta.dose ?? 'Record dose?', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Take', onPress: () => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); takeMedication(item.id, undefined, false, overrideReason); } },
+        { text: 'Take + Timer', onPress: () => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); takeMedication(item.id, undefined, true, overrideReason); } },
+        ...(canTakeHalf ? [{ text: 'Take Half', onPress: () => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); takeHalfDose(item.id, undefined, false); } }] : []),
+      ]);
+    };
+
+    // Too-soon is a caution, not a hard block — Override requires a typed
+    // reason that travels with the dose log, same as MedicationsScreen.
     if (!canTake) {
-      const minsLeft = Math.ceil(meta.minHoursBetweenDoses! * 60 - (Date.now() - lastLog!.timestamp) / 60000);
-      Alert.alert('Too soon', `Next dose in ${minsLeft < 60 ? `${minsLeft}m` : `${Math.ceil(minsLeft / 60)}h`}`, [{ text: 'OK' }]);
+      const minsLeft = computeMinutesUntilNextDose(meta.minHoursBetweenDoses!, lastLog!.timestamp);
+      promptTooSoonOverride(minsLeft, (reason) => confirmTake(reason));
       return;
     }
 
-    const canTakeHalf = !!meta.splitDoseEnabled && !hasPendingHalf;
-    Alert.alert(`Take ${item.title}`, meta.dose ?? 'Record dose?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Take', onPress: () => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); takeMedication(item.id, undefined, false); } },
-      { text: 'Take + Timer', onPress: () => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); takeMedication(item.id, undefined, true); } },
-      ...(canTakeHalf ? [{ text: 'Take Half', onPress: () => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); takeHalfDose(item.id, undefined, false); } }] : []),
-    ]);
+    confirmTake();
   };
 
   const handlePress = () => {

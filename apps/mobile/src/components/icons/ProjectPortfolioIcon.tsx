@@ -1,21 +1,11 @@
-import { Image, type ImageStyle, type StyleProp } from 'react-native';
-
-const projectPortfolioArtwork = require('../../../assets/icons/project-portfolio.png');
+import { MissionTargetIcon } from './DomainIcons';
 
 interface ProjectPortfolioIconProps {
   size?: number;
   color?: string;
   strokeWidth?: number;
-  style?: StyleProp<ImageStyle>;
 }
 
-export function ProjectPortfolioIcon({ size = 24, style }: ProjectPortfolioIconProps) {
-  return (
-    <Image
-      source={projectPortfolioArtwork}
-      resizeMode="contain"
-      style={[{ width: size, height: size }, style]}
-      accessible={false}
-    />
-  );
+export function ProjectPortfolioIcon({ size = 24 }: ProjectPortfolioIconProps) {
+  return <MissionTargetIcon size={size} color="#CDA968" strokeWidth={1.7} />;
 }
