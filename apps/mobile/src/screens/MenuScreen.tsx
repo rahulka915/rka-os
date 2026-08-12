@@ -10,12 +10,11 @@ import { TaskNoteIcon } from '../components/icons/TaskNoteIcon';
 import { AreaBonsaiIcon } from '../components/icons/AreaBonsaiIcon';
 import { ProjectPortfolioIcon } from '../components/icons/ProjectPortfolioIcon';
 import {
-  ArchiveScrollChestIcon,
   HabitRitualIcon,
+  PotentialCoreArtworkIcon,
   ToGetParcelIcon,
   WorkoutTrainingIcon,
 } from '../components/icons/CollectionIcons';
-import { Sparkles, Flag, ListChecks, PuzzlePiece, Navigation } from '../icons';
 
 const CALENDAR_GOLD = '#D4B078';
 
@@ -59,62 +58,6 @@ export function MenuScreen() {
       accent: palette.red,
     },
     {
-      route: 'Routines',
-      label: 'Routines',
-      sub: 'Ordered, timed step sequences',
-      icon: ListChecks,
-      iconSize: 38,
-      accent: palette.purple,
-    },
-    {
-      route: 'PlanBackwards',
-      label: 'Plan Backwards',
-      sub: 'Work backwards from a Goal Time',
-      icon: Navigation,
-      iconSize: 38,
-      accent: palette.vermilion,
-    },
-    {
-      route: 'Skills',
-      label: 'Skills',
-      sub: 'Capabilities you develop',
-      icon: PuzzlePiece,
-      iconSize: 38,
-      accent: palette.deeperBlue,
-    },
-    {
-      route: 'Potential',
-      label: 'Potential',
-      sub: 'Overall Potential and Domain scores',
-      icon: Sparkles,
-      iconSize: 38,
-      accent: palette.red,
-    },
-    {
-      route: 'Achievements',
-      label: 'Achievements',
-      sub: 'Permanent record of what you’ve accomplished',
-      icon: Sparkles,
-      iconSize: 38,
-      accent: CALENDAR_GOLD,
-    },
-    {
-      route: 'Focus',
-      label: 'Focus',
-      sub: 'Temporary emphasis across Domains',
-      icon: Flag,
-      iconSize: 38,
-      accent: palette.blue,
-    },
-    {
-      route: 'Upcoming',
-      label: 'Upcoming',
-      sub: 'Everything scheduled ahead',
-      icon: TaskNoteIcon,
-      iconSize: 42,
-      accent: CALENDAR_GOLD,
-    },
-    {
       route: 'Workouts',
       label: 'Workouts',
       sub: 'Templates and exercise library',
@@ -139,12 +82,20 @@ export function MenuScreen() {
       accent: palette.pink,
     },
     {
-      route: 'Archive',
-      label: 'Archive',
-      sub: 'Everything you’ve tucked away',
-      icon: ArchiveScrollChestIcon,
+      route: 'Pillars',
+      label: 'Pillars',
+      sub: 'Maintenance areas feeding your Potential',
+      icon: PotentialCoreArtworkIcon,
       iconSize: 42,
-      accent: palette.silver,
+      accent: palette.purple,
+    },
+    {
+      route: 'Actions',
+      label: 'Actions',
+      sub: 'Log practice, effort and everything else',
+      icon: TaskNoteIcon,
+      iconSize: 42,
+      accent: palette.blue,
     },
   ] as const;
 

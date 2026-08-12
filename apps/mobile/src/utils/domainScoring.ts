@@ -3,6 +3,20 @@
 
 export const MAX_ACHIEVEMENT_LIFT = 30;
 
+// A Domain with no linked Pillars isn't "failing" — Pillars are optional
+// maintenance/capacity areas (mostly Health/Fitness). Such a Domain gets a
+// neutral maintenance floor rather than 0%, so Mission/Achievement/Skill lift
+// visibly floats above it and it doesn't drag Overall Potential to zero.
+// The internal item type stays 'potential-stat'; "Pillar" is the product term.
+export const NO_PILLAR_MAINTENANCE_BASELINE = 10;
+
+// Maintenance for a Domain from its linked Pillars' maintenance percents.
+// No Pillars → neutral baseline (see NO_PILLAR_MAINTENANCE_BASELINE), not 0.
+export function domainMaintenance(pillarPercents: number[]): number {
+  if (pillarPercents.length === 0) return NO_PILLAR_MAINTENANCE_BASELINE;
+  return pillarPercents.reduce((sum, p) => sum + p, 0) / pillarPercents.length;
+}
+
 export const MISSION_CONTRIBUTION_DEFAULTS = { magnitude: 0.25, halfLifeDays: 14 };
 export const ACHIEVEMENT_CONTRIBUTION_DEFAULTS = { magnitude: 0.6, halfLifeDays: 60 };
 // Deliberately smaller than the Achievement tier: a Skill milestone is real

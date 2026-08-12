@@ -1,13 +1,17 @@
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Check, Flame, Plus } from 'lucide-react-native';
-import { getItemsByType, createItem, updateItemStatus, formatDate } from '../db/database';
+import { getItemsByType, createItem, updateItemStatus, formatDate, getHabitSamples } from '../db/database';
 import { buildHabitRowData, type HabitRowData } from '../utils/habits';
+import { parseHabitMeta } from '../utils/habitMeta';
 import { useDbRefresh } from '../hooks/useDb';
 import { DetailPanel } from './DetailPanel';
 import { ItemDetailForm } from './ItemDetailForm';
 import { HabitDetailPanel } from './HabitDetailPanel';
-import { webColors, webSpacing, webRadius, webFontSize } from '../theme/webTheme';
+import { RoutinesScreen } from './RoutinesScreen';
+import { QuickAddOneControl, QuickDurationControl, HabitProgressSection, HabitMeasurementEditor, HabitPotentialEditor } from './HabitQuantifiedControls.web';
+import { webColors, webSpacing, webRadius, webFontSize, webDepth } from '../theme/webTheme';
+import type { ActivityLog } from '../db/types';
 
 function useHabits() {
   const [rows, setRows] = useState<HabitRowData[]>([]);
@@ -19,12 +23,23 @@ function useHabits() {
   return { rows, refresh };
 }
 
+function useHabitSamples(itemId: string | null) {
+  const [samples, setSamples] = useState<ActivityLog[]>([]);
+  const refresh = useCallback(() => {
+    setSamples(itemId ? getHabitSamples(itemId) : []);
+  }, [itemId]);
+  useDbRefresh(refresh);
+  return { samples, refresh };
+}
+
 export function HabitsScreen() {
   const { rows, refresh } = useHabits();
+  const [tab, setTab] = useState<'habits' | 'routines'>('habits');
   const [captureText, setCaptureText] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mode, setMode] = useState<'detail' | 'edit'>('detail');
   const selectedItem = rows.find((r) => r.item.id === selectedId)?.item ?? null;
+  const { samples: selectedSamples, refresh: refreshSelectedSamples } = useHabitSamples(selectedItem?.id ?? null);
 
   const submit = () => {
     const trimmed = captureText.trim();
@@ -44,9 +59,24 @@ export function HabitsScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Habits</Text>
-        <Text style={styles.count}>{rows.length}</Text>
+        <Text style={styles.count}>{tab === 'habits' ? rows.length : ''}</Text>
       </View>
 
+      <View style={styles.tabRow}>
+        <View style={styles.segmentedControl}>
+          <Pressable style={[styles.segment, tab === 'habits' && styles.segmentActive]} onPress={() => setTab('habits')}>
+            <Text style={[styles.segmentLabel, tab === 'habits' && styles.segmentLabelActive]}>Habits</Text>
+          </Pressable>
+          <Pressable style={[styles.segment, tab === 'routines' && styles.segmentActive]} onPress={() => setTab('routines')}>
+            <Text style={[styles.segmentLabel, tab === 'routines' && styles.segmentLabelActive]}>Routines</Text>
+          </Pressable>
+        </View>
+      </View>
+
+      {tab === 'routines' ? (
+        <RoutinesScreen />
+      ) : (
+      <>
       <View style={styles.captureRow}>
         <Plus size={16} color={webColors.mutedForeground} strokeWidth={2} />
         <TextInput
@@ -64,47 +94,65 @@ export function HabitsScreen() {
         keyExtractor={(row) => row.item.id}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={<Text style={styles.empty}>No habits yet.</Text>}
-        renderItem={({ item: row }) => (
-          <Pressable style={styles.row} onPress={() => { setSelectedId(row.item.id); setMode('detail'); }}>
-            <Pressable
-              onPress={(event) => {
-                event.stopPropagation();
-                checkIn(row);
-              }}
-              disabled={!row.isScheduledToday || row.isCompletedToday}
-              style={[
-                styles.checkbox,
-                row.isCompletedToday && styles.checkboxDone,
-                !row.isScheduledToday && !row.isCompletedToday && styles.checkboxDisabled,
-              ]}
-            >
-              {row.isCompletedToday ? <Check size={13} color={webColors.card} strokeWidth={2.5} /> : null}
+        renderItem={({ item: row }) => {
+          const meta = parseHabitMeta(row.item);
+          return (
+            <Pressable style={styles.row} onPress={() => { setSelectedId(row.item.id); setMode('detail'); }}>
+              {meta.measurement === 'binary' ? (
+                <Pressable
+                  onPress={(event) => {
+                    event.stopPropagation();
+                    checkIn(row);
+                  }}
+                  disabled={!row.isScheduledToday || row.isCompletedToday}
+                  style={[
+                    styles.checkbox,
+                    row.isCompletedToday && styles.checkboxDone,
+                    !row.isScheduledToday && !row.isCompletedToday && styles.checkboxDisabled,
+                  ]}
+                >
+                  {row.isCompletedToday ? <Check size={13} color={webColors.card} strokeWidth={2.5} /> : null}
+                </Pressable>
+              ) : meta.measurement === 'count' ? (
+                <QuickAddOneControl item={row.item} onLogged={refresh} />
+              ) : (
+                <QuickDurationControl item={row.item} onLogged={refresh} />
+              )}
+              <Text style={styles.rowTitle} numberOfLines={1}>{row.item.title}</Text>
+              <View style={styles.streak}>
+                <Flame size={15} color={row.streak > 0 ? webColors.destructive : webColors.mutedForeground} strokeWidth={2} />
+                <Text style={[styles.streakText, row.streak > 0 && styles.streakTextActive]}>{row.streak}</Text>
+              </View>
             </Pressable>
-            <Text style={styles.rowTitle} numberOfLines={1}>{row.item.title}</Text>
-            <View style={styles.streak}>
-              <Flame size={15} color={row.streak > 0 ? webColors.destructive : webColors.mutedForeground} strokeWidth={2} />
-              <Text style={[styles.streakText, row.streak > 0 && styles.streakTextActive]}>{row.streak}</Text>
-            </View>
-          </Pressable>
-        )}
+          );
+        }}
       />
 
       <DetailPanel visible={!!selectedItem} onClose={() => setSelectedId(null)} title={mode === 'edit' ? 'Edit Habit' : 'Habit'}>
         {selectedItem ? (
           mode === 'edit' ? (
-            <ItemDetailForm
-              item={selectedItem}
-              onChanged={() => { refresh(); setMode('detail'); }}
-              onDeleted={() => {
-                setSelectedId(null);
-                refresh();
-              }}
-            />
+            <>
+              <ItemDetailForm
+                item={selectedItem}
+                onChanged={() => { refresh(); setMode('detail'); }}
+                onDeleted={() => {
+                  setSelectedId(null);
+                  refresh();
+                }}
+              />
+              <HabitMeasurementEditor item={selectedItem} onChanged={refresh} />
+              <HabitPotentialEditor item={selectedItem} onChanged={refresh} />
+            </>
           ) : (
-            <HabitDetailPanel item={selectedItem} onEdit={() => setMode('edit')} />
+            <>
+              <HabitProgressSection item={selectedItem} samples={selectedSamples} onChanged={refreshSelectedSamples} />
+              <HabitDetailPanel item={selectedItem} onEdit={() => setMode('edit')} />
+            </>
           )
         ) : null}
       </DetailPanel>
+      </>
+      )}
     </View>
   );
 }
@@ -113,6 +161,34 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: webColors.background,
+  },
+  tabRow: {
+    flexDirection: 'row',
+    paddingHorizontal: webSpacing[6],
+    paddingBottom: webSpacing[3],
+  },
+  segmentedControl: {
+    flexDirection: 'row',
+    backgroundColor: webColors.muted,
+    borderRadius: webRadius.sm,
+    padding: 3,
+    gap: 3,
+  },
+  segment: {
+    paddingHorizontal: webSpacing[3],
+    paddingVertical: webSpacing[1],
+    borderRadius: webRadius.sm - 4,
+  },
+  segmentActive: {
+    backgroundColor: webColors.card,
+  },
+  segmentLabel: {
+    fontSize: webFontSize.sm,
+    fontWeight: '600',
+    color: webColors.mutedForeground,
+  },
+  segmentLabelActive: {
+    color: webColors.foreground,
   },
   header: {
     flexDirection: 'row',
@@ -162,9 +238,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: webSpacing[3],
     backgroundColor: webColors.card,
-    borderRadius: webRadius.md,
-    borderWidth: 1,
-    borderColor: webColors.border,
+    ...webDepth.list,
     paddingHorizontal: webSpacing[4],
     paddingVertical: webSpacing[3],
   },

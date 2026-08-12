@@ -1,6 +1,6 @@
 import { Image, type ImageStyle, type StyleProp } from 'react-native';
 
-const taskNoteArtwork = require('../../../assets/icons/task-note.png');
+const taskNoteArtwork = require('../../../assets/icons/domains/collection-tasks-clipboard.png');
 
 interface TaskNoteIconProps {
   size?: number;

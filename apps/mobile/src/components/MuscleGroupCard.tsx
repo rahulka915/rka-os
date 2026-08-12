@@ -1,16 +1,17 @@
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
-import { ExerciseThumbnail } from './ExerciseThumbnail';
+import { getMuscleGroupIcon } from '../utils/muscleGroupIcons';
+import type { MuscleGroup } from '../utils/exerciseLibrary';
 
 interface MuscleGroupCardProps {
   label: string;
   count: number;
-  imageKey?: string;
+  muscleGroup: MuscleGroup;
   onPress: () => void;
 }
 
-export function MuscleGroupCard({ label, count, imageKey, onPress }: MuscleGroupCardProps) {
+export function MuscleGroupCard({ label, count, muscleGroup, onPress }: MuscleGroupCardProps) {
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
 
@@ -20,7 +21,7 @@ export function MuscleGroupCard({ label, count, imageKey, onPress }: MuscleGroup
       activeOpacity={0.75}
       onPress={onPress}
     >
-      <ExerciseThumbnail imageKey={imageKey} size={96} />
+      <Image source={getMuscleGroupIcon(muscleGroup)} style={styles.icon} resizeMode="contain" />
       <Text style={[styles.label, { color: palette.text }]} numberOfLines={1}>{label}</Text>
       <Text style={[styles.count, { color: palette.textTertiary }]}>
         {count} exercise{count === 1 ? '' : 's'}
@@ -41,6 +42,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 8,
   },
+  icon: { width: 96, height: 96 },
   label: { fontSize: 15, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
   count: { fontFamily: 'Inter_500Medium', fontSize: 12, fontWeight: '500' },
 });

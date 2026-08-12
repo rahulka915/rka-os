@@ -20,6 +20,7 @@ import {
 } from '../db/database';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
+import { ArchiveList } from './ArchiveScreen';
 import { LensSurface } from '../components/LensSurface';
 import { RiverStoneSurface } from '../components/riverstone';
 import { NativeBottomSheet } from '../components/ui/NativeBottomSheet';
@@ -65,7 +66,7 @@ function checklistLabel(item: Item): string | null {
 
 const CHECKBOX_CENTER_X = 32; // row paddingHorizontal(10) + half the 44pt disc touch target
 
-type TasksTab = 'tasks' | 'logbook';
+type TasksTab = 'tasks' | 'logbook' | 'archive';
 
 function tickHaptic() {
   Haptics.selectionAsync();
@@ -711,11 +712,29 @@ export function TasksScreen() {
               Logbook
             </Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.segment,
+              activeTab === 'archive' && { borderColor: palette.antiqueBrass, borderWidth: 1 },
+            ]}
+            onPress={() => setActiveTab('archive')}
+          >
+            <Text style={[styles.segmentLabel, { color: activeTab === 'archive' ? palette.antiqueBrass : palette.greige }]}>
+              Archive
+            </Text>
+          </TouchableOpacity>
         </RiverStoneSurface>
 
         {activeTab === 'tasks' && (
           <TouchableOpacity
-            style={[styles.viewButton, { borderColor: isFiltered ? palette.antiqueBrass : 'transparent', backgroundColor: isDark ? '#1c1c1e' : '#ffffff' }]}
+            style={[
+              styles.viewButton,
+              {
+                borderColor: isFiltered ? palette.antiqueBrass : (isDark ? 'rgba(255,255,255,0.055)' : palette.separator),
+                backgroundColor: isDark ? '#171A20' : '#ffffff',
+                shadowOpacity: isDark ? 0.28 : 0.08,
+              },
+            ]}
             onPress={() => setViewSheetVisible(true)}
             accessibilityLabel="Tasks view options"
             accessibilityHint="Change grouping, sorting, and filtering"
@@ -757,6 +776,8 @@ export function TasksScreen() {
             {...nonVirtualizedListProps(rows.length)}
           />
         )
+      ) : activeTab === 'archive' ? (
+        <ArchiveList />
       ) : completedGroups.length === 0 ? (
         <View style={styles.empty}>
           <CheckCircle2 size={40} color={palette.antiqueBrass} strokeWidth={1.3} />
@@ -927,6 +948,10 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     maxWidth: 120,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 5 },
+    shadowRadius: 12,
+    elevation: 3,
   },
   viewButtonLabel: {
     fontSize: 12,

@@ -15,7 +15,7 @@ import { useDbRefresh } from '../hooks/useDb';
 import { DetailPanel } from './DetailPanel';
 import { MedicationLogPanel } from './MedicationLogPanel';
 import { MedicationEditForm } from './MedicationEditForm';
-import { webColors, webSpacing, webRadius, webFontSize } from '../theme/webTheme';
+import { webColors, webSpacing, webRadius, webFontSize, webDepth } from '../theme/webTheme';
 import type { MedicationMeta } from '../db/database';
 import type { Item } from '../db/types';
 
@@ -307,9 +307,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: webSpacing[3],
     backgroundColor: webColors.card,
-    borderRadius: webRadius.md,
-    borderWidth: 1,
-    borderColor: webColors.border,
+    ...webDepth.list,
     paddingHorizontal: webSpacing[4],
     paddingVertical: webSpacing[3],
   },
@@ -377,9 +375,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: webColors.card,
-    borderRadius: webRadius.md,
-    borderWidth: 1,
-    borderColor: webColors.border,
+    ...webDepth.list,
     paddingHorizontal: webSpacing[4],
     paddingVertical: webSpacing[3],
   },

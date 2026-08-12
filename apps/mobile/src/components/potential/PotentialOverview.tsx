@@ -101,7 +101,7 @@ export function PotentialOverview({ showAchievementsLink = true, mode = 'potenti
       </RiverStoneSurface>
 
       <TouchableOpacity
-        onPress={() => (navigation as any).navigate('Focus')}
+        onPress={() => (navigation as any).navigate('Menu', { screen: 'Focus' })}
         activeOpacity={0.75}
         accessibilityRole="button"
         accessibilityLabel={focus ? `Current Focus: ${focus.label}. Edit` : 'No Focus set. Tap to set one'}
@@ -124,7 +124,7 @@ export function PotentialOverview({ showAchievementsLink = true, mode = 'potenti
       )}
 
       {mode === 'me' && (
-        <TouchableOpacity onPress={() => (navigation as any).navigate('Achievements')} activeOpacity={0.75} accessibilityRole="button" accessibilityLabel="View recent achievement">
+        <TouchableOpacity onPress={() => (navigation as any).navigate('Menu', { screen: 'Achievements' })} activeOpacity={0.75} accessibilityRole="button" accessibilityLabel="View recent achievement">
           <RiverStoneSurface variant="list" mode={isDark ? 'dark' : 'light'} contentStyle={styles.insightCard}>
             <Text style={[styles.sectionLabel, { color: palette.antiqueBrass }]}>RECENT ACHIEVEMENT</Text>
             <Text style={[styles.insightTitle, { color: palette.text }]}>{recentAchievement?.title ?? 'Your first milestone awaits'}</Text>
@@ -172,7 +172,7 @@ export function PotentialOverview({ showAchievementsLink = true, mode = 'potenti
 
       {showAchievementsLink && (
         <TouchableOpacity
-          onPress={() => (navigation as any).navigate('Achievements')}
+          onPress={() => (navigation as any).navigate('Menu', { screen: 'Achievements' })}
           activeOpacity={0.75}
           accessibilityRole="button"
           accessibilityLabel="View Achievements"

@@ -11,7 +11,6 @@ import {
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
-import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Stop } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCalendar, useUnscheduledItems, useMonthItemCounts } from '../hooks/useDb';
 import {
@@ -37,7 +36,7 @@ import {
 } from '../db/database';
 import type { ItemType } from '../db/types';
 import type { TimelineEntry } from '../db/database';
-import { findDayForContentY, computeDropTarget } from '../utils/timelineDayLookup';
+import { computeDropTarget } from '../utils/timelineDayLookup';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors, radius, spacing } from '../theme';
 import {
@@ -61,10 +60,11 @@ import {
 } from '../utils/time';
 import { formatTimelineTimeRange, getTimelineItemDensity } from '../utils/timelineItem';
 import { useItemComposer } from '../components/item-composer';
+import { getDeviceEventsForDate, type DeviceCalendarEvent } from '../services/deviceCalendar';
 import { useOpenItem } from '../hooks/useOpenItem';
+import { useNavigation } from '@react-navigation/native';
 
 const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const CALENDAR_GOLD = '#D4B078';
 const CALENDAR_GOLD_EDGE = '#B99156';
 const HOURS = Array.from({ length: 24 }, (_, index) => index);
@@ -82,9 +82,8 @@ const TIMELINE_METRICS = {
   quarterTickHeight: 1,
   nowMarkerSize: 24,
   nowLineThickness: 1.5,
-  dayTransitionHeight: 56,
-  laneHeaderHeight: 34,
-  periodDividerHeight: 34,
+  dayTransitionHeight: 0,
+  laneHeaderHeight: 0,
 } as const;
 const BOTTOM_TRAY_OVERLAY_HEIGHT = 92;
 const TIMELINE_PAPER_VARIANT: TimelinePaperVariant = 'A';
@@ -112,8 +111,6 @@ const TIMELINE_LANES: ReadonlyArray<{
   { id: 'habits', label: 'Habits', accent: 'purple' },
   { id: 'other', label: 'Other', accent: 'purple' },
 ] as const;
-
-const LANE_WIDTH_PERCENT = 100 / TIMELINE_LANES.length;
 
 function parseEntryMetadata(entry: TimelineEntry): Record<string, unknown> {
   const itemMetadata = entry.item.metadata ? JSON.parse(entry.item.metadata) as Record<string, unknown> : {};
@@ -161,24 +158,21 @@ function getTimelineLane(entry: TimelineEntry): TimelineLaneId {
 
 interface PositionedTimelineEntry {
   entry: TimelineEntry;
-  laneIndex: number;
   collisionSlot: number;
 }
 
 function positionTimelineEntries(entries: TimelineEntry[]): PositionedTimelineEntry[] {
-  const laneEnds = TIMELINE_LANES.map(() => [Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY]);
+  const slotEnds = [Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY];
   return [...entries]
     .filter((entry) => getEntryMinutes(entry) != null)
     .sort((left, right) => (getEntryMinutes(left) ?? 0) - (getEntryMinutes(right) ?? 0))
     .map((entry) => {
-      const laneId = getTimelineLane(entry);
-      const laneIndex = Math.max(0, TIMELINE_LANES.findIndex((lane) => lane.id === laneId));
       const start = getEntryMinutes(entry) ?? 0;
       const end = start + Math.max(15, entry.durationMinutes);
-      const freeSlot = laneEnds[laneIndex].findIndex((slotEnd) => slotEnd <= start);
+      const freeSlot = slotEnds.findIndex((slotEnd) => slotEnd <= start);
       const collisionSlot = freeSlot >= 0 ? freeSlot : 0;
-      laneEnds[laneIndex][collisionSlot] = end;
-      return { entry, laneIndex, collisionSlot };
+      slotEnds[collisionSlot] = end;
+      return { entry, collisionSlot };
     });
 }
 
@@ -263,24 +257,6 @@ function renderTypeIcon(type: ItemType, color: string, size = 14) {
     case 'meal':
       return <Clock size={size} color={color} strokeWidth={1.8} />;
     case 'task':
-    default:
-      return <ClipboardList size={size} color={color} strokeWidth={1.7} />;
-  }
-}
-
-function renderLaneIcon(lane: TimelineLaneId, color: string, size = 13) {
-  switch (lane) {
-    case 'health':
-      return <MedicationBottleIcon size={size + 2} color={color} />;
-    case 'focus':
-      return <ProjectPortfolioIcon size={size + 7} />;
-    case 'study':
-      return <AreaBonsaiIcon size={size + 7} />;
-    case 'habits':
-      return <HabitRitualIcon size={size + 5} color={color} />;
-    case 'other':
-      return <Clock size={size} color={color} strokeWidth={1.8} />;
-    case 'personal':
     default:
       return <ClipboardList size={size} color={color} strokeWidth={1.7} />;
   }
@@ -399,6 +375,52 @@ function MonthGrid({ monthDate, selected, isDark, onSelectDay }: MonthGridProps)
           </RNView>
         ))}
       </RNView>
+    </RNView>
+  );
+}
+
+interface CalendarAgendaPreviewProps {
+  date: Date;
+  entries: TimelineEntry[];
+  palette: ReturnType<typeof getThemeColors>;
+  onOpenTimeline: () => void;
+}
+
+function CalendarAgendaPreview({ date, entries, palette, onOpenTimeline }: CalendarAgendaPreviewProps) {
+  const plannedEntries = [...entries]
+    .filter((entry) => getEntryMinutes(entry) != null)
+    .sort((left, right) => (getEntryMinutes(left) ?? 0) - (getEntryMinutes(right) ?? 0))
+    .slice(0, 2);
+
+  return (
+    <RNView style={[s.calendarAgenda, { borderTopColor: palette.separator }]}>
+      <RNView style={s.calendarAgendaHeader}>
+        <RNText style={[s.calendarAgendaTitle, { color: palette.text }]}>
+          {date.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' })}
+        </RNText>
+        <TouchableOpacity onPress={onOpenTimeline} hitSlop={10} accessibilityRole="button" accessibilityLabel="Open day timeline">
+          <RNText style={s.calendarAgendaAction}>View timeline</RNText>
+        </TouchableOpacity>
+      </RNView>
+      {plannedEntries.length === 0 ? (
+        <TouchableOpacity onPress={onOpenTimeline} style={s.calendarAgendaEmpty} activeOpacity={0.75}>
+          <RNText style={[s.calendarAgendaEmptyTitle, { color: palette.text }]}>Your day is open</RNText>
+          <RNText style={[s.calendarAgendaEmptyCopy, { color: palette.textTertiary }]}>Choose something worth making space for.</RNText>
+        </TouchableOpacity>
+      ) : (
+        plannedEntries.map((entry) => {
+          const typeMeta = getTypeMeta(entry.item.type);
+          const accent = getAccentColor(palette, typeMeta.accent);
+          const minutes = getEntryMinutes(entry) ?? 0;
+          return (
+            <TouchableOpacity key={entry.instance?.id ?? entry.item.id} onPress={onOpenTimeline} style={s.calendarAgendaRow} activeOpacity={0.75}>
+              <RNView style={[s.calendarAgendaAccent, { backgroundColor: accent }]} />
+              <RNText style={[s.calendarAgendaTime, { color: palette.textSecondary }]}>{formatTimeLabel(minutes)}</RNText>
+              <RNText style={[s.calendarAgendaRowTitle, { color: palette.text }]} numberOfLines={1}>{entry.item.title}</RNText>
+            </TouchableOpacity>
+          );
+        })
+      )}
     </RNView>
   );
 }
@@ -624,6 +646,7 @@ interface TrayCardProps {
 function TrayCard({ title, type, timeLabel, palette, onPress, onDragUpdate, onDragEnd }: TrayCardProps) {
   const typeMeta = getTypeMeta(type);
   const accentColor = getAccentColor(palette, typeMeta.accent);
+  const detailLabel = timeLabel === 'No date' ? `${typeMeta.label} · Unplanned` : `${typeMeta.label} · ${timeLabel}`;
   const [isDragging, setIsDragging] = useState(false);
   const translateY = useRef(new Animated.Value(0)).current;
 
@@ -667,8 +690,10 @@ function TrayCard({ title, type, timeLabel, palette, onPress, onDragUpdate, onDr
         style={[
           s.trayCard,
           {
-            backgroundColor: palette.surface,
-            borderColor: palette.separator,
+            backgroundColor: isDragging ? palette.surface : 'transparent',
+            borderColor: isDragging ? accentColor : palette.separator,
+            borderWidth: isDragging ? 1 : 0,
+            borderBottomWidth: isDragging ? 1 : StyleSheet.hairlineWidth,
             transform: [{ translateY }, { scale: isDragging ? 1.03 : 1 }],
             zIndex: isDragging ? 20 : 1,
             elevation: isDragging ? 6 : 0,
@@ -676,20 +701,31 @@ function TrayCard({ title, type, timeLabel, palette, onPress, onDragUpdate, onDr
         ]}
       >
         <RNView style={[s.trayCardAccent, { backgroundColor: accentColor }]} />
-        {renderTypeIcon(type, palette.textSecondary, 13)}
-        <RNText style={[s.trayCardTitle, { color: palette.text }]} numberOfLines={1}>
-          {title}
-        </RNText>
-        <RNText style={[s.trayCardTime, { color: palette.textTertiary }]} numberOfLines={1}>
-          {timeLabel}
-        </RNText>
+        <RNView style={[s.trayCardIcon, { backgroundColor: `${accentColor}18` }]}>
+          {renderTypeIcon(type, accentColor, 13)}
+        </RNView>
+        <RNView style={s.trayCardCopy}>
+          <RNText style={[s.trayCardTitle, { color: palette.text }]} numberOfLines={2}>
+            {title}
+          </RNText>
+          <RNText style={[s.trayCardDetail, { color: palette.textTertiary }]} numberOfLines={1}>
+            {detailLabel}
+          </RNText>
+        </RNView>
+        <RNView style={s.trayCardGrip} pointerEvents="none">
+          {[0, 1, 2].map((row) => (
+            <RNView key={row} style={s.trayCardGripRow}>
+              <RNView style={[s.trayCardGripDot, { backgroundColor: palette.textTertiary }]} />
+              <RNView style={[s.trayCardGripDot, { backgroundColor: palette.textTertiary }]} />
+            </RNView>
+          ))}
+        </RNView>
       </Animated.View>
     </GestureDetector>
   );
 }
 
 interface DayTimelineProps {
-  dayDate: Date;
   dateStr: string;
   entries: TimelineEntry[];
   palette: ReturnType<typeof getThemeColors>;
@@ -703,10 +739,11 @@ interface DayTimelineProps {
   onOpenPreview: (entry: TimelineEntry) => void;
   onOpenEdit: (entry: TimelineEntry) => void;
   dragHighlightMinutes: number | null | undefined;
+  showEmptyState?: boolean;
+  busyEvents?: DeviceCalendarEvent[];
 }
 
 function DayTimeline({
-  dayDate,
   dateStr,
   entries,
   palette,
@@ -720,6 +757,8 @@ function DayTimeline({
   onOpenPreview,
   onOpenEdit,
   dragHighlightMinutes,
+  showEmptyState = false,
+  busyEvents = [],
 }: DayTimelineProps) {
   const currentLineTop = isThisDayToday
     ? timelineOffsetForMinutes(currentHour * 60 + currentMinute)
@@ -786,14 +825,6 @@ function DayTimeline({
         }),
     [onOpenCreate],
   );
-  const dividerLabel = dayDate.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
-  const dayAccentIndex = Math.abs(Math.floor(dayDate.getTime() / 86_400_000)) % 3;
-  const dayAccents = isDark
-    ? [palette.purple, CALENDAR_GOLD, '#D98268']
-    : [CALENDAR_GOLD_EDGE, '#9B79B8', '#B96854'];
-  const transitionAccent = dayAccents[dayAccentIndex];
-  const transitionInk = `${transitionAccent}${isDark ? 'B8' : 'C7'}`;
-  const waveGradientId = `day-wave-${dateStr}`;
   const paper = getTimelinePaperPalette(TIMELINE_PAPER_VARIANT, isDark ? 'dark' : 'light');
   const atmosphereColors = isDark
     ? [
@@ -822,70 +853,6 @@ function DayTimeline({
       style={[s.section, s.daySection]}
       onLayout={(event) => onSectionLayout(event.nativeEvent.layout.y)}
     >
-      <RNView style={s.dayTransition}>
-        <Svg
-          pointerEvents="none"
-          width="100%"
-          height="100%"
-          viewBox={`0 0 390 ${TIMELINE_METRICS.dayTransitionHeight}`}
-          preserveAspectRatio="none"
-          style={StyleSheet.absoluteFill}
-        >
-          <Defs>
-            <SvgLinearGradient id={waveGradientId} x1="0%" y1="0%" x2="0%" y2="100%">
-              <Stop offset="0" stopColor={transitionAccent} stopOpacity={isDark ? 0.1 : 0.07} />
-              <Stop offset="0.42" stopColor={transitionAccent} stopOpacity={isDark ? 0.032 : 0.024} />
-              <Stop offset="1" stopColor={transitionAccent} stopOpacity="0" />
-            </SvgLinearGradient>
-          </Defs>
-          <Path
-            d={`M0 10 C68 1 126 3 194 11 C263 19 322 3 390 10 L390 ${TIMELINE_METRICS.dayTransitionHeight} L0 ${TIMELINE_METRICS.dayTransitionHeight} Z`}
-            fill={`url(#${waveGradientId})`}
-          />
-          <Path
-            d="M0 10 C68 1 126 3 194 11 C263 19 322 3 390 10"
-            fill="none"
-            stroke={transitionAccent}
-            strokeOpacity={isDark ? 0.1 : 0.08}
-            strokeWidth="0.45"
-          />
-        </Svg>
-        <RNView style={s.dayTransitionContent}>
-          <RNView style={s.sectionHeaderLeft}>
-            <Clock size={14} color={transitionInk} strokeWidth={1.8} />
-            <RNText style={[s.sectionTitle, { color: transitionInk }]}>
-              {isThisDayToday ? 'TODAY' : dividerLabel.toUpperCase()}
-            </RNText>
-          </RNView>
-          <TouchableOpacity onPress={() => onOpenCreate()} hitSlop={8}>
-            <RNText style={[s.sectionAction, { color: transitionInk }]}>Block now</RNText>
-          </TouchableOpacity>
-        </RNView>
-        {dragHighlightMinutes === null && (
-          <RNView pointerEvents="none" style={[s.dropHighlightBanner, { borderColor: CALENDAR_GOLD }]} />
-        )}
-      </RNView>
-
-      <RNView style={[s.laneHeader, { borderBottomColor: paper.ruleStrong, backgroundColor: paper.base }]}>
-        <RNView style={s.laneHeaderGutter} />
-        <RNView style={s.laneHeaderTrack}>
-          {TIMELINE_LANES.map((lane) => {
-            const laneColor = getAccentColor(palette, lane.accent);
-            return (
-              <RNView
-                key={lane.id}
-                accessible
-                accessibilityLabel={`${lane.label} timeline lane`}
-                style={[s.laneHeaderCell, { borderLeftColor: paper.rule }]}
-              >
-                {renderLaneIcon(lane.id, laneColor, 12)}
-                <RNView style={[s.laneHeaderMark, { backgroundColor: laneColor }]} />
-              </RNView>
-            );
-          })}
-        </RNView>
-      </RNView>
-
       <RNView style={s.timelineWrap}>
         <GestureDetector gesture={createGesture}>
         <RNView style={[s.timelineContent, { height: TIMELINE_METRICS.hourHeight * 24 }]}>
@@ -904,11 +871,6 @@ function DayTimeline({
             locations={[0, 0.18, 0.31, 0.48, 0.63, 0.74, 0.88, 1]}
             style={StyleSheet.absoluteFill}
           />
-          <RNView pointerEvents="none" style={s.laneGrid}>
-            {TIMELINE_LANES.map((lane) => (
-              <RNView key={lane.id} style={[s.laneGridColumn, { borderLeftColor: paper.rule }]} />
-            ))}
-          </RNView>
           {currentLineTop != null ? (
             <RNView pointerEvents="none" style={[s.currentLine, { top: currentLineTop }]}>
               <RNView style={[s.nowMarker, { borderColor: palette.blue, backgroundColor: paper.base }]}>
@@ -969,6 +931,7 @@ function DayTimeline({
                     minimumFontScale={0.8}
                     style={[
                       s.hourLabel,
+                      hour === 0 && s.firstHourLabel,
                       {
                         color: isCurrentHour ? palette.blue : paper.primaryInk,
                         opacity: isCurrentHour ? 1 : 0.82,
@@ -1006,6 +969,8 @@ function DayTimeline({
             );
           })}
 
+          <RNText pointerEvents="none" style={[s.endOfDayLabel, { color: paper.primaryInk }]}>23:59</RNText>
+
           {createRange ? (
             <RNView
               pointerEvents="none"
@@ -1034,9 +999,34 @@ function DayTimeline({
             </RNView>
           ) : null}
 
+          {busyEvents.length > 0 ? (
+            <RNView pointerEvents="box-none" style={s.markerLayer}>
+              {busyEvents.map((busyEvent) => (
+                <RNView
+                  key={`busy-${busyEvent.id}`}
+                  pointerEvents="none"
+                  accessibilityLabel={`Busy: ${busyEvent.title}, ${formatTimelineTimeRange(busyEvent.startMinutes, busyEvent.durationMinutes)}`}
+                  style={[
+                    s.busyBlock,
+                    {
+                      top: timelineOffsetForMinutes(busyEvent.startMinutes),
+                      height: Math.max(18, timelineOffsetForMinutes(busyEvent.durationMinutes)),
+                      borderColor: paper.ruleStrong,
+                      backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+                    },
+                  ]}
+                >
+                  <RNText numberOfLines={1} style={[s.busyBlockText, { color: paper.primaryInk }]}>
+                    {busyEvent.title} · {formatTimelineTimeRange(busyEvent.startMinutes, busyEvent.durationMinutes)}
+                  </RNText>
+                </RNView>
+              ))}
+            </RNView>
+          ) : null}
+
           <RNView pointerEvents="box-none" style={s.markerLayer}>
-            {positionedEntries.map(({ entry, laneIndex, collisionSlot }) => {
-              const lane = TIMELINE_LANES[laneIndex];
+            {positionedEntries.map(({ entry, collisionSlot }) => {
+              const lane = TIMELINE_LANES.find((candidate) => candidate.id === getTimelineLane(entry)) ?? TIMELINE_LANES[0];
               const accentColor = getAccentColor(palette, lane.accent);
               const accentSoftColor = getAccentSoftColor(palette, lane.accent);
               const entryMinutes = getEntryMinutes(entry) ?? 0;
@@ -1045,14 +1035,17 @@ function DayTimeline({
                 <TimelineMarker
                   key={entry.instance?.id ?? entry.item.id}
                   top={timelineOffsetForMinutes(entryMinutes)}
-                  left={`${laneIndex * LANE_WIDTH_PERCENT}%`}
-                  width={`${LANE_WIDTH_PERCENT}%`}
+                  left="0%"
+                  width="100%"
                   durationHeight={timelineOffsetForMinutes(entry.durationMinutes)}
                   accentColor={accentColor}
                   accentSoftColor={accentSoftColor}
                   completed={completed}
                   collisionSlot={collisionSlot}
                   icon={renderTypeIcon(entry.item.type, accentColor, 12)}
+                  title={entry.item.title}
+                  timeLabel={formatTimelineTimeRange(entryMinutes, entry.durationMinutes)}
+                  textColor={palette.text}
                   accessibilityLabel={`${entry.item.title}, ${formatTimelineTimeRange(entryMinutes, entry.durationMinutes)}, ${lane.label}`}
                   onPreview={() => onOpenPreview(entry)}
                   onEdit={() => onOpenEdit(entry)}
@@ -1060,6 +1053,20 @@ function DayTimeline({
               );
             })}
           </RNView>
+          {showEmptyState ? (
+            <TouchableOpacity
+              onPress={() => onOpenCreate(getDefaultTime(isThisDayToday))}
+              activeOpacity={0.8}
+              style={[s.timelineEmptyState, { top: timelineOffsetForMinutes(10 * 60), backgroundColor: paper.base, borderColor: `${CALENDAR_GOLD}66` }]}
+              accessibilityRole="button"
+              accessibilityLabel="Plan a block"
+            >
+              <ProjectPortfolioIcon size={34} />
+              <RNText style={[s.timelineEmptyTitle, { color: palette.text }]}>Your day is open</RNText>
+              <RNText style={[s.timelineEmptyCopy, { color: palette.textTertiary }]}>Choose something worth making space for.</RNText>
+              <RNText style={s.timelineEmptyAction}>Plan a block</RNText>
+            </TouchableOpacity>
+          ) : null}
         </RNView>
         </GestureDetector>
       </RNView>
@@ -1073,6 +1080,7 @@ export function CalendarScreen() {
   const palette = getThemeColors(isDark);
   const { openCapture, revision: composerRevision } = useItemComposer();
   const openItem = useOpenItem();
+  const navigation = useNavigation<any>();
   const [selected, setSelected] = useState(new Date());
   const [nowTick, setNowTick] = useState(Date.now());
   const [daySectionLayouts, setDaySectionLayouts] = useState<Record<string, { y: number }>>({});
@@ -1082,7 +1090,6 @@ export function CalendarScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const autoScrollRef = useRef<string | null>(null);
   const lastHourTickRef = useRef<number | null>(null);
-  const lastDaySectionRef = useRef<string | null>(null);
   const scrollYRef = useRef(0);
   const scrollViewAbsoluteYRef = useRef(0);
   const [dragTarget, setDragTarget] = useState<{ dateStr: string; minutes: number | null } | null>(null);
@@ -1095,30 +1102,30 @@ export function CalendarScreen() {
   const currentHour = liveNow.getHours();
   const currentMinute = liveNow.getMinutes();
 
-  // Continuous 3-day window (yesterday/selected/tomorrow) so the timeline can
-  // be scrolled past midnight instead of hard-stopping at 00:00/23:59 — each
-  // day keeps its own useCalendar call (stable hook count, only the date arg
-  // changes), independent entries, independent refresh.
-  const prevDate = addDays(selected, -1);
-  const nextDate = addDays(selected, 1);
-  const prevDateStr = formatDate(prevDate);
-  const nextDateStr = formatDate(nextDate);
-
-  const { timelineEntries: prevEntries, refresh: refreshPrev } = useCalendar(prevDateStr);
   const { timelineEntries, refresh } = useCalendar(dateStr);
-  const { timelineEntries: nextEntries, refresh: refreshNext } = useCalendar(nextDateStr);
-
-  const refreshAll = () => {
-    refreshPrev();
-    refresh();
-    refreshNext();
-  };
+  const refreshAll = refresh;
 
   useEffect(() => {
-    refreshPrev();
     refresh();
-    refreshNext();
-  }, [composerRevision, refresh, refreshNext, refreshPrev]);
+  }, [composerRevision, refresh]);
+
+  const [busyEvents, setBusyEvents] = useState<DeviceCalendarEvent[]>([]);
+
+  // Read-only device-calendar overlay — fixed "busy" blocks you schedule around, never
+  // editable/completable/draggable here since RKA never writes back to the device calendar.
+  useEffect(() => {
+    let cancelled = false;
+    getDeviceEventsForDate(selected)
+      .then((events) => {
+        if (!cancelled) setBusyEvents(events);
+      })
+      .catch(() => {
+        if (!cancelled) setBusyEvents([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [dateStr]);
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -1127,9 +1134,8 @@ export function CalendarScreen() {
     return () => clearInterval(id);
   }, []);
 
-  // "Now" target within whichever of the 3 loaded days is actually today —
-  // shared by the selection-driven auto-scroll effect and the Jump to now
-  // button, so both land in exactly the same place.
+  // "Now" is available when the selected day is today; both entry points use
+  // the same target so the selected-day timeline stays spatially predictable.
   const getNowTargetY = (): number | null => {
     const sectionY = daySectionLayouts[todayStr]?.y;
     if (sectionY == null || !scrollViewportHeight) return null;
@@ -1196,15 +1202,6 @@ export function CalendarScreen() {
       }
     }
 
-    // Heavier thump when the scroll position crosses from one loaded day's
-    // section into another (yesterday -> today -> tomorrow).
-    const activeDay = findDayForContentY(daySectionLayouts, y, TIMELINE_METRICS.hourHeight);
-    if (activeDay && lastDaySectionRef.current !== activeDay) {
-      if (lastDaySectionRef.current !== null) {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      }
-      lastDaySectionRef.current = activeDay;
-    }
   };
 
   const unscheduledEntries = useMemo(
@@ -1213,7 +1210,6 @@ export function CalendarScreen() {
   );
 
   const [trayExpanded, setTrayExpanded] = useState(false);
-  const [topShellHeight, setTopShellHeight] = useState(0);
   const [isDraggingFromTray, setIsDraggingFromTray] = useState(false);
   const trayOverlayOpacity = useRef(new Animated.Value(1)).current;
 
@@ -1243,8 +1239,7 @@ export function CalendarScreen() {
   };
 
   const openEdit = (entry: TimelineEntry, entryDateStr: string) => {
-    setPreview(null);
-    openItem({
+    const launch = () => openItem({
       item: entry.item,
       context: {
         scheduledDate: entryDateStr,
@@ -1256,6 +1251,18 @@ export function CalendarScreen() {
         if (action !== 'cancelled') refreshAll();
       },
     });
+
+    // The Preview is a native SwiftUI sheet and the editor is a formSheet
+    // Modal — presenting one in the same tick the other dismisses wedges
+    // iOS's presentation controller and freezes the app. When Edit comes from
+    // the Preview, let the sheet finish dismissing before opening the editor;
+    // the direct long-press path (no open sheet) still opens immediately.
+    if (preview) {
+      setPreview(null);
+      setTimeout(launch, 350);
+    } else {
+      launch();
+    }
   };
 
   const openPreview = (entry: TimelineEntry, entryDateStr: string) => {
@@ -1362,12 +1369,12 @@ export function CalendarScreen() {
   const previewCompleted = preview
     ? preview.entry.instance?.status === 'completed' || preview.entry.item.status === 'completed'
     : false;
+  const pendingToScheduleCount = unscheduledItems.length + unscheduledEntries.length;
 
   return (
     <RNView style={[s.container, { backgroundColor: palette.bg }]}>
       <RNView
         style={[s.topShell, activeView === 'calendar' && s.topShellFill]}
-        onLayout={(event) => setTopShellHeight(event.nativeEvent.layout.height)}
       >
         <RiverStoneSurface
           variant="header"
@@ -1393,7 +1400,7 @@ export function CalendarScreen() {
         >
           <RNView style={s.headerRow}>
             <TouchableOpacity
-              onPress={() => setSelected((prev) => activeView === 'calendar' ? addMonths(prev, -1) : addDays(prev, -7))}
+              onPress={() => setSelected((prev) => activeView === 'calendar' ? addMonths(prev, -1) : addDays(prev, -1))}
               hitSlop={12}
               style={s.headerNavTouchable}
               activeOpacity={0.78}
@@ -1404,10 +1411,8 @@ export function CalendarScreen() {
             </TouchableOpacity>
 
             <RNView pointerEvents="none" style={s.headerTitleRow}>
-              <RNText style={s.headerMonth}>{MONTHS[selected.getMonth()]}</RNText>
-              <RNText style={s.headerTitleSeparator}>·</RNText>
               <RNText style={s.headerSelectedDate}>
-                {selected.toLocaleDateString([], { weekday: 'long', day: 'numeric' })}
+                {selected.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}
               </RNText>
             </RNView>
 
@@ -1418,7 +1423,7 @@ export function CalendarScreen() {
                 style={s.headerTodayChip}
               />
               <TouchableOpacity
-                onPress={() => setSelected((prev) => activeView === 'calendar' ? addMonths(prev, 1) : addDays(prev, 7))}
+                onPress={() => setSelected((prev) => activeView === 'calendar' ? addMonths(prev, 1) : addDays(prev, 1))}
                 hitSlop={12}
                 style={s.headerNavTouchable}
                 activeOpacity={0.78}
@@ -1448,17 +1453,39 @@ export function CalendarScreen() {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     setActiveView(view);
                   }}
-                  style={[s.viewChip, isActive && { backgroundColor: CALENDAR_GOLD }]}
+                  style={[
+                    s.viewChip,
+                    { borderColor: isActive ? CALENDAR_GOLD : 'transparent' },
+                    isActive && { backgroundColor: isDark ? 'rgba(212,176,120,0.18)' : 'rgba(185,145,86,0.14)' },
+                  ]}
                   activeOpacity={0.8}
                   accessibilityRole="button"
                   accessibilityState={{ selected: isActive }}
                 >
-                  <RNText style={[s.viewChipLabel, { color: isActive ? '#1a1204' : palette.textSecondary }]}>
+                  <RNText style={[s.viewChipLabel, { color: isActive ? CALENDAR_GOLD : palette.textSecondary }]}>
                     {view === 'calendar' ? 'Calendar' : 'Timeline'}
                   </RNText>
                 </TouchableOpacity>
               );
             })}
+            {([
+              { route: 'Upcoming', label: 'Upcoming' },
+              { route: 'PlanBackwards', label: 'Plan Backwards' },
+            ] as const).map(({ route, label }) => (
+              <TouchableOpacity
+                key={route}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  navigation.navigate('Menu', { screen: route });
+                }}
+                style={[s.viewChip, { borderColor: 'transparent' }]}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel={label}
+              >
+                <RNText style={[s.viewChipLabel, { color: palette.textSecondary }]}>{label}</RNText>
+              </TouchableOpacity>
+            ))}
           </RNView>
         </RiverStoneSurface>
 
@@ -1476,56 +1503,22 @@ export function CalendarScreen() {
               isDark={isDark}
               onSelectDay={(day) => {
                 setSelected(day);
-                setActiveView('timeline');
               }}
             />
+            <CalendarAgendaPreview
+              date={selected}
+              entries={timelineEntries}
+              palette={palette}
+              onOpenTimeline={() => setActiveView('timeline')}
+            />
           </RiverStoneSurface>
-        ) : (
-          <RiverStoneSurface
-            variant="list"
-            mode={isDark ? 'dark' : 'light'}
-            shape="regular"
-            style={s.sectionBarStone}
-            contentStyle={s.sectionBar}
-          >
-            <TouchableOpacity
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setTrayExpanded((v) => !v);
-              }}
-              activeOpacity={0.75}
-            >
-              <RNView style={s.sectionBarHeader}>
-                <RNView style={s.sectionBarCopy}>
-                  <RNText style={[s.sectionBarLabel, { color: palette.text }]}>Timeblocking</RNText>
-                  <RNText style={[s.sectionBarHint, { color: palette.textTertiary }]} numberOfLines={1}>
-                    {trayExpanded ? 'Tap to collapse' : `${unscheduledItems.length + unscheduledEntries.length} to schedule · tap to expand`}
-                  </RNText>
-                </RNView>
-                <RNView style={s.sectionBarActions}>
-                  <TouchableOpacity
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      openCreate(dateStr);
-                    }}
-                    style={[s.fabButton, { borderColor: CALENDAR_GOLD }]}
-                    hitSlop={10}
-                    accessibilityRole="button"
-                    accessibilityLabel="Add time block"
-                  >
-                    <Plus size={16} color={CALENDAR_GOLD} strokeWidth={2.4} />
-                  </TouchableOpacity>
-                </RNView>
-              </RNView>
-            </TouchableOpacity>
-          </RiverStoneSurface>
-        )}
+        ) : null}
       </RNView>
 
       {activeView === 'timeline' && trayExpanded ? (
         <Animated.View
           pointerEvents={isDraggingFromTray ? 'none' : 'auto'}
-          style={[s.trayOverlayLayer, { top: topShellHeight, opacity: trayOverlayOpacity }]}
+          style={[s.trayOverlayLayer, { opacity: trayOverlayOpacity }]}
         >
           <TouchableOpacity
             style={StyleSheet.absoluteFill}
@@ -1542,9 +1535,27 @@ export function CalendarScreen() {
             variant="list"
             mode={isDark ? 'dark' : 'light'}
             shape="regular"
-            style={s.trayOverlayPanelStone}
+            style={[s.trayOverlayPanelStone, { bottom: Math.max(insets.bottom, 12) + BOTTOM_TRAY_OVERLAY_HEIGHT }]}
             contentStyle={s.trayOverlayPanel}
           >
+            <RNView style={[s.drawerHandle, { backgroundColor: palette.textTertiary }]} />
+            <RNView style={s.drawerHeader}>
+              <RNView style={s.drawerTitleRow}>
+                <ProjectPortfolioIcon size={28} />
+                <RNView>
+                  <RNText style={[s.drawerTitle, { color: palette.text }]}>Plan your day</RNText>
+                  <RNText style={[s.drawerHint, { color: palette.textTertiary }]}>{pendingToScheduleCount} to schedule · drag onto a time</RNText>
+                </RNView>
+              </RNView>
+              <TouchableOpacity
+                onPress={() => setTrayExpanded(false)}
+                style={[s.drawerCollapseButton, { borderColor: CALENDAR_GOLD }]}
+                accessibilityRole="button"
+                accessibilityLabel="Collapse planning drawer"
+              >
+                <ChevronRight size={17} color={CALENDAR_GOLD} strokeWidth={2} style={{ transform: [{ rotate: '90deg' }] }} />
+              </TouchableOpacity>
+            </RNView>
             <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false}>
               <RNText style={[s.traySectionLabel, { color: palette.textTertiary }]}>UNSCHEDULED</RNText>
               {unscheduledItems.length === 0 ? (
@@ -1588,6 +1599,42 @@ export function CalendarScreen() {
         </Animated.View>
       ) : null}
 
+      {activeView === 'timeline' && !trayExpanded ? (
+        <RiverStoneSurface
+          variant="tray"
+          mode={isDark ? 'dark' : 'light'}
+          shape="regular"
+          style={[s.collapsedDrawerStone, { bottom: Math.max(insets.bottom, 12) + BOTTOM_TRAY_OVERLAY_HEIGHT }]}
+          contentStyle={s.collapsedDrawer}
+        >
+          <TouchableOpacity
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setTrayExpanded(true);
+            }}
+            style={s.collapsedDrawerMain}
+            activeOpacity={0.78}
+            accessibilityRole="button"
+            accessibilityLabel={`Plan your day, ${pendingToScheduleCount} tasks to schedule`}
+          >
+            <ProjectPortfolioIcon size={30} />
+            <RNView style={s.collapsedDrawerCopy}>
+              <RNText style={[s.collapsedDrawerTitle, { color: palette.text }]}>Plan your day</RNText>
+              <RNText style={[s.collapsedDrawerHint, { color: palette.textTertiary }]}>{pendingToScheduleCount} unscheduled</RNText>
+            </RNView>
+            <ChevronRight size={18} color={CALENDAR_GOLD} strokeWidth={2} style={{ transform: [{ rotate: '-90deg' }] }} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => openCreate(dateStr)}
+            style={[s.drawerAddButton, { backgroundColor: palette.red }]}
+            accessibilityRole="button"
+            accessibilityLabel="Add time block"
+          >
+            <Plus size={18} color="#fff8ef" strokeWidth={2.4} />
+          </TouchableOpacity>
+        </RiverStoneSurface>
+      ) : null}
+
       {activeView === 'timeline' ? (
       <>
       <RNView
@@ -1616,34 +1663,16 @@ export function CalendarScreen() {
         decelerationRate={0.7}
         contentContainerStyle={[
           s.scrollContent,
-          { paddingBottom: Math.max(insets.bottom, 24) + 96 },
+          { paddingBottom: Math.max(insets.bottom, 24) + 176 },
         ]}
       >
         <TimelinePaper
           variant={TIMELINE_PAPER_VARIANT}
           mode={isDark ? 'dark' : 'light'}
-          seed={`${prevDateStr}-${nextDateStr}`}
+          seed={dateStr}
         />
 
         <DayTimeline
-          dayDate={prevDate}
-          dateStr={prevDateStr}
-          entries={prevEntries}
-          palette={palette}
-          isDark={isDark}
-          isThisDayToday={prevDateStr === todayStr}
-          liveNow={liveNow}
-          currentHour={currentHour}
-          currentMinute={currentMinute}
-          onSectionLayout={(y) => setDaySectionLayouts((current) => ({ ...current, [prevDateStr]: { y } }))}
-          onOpenCreate={(time, durationMinutes) => openCreate(prevDateStr, time, durationMinutes)}
-          onOpenPreview={(entry) => openPreview(entry, prevDateStr)}
-          onOpenEdit={(entry) => openEdit(entry, prevDateStr)}
-          dragHighlightMinutes={dragTarget?.dateStr === prevDateStr ? dragTarget.minutes : undefined}
-        />
-
-        <DayTimeline
-          dayDate={selected}
           dateStr={dateStr}
           entries={timelineEntries}
           palette={palette}
@@ -1657,24 +1686,10 @@ export function CalendarScreen() {
           onOpenPreview={(entry) => openPreview(entry, dateStr)}
           onOpenEdit={(entry) => openEdit(entry, dateStr)}
           dragHighlightMinutes={dragTarget?.dateStr === dateStr ? dragTarget.minutes : undefined}
+          showEmptyState={timelineEntries.every((entry) => getEntryMinutes(entry) == null)}
+          busyEvents={busyEvents}
         />
 
-        <DayTimeline
-          dayDate={nextDate}
-          dateStr={nextDateStr}
-          entries={nextEntries}
-          palette={palette}
-          isDark={isDark}
-          isThisDayToday={nextDateStr === todayStr}
-          liveNow={liveNow}
-          currentHour={currentHour}
-          currentMinute={currentMinute}
-          onSectionLayout={(y) => setDaySectionLayouts((current) => ({ ...current, [nextDateStr]: { y } }))}
-          onOpenCreate={(time, durationMinutes) => openCreate(nextDateStr, time, durationMinutes)}
-          onOpenPreview={(entry) => openPreview(entry, nextDateStr)}
-          onOpenEdit={(entry) => openEdit(entry, nextDateStr)}
-          dragHighlightMinutes={dragTarget?.dateStr === nextDateStr ? dragTarget.minutes : undefined}
-        />
       </ScrollView>
 
       {showJumpToNow ? (
@@ -1720,35 +1735,62 @@ const s = StyleSheet.create({
   trayCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    borderWidth: StyleSheet.hairlineWidth,
+    gap: 9,
+    minHeight: 62,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
   },
   trayCardAccent: {
     width: 3,
-    alignSelf: 'stretch',
+    height: 28,
     borderRadius: 2,
   },
-  trayCardTitle: {
+  trayCardIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  trayCardCopy: {
     flex: 1,
+    gap: 2,
+    paddingVertical: 2,
+  },
+  trayCardTitle: {
     fontSize: 14,
     fontFamily: 'Inter_600SemiBold',
     fontWeight: '600',
   },
-  trayCardTime: {
-    fontSize: 12,
+  trayCardDetail: {
+    fontSize: 10.5,
     fontFamily: 'Inter_500Medium',
     fontWeight: '500',
   },
+  trayCardGrip: {
+    gap: 3,
+    paddingHorizontal: 5,
+    paddingVertical: 8,
+  },
+  trayCardGripRow: {
+    flexDirection: 'row',
+    gap: 3,
+  },
+  trayCardGripDot: {
+    width: 2.5,
+    height: 2.5,
+    borderRadius: 2,
+    opacity: 0.55,
+  },
   trayOverlayLayer: {
     position: 'absolute',
+    top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    zIndex: 15,
+    zIndex: 30,
   },
   trayOverlayBackdrop: {
     backgroundColor: 'rgba(0,0,0,0.45)',
@@ -1757,12 +1799,52 @@ const s = StyleSheet.create({
     position: 'absolute',
     left: 12,
     right: 12,
-    top: 12,
-    bottom: 12,
+    height: '48%',
   },
   trayOverlayPanel: {
     flex: 1,
-    paddingTop: 8,
+    paddingTop: 6,
+    paddingBottom: 12,
+  },
+  drawerHandle: {
+    alignSelf: 'center',
+    width: 38,
+    height: 4,
+    borderRadius: 999,
+    opacity: 0.55,
+    marginBottom: 8,
+  },
+  drawerHeader: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing[3],
+    marginBottom: 8,
+  },
+  drawerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  drawerTitle: {
+    fontSize: 16,
+    fontFamily: 'Inter_700Bold',
+    fontWeight: '700',
+  },
+  drawerHint: {
+    marginTop: 2,
+    fontSize: 11,
+    fontFamily: 'Inter_500Medium',
+    fontWeight: '500',
+  },
+  drawerCollapseButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   traySectionLabel: {
     fontSize: 11,
@@ -1777,15 +1859,6 @@ const s = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
     fontWeight: '400',
     marginBottom: 8,
-  },
-  dropHighlightBanner: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: TIMELINE_METRICS.dayTransitionHeight,
-    borderWidth: 2,
-    borderRadius: 8,
   },
   dropHighlightRow: {
     position: 'absolute',
@@ -1818,8 +1891,8 @@ const s = StyleSheet.create({
   },
   monthStoneContent: {
     flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 4,
+    paddingVertical: 10,
+    paddingHorizontal: spacing[2],
   },
   viewChipRow: {
     flexDirection: 'row',
@@ -1832,6 +1905,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
     borderRadius: 999,
+    borderWidth: 1,
     backgroundColor: 'rgba(255,255,255,0.08)',
   },
   viewChipLabel: {
@@ -1840,8 +1914,8 @@ const s = StyleSheet.create({
     fontWeight: '600',
   },
   monthGrid: {
-    flex: 1,
-    paddingHorizontal: 8,
+    height: 288,
+    paddingHorizontal: 2,
   },
   monthGridWeekdayRow: {
     flexDirection: 'row',
@@ -1855,28 +1929,27 @@ const s = StyleSheet.create({
     fontWeight: '600',
   },
   monthGridBody: {
-    flex: 1,
     flexDirection: 'column',
   },
   monthGridWeekRow: {
-    flex: 1,
+    height: 40,
     flexDirection: 'row',
   },
   monthGridCell: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
+    gap: 2,
   },
   monthGridDayCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
   },
   monthGridDayNumber: {
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: 'Inter_600SemiBold',
     fontWeight: '600',
   },
@@ -1884,6 +1957,68 @@ const s = StyleSheet.create({
     width: 5,
     height: 5,
     borderRadius: 2.5,
+  },
+  calendarAgenda: {
+    marginTop: spacing[2],
+    paddingTop: spacing[2],
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  calendarAgendaHeader: {
+    minHeight: 34,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing[1],
+  },
+  calendarAgendaTitle: {
+    fontSize: 15,
+    fontFamily: 'Inter_700Bold',
+    fontWeight: '700',
+  },
+  calendarAgendaAction: {
+    fontSize: 12,
+    fontFamily: 'Inter_600SemiBold',
+    fontWeight: '600',
+    color: CALENDAR_GOLD,
+  },
+  calendarAgendaEmpty: {
+    paddingHorizontal: spacing[1],
+    paddingVertical: spacing[2],
+  },
+  calendarAgendaEmptyTitle: {
+    fontSize: 14,
+    fontFamily: 'Inter_600SemiBold',
+    fontWeight: '600',
+  },
+  calendarAgendaEmptyCopy: {
+    marginTop: 3,
+    fontSize: 12,
+    fontFamily: 'Inter_400Regular',
+  },
+  calendarAgendaRow: {
+    minHeight: 38,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: spacing[1],
+  },
+  calendarAgendaAccent: {
+    width: 3,
+    height: 20,
+    borderRadius: 999,
+  },
+  calendarAgendaTime: {
+    width: 42,
+    fontSize: 11,
+    fontFamily: 'Inter_600SemiBold',
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
+  },
+  calendarAgendaRowTitle: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: 'Inter_600SemiBold',
+    fontWeight: '600',
   },
   headerRow: {
     flexDirection: 'row',
@@ -1922,19 +2057,11 @@ const s = StyleSheet.create({
     gap: 2,
     zIndex: 1,
   },
-  headerMonth: {
-    fontSize: 16,
-    fontStyle: 'italic',
-    fontFamily: 'Georgia',
-    color: 'rgba(255,255,255,0.95)',
-  },
-  headerTitleSeparator: {
-    color: 'rgba(255,255,255,0.45)',
-    fontSize: 14,
-  },
   headerSelectedDate: {
-    fontSize: 14,
-    fontFamily: 'Georgia',
+    fontSize: 15,
+    fontFamily: 'Inter_700Bold',
+    fontWeight: '700',
+    letterSpacing: 0.15,
     color: CALENDAR_GOLD,
   },
   headerTodayChip: {
@@ -2018,6 +2145,49 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  collapsedDrawerStone: {
+    position: 'absolute',
+    left: spacing[3],
+    right: spacing[3],
+    minHeight: 64,
+    zIndex: 25,
+  },
+  collapsedDrawer: {
+    minHeight: 64,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: spacing[3],
+    paddingRight: 7,
+    gap: 8,
+  },
+  collapsedDrawerMain: {
+    flex: 1,
+    minHeight: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+  },
+  collapsedDrawerCopy: {
+    flex: 1,
+    gap: 1,
+  },
+  collapsedDrawerTitle: {
+    fontSize: 14,
+    fontFamily: 'Inter_700Bold',
+    fontWeight: '700',
+  },
+  collapsedDrawerHint: {
+    fontSize: 11,
+    fontFamily: 'Inter_500Medium',
+    fontWeight: '500',
+  },
+  drawerAddButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   timelineLeadIn: {
     height: 12,
     paddingHorizontal: spacing[3],
@@ -2044,45 +2214,6 @@ const s = StyleSheet.create({
   daySection: {
     gap: 0,
   },
-  dayTransition: {
-    height: TIMELINE_METRICS.dayTransitionHeight,
-    marginTop: -7,
-    position: 'relative',
-    justifyContent: 'center',
-    zIndex: 2,
-  },
-  dayTransitionContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing[2],
-    paddingTop: 12,
-    paddingHorizontal: spacing[3],
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing[2],
-    paddingHorizontal: spacing[3],
-  },
-  sectionHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  sectionTitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    fontFamily: 'Inter_700Bold',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-  },
-  sectionAction: {
-    fontSize: 13,
-    fontWeight: '700',
-    fontFamily: 'Inter_700Bold',
-  },
   flexList: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: radius.surface,
@@ -2091,47 +2222,9 @@ const s = StyleSheet.create({
   timelineWrap: {
     width: '100%',
   },
-  laneHeader: {
-    height: TIMELINE_METRICS.laneHeaderHeight,
-    flexDirection: 'row',
-    paddingRight: TIMELINE_METRICS.rowHorizontalInset,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  laneHeaderGutter: {
-    width: TIMELINE_METRICS.gutterWidth + TIMELINE_METRICS.eventGap,
-  },
-  laneHeaderTrack: {
-    flex: 1,
-    flexDirection: 'row',
-  },
-  laneHeaderCell: {
-    flex: 1,
-    borderLeftWidth: StyleSheet.hairlineWidth,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 2,
-  },
-  laneHeaderMark: {
-    width: 10,
-    height: 1,
-    borderRadius: 999,
-    opacity: 0.56,
-  },
   timelineContent: {
     position: 'relative',
     overflow: 'hidden',
-  },
-  laneGrid: {
-    position: 'absolute',
-    top: 0,
-    right: TIMELINE_METRICS.rowHorizontalInset,
-    bottom: 0,
-    left: TIMELINE_METRICS.gutterWidth + TIMELINE_METRICS.eventGap,
-    flexDirection: 'row',
-  },
-  laneGridColumn: {
-    flex: 1,
-    borderLeftWidth: StyleSheet.hairlineWidth,
   },
   markerLayer: {
     position: 'absolute',
@@ -2139,6 +2232,50 @@ const s = StyleSheet.create({
     right: TIMELINE_METRICS.rowHorizontalInset,
     bottom: 0,
     left: TIMELINE_METRICS.gutterWidth + TIMELINE_METRICS.eventGap,
+  },
+  busyBlock: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    borderRadius: radius.control,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    justifyContent: 'center',
+    paddingHorizontal: spacing[2],
+  },
+  busyBlockText: {
+    fontSize: 11,
+    fontWeight: '500',
+    opacity: 0.7,
+  },
+  timelineEmptyState: {
+    position: 'absolute',
+    left: TIMELINE_METRICS.gutterWidth + TIMELINE_METRICS.eventGap + spacing[3],
+    right: TIMELINE_METRICS.rowHorizontalInset + spacing[3],
+    minHeight: 154,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radius.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing[3],
+  },
+  timelineEmptyTitle: {
+    marginTop: 7,
+    fontSize: 18,
+    fontFamily: 'Georgia',
+  },
+  timelineEmptyCopy: {
+    marginTop: 5,
+    fontSize: 12,
+    fontFamily: 'Inter_400Regular',
+    textAlign: 'center',
+  },
+  timelineEmptyAction: {
+    marginTop: 13,
+    fontSize: 13,
+    fontFamily: 'Inter_700Bold',
+    fontWeight: '700',
+    color: CALENDAR_GOLD,
   },
   createRangeOverlay: {
     position: 'absolute',
@@ -2233,6 +2370,19 @@ const s = StyleSheet.create({
     fontVariant: ['tabular-nums'],
     textAlign: 'right',
     includeFontPadding: false,
+  },
+  firstHourLabel: {
+    top: 1,
+  },
+  endOfDayLabel: {
+    position: 'absolute',
+    right: TIMELINE_METRICS.rowHorizontalInset + 4,
+    bottom: 2,
+    fontSize: 10,
+    fontFamily: 'Inter_600SemiBold',
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
+    opacity: 0.7,
   },
   hourBody: {
     flex: 1,
@@ -2364,37 +2514,6 @@ const s = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderStyle: 'dashed',
     opacity: 0.3,
-  },
-  periodDivider: {
-    minHeight: TIMELINE_METRICS.periodDividerHeight,
-    paddingHorizontal: spacing[2],
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 0,
-  },
-  periodDividerLine: {
-    flex: 1,
-    height: StyleSheet.hairlineWidth,
-    opacity: 0.52,
-  },
-  periodDividerBadge: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingHorizontal: spacing[2],
-  },
-  periodDividerBadgeWrap: {
-    width: 138,
-    height: TIMELINE_METRICS.periodDividerHeight,
-  },
-  periodDividerLabel: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    fontFamily: 'Georgia',
-    letterSpacing: 0.55,
-    textTransform: 'uppercase',
   },
   dragPreview: {
     position: 'absolute',

@@ -27,6 +27,8 @@ import { SkillDetailScreen } from '../screens/SkillDetailScreen';
 import { MedicationsScreen } from '../screens/MedicationsScreen';
 import { ToGetScreen } from '../screens/ToGetScreen';
 import { ArchiveScreen } from '../screens/ArchiveScreen';
+import { PillarsScreen } from '../screens/PillarsScreen';
+import { ActionsScreen } from '../screens/ActionsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -66,6 +68,8 @@ export function MenuStack() {
       <Stack.Screen name="Medications" component={MedicationsScreen} />
       <Stack.Screen name="ToGet" component={ToGetScreen} />
       <Stack.Screen name="Archive" component={ArchiveScreen} />
+      <Stack.Screen name="Pillars" component={PillarsScreen} />
+      <Stack.Screen name="Actions" component={ActionsScreen} />
     </Stack.Navigator>
   );
 }

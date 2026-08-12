@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { getItemsByType, createItem, updateItemStatus, deleteItem, formatDate, logHabitSample, undoLastHabitSample, getHabitSamples } from '../db/database';
 import { buildHabitRowData, type HabitRowData } from '../utils/habits';
@@ -24,6 +24,7 @@ import type { Item } from '../db/types';
 export function HabitsScreen() {
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
+  const navigation = useNavigation<any>();
   const openItem = useOpenItem();
   const [rows, setRows] = useState<HabitRowData[]>([]);
   const [completingIds, setCompletingIds] = useState<Set<string>>(new Set());
@@ -119,6 +120,11 @@ export function HabitsScreen() {
 
   return (
     <LensSurface title="Habits">
+      <View style={styles.topLinksRow}>
+        <TouchableOpacity onPress={() => navigation.navigate('Routines')} hitSlop={8}>
+          <Text style={[styles.linkText, { color: palette.deeperBlue }]}>Routines →</Text>
+        </TouchableOpacity>
+      </View>
       {rows.length === 0 ? (
         <View style={styles.empty}>
           <Text style={[styles.emptyTitle, { color: palette.text }]}>No habits yet</Text>
@@ -153,6 +159,17 @@ export function HabitsScreen() {
 }
 
 const styles = StyleSheet.create({
+  topLinksRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  linkText: {
+    fontSize: 14,
+    fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
+  },
   listContent: {
     paddingHorizontal: 16,
     paddingBottom: 24,

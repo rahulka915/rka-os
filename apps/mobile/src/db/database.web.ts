@@ -30,12 +30,27 @@ import 'react-native-get-random-values';
 import { v4 as uuidv4 } from 'uuid';
 import { deleteField } from 'firebase/firestore';
 import { nextOccurrenceDate, parseRepeatRule, dayMatchesRepeat } from '../utils/repeat';
+import {
+  primaryEntityId,
+  parseActionRow,
+  actionSubtitle,
+  buildActionFeed,
+  type ActionDetails,
+  type ActionRow,
+  type LogActionInput,
+  type FeedEntry,
+  type FeedSource,
+} from '../utils/actions';
 import { buildTimelineEntries } from './timelineEntry';
 import { getTimeOfDayFromHour, normalizeTimeInput, timeToMinutes, type TimeOfDay } from '../utils/time';
 import { countDosesByDay } from '../utils/medicationDoseHistory';
 import { resolveAutoStopAfterMs } from '../domain/medicationTimer/timerMath';
-import type { DailyCheckInRow, Item, ItemInstance, ActivityLog } from './types';
+import type { DailyCheckInRow, Item, ItemInstance, ActivityLog, PlanBlockRow, PlanBlockStepRow } from './types';
 import type { DailyCheckInAnswers, DailyCheckInPhase } from '../utils/dailyCheckIn';
+import type { CreateAchievementInput, FocusData } from './database';
+import type { RoutineStepMeta } from '../utils/routineMeta';
+import type { BackwardPlanMeta, PlacementBehavior, TravelConfig } from '../utils/backwardPlanMeta';
+import { parseBackwardPlanMeta } from '../utils/backwardPlanMeta';
 import {
   getItemsSnapshot,
   getActivityLogsSnapshot,
@@ -58,7 +73,50 @@ function notImplementedOnWeb(name: string): never {
   throw new Error(`${name} is not implemented on web yet`);
 }
 
-const webDailyCheckIns: DailyCheckInRow[] = [];
+// Persisted to localStorage (not Firestore) — dailyCheckIns has no
+// firestoreWebStore mirror yet, and this keeps entries surviving a page
+// reload without pulling in the full Firestore sync machinery for a screen
+// that's otherwise a self-contained journal.
+const DAILY_CHECKINS_STORAGE_KEY = 'rka-os:dailyCheckIns';
+
+function loadDailyCheckIns(): DailyCheckInRow[] {
+  try {
+    const raw = globalThis.localStorage?.getItem(DAILY_CHECKINS_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as DailyCheckInRow[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveDailyCheckIns(rows: DailyCheckInRow[]): void {
+  try {
+    globalThis.localStorage?.setItem(DAILY_CHECKINS_STORAGE_KEY, JSON.stringify(rows));
+  } catch {
+    // Storage unavailable/full — in-memory state still holds for this session.
+  }
+}
+
+const webDailyCheckIns: DailyCheckInRow[] = loadDailyCheckIns();
+
+// Same rationale as DAILY_CHECKINS_STORAGE_KEY above — a single plain string
+// app setting, not worth a Firestore appSettings mirror.
+const DEFAULT_DEPARTURE_STORAGE_KEY = 'rka-os:planBackwards.defaultDeparture';
+
+export function getDefaultDeparturePoint(): string {
+  try {
+    return globalThis.localStorage?.getItem(DEFAULT_DEPARTURE_STORAGE_KEY) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+export function setDefaultDeparturePoint(location: string): void {
+  try {
+    globalThis.localStorage?.setItem(DEFAULT_DEPARTURE_STORAGE_KEY, location);
+  } catch {
+    // Storage unavailable/full — setting just won't persist across reloads.
+  }
+}
 
 // ── Items ──────────────────────────────────────────────────────────────
 // Each query below is a direct port of the SQL predicate in database.ts,
@@ -86,6 +144,7 @@ export function upsertDailyCheckIn(dateKey: string, phase: DailyCheckInPhase, an
   };
   if (existingIndex >= 0) webDailyCheckIns[existingIndex] = row;
   else webDailyCheckIns.push(row);
+  saveDailyCheckIns(webDailyCheckIns);
   return row;
 }
 
@@ -241,6 +300,14 @@ export function updateItemMetadata(id: string, metadata: Record<string, any>): v
   write(patchItem(id, { metadata: JSON.stringify(metadata), updatedAt: Date.now() }), 'updateItemMetadata');
 }
 
+export function setTaskPriority(id: string, priority: 'low' | 'medium' | 'high' | null): void {
+  const item = getItemWithMetadata(id);
+  const meta = item?.metadata ? JSON.parse(item.metadata) : {};
+  if (priority === null) delete meta.priority;
+  else meta.priority = priority;
+  updateItemMetadata(id, meta);
+}
+
 export function updateItemTitle(id: string, title: string): void {
   write(patchItem(id, { title, updatedAt: Date.now() }), 'updateItemTitle');
 }
@@ -336,6 +403,24 @@ export function getRepeatingItemsForToday(): Item[] {
       const rule = parseRepeatRule(item.rrule);
       return rule ? dayMatchesRepeat(rule, today, item.scheduledDate ?? undefined) : false;
     });
+}
+
+// Quantified habit sample: mirrors native's 'habit-sample' activityLogs
+// convention exactly (see database.ts) so period progress is always
+// recomputed from the actual logged events, never a stale running total.
+export function logHabitSample(habitId: string, value: number, note?: string): void {
+  logActivity(habitId, 'habit-sample', JSON.stringify({ value, note }));
+}
+
+export function getHabitSamples(habitId: string, sinceMs?: number): ActivityLog[] {
+  return getActivityLogsSnapshot()
+    .filter((l) => l.entityId === habitId && l.actionType === 'habit-sample' && (sinceMs == null || l.timestamp >= sinceMs))
+    .sort((a, b) => b.timestamp - a.timestamp);
+}
+
+export function undoLastHabitSample(habitId: string): void {
+  const last = getHabitSamples(habitId)[0];
+  if (last) write(deleteActivityLogDoc(last.id), 'undoLastHabitSample');
 }
 
 // Reads back every occurrence a recurring item (task or habit) has ever
@@ -806,6 +891,57 @@ export function getMedicationLogs(itemId: string, limit = 10): ActivityLog[] {
     .slice(0, limit);
 }
 
+// --- Actions --------------------------------------------------------------
+// Firestore-backed mirror of database.ts's Actions section. An Action is an
+// activityLogs doc (actionType 'action'); logging one never affects scoring.
+// Same pure helpers (utils/actions.ts) as native so behavior can't drift.
+
+export function logAction(input: LogActionInput): string {
+  const { occurredAt: _ignored, ...details } = input;
+  return logActivity(primaryEntityId(details), 'action', JSON.stringify(details));
+}
+
+export function getActions(limit?: number): ActionRow[] {
+  const rows = getActivityLogsSnapshot()
+    .filter((l) => l.actionType === 'action')
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .map(parseActionRow);
+  return typeof limit === 'number' ? rows.slice(0, limit) : rows;
+}
+
+export function updateAction(id: string, patch: Partial<ActionDetails>): void {
+  const row = getActivityLogsSnapshot().find((l) => l.id === id && l.actionType === 'action');
+  if (!row) return;
+  const current = parseActionRow(row);
+  const { id: _i, entityId: _e, timestamp: _t, ...details } = { ...current, ...patch };
+  write(patchActivityLogDoc(id, { details: JSON.stringify(details), entityId: primaryEntityId(details) }), 'updateAction');
+}
+
+export function deleteAction(id: string): void {
+  const row = getActivityLogsSnapshot().find((l) => l.id === id && l.actionType === 'action');
+  if (!row) return;
+  write(deleteActivityLogDoc(id), 'deleteAction');
+}
+
+export function getActionFeed(limit?: number): FeedEntry[] {
+  const entries: FeedEntry[] = [];
+  for (const a of getActions()) {
+    entries.push({ id: a.id, source: 'action', title: a.title, timestamp: a.timestamp, subtitle: actionSubtitle(a), entityId: a.entityId });
+  }
+  for (const r of getActivityLogsSnapshot()) {
+    if (r.actionType !== 'completed-occurrence' && r.actionType !== 'medication-taken' && r.actionType !== 'routine-step-completed') continue;
+    const source: FeedSource = r.actionType === 'medication-taken' ? 'medication' : r.actionType === 'routine-step-completed' ? 'routine' : 'habit';
+    const subtitle = source === 'medication' ? 'Dose taken' : source === 'routine' ? 'Routine step' : 'Habit check-in';
+    const title = getItemWithMetadata(r.entityId)?.title ?? subtitle;
+    entries.push({ id: r.id, source, title, timestamp: r.timestamp, subtitle, entityId: r.entityId });
+  }
+  for (const t of getItemsByType('task')) {
+    if (t.status !== 'completed' || !t.completedAt || t.deletedAt) continue;
+    entries.push({ id: t.id, source: 'task', title: t.title, timestamp: t.completedAt, subtitle: 'Task completed', entityId: t.id });
+  }
+  return buildActionFeed(entries, limit);
+}
+
 // TODO(web-companion): not yet ported — raw SQLite handle, meaningless on web
 export function getDb(): never {
   return notImplementedOnWeb('getDb');
@@ -1125,4 +1261,538 @@ export function setTimerWidgetPreferences(_preferences: Partial<TimerWidgetPrefe
 }
 export function getLastTakenLog(itemId: string): ActivityLog | null {
   return getMedicationLogs(itemId, 1)[0] ?? null;
+}
+
+// ── Achievements ───────────────────────────────────────────────────────
+// Thin wrappers over generic item primitives, same as database.ts. The
+// domainContributions scoring side-effect native's setAchievementContributesToScore
+// performs has no Firestore equivalent yet on web — this just persists the
+// flag so the UI toggle works and survives reloads, without the score math.
+
+// ── Potential Stats ────────────────────────────────────────────────────
+// Thin wrappers over generic item primitives, same relation type
+// ('potentialStatArea') as database.ts. domainContributions scoring is a
+// SQLite-only concept deferred on web, same as Skills/Achievements above.
+
+export function getPotentialStatsForArea(areaId: string): Item[] {
+  return getRelatedItemsByType(areaId, 'potentialStatArea', 'potential-stat');
+}
+
+export function getPotentialStats(): Item[] {
+  return getItemsByType('potential-stat');
+}
+
+export function getAreaForPotentialStat(statId: string): string | null {
+  return getRelation(statId, 'potentialStatArea');
+}
+
+export function setPotentialStatArea(statId: string, areaId: string | null): void {
+  setRelation(statId, 'potentialStatArea', areaId);
+}
+
+export function createPotentialStat(title: string, areaId?: string | null): string {
+  const id = createItem('potential-stat', title, 'active');
+  if (areaId) setPotentialStatArea(id, areaId);
+  return id;
+}
+
+export function getAllAchievements(): Item[] {
+  return getItemsByType('achievement');
+}
+
+export function getAchievementsForArea(areaId: string): Item[] {
+  return getRelatedItemsByType(areaId, 'achievementArea', 'achievement');
+}
+
+export function getAreaForAchievement(achievementId: string): string | null {
+  return getRelation(achievementId, 'achievementArea');
+}
+
+export function createAchievement(input: CreateAchievementInput): string {
+  const id = createItem('achievement', input.title, 'completed', undefined, input.notes);
+  updateItemMetadata(id, {
+    earnedAt: input.earnedAt,
+    source: input.source,
+    sourceId: input.sourceId,
+    contributesToScore: input.contributesToScore,
+  });
+  if (input.areaId) setRelation(id, 'achievementArea', input.areaId);
+  return id;
+}
+
+export function deleteAchievement(achievementId: string): void {
+  deleteItem(achievementId);
+}
+
+export function setAchievementContributesToScore(achievementId: string, contributes: boolean): void {
+  const item = getItemWithMetadata(achievementId);
+  if (!item) return;
+  const meta = item.metadata ? JSON.parse(item.metadata) : {};
+  updateItemMetadata(achievementId, { ...meta, contributesToScore: contributes });
+}
+
+// ── Current Focus (singleton) ─────────────────────────────────────────────
+
+export function getFocus(): FocusData | null {
+  const rows = getItemsByType('focus');
+  const focus = rows[0];
+  if (!focus) return null;
+  const meta = focus.metadata ? JSON.parse(focus.metadata) : {};
+  return { id: focus.id, label: focus.title, weights: meta.weights ?? {} };
+}
+
+export function setFocus(label: string, weights: Record<string, number>): void {
+  const rows = getItemsByType('focus');
+  if (rows[0]) {
+    updateItem(rows[0].id, { title: label });
+    updateItemMetadata(rows[0].id, { weights });
+  } else {
+    const id = createItem('focus', label, 'active');
+    updateItemMetadata(id, { weights });
+  }
+}
+
+export function clearFocus(): void {
+  const rows = getItemsByType('focus');
+  if (rows[0]) deleteItem(rows[0].id);
+}
+
+// ── Skills ─────────────────────────────────────────────────────────────
+// Same relation/metadata patterns as database.ts's Skills section. Milestone
+// domainContributions side-effects (applySkillMilestoneContribution) have no
+// Firestore equivalent yet on web — contributesToScore/unlocked flags are
+// still persisted so the UI works, just without the score math.
+
+export function getSkills(): Item[] {
+  return getItemsByType('skill');
+}
+
+// Mirrors native's getSkillsForArea: a skill counts for a Domain if it's the
+// primary skillArea relation OR the Domain is listed in secondaryAreaIds.
+export function getSkillsForArea(areaId: string): Item[] {
+  return getSkills().filter((skill) => {
+    if (getRelation(skill.id, 'skillArea') === areaId) return true;
+    const meta = skill.metadata ? JSON.parse(skill.metadata) : {};
+    return Array.isArray(meta.secondaryAreaIds) && meta.secondaryAreaIds.includes(areaId);
+  });
+}
+
+export function createSkill(title: string, primaryAreaId?: string | null, secondaryAreaIds: string[] = []): string {
+  const id = createItem('skill', title, 'active');
+  updateItemMetadata(id, { proficiency: 0, secondaryAreaIds, unlocked: false });
+  if (primaryAreaId) setRelation(id, 'skillArea', primaryAreaId);
+  return id;
+}
+
+export function getPrimaryAreaForSkill(skillId: string): string | null {
+  return getRelation(skillId, 'skillArea');
+}
+
+export function setPrimaryAreaForSkill(skillId: string, areaId: string | null): void {
+  setRelation(skillId, 'skillArea', areaId);
+}
+
+export function getSecondaryAreasForSkill(skillId: string): string[] {
+  const item = getItemWithMetadata(skillId);
+  const meta = item?.metadata ? JSON.parse(item.metadata) : {};
+  return Array.isArray(meta.secondaryAreaIds) ? meta.secondaryAreaIds : [];
+}
+
+export function setSkillSecondaryAreas(skillId: string, areaIds: string[]): void {
+  const item = getItemWithMetadata(skillId);
+  const meta = item?.metadata ? JSON.parse(item.metadata) : {};
+  updateItemMetadata(skillId, { ...meta, secondaryAreaIds: areaIds });
+}
+
+export function isSkillUnlocked(skillId: string): boolean {
+  const item = getItemWithMetadata(skillId);
+  const meta = item?.metadata ? JSON.parse(item.metadata) : {};
+  return meta.unlocked === true;
+}
+
+export function setSkillUnlocked(skillId: string, unlocked: boolean): void {
+  const item = getItemWithMetadata(skillId);
+  const meta = item?.metadata ? JSON.parse(item.metadata) : {};
+  updateItemMetadata(skillId, { ...meta, unlocked });
+}
+
+export function updateSkillProficiency(skillId: string, proficiency: number): void {
+  const item = getItemWithMetadata(skillId);
+  const meta = item?.metadata ? JSON.parse(item.metadata) : {};
+  updateItemMetadata(skillId, { ...meta, proficiency: Math.max(0, Math.min(100, proficiency)) });
+}
+
+// Unlike getRelatedItems (which excludes completed/archived items — right for
+// project/area rollups), skill links must surface every status: a completed
+// habit or a permanently-'completed' achievement milestone shouldn't vanish
+// from its skill just because of its own status. Mirrors native's
+// getRelatedItemsByType, which only filters deletedAt.
+function getRelatedItemsByType(targetId: string, relationType: string, itemType: string): Item[] {
+  const sourceIds = new Set(
+    getItemRelationsSnapshot()
+      .filter((r) => r.targetId === targetId && r.relationType === relationType)
+      .map((r) => r.sourceId)
+  );
+  return getItemsSnapshot()
+    .filter((i) => sourceIds.has(i.id) && i.type === itemType && i.deletedAt == null)
+    .sort((a, b) => b.createdAt - a.createdAt);
+}
+
+export function getHabitsForSkill(skillId: string): Item[] {
+  return getRelatedItemsByType(skillId, 'habitSkill', 'habit');
+}
+
+export function linkHabitToSkill(habitId: string, skillId: string | null): void {
+  setRelation(habitId, 'habitSkill', skillId);
+}
+
+export function getRoutinesForSkill(skillId: string): Item[] {
+  return getRelatedItemsByType(skillId, 'routineSkill', 'routine');
+}
+
+export function linkRoutineToSkill(routineId: string, skillId: string | null): void {
+  setRelation(routineId, 'routineSkill', skillId);
+}
+
+export function getMissionsForSkill(skillId: string): Item[] {
+  return getRelatedItemsByType(skillId, 'missionSkill', 'project');
+}
+
+export function linkMissionToSkill(projectId: string, skillId: string | null): void {
+  setRelation(projectId, 'missionSkill', skillId);
+}
+
+export interface SkillPracticeSummary {
+  habitCompletions30d: number;
+  routineSessionsCompleted: number;
+}
+
+export function computeSkillPracticeSummary(skillId: string): SkillPracticeSummary {
+  const since = formatDate(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
+  let habitCompletions30d = 0;
+  for (const habit of getHabitsForSkill(skillId)) {
+    for (const date of getCompletedOccurrenceDates(habit.id)) {
+      if (date >= since) habitCompletions30d++;
+    }
+  }
+  const routineIds = new Set(getRoutinesForSkill(skillId).map((r) => r.id));
+  let routineSessionsCompleted = 0;
+  if (routineIds.size > 0) {
+    for (const session of getItemsByType('routine-session')) {
+      if (session.status !== 'completed') continue;
+      const routineId = getRelation(session.id, 'routine-template');
+      if (routineId && routineIds.has(routineId)) routineSessionsCompleted++;
+    }
+  }
+  return { habitCompletions30d, routineSessionsCompleted };
+}
+
+export function getMilestonesForSkill(skillId: string): Item[] {
+  return getRelatedItemsByType(skillId, 'achievementSkill', 'achievement');
+}
+
+export function createSkillMilestone(skillId: string, title: string, earnedAt: string, contributesToScore: boolean): string {
+  const id = createAchievement({ title, areaId: null, earnedAt, source: 'manual', contributesToScore });
+  setRelation(id, 'achievementSkill', skillId);
+  return id;
+}
+
+export function deleteSkillMilestone(achievementId: string): void {
+  deleteItem(achievementId);
+}
+
+export function setSkillMilestoneContributesToScore(achievementId: string, contributes: boolean): void {
+  const item = getItemWithMetadata(achievementId);
+  if (!item) return;
+  const meta = item.metadata ? JSON.parse(item.metadata) : {};
+  updateItemMetadata(achievementId, { ...meta, contributesToScore: contributes });
+}
+
+// ── Routines ───────────────────────────────────────────────────────────
+
+export function createRoutine(title: string, notes?: string): string {
+  return createItem('routine', title, 'active', undefined, notes);
+}
+
+export function getRoutineSteps(routineId: string): Item[] {
+  return applyManualOrder(`routine:${routineId}`, getRelatedItemsByType(routineId, 'routine', 'routine-step'));
+}
+
+export function addRoutineStep(routineId: string, title: string, meta: RoutineStepMeta): string {
+  const stepId = createItem('routine-step', title, 'active');
+  updateItemMetadata(stepId, meta as unknown as Record<string, any>);
+  setRelation(stepId, 'routine', routineId);
+  return stepId;
+}
+
+export function updateRoutineStep(stepId: string, meta: RoutineStepMeta): void {
+  updateItemMetadata(stepId, meta as unknown as Record<string, any>);
+}
+
+// ── Plan Backwards ─────────────────────────────────────────────────────
+// No planBlocks/planBlockSteps collection exists on web yet, so blocks are
+// stored as a plain array on the plan item's own metadata (metadata.blocks)
+// rather than standing up a new Firestore collection — simplest thing that
+// keeps planBlockRowToCalc's expected PlanBlockWithSteps shape intact.
+
+export interface PlanBlockWithSteps extends PlanBlockRow {
+  steps: PlanBlockStepRow[];
+}
+
+function getPlanMeta(planId: string): BackwardPlanMeta & { blocks?: PlanBlockWithSteps[] } {
+  const item = getItemWithMetadata(planId);
+  return item?.metadata ? JSON.parse(item.metadata) : {};
+}
+
+function writePlanBlocks(planId: string, blocks: PlanBlockWithSteps[]): void {
+  const meta = getPlanMeta(planId);
+  updateItemMetadata(planId, { ...meta, blocks });
+}
+
+export function getPlanBlocks(planId: string): PlanBlockWithSteps[] {
+  return (getPlanMeta(planId).blocks ?? []).slice().sort((a, b) => a.orderIndex - b.orderIndex);
+}
+
+function nextPlanBlockOrderIndex(planId: string): number {
+  const blocks = getPlanBlocks(planId);
+  return blocks.length === 0 ? 0 : Math.max(...blocks.map((b) => b.orderIndex)) + 1;
+}
+
+export function createBackwardPlan(title: string, date: string, meta: BackwardPlanMeta = {}, notes?: string): string {
+  const id = createItem('backward-plan', title, 'active', date, notes);
+  updateItemMetadata(id, meta as unknown as Record<string, any>);
+  return id;
+}
+
+export function getBackwardPlans(): Item[] {
+  return getItemsByType('backward-plan')
+    .filter((plan) => !plan.archivedAt && !plan.deletedAt)
+    .sort((a, b) => (a.scheduledDate ?? '').localeCompare(b.scheduledDate ?? ''));
+}
+
+export function getBackwardPlan(planId: string): Item | null {
+  return getItemWithMetadata(planId);
+}
+
+export function updateBackwardPlan(
+  planId: string,
+  updates: Partial<{ title: string; date: string | null; notes: string | null }>,
+  metaUpdates?: Partial<BackwardPlanMeta>,
+): void {
+  if (updates.title !== undefined || updates.date !== undefined || updates.notes !== undefined) {
+    updateItem(planId, { title: updates.title, scheduledDate: updates.date, notes: updates.notes });
+  }
+  if (metaUpdates) {
+    const current = getItemWithMetadata(planId);
+    const currentMeta = parseBackwardPlanMeta(current?.metadata);
+    updateItemMetadata(planId, { ...currentMeta, ...metaUpdates });
+  }
+}
+
+export function deleteBackwardPlan(planId: string): void {
+  deleteItem(planId);
+}
+
+export function addPlanBlockRoutine(
+  planId: string,
+  routineTemplateId: string,
+  opts?: { bufferMinutes?: number; placement?: PlacementBehavior },
+): string {
+  const routine = getItemWithMetadata(routineTemplateId);
+  const templateSteps = getRoutineSteps(routineTemplateId);
+  const now = Date.now();
+  const blockId = uuidv4();
+  const steps: PlanBlockStepRow[] = templateSteps.map((step, index) => {
+    const stepMeta = step.metadata ? JSON.parse(step.metadata) : {};
+    const estimatedMinutes = Math.max(1, Math.round((stepMeta.durationSeconds ?? 300) / 60));
+    return {
+      id: uuidv4(),
+      blockId,
+      templateStepId: step.id,
+      title: step.title,
+      estimatedMinutes,
+      actualMinutes: null,
+      orderIndex: index,
+      placement: 'auto',
+      completedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+  });
+  const block: PlanBlockWithSteps = {
+    id: blockId,
+    planId,
+    type: 'routine',
+    title: routine?.title ?? 'Routine',
+    orderIndex: nextPlanBlockOrderIndex(planId),
+    placement: opts?.placement ?? 'auto',
+    bufferMinutes: opts?.bufferMinutes ?? null,
+    durationMinutes: null,
+    actualMinutes: null,
+    routineTemplateId,
+    linkedItemId: null,
+    completedAt: null,
+    travelConfig: null,
+    notes: null,
+    createdAt: now,
+    updatedAt: now,
+    steps,
+  };
+  writePlanBlocks(planId, [...getPlanBlocks(planId), block]);
+  return blockId;
+}
+
+export function addPlanBlockTask(
+  planId: string,
+  title: string,
+  durationMinutes: number,
+  opts?: { placement?: PlacementBehavior; bufferMinutes?: number; linkedItemId?: string },
+): string {
+  const now = Date.now();
+  const blockId = uuidv4();
+  const block: PlanBlockWithSteps = {
+    id: blockId,
+    planId,
+    type: 'task',
+    title,
+    orderIndex: nextPlanBlockOrderIndex(planId),
+    placement: opts?.placement ?? 'auto',
+    bufferMinutes: opts?.bufferMinutes ?? null,
+    durationMinutes,
+    actualMinutes: null,
+    routineTemplateId: null,
+    linkedItemId: opts?.linkedItemId ?? null,
+    completedAt: null,
+    travelConfig: null,
+    notes: null,
+    createdAt: now,
+    updatedAt: now,
+    steps: [],
+  };
+  writePlanBlocks(planId, [...getPlanBlocks(planId), block]);
+  return blockId;
+}
+
+export function upsertPlanBlockTravel(
+  planId: string,
+  title: string,
+  config: TravelConfig,
+  opts?: { placement?: PlacementBehavior },
+): string {
+  const now = Date.now();
+  const travelConfigJson = JSON.stringify(config);
+  const placement = opts?.placement ?? 'keep-near-event';
+  const blocks = getPlanBlocks(planId);
+  const existing = blocks.find((b) => b.type === 'travel');
+  if (existing) {
+    const updated = blocks.map((b) =>
+      b.id === existing.id
+        ? { ...b, title, placement, bufferMinutes: config.bufferMinutes ?? 0, durationMinutes: config.durationMinutes, travelConfig: travelConfigJson, updatedAt: now }
+        : b
+    );
+    writePlanBlocks(planId, updated);
+    return existing.id;
+  }
+  const blockId = uuidv4();
+  const block: PlanBlockWithSteps = {
+    id: blockId,
+    planId,
+    type: 'travel',
+    title,
+    orderIndex: nextPlanBlockOrderIndex(planId),
+    placement,
+    bufferMinutes: config.bufferMinutes ?? 0,
+    durationMinutes: config.durationMinutes,
+    actualMinutes: null,
+    routineTemplateId: null,
+    linkedItemId: null,
+    completedAt: null,
+    travelConfig: travelConfigJson,
+    notes: null,
+    createdAt: now,
+    updatedAt: now,
+    steps: [],
+  };
+  writePlanBlocks(planId, [...blocks, block]);
+  return blockId;
+}
+
+export function updatePlanBlock(
+  blockId: string,
+  updates: Partial<{
+    title: string;
+    placement: PlacementBehavior;
+    bufferMinutes: number | null;
+    durationMinutes: number | null;
+    travelConfig: string | null;
+    notes: string | null;
+  }>,
+): void {
+  const item = findPlanForBlock(blockId);
+  if (!item) return;
+  const now = Date.now();
+  const blocks = getPlanBlocks(item.id).map((b) => (b.id === blockId ? { ...b, ...updates, updatedAt: now } : b));
+  writePlanBlocks(item.id, blocks);
+}
+
+export function deletePlanBlock(blockId: string): void {
+  const item = findPlanForBlock(blockId);
+  if (!item) return;
+  writePlanBlocks(item.id, getPlanBlocks(item.id).filter((b) => b.id !== blockId));
+}
+
+export function togglePlanBlockComplete(blockId: string, completed: boolean): void {
+  const item = findPlanForBlock(blockId);
+  if (!item) return;
+  const now = Date.now();
+  const blocks = getPlanBlocks(item.id).map((b) =>
+    b.id === blockId ? { ...b, completedAt: completed ? now : null, updatedAt: now } : b
+  );
+  writePlanBlocks(item.id, blocks);
+}
+
+export function togglePlanBlockStepComplete(stepId: string, completed: boolean, actualMinutes?: number): void {
+  const item = findPlanForStep(stepId);
+  if (!item) return;
+  const now = Date.now();
+  const blocks = getPlanBlocks(item.id).map((b) => ({
+    ...b,
+    steps: b.steps.map((s) =>
+      s.id === stepId ? { ...s, completedAt: completed ? now : null, actualMinutes: completed ? actualMinutes ?? null : null, updatedAt: now } : s
+    ),
+  }));
+  writePlanBlocks(item.id, blocks);
+}
+
+function findPlanForBlock(blockId: string): Item | null {
+  return getItemsByType('backward-plan').find((plan) => getPlanBlocks(plan.id).some((b) => b.id === blockId)) ?? null;
+}
+
+function findPlanForStep(stepId: string): Item | null {
+  return getItemsByType('backward-plan').find((plan) => getPlanBlocks(plan.id).some((b) => b.steps.some((s) => s.id === stepId))) ?? null;
+}
+
+// ── Workout Trends ─────────────────────────────────────────────────────
+// database.web.ts has no workout set-logging plumbing yet (Workouts on web
+// lacks live session logging — see WEB_PARITY.md), so these currently read
+// an always-empty activityLogs slice rather than crashing; they'll start
+// returning real data automatically once set-logging is ported.
+
+export function getWorkoutSessionDates(sinceMs: number): number[] {
+  return getItemsSnapshot()
+    .filter((i) => i.type === 'workout-session' && i.status === 'completed' && i.createdAt >= sinceMs && i.deletedAt == null)
+    .map((i) => i.createdAt)
+    .sort((a, b) => a - b);
+}
+
+export function getExerciseSetLogHistory(exerciseId: string): ActivityLog[] {
+  return getActivityLogsSnapshot()
+    .filter((l) => l.entityId === exerciseId && l.actionType === 'workout-set-logged')
+    .sort((a, b) => a.timestamp - b.timestamp);
+}
+
+export function getWorkoutSetLogsInRange(startMs: number, endMs: number): ActivityLog[] {
+  return getActivityLogsSnapshot()
+    .filter((l) => l.actionType === 'workout-set-logged' && l.timestamp >= startMs && l.timestamp <= endMs)
+    .sort((a, b) => a.timestamp - b.timestamp);
 }

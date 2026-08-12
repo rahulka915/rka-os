@@ -56,3 +56,15 @@ Note River Stone surfaces use their own **per-variant asymmetric radius pairs** 
 ## Shadows
 
 Four presets in `spacing.ts` — `soft`, `elevated`, `floating`, `sheet` — each a full RN shadow object (`shadowColor`/`shadowOffset`/`shadowOpacity`/`shadowRadius`/`elevation`). River Stone surfaces use their own per-variant shadow tuning rather than these presets directly — see [`components.md`](components.md).
+
+## Desktop web app tokens
+
+The desktop web app (`src/webApp/`) has its own token file, [`apps/mobile/src/theme/webTheme.ts`](../../../apps/mobile/src/theme/webTheme.ts), separate from the native `colors.ts`/`spacing.ts` above (two different rendering targets). As of 2026-08-12 its values are **deliberately aligned to the native River Stone language** rather than the old standalone "warm-minimal" cream/amber palette it shipped with — the goal is that iOS and web read as the same product. Values are exposed as CSS custom properties (`--rka-*`), so re-theming every web screen is a single edit to `WEB_THEME_CSS` with zero per-screen changes.
+
+Key mappings (see the file for the full light/dark tables):
+
+- **Brand/interactive accent** = restrained **vermilion** (`#A8402C` light / `#C1503A` dark), matching the native active-nav/brand accent (`colors.ts`'s `vermilion`) — **not** the old amber `#D97706`. This is the single `--rka-accent` used across all ~53 interactive call sites (buttons, links, active nav, checkboxes).
+- **Surfaces** = warm River-Stone neutrals; **background** matches native (`#F6F5F1` light / `#0B0E16` dark); **warning** carries brass, not amber.
+- **`webDepth`** (`list`/`card`) — CSS `boxShadow` recipes mirroring the native River Stone `list`/`card` shadow variants (stacked contact + ambient drop shadow + a faint top light-catch via `inset` highlight). Applied to list rows and cards so web surfaces read as raised graphite stone, not flat fills. Pair with `webColors.card` as the base; drop the old 1px border when applying.
+- **`webSunset`** — a peach→amber→dusty-rose gradient sampled from the Ronin scene art, used **only** for the Home hero stage (the future Rive scene mount) as an "adaptive" warm halo that melts into the dark shell; the rest of the app stays on the dark River Stone tokens. See [decision-log](decision-log.md) 2026-08-12.
+- **Icons** — the web sidebar uses the **same destination artwork as iOS** (torii, inbox soft-object, note, sundial, bonsai, kettlebell, prayer beads, furoshiki, treasure chest, pill bottle, portfolio, gear) via [`src/webApp/navArtwork.web.tsx`](../../../apps/mobile/src/webApp/navArtwork.web.tsx), not generic Lucide glyphs. The artwork is colourful/3D and never tinted, so active state is the row highlight + bold label, exactly as on iOS.

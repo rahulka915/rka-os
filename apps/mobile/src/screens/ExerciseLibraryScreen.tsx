@@ -16,7 +16,6 @@ import {
   formatExerciseSubtitle,
   inferMovementFamily,
   parseExerciseMeta,
-  pickGroupThumbnailImageKey,
 } from '../utils/exerciseLibrary';
 import { STARTER_EXERCISES } from '../utils/starterExercises';
 import { showActionSheet } from '../utils/actionSheet';
@@ -152,7 +151,7 @@ export function ExerciseLibraryScreen() {
                   key={group.muscleGroup}
                   label={group.label}
                   count={group.exercises.length}
-                  imageKey={pickGroupThumbnailImageKey(group)}
+                  muscleGroup={group.muscleGroup}
                   onPress={() => (navigation as any).navigate('ExerciseMuscleGroup', { muscleGroup: group.muscleGroup, label: group.label })}
                 />
               ))}

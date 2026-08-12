@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,9 +10,11 @@ import { DefaultDepartureSheet } from '../components/DefaultDepartureSheet';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { useBackup } from '../hooks/useBackup';
 import { getDefaultDeparturePoint, setDefaultDeparturePoint } from '../db/database';
-import { Archive, ChevronLeft, CheckCircle2, Upload, Compass, MapPin } from '../icons';
+import { Archive, ChevronLeft, CheckCircle2, Upload, Compass, MapPin, Calendar } from '../icons';
 import { getThemeColors, spacing } from '../theme';
 import { HeroEnvironmentWorkbench } from '../components/hero/environment';
+import { MaterialSheetWorkbench } from '../components/dev/MaterialSheetWorkbench';
+import { getCalendarAccessStatus, requestCalendarAccess } from '../services/deviceCalendar';
 
 const SETTINGS_GOLD = '#D4B078';
 
@@ -20,11 +22,25 @@ function DevToolsSection() {
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
   const [heroWorkbenchOpen, setHeroWorkbenchOpen] = useState(false);
+  const [materialSheetOpen, setMaterialSheetOpen] = useState(false);
 
   return (
     <>
       <Text style={[styles.sectionLabel, { color: palette.textTertiary }]}>DEV TOOLS</Text>
       <View style={devStyles.heroWorkbenchSection}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ expanded: materialSheetOpen }}
+          onPress={() => setMaterialSheetOpen((open) => !open)}
+          style={[devStyles.heroWorkbenchToggle, { backgroundColor: palette.fill }]}
+        >
+          <Text style={[devStyles.heroWorkbenchToggleText, { color: palette.text }]}>Material sheet</Text>
+          <Text style={[devStyles.heroWorkbenchToggleState, { color: palette.textSecondary }]}>
+            {materialSheetOpen ? 'Hide' : 'Open'}
+          </Text>
+        </Pressable>
+        {materialSheetOpen && <MaterialSheetWorkbench isDark={isDark} />}
+
         <Pressable
           accessibilityRole="button"
           accessibilityState={{ expanded: heroWorkbenchOpen }}
@@ -50,6 +66,18 @@ export function SettingsScreen() {
   const backup = useBackup();
   const [defaultDeparture, setDefaultDepartureState] = useState(() => getDefaultDeparturePoint());
   const [departureSheetOpen, setDepartureSheetOpen] = useState(false);
+  const [calendarStatus, setCalendarStatus] = useState<'granted' | 'denied' | 'undetermined'>('undetermined');
+
+  useEffect(() => {
+    getCalendarAccessStatus().then(setCalendarStatus).catch(() => {});
+  }, []);
+
+  const handleCalendarPress = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    if (calendarStatus === 'granted') return;
+    const granted = await requestCalendarAccess();
+    setCalendarStatus(granted ? 'granted' : 'denied');
+  };
   const syncTitle = backup.isSignedIn ? 'Backup and sync' : 'Sign in to sync';
   const syncDetail = backup.error
     ? 'Backup needs attention'
@@ -169,7 +197,7 @@ export function SettingsScreen() {
             <View style={styles.settingCopy}>
               <Text style={[styles.settingTitle, { color: palette.text }]}>Redo Setup</Text>
               <Text style={[styles.settingDetail, { color: palette.textSecondary }]}>
-                Walk through Domains, Missions, Potential Stats and Focus again
+                Walk through Domains, Missions, Pillars and Focus again
               </Text>
             </View>
           </RiverStoneSurface>
@@ -198,6 +226,38 @@ export function SettingsScreen() {
               <Text style={[styles.settingTitle, { color: palette.text }]}>Default departure location</Text>
               <Text style={[styles.settingDetail, { color: palette.textSecondary }]}>
                 {defaultDeparture || 'Not set — prefills Travel’s "From" field'}
+              </Text>
+            </View>
+          </RiverStoneSurface>
+        </TouchableOpacity>
+
+        <Text style={[styles.sectionLabel, { color: palette.textTertiary }]}>CALENDAR</Text>
+        <TouchableOpacity
+          activeOpacity={0.84}
+          onPress={handleCalendarPress}
+          disabled={calendarStatus === 'granted'}
+          accessibilityRole="button"
+          accessibilityLabel="Device calendar"
+        >
+          <RiverStoneSurface
+            variant="list"
+            mode={isDark ? 'dark' : 'light'}
+            shape="regular"
+            contentStyle={styles.settingRow}
+          >
+            <View style={[styles.iconFrame, { backgroundColor: palette.blueSoft }]}>
+              <Calendar size={21} color={palette.blue} strokeWidth={1.9} />
+            </View>
+            <View style={styles.settingCopy}>
+              <Text style={[styles.settingTitle, { color: palette.text }]}>
+                {calendarStatus === 'granted' ? 'Device calendar connected' : 'Connect device calendar'}
+              </Text>
+              <Text style={[styles.settingDetail, { color: palette.textSecondary }]}>
+                {calendarStatus === 'granted'
+                  ? 'Apple/Google calendar events show as busy blocks on Calendar — read-only'
+                  : calendarStatus === 'denied'
+                    ? 'Access denied — enable in iOS Settings → RKA OS → Calendars'
+                    : 'Shows your existing events as busy blocks to schedule around'}
               </Text>
             </View>
           </RiverStoneSurface>

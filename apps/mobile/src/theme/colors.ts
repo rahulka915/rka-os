@@ -69,10 +69,10 @@ export const colors = {
 } as const;
 
 export const darkColors = {
-  bg: '#0f0f1a',
-  bgElevated: '#1a1a2e',
-  surface: '#1a1a2e',
-  surfaceRaised: 'rgba(26,26,46,0.94)',
+  bg: '#0B0E16',
+  bgElevated: '#151922',
+  surface: '#151922',
+  surfaceRaised: 'rgba(21,25,34,0.94)',
   surfaceHover: 'rgba(255,255,255,0.06)',
   fill: 'rgba(255,255,255,0.05)',
   fillStrong: 'rgba(255,255,255,0.10)',
@@ -108,7 +108,7 @@ export const darkColors = {
   orangeSoft: 'rgba(255,159,90,0.18)',
 
   // See the light-mode `colors` comment above — same rationale.
-  stoneSurface: '#1c1c22',
+  stoneSurface: '#181B21',
 
   // See the light-mode `colors` comment above for the app-wide-refinement-v1
   // rationale — dark-mode values brightened for legibility against charcoal.

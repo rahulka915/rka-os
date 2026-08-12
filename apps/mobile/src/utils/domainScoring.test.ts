@@ -5,6 +5,8 @@ import {
   decayedStrength,
   achievementLift,
   domainScore,
+  domainMaintenance,
+  NO_PILLAR_MAINTENANCE_BASELINE,
   overallPotential,
   MAX_ACHIEVEMENT_LIFT,
   MISSION_CONTRIBUTION_DEFAULTS,
@@ -117,4 +119,22 @@ test('overallPotential: focus weighting shifts the aggregate toward the heavier 
 
 test('overallPotential: no domains is zero', () => {
   assert.equal(overallPotential({}), 0);
+});
+
+test('domainMaintenance: no Pillars returns the neutral baseline, not 0', () => {
+  assert.equal(domainMaintenance([]), NO_PILLAR_MAINTENANCE_BASELINE);
+  assert.ok(NO_PILLAR_MAINTENANCE_BASELINE > 0, 'baseline must not read as a 0% failure');
+});
+
+test('domainMaintenance: with Pillars averages their percents (baseline not applied)', () => {
+  assert.equal(domainMaintenance([100, 50]), 75);
+  assert.equal(domainMaintenance([0]), 0);
+});
+
+test('domainScore: a Pillar-less Domain floats on its baseline plus achievement lift', () => {
+  const now = 0;
+  const bare = domainScore(domainMaintenance([]), [], now);
+  assert.equal(bare, NO_PILLAR_MAINTENANCE_BASELINE);
+  const lifted = domainScore(domainMaintenance([]), [{ ...MISSION_CONTRIBUTION_DEFAULTS, occurredAt: now }], now);
+  assert.ok(lifted > bare, 'missions lift a Pillar-less Domain above its baseline');
 });

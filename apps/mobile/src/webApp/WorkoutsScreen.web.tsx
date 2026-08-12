@@ -7,9 +7,10 @@ import { DetailPanel } from './DetailPanel';
 import { ItemDetailForm } from './ItemDetailForm';
 import { WorkoutTemplateDetailPanel } from './WorkoutTemplateDetailPanel.web';
 import { ExerciseLibraryScreen } from './ExerciseLibraryScreen.web';
-import { webColors, webSpacing, webRadius, webFontSize } from '../theme/webTheme';
+import { WorkoutTrendsScreen } from './WorkoutTrendsScreen.web';
+import { webColors, webSpacing, webRadius, webFontSize, webDepth } from '../theme/webTheme';
 
-type WorkoutsTab = 'templates' | 'exercises';
+type WorkoutsTab = 'templates' | 'exercises' | 'trends';
 
 export function WorkoutsScreen() {
   const { workouts, refresh } = useWorkouts();
@@ -46,6 +47,9 @@ export function WorkoutsScreen() {
         </Pressable>
         <Pressable onPress={() => setActiveTab('exercises')} style={[styles.tab, activeTab === 'exercises' && styles.tabActive]}>
           <Text style={[styles.tabText, activeTab === 'exercises' && styles.tabTextActive]}>Exercises</Text>
+        </Pressable>
+        <Pressable onPress={() => setActiveTab('trends')} style={[styles.tab, activeTab === 'trends' && styles.tabActive]}>
+          <Text style={[styles.tabText, activeTab === 'trends' && styles.tabTextActive]}>Trends</Text>
         </Pressable>
       </View>
 
@@ -92,8 +96,10 @@ export function WorkoutsScreen() {
             ) : null}
           </DetailPanel>
         </>
-      ) : (
+      ) : activeTab === 'exercises' ? (
         <ExerciseLibraryScreen onOpenTemplate={openTemplate} />
+      ) : (
+        <WorkoutTrendsScreen />
       )}
     </View>
   );
@@ -172,9 +178,7 @@ const styles = StyleSheet.create({
   },
   row: {
     backgroundColor: webColors.card,
-    borderRadius: webRadius.md,
-    borderWidth: 1,
-    borderColor: webColors.border,
+    ...webDepth.list,
     paddingHorizontal: webSpacing[4],
     paddingVertical: webSpacing[3],
   },

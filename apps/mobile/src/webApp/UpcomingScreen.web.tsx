@@ -6,7 +6,7 @@ import { groupByScheduledDate, type UpcomingGroup } from '../utils/upcomingGroup
 import { useDbRefresh } from '../hooks/useDb';
 import { DetailPanel } from './DetailPanel';
 import { ItemDetailForm } from './ItemDetailForm';
-import { webColors, webSpacing, webRadius, webFontSize } from '../theme/webTheme';
+import { webColors, webSpacing, webRadius, webFontSize, webDepth } from '../theme/webTheme';
 import type { Item } from '../db/types';
 
 function useUpcomingGroups() {
@@ -124,9 +124,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: webSpacing[3],
     backgroundColor: webColors.card,
-    borderRadius: webRadius.md,
-    borderWidth: 1,
-    borderColor: webColors.border,
+    ...webDepth.list,
     paddingHorizontal: webSpacing[4],
     paddingVertical: webSpacing[3],
   },

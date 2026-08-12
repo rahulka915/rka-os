@@ -1,9 +1,22 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Trash2 } from 'lucide-react-native';
-import { updateItemTitle, updateItem, deleteItem, setRelation, getRelatedItems, getRelation } from '../db/database';
+import {
+  updateItemTitle,
+  updateItem,
+  deleteItem,
+  setRelation,
+  getRelatedItems,
+  getRelation,
+  getSkillsForArea,
+  getPotentialStatsForArea,
+  createPotentialStat,
+  setPotentialStatArea,
+  getAchievementsForArea,
+} from '../db/database';
 import type { Item } from '../db/types';
 import { webColors, webSpacing, webRadius, webFontSize } from '../theme/webTheme';
+import { computeDomainScoreApprox } from './PotentialOverview.web';
 
 export interface DomainMissionDetailFormProps {
   item: Item;
@@ -17,6 +30,8 @@ export interface DomainMissionDetailFormProps {
 export function DomainMissionDetailForm({ item, domains, onChanged, onDeleted }: DomainMissionDetailFormProps) {
   const [title, setTitle] = useState(item.title);
   const [notes, setNotes] = useState(item.notes ?? '');
+  const [statTitle, setStatTitle] = useState('');
+  const [localVersion, setLocalVersion] = useState(0);
   const isMission = item.type === 'project';
   const currentDomainId = isMission ? getRelation(item.id, 'area') : null;
 
@@ -24,6 +39,16 @@ export function DomainMissionDetailForm({ item, domains, onChanged, onDeleted }:
     setTitle(item.title);
     setNotes(item.notes ?? '');
   }, [item.id, item.title, item.notes]);
+
+  const skills = useMemo(() => (isMission ? [] : getSkillsForArea(item.id)), [isMission, item.id, localVersion]);
+  const potentialStats = useMemo(() => (isMission ? [] : getPotentialStatsForArea(item.id)), [isMission, item.id, localVersion]);
+  const achievements = useMemo(() => (isMission ? [] : getAchievementsForArea(item.id)), [isMission, item.id, localVersion]);
+  const domainScore = useMemo(() => (isMission ? 0 : computeDomainScoreApprox(item.id)), [isMission, item.id, localVersion]);
+
+  const refreshLocal = () => {
+    setLocalVersion((v) => v + 1);
+    onChanged();
+  };
 
   const saveTitle = () => {
     const trimmed = title.trim();
@@ -43,6 +68,19 @@ export function DomainMissionDetailForm({ item, domains, onChanged, onDeleted }:
   const setDomain = (domainId: string | null) => {
     setRelation(item.id, 'area', domainId);
     onChanged();
+  };
+
+  const addStat = () => {
+    const trimmed = statTitle.trim();
+    if (!trimmed) return;
+    createPotentialStat(trimmed, item.id);
+    setStatTitle('');
+    refreshLocal();
+  };
+
+  const unlinkStat = (statId: string) => {
+    setPotentialStatArea(statId, null);
+    refreshLocal();
   };
 
   const handleDelete = () => {
@@ -107,7 +145,81 @@ export function DomainMissionDetailForm({ item, domains, onChanged, onDeleted }:
             ))}
           </View>
         </View>
-      ) : null}
+      ) : (
+        <View>
+          <Text style={styles.label}>Domain Score</Text>
+          <View style={styles.scoreRow}>
+            <Text style={styles.scoreValue}>{Math.round(domainScore)}%</Text>
+            <View style={styles.scoreTrack}>
+              <View style={[styles.scoreFill, { width: `${Math.min(domainScore, 100)}%` }]} />
+            </View>
+          </View>
+
+          <Text style={styles.label}>Skills</Text>
+          {skills.length === 0 ? (
+            <Text style={styles.emptyText}>No skills linked to this domain.</Text>
+          ) : (
+            <View style={styles.rows}>
+              {skills.map((skill) => {
+                const meta = skill.metadata ? JSON.parse(skill.metadata) : {};
+                const proficiency = typeof meta.proficiency === 'number' ? meta.proficiency : 0;
+                return (
+                  <View key={skill.id} style={styles.infoRow}>
+                    <Text style={styles.infoRowTitle} numberOfLines={1}>{skill.title}</Text>
+                    <Text style={styles.infoRowMeta}>{proficiency}%</Text>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+
+          <Text style={styles.label}>Pillars</Text>
+          <View style={styles.captureRow}>
+            <TextInput
+              value={statTitle}
+              onChangeText={setStatTitle}
+              onSubmitEditing={addStat}
+              placeholder="New Pillar..."
+              placeholderTextColor={webColors.mutedForeground}
+              style={styles.captureInput}
+            />
+            <Pressable onPress={addStat} style={styles.smallButton}>
+              <Text style={styles.smallButtonText}>Add</Text>
+            </Pressable>
+          </View>
+          {potentialStats.length === 0 ? (
+            <Text style={styles.emptyText}>No Pillars tracked for this Domain. Pillars are optional maintenance areas (mostly Health & Fitness).</Text>
+          ) : (
+            <View style={styles.rows}>
+              {potentialStats.map((stat) => (
+                <View key={stat.id} style={styles.infoRow}>
+                  <Text style={styles.infoRowTitle} numberOfLines={1}>{stat.title}</Text>
+                  <Pressable onPress={() => unlinkStat(stat.id)} hitSlop={8}>
+                    <Text style={styles.unlinkText}>Unlink</Text>
+                  </Pressable>
+                </View>
+              ))}
+            </View>
+          )}
+
+          <Text style={styles.label}>Achievements</Text>
+          {achievements.length === 0 ? (
+            <Text style={styles.emptyText}>No achievements linked to this domain.</Text>
+          ) : (
+            <View style={styles.rows}>
+              {achievements.map((achievement) => {
+                const meta = achievement.metadata ? JSON.parse(achievement.metadata) : {};
+                return (
+                  <View key={achievement.id} style={styles.infoRow}>
+                    <Text style={styles.infoRowTitle} numberOfLines={1}>{achievement.title}</Text>
+                    <Text style={styles.infoRowMeta}>{meta.earnedAt ?? ''}</Text>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+        </View>
+      )}
 
       <Pressable onPress={handleDelete} style={styles.deleteRow}>
         <Trash2 size={16} color={webColors.destructive} strokeWidth={1.75} />
@@ -149,6 +261,33 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: webSpacing[2],
   },
+  captureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: webSpacing[2],
+    backgroundColor: webColors.muted,
+    borderRadius: webRadius.sm,
+    paddingHorizontal: webSpacing[3],
+    paddingVertical: webSpacing[2],
+    marginBottom: webSpacing[3],
+  },
+  captureInput: {
+    flex: 1,
+    color: webColors.foreground,
+    fontSize: webFontSize.sm,
+    padding: 0,
+  },
+  smallButton: {
+    paddingHorizontal: webSpacing[3],
+    paddingVertical: webSpacing[1],
+    borderRadius: webRadius.sm,
+    backgroundColor: webColors.accent,
+  },
+  smallButtonText: {
+    color: webColors.card,
+    fontSize: webFontSize.xs,
+    fontWeight: '700',
+  },
   domainOption: {
     paddingHorizontal: webSpacing[3],
     paddingVertical: webSpacing[2],
@@ -165,6 +304,63 @@ const styles = StyleSheet.create({
   },
   domainOptionTextActive: {
     color: webColors.card,
+  },
+  scoreRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: webSpacing[3],
+    marginBottom: webSpacing[4],
+  },
+  scoreValue: {
+    fontSize: webFontSize.lg,
+    fontWeight: '700',
+    color: webColors.foreground,
+  },
+  scoreTrack: {
+    flex: 1,
+    height: 8,
+    borderRadius: webRadius.pill,
+    backgroundColor: webColors.muted,
+    overflow: 'hidden',
+  },
+  scoreFill: {
+    height: 8,
+    borderRadius: webRadius.pill,
+    backgroundColor: webColors.accent,
+  },
+  emptyText: {
+    fontSize: webFontSize.sm,
+    color: webColors.mutedForeground,
+    marginBottom: webSpacing[4],
+  },
+  rows: {
+    gap: webSpacing[2],
+    marginBottom: webSpacing[4],
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: webSpacing[2],
+    borderRadius: webRadius.sm,
+    backgroundColor: webColors.muted,
+    paddingHorizontal: webSpacing[3],
+    paddingVertical: webSpacing[2],
+  },
+  infoRowTitle: {
+    fontSize: webFontSize.sm,
+    fontWeight: '600',
+    color: webColors.foreground,
+    flex: 1,
+  },
+  infoRowMeta: {
+    fontSize: webFontSize.xs,
+    color: webColors.mutedForeground,
+  },
+  unlinkText: {
+    fontSize: webFontSize.xs,
+    fontWeight: '600',
+    color: webColors.accent,
   },
   deleteRow: {
     flexDirection: 'row',

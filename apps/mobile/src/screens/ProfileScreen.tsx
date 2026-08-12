@@ -25,6 +25,26 @@ export function ProfileScreen() {
           <PotentialOverview showAchievementsLink={false} mode="me" />
         </View>
         <TouchableOpacity
+          onPress={() => navigation.navigate('Menu', { screen: 'Skills' })}
+          style={[styles.logRow, { backgroundColor: palette.surface, borderColor: palette.separator }]}
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.logTitle, { color: palette.text }]}>Skills</Text>
+            <Text style={[styles.logSubtitle, { color: palette.textSecondary }]}>Capabilities you develop</Text>
+          </View>
+          <Text style={{ color: palette.textTertiary, fontSize: 20 }}>›</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('Menu', { screen: 'Achievements' })}
+          style={[styles.logRow, { backgroundColor: palette.surface, borderColor: palette.separator }]}
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.logTitle, { color: palette.text }]}>Achievements</Text>
+            <Text style={[styles.logSubtitle, { color: palette.textSecondary }]}>Permanent record of what you’ve accomplished</Text>
+          </View>
+          <Text style={{ color: palette.textTertiary, fontSize: 20 }}>›</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
           onPress={() => navigation.navigate('Menu', { screen: 'DailyLog' })}
           style={[styles.logRow, { backgroundColor: palette.surface, borderColor: palette.separator }]}
         >

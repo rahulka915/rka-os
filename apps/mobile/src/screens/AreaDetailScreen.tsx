@@ -29,7 +29,7 @@ import { QuickCreateSheet } from '../components/QuickCreateSheet';
 import { RiverStoneProgress } from '../components/ui/RiverStoneProgress';
 import { useRegisterFabHoldAction } from '../hooks/useFabHoldAction';
 import type { Item } from '../db/types';
-import type { PotentialStatResult } from '../utils/potential';
+import { SUGGESTED_PILLARS, type PotentialStatResult } from '../utils/potential';
 import { ProjectPortfolioIcon } from '../components/icons/ProjectPortfolioIcon';
 import { SkillIdentityIcon } from '../components/icons/SkillIdentityIcon';
 import { getDomainIcon } from '../utils/domainIcons';
@@ -153,12 +153,23 @@ export function AreaDetailScreen() {
 
   const promptAddStat = () => {
     const linkedIds = new Set(stats.map((s) => s.id));
-    const unlinked = getPotentialStats().filter((s) => !linkedIds.has(s.id));
-    showActionSheet('Add Potential Stat', [
-      { label: 'New Stat...', onPress: () => { setStatEditTarget(null); setStatCreateOpen(true); } },
+    const allStats = getPotentialStats();
+    const unlinked = allStats.filter((s) => !linkedIds.has(s.id));
+    const existingTitles = new Set(allStats.map((s) => s.title.toLowerCase()));
+    // Suggested Pillars (mostly Health/Fitness) that don't already exist —
+    // optional quick-adds; Domains aren't expected to have Pillars at all.
+    const suggestions = SUGGESTED_PILLARS.flatMap((g) => g.pillars).filter(
+      (title) => !existingTitles.has(title.toLowerCase()),
+    );
+    showActionSheet('Add Pillar', [
+      { label: 'New Pillar...', onPress: () => { setStatEditTarget(null); setStatCreateOpen(true); } },
       ...unlinked.map((s) => ({
         label: `Link "${s.title}"`,
         onPress: () => { setPotentialStatArea(s.id, areaId); refresh(); },
+      })),
+      ...suggestions.map((title) => ({
+        label: `Suggested: ${title}`,
+        onPress: () => { createPotentialStat(title, areaId); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); refresh(); },
       })),
     ]);
   };
@@ -169,7 +180,7 @@ export function AreaDetailScreen() {
       { label: 'Rename', onPress: () => { setStatEditTarget(stat); setStatCreateOpen(true); } },
       { label: 'Unlink from this Domain', onPress: () => { setPotentialStatArea(stat.id, null); refresh(); } },
       {
-        label: 'Delete Stat',
+        label: 'Delete Pillar',
         onPress: () => {
           Alert.alert(`Delete ${stat.title}?`, 'This cannot be undone.', [
             { text: 'Cancel', style: 'cancel' },
@@ -212,7 +223,9 @@ export function AreaDetailScreen() {
             </View>
             <RiverStoneProgress progress={domainScore / 100} isDark={isDark} height={10} showLabel={false} accessibilityLabel={`${title} domain score`} style={styles.chapterProgress} />
             <Text style={[styles.chapterCaption, { color: palette.greige }]}>
-              {maintenance < domainScore
+              {stats.length === 0
+                ? 'No Pillars tracked for this Domain — its score reflects Missions and achievements, not daily maintenance. Pillars are optional.'
+                : maintenance < domainScore
                 ? 'Recent achievements are lifting this Domain above its everyday maintenance.'
                 : 'This score reflects how well the linked Pillars are being maintained day to day.'}
             </Text>
@@ -256,7 +269,7 @@ export function AreaDetailScreen() {
             </TouchableOpacity>
           </View>
           {stats.length === 0 ? (
-            <Text style={[styles.emptySub, { color: palette.textSecondary }]}>No Pillars linked yet — add one to feed this Domain's maintenance score.</Text>
+            <Text style={[styles.emptySub, { color: palette.textSecondary }]}>No Pillars tracked for this Domain. Pillars are optional maintenance areas (mostly Health & Fitness) — add one to track daily upkeep here.</Text>
           ) : (
             <View style={styles.rows}>
               {stats.map((stat) => {
@@ -345,8 +358,8 @@ export function AreaDetailScreen() {
 
       <QuickCreateSheet
         visible={statCreateOpen}
-        title={statEditTarget ? 'Rename Stat' : 'New Potential Stat'}
-        placeholder="Stat name..."
+        title={statEditTarget ? 'Rename Pillar' : 'New Pillar'}
+        placeholder="Pillar name..."
         initialValue={statEditTarget?.title}
         onClose={() => { setStatCreateOpen(false); setStatEditTarget(null); }}
         onSubmit={handleSaveStat}

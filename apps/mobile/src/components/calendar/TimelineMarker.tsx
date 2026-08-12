@@ -1,5 +1,5 @@
 import { useMemo, type ReactNode } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
 
@@ -12,13 +12,15 @@ interface TimelineMarkerProps {
   accentSoftColor: string;
   completed: boolean;
   icon: ReactNode;
+  title: string;
+  timeLabel: string;
+  textColor: string;
   collisionSlot?: number;
   accessibilityLabel: string;
   onPreview: () => void;
   onEdit: () => void;
 }
 
-const ICON_SIZE = 26;
 const MIN_TOUCH_TARGET = 44;
 
 export function TimelineMarker({
@@ -30,6 +32,9 @@ export function TimelineMarker({
   accentSoftColor,
   completed,
   icon,
+  title,
+  timeLabel,
+  textColor,
   collisionSlot = 0,
   accessibilityLabel,
   onPreview,
@@ -55,10 +60,9 @@ export function TimelineMarker({
     return Gesture.Exclusive(hold, tap);
   }, [onEdit, onPreview]);
 
-  const visualHeight = Math.max(8, durationHeight);
+  const visualHeight = Math.max(38, Math.min(72, durationHeight));
   const slotOffset = collisionSlot === 0 ? 0 : collisionSlot === 1 ? 6 : -6;
-  const markerTop = Math.max(0, top - ICON_SIZE / 2);
-  const barTop = Math.max(0, top - markerTop);
+  const markerTop = Math.max(0, top - 3);
 
   return (
     <GestureDetector gesture={gesture}>
@@ -82,30 +86,20 @@ export function TimelineMarker({
         <View
           pointerEvents="none"
           style={[
-            styles.durationBar,
-            {
-              top: barTop,
-              height: visualHeight,
-              backgroundColor: accentColor,
-              opacity: completed ? 0.34 : 0.78,
-            },
-          ]}
-        />
-        <View
-          pointerEvents="none"
-          style={[
-            styles.iconDisc,
+            styles.block,
             {
               backgroundColor: accentSoftColor,
               borderColor: accentColor,
+              height: visualHeight,
               opacity: completed ? 0.72 : 1,
             },
           ]}
         >
-          {icon}
-          {completed ? (
-            <View style={[styles.completionRing, { borderColor: accentColor }]} />
-          ) : null}
+          <View style={[styles.iconDisc, { borderColor: accentColor }]}>{icon}</View>
+          <View style={styles.copy}>
+            <Text numberOfLines={1} style={[styles.title, { color: textColor }]}>{title}</Text>
+            <Text numberOfLines={1} style={[styles.time, { color: accentColor }]}>{timeLabel}</Text>
+          </View>
         </View>
       </View>
     </GestureDetector>
@@ -116,29 +110,43 @@ const styles = StyleSheet.create({
   touchTarget: {
     position: 'absolute',
     zIndex: 4,
-    alignItems: 'center',
+    paddingHorizontal: 3,
   },
-  durationBar: {
-    position: 'absolute',
-    width: 2,
-    borderRadius: 999,
+  block: {
+    width: '100%',
+    borderWidth: 1,
+    borderLeftWidth: 3,
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    gap: 8,
+    overflow: 'hidden',
   },
   iconDisc: {
-    width: ICON_SIZE,
-    height: ICON_SIZE,
-    borderRadius: ICON_SIZE / 2,
+    width: 24,
+    height: 24,
+    borderRadius: 8,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  completionRing: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
-    bottom: -4,
-    left: -4,
-    borderRadius: 17,
-    borderWidth: 1.5,
-    opacity: 0.62,
+  copy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 1,
+  },
+  title: {
+    fontSize: 12,
+    lineHeight: 15,
+    fontFamily: 'Inter_700Bold',
+    fontWeight: '700',
+  },
+  time: {
+    fontSize: 10,
+    lineHeight: 12,
+    fontFamily: 'Inter_600SemiBold',
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
   },
 });

@@ -11,7 +11,20 @@ import type { WorkoutSetDetails } from '../utils/workoutSet';
 import { getMostRecentSessionSets } from '../utils/workoutSet';
 import { computePotentialStats, parseHabitPotentialMeta, type PotentialStatResult } from '../utils/potential';
 import {
+  primaryEntityId,
+  parseActionRow,
+  actionSubtitle,
+  buildActionFeed,
+  type ActionDetails,
+  type ActionRow,
+  type LogActionInput,
+  type FeedEntry,
+  type FeedSource,
+} from '../utils/actions';
+import {
   domainScore,
+  domainMaintenance,
+  NO_PILLAR_MAINTENANCE_BASELINE,
   overallPotential,
   MISSION_CONTRIBUTION_DEFAULTS,
   ACHIEVEMENT_CONTRIBUTION_DEFAULTS,
@@ -1544,10 +1557,10 @@ export function computeDomainMaintenance(
   statsForArea?: Item[],
 ): number {
   const stats = statsForArea ?? getPotentialStatsForArea(areaId);
-  if (stats.length === 0) return 0;
+  if (stats.length === 0) return NO_PILLAR_MAINTENANCE_BASELINE;
   const results = getPotentialStatResultsForArea(areaId, today, completedDatesByHabitId, allHabits, stats);
   const percents = stats.map((stat) => results[stat.id]?.percent ?? 0);
-  return percents.reduce((sum, p) => sum + p, 0) / percents.length;
+  return domainMaintenance(percents);
 }
 
 export function computeDomainScore(
@@ -1797,6 +1810,75 @@ export function undoLastHabitSample(habitId: string): void {
     [habitId]
   )[0];
   if (last) getDb().runSync(`DELETE FROM activityLogs WHERE id = ?`, [last.id]);
+}
+
+// --- Actions --------------------------------------------------------------
+// An Action is a lightweight event in the generic activityLogs table
+// (actionType 'action'), NOT a new item type and NOT a scoring input — logging
+// an action never writes domainContributions or touches proficiency. See
+// utils/actions.ts for the pure types/helpers and the Actions page.
+
+export function logAction(input: LogActionInput): string {
+  const { occurredAt: _ignored, ...details } = input;
+  return logActivity(primaryEntityId(details), 'action', JSON.stringify(details));
+}
+
+export function getActions(limit?: number): ActionRow[] {
+  const rows = getDb().getAllSync<ActivityLog>(
+    `SELECT * FROM activityLogs WHERE actionType = 'action' ORDER BY timestamp DESC${limit ? ' LIMIT ?' : ''}`,
+    limit ? [limit] : []
+  );
+  return rows.map(parseActionRow);
+}
+
+export function updateAction(id: string, patch: Partial<ActionDetails>): void {
+  const row = getDb().getAllSync<ActivityLog>(
+    `SELECT * FROM activityLogs WHERE id = ? AND actionType = 'action'`,
+    [id]
+  )[0];
+  if (!row) return;
+  const current = parseActionRow(row);
+  const { id: _i, entityId: _e, timestamp: _t, ...details } = { ...current, ...patch };
+  getDb().runSync(`UPDATE activityLogs SET details = ?, entityId = ? WHERE id = ?`, [
+    JSON.stringify(details),
+    primaryEntityId(details),
+    id,
+  ]);
+}
+
+export function deleteAction(id: string): void {
+  getDb().runSync(`DELETE FROM activityLogs WHERE id = ? AND actionType = 'action'`, [id]);
+}
+
+// Unified, read-only "everything I've done" feed: logged actions + habit
+// check-ins + completed tasks + medication doses + routine steps, newest-first.
+// Normalization/sort/limit is the pure buildActionFeed (utils/actions.ts).
+export function getActionFeed(limit?: number): FeedEntry[] {
+  const db = getDb();
+  const entries: FeedEntry[] = [];
+
+  for (const a of getActions()) {
+    entries.push({ id: a.id, source: 'action', title: a.title, timestamp: a.timestamp, subtitle: actionSubtitle(a), entityId: a.entityId });
+  }
+  // Habit check-ins, medication doses, routine steps: activityLogs joined to
+  // the entity's title. Task completions: items table by completedAt.
+  const logRows = db.getAllSync<{ id: string; actionType: string; timestamp: number; title: string | null; entityId: string }>(
+    `SELECT al.id, al.actionType, al.timestamp, al.entityId, i.title
+       FROM activityLogs al LEFT JOIN items i ON i.id = al.entityId
+      WHERE al.actionType IN ('completed-occurrence', 'medication-taken', 'routine-step-completed')`
+  );
+  for (const r of logRows) {
+    const source: FeedSource = r.actionType === 'medication-taken' ? 'medication' : r.actionType === 'routine-step-completed' ? 'routine' : 'habit';
+    const subtitle = source === 'medication' ? 'Dose taken' : source === 'routine' ? 'Routine step' : 'Habit check-in';
+    entries.push({ id: r.id, source, title: r.title ?? subtitle, timestamp: r.timestamp, subtitle, entityId: r.entityId });
+  }
+  const taskRows = db.getAllSync<{ id: string; title: string; completedAt: number }>(
+    `SELECT id, title, completedAt FROM items WHERE type = 'task' AND status = 'completed' AND completedAt IS NOT NULL AND deletedAt IS NULL`
+  );
+  for (const t of taskRows) {
+    entries.push({ id: t.id, source: 'task', title: t.title, timestamp: t.completedAt, subtitle: 'Task completed', entityId: t.id });
+  }
+  return buildActionFeed(entries, limit);
 }
 
 // --- Routines -----------------------------------------------------------

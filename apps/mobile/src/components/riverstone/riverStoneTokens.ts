@@ -15,17 +15,17 @@ import type {
 */
 
 const darkPalette = {
-  base: "#171A20",
+  base: "#181B21",
 
-  upperAmbient: "rgba(225,230,238,0.16)",
+  upperAmbient: "rgba(230,236,244,0.18)",
 
-  edgeCatch: "rgba(255,255,255,0.16)",
+  edgeCatch: "rgba(255,255,255,0.18)",
 
-  lowerOcclusion: "rgba(0,0,0,0.34)",
+  lowerOcclusion: "rgba(0,0,0,0.42)",
 
-  contactShadow: "rgba(0,0,0,0.42)",
+  contactShadow: "rgba(0,0,0,0.50)",
 
-  ambientShadow: "rgba(0,0,0,0.22)",
+  ambientShadow: "rgba(0,0,0,0.30)",
 };
 
 const lightPalette = {
@@ -105,71 +105,71 @@ const variants: Record<
   },
 
   list: {
-    borderRadius: 18,
+    borderRadius: 20,
 
-    upperLightOpacity: 0.20,
-    lowerOcclusionOpacity: 0.22,
-    edgeCatchOpacity: 0.05,
+    upperLightOpacity: 0.24,
+    lowerOcclusionOpacity: 0.28,
+    edgeCatchOpacity: 0,
 
-    contactShadowOpacity: 0.14,
-    ambientShadowOpacity: 0.07,
+    contactShadowOpacity: 0.44,
+    ambientShadowOpacity: 0.30,
 
-    contactShadowY: 2,
-    ambientShadowY: 5,
+    contactShadowY: 6,
+    ambientShadowY: 14,
 
-    contactShadowBlur: 4,
-    ambientShadowBlur: 11,
+    contactShadowBlur: 11,
+    ambientShadowBlur: 34,
   },
 
   card: {
-    borderRadius: 26,
+    borderRadius: 28,
 
-    upperLightOpacity: 0.22,
-    lowerOcclusionOpacity: 0.18,
-    edgeCatchOpacity: 0.05,
+    upperLightOpacity: 0.28,
+    lowerOcclusionOpacity: 0.24,
+    edgeCatchOpacity: 0,
 
-    contactShadowOpacity: 0.18,
-    ambientShadowOpacity: 0.10,
+    contactShadowOpacity: 0.50,
+    ambientShadowOpacity: 0.36,
 
-    contactShadowY: 3,
-    ambientShadowY: 7,
+    contactShadowY: 8,
+    ambientShadowY: 20,
 
-    contactShadowBlur: 5,
-    ambientShadowBlur: 15,
+    contactShadowBlur: 14,
+    ambientShadowBlur: 44,
   },
 
   hero: {
     borderRadius: 34,
 
-    upperLightOpacity: 0.30,
-    lowerOcclusionOpacity: 0.24,
-    edgeCatchOpacity: 0.07,
+    upperLightOpacity: 0.34,
+    lowerOcclusionOpacity: 0.30,
+    edgeCatchOpacity: 0.05,
 
-    contactShadowOpacity: 0.22,
-    ambientShadowOpacity: 0.13,
+    contactShadowOpacity: 0.30,
+    ambientShadowOpacity: 0.20,
 
-    contactShadowY: 4,
-    ambientShadowY: 9,
+    contactShadowY: 5,
+    ambientShadowY: 13,
 
-    contactShadowBlur: 6,
-    ambientShadowBlur: 20,
+    contactShadowBlur: 7,
+    ambientShadowBlur: 28,
   },
 
   tray: {
     borderRadius: 38,
 
-    upperLightOpacity: 0.28,
-    lowerOcclusionOpacity: 0.28,
-    edgeCatchOpacity: 0.06,
+    upperLightOpacity: 0.32,
+    lowerOcclusionOpacity: 0.34,
+    edgeCatchOpacity: 0.045,
 
-    contactShadowOpacity: 0.25,
-    ambientShadowOpacity: 0.16,
+    contactShadowOpacity: 0.34,
+    ambientShadowOpacity: 0.24,
 
-    contactShadowY: 5,
-    ambientShadowY: 11,
+    contactShadowY: 6,
+    ambientShadowY: 15,
 
-    contactShadowBlur: 7,
-    ambientShadowBlur: 24,
+    contactShadowBlur: 8,
+    ambientShadowBlur: 32,
   },
 };
 

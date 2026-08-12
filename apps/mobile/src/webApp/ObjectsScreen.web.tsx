@@ -5,7 +5,7 @@ import { getItemsByType, createItem } from '../db/database';
 import { useDbRefresh } from '../hooks/useDb';
 import { DetailPanel } from './DetailPanel';
 import { ObjectDetailForm } from './ObjectDetailForm';
-import { webColors, webSpacing, webRadius, webFontSize } from '../theme/webTheme';
+import { webColors, webSpacing, webRadius, webFontSize, webDepth } from '../theme/webTheme';
 import type { Item, ObjectStatus } from '../db/types';
 
 const STATUS_LABELS: Record<ObjectStatus, string> = {
@@ -183,9 +183,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: webSpacing[3],
     backgroundColor: webColors.card,
-    borderRadius: webRadius.md,
-    borderWidth: 1,
-    borderColor: webColors.border,
+    ...webDepth.list,
     paddingHorizontal: webSpacing[4],
     paddingVertical: webSpacing[3],
   },

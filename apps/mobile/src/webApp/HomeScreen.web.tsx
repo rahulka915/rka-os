@@ -1,11 +1,17 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Check, Plus } from 'lucide-react-native';
 import { useHomeData, useCompletedItems } from '../hooks/useDb';
 import { updateItemStatus, createItem, formatDate } from '../db/database';
 import { DetailPanel } from './DetailPanel';
 import { ItemDetailForm } from './ItemDetailForm';
-import { webColors, webSpacing, webRadius, webFontSize } from '../theme/webTheme';
+import { WeatherWidget } from './WeatherWidget';
+import { MedicationQuickLogWidget } from './MedicationQuickLogWidget';
+import { PlanBackwardsCountdownWidget } from './PlanBackwardsCountdownWidget';
+import { HabitsQuickLogWidget } from './HabitsQuickLogWidget';
+import { PotentialRing, computeDomains, readFocus } from './PotentialOverview';
+import { webColors, webSpacing, webRadius, webFontSize, webSunset, webDepth } from '../theme/webTheme';
 import type { Item } from '../db/types';
 
 const BUCKETS: Array<{ key: 'morningItems' | 'afternoonItems' | 'eveningItems' | 'anytime'; label: string }> = [
@@ -30,6 +36,14 @@ export function HomeScreen() {
   const { items: completedItems, refresh: refreshCompleted } = useCompletedItems();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [captureText, setCaptureText] = useState('');
+  const [overall, setOverall] = useState(0);
+  const [focusLabel, setFocusLabel] = useState<string | null>(null);
+
+  useEffect(() => {
+    const { overall: nextOverall } = computeDomains();
+    setOverall(nextOverall);
+    setFocusLabel(readFocus()?.label ?? null);
+  }, []);
 
   const buckets = { morningItems, afternoonItems, eveningItems, anytime };
   const todayCount = morningItems.length + afternoonItems.length + eveningItems.length + anytime.length;
@@ -55,19 +69,30 @@ export function HomeScreen() {
     refresh();
   };
 
-  const dateLabel = new Date().toLocaleDateString('en-US', {
+  const now = new Date();
+  const dateLabel = now.toLocaleDateString('en-US', {
     weekday: 'long',
     month: 'long',
     day: 'numeric',
   });
+  const hour = now.getHours();
+  const greeting = hour < 5 ? 'Late night' : hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Home</Text>
-          <Text style={styles.dateLabel}>{dateLabel}</Text>
-        </View>
+        <LinearGradient
+          colors={[webSunset.skyTop, webSunset.skyMid, webSunset.rose, webSunset.shell]}
+          locations={[0, 0.45, 0.75, 1]}
+          style={styles.hero}
+        >
+          <View style={styles.sun} />
+          {/* Rive sunset scene mounts here — this stage is sized/toned to host it. */}
+          <View style={styles.heroText}>
+            <Text style={styles.greeting}>{greeting}</Text>
+            <Text style={styles.heroDate}>{dateLabel}</Text>
+          </View>
+        </LinearGradient>
 
         <View style={styles.statsRow}>
           <StatCard label="Inbox" value={inboxCount} />
@@ -86,6 +111,23 @@ export function HomeScreen() {
             placeholderTextColor={webColors.mutedForeground}
             style={styles.captureInput}
           />
+        </View>
+
+        <View style={[styles.progressionStrip, webDepth.list]}>
+          <PotentialRing value={overall} size={44} valueFontSize={12} labelFontSize={0} />
+          <View style={styles.progressionCopy}>
+            <Text style={styles.progressionEyebrow}>OVERALL POTENTIAL</Text>
+            <Text style={styles.progressionFocus} numberOfLines={1}>
+              {focusLabel ? `Current focus: ${focusLabel}` : 'No focus set'}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.widgetRow}>
+          <MedicationQuickLogWidget />
+          <WeatherWidget />
+          <HabitsQuickLogWidget />
+          <PlanBackwardsCountdownWidget />
         </View>
 
         {todayCount === 0 ? (
@@ -179,19 +221,41 @@ const styles = StyleSheet.create({
     paddingBottom: webSpacing[8],
     gap: webSpacing[5],
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
+  hero: {
+    height: 260,
+    borderRadius: webRadius.lg,
+    overflow: 'hidden',
+    justifyContent: 'flex-end',
+    padding: webSpacing[5],
   },
-  title: {
-    fontSize: webFontSize.xl,
+  sun: {
+    position: 'absolute',
+    top: 28,
+    left: 40,
+    width: 60,
+    height: 60,
+    borderRadius: 999,
+    backgroundColor: webSunset.sun,
+    opacity: 0.9,
+  },
+  heroText: {
+    gap: 2,
+  },
+  greeting: {
+    fontSize: 26,
     fontWeight: '700',
-    color: webColors.foreground,
+    color: '#FBF3E6',
+    textShadowColor: 'rgba(40,20,10,0.45)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
   },
-  dateLabel: {
+  heroDate: {
     fontSize: webFontSize.sm,
-    color: webColors.mutedForeground,
+    fontWeight: '600',
+    color: 'rgba(251,243,230,0.82)',
+    textShadowColor: 'rgba(40,20,10,0.45)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
   },
   statsRow: {
     flexDirection: 'row',
@@ -200,10 +264,9 @@ const styles = StyleSheet.create({
   statCard: {
     flex: 1,
     backgroundColor: webColors.card,
-    borderRadius: webRadius.md,
-    borderWidth: 1,
-    borderColor: webColors.border,
     padding: webSpacing[4],
+    ...webDepth.card,
+    borderRadius: webRadius.lg,
   },
   statValue: {
     fontSize: webFontSize.xl,
@@ -229,13 +292,40 @@ const styles = StyleSheet.create({
     fontSize: webFontSize.base,
     color: webColors.foreground,
   },
+  progressionStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: webSpacing[3],
+    backgroundColor: webColors.card,
+    borderRadius: webRadius.lg,
+    padding: webSpacing[3],
+  },
+  progressionCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  progressionEyebrow: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    color: webColors.mutedForeground,
+  },
+  progressionFocus: {
+    fontSize: webFontSize.sm,
+    fontWeight: '600',
+    color: webColors.foreground,
+  },
+  widgetRow: {
+    flexDirection: 'row',
+    gap: webSpacing[3],
+  },
   empty: {
     fontSize: webFontSize.sm,
     color: webColors.mutedForeground,
     paddingVertical: webSpacing[4],
   },
   section: {
-    gap: webSpacing[2],
+    gap: webSpacing[3],
   },
   sectionLabel: {
     fontSize: webFontSize.xs,
@@ -248,11 +338,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: webSpacing[3],
     backgroundColor: webColors.card,
-    borderRadius: webRadius.md,
-    borderWidth: 1,
-    borderColor: webColors.border,
     paddingHorizontal: webSpacing[4],
-    paddingVertical: webSpacing[3],
+    paddingVertical: webSpacing[4],
+    ...webDepth.list,
   },
   checkbox: {
     width: 18,

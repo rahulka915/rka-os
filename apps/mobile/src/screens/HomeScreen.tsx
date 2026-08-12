@@ -8,9 +8,11 @@ import * as Haptics from 'expo-haptics';
 import { AppHeader } from '../components/AppHeader';
 import { RiverStoneSurface } from '../components/riverstone';
 import { MedicationQuickLogWidget } from '../components/home/MedicationQuickLogWidget';
+import { WeatherWidget } from '../components/home/WeatherWidget';
+import { HabitsWidget } from '../components/home/HabitsWidget';
 import { TodayCard } from '../components/home/TodayCard';
 import { HomeTaskRow } from '../components/home/HomeTaskRow';
-import { useHomeData, useProjects } from '../hooks/useDb';
+import { useHomeData, useProjects, useTodayHabits } from '../hooks/useDb';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { useItemComposer } from '../components/item-composer';
 import { useOpenItem } from '../hooks/useOpenItem';
@@ -62,6 +64,7 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress }: HomeScr
   const { revision: composerRevision } = useItemComposer();
   const openItem = useOpenItem();
   const { inboxCount, todayItems, refresh } = useHomeData();
+  const { habits: todayHabits, refresh: refreshHabits } = useTodayHabits();
   const { projects } = useProjects();
   const [completingIds, setCompletingIds] = useState<Set<string>>(new Set());
   const [activeView, setActiveView] = useState<HomeView>('today');
@@ -177,9 +180,10 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress }: HomeScr
         return;
       }
       refresh();
+      refreshHabits();
       refreshHomeSummaries();
     }
-  }, [inboxOpen, composerRevision, refresh, refreshHomeSummaries]);
+  }, [inboxOpen, composerRevision, refresh, refreshHabits, refreshHomeSummaries]);
 
   // Belt-and-suspenders: some write paths (e.g. HabitsScreen's own
   // quick-create) don't go through the shared item-composer flow, so they
@@ -193,8 +197,9 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress }: HomeScr
         return;
       }
       refresh();
+      refreshHabits();
       refreshHomeSummaries();
-    }, [refresh, refreshHomeSummaries]),
+    }, [refresh, refreshHabits, refreshHomeSummaries]),
   );
 
   // Each of the 4 new lists is otherwise only refetched on save/focus (above) —
@@ -402,14 +407,18 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress }: HomeScr
 
         {activeView === 'today' && (
         <>
-        {/* Home stripped down to medication logging + the task list — every
-            other widget (Journey/Potential strip, Daily Check-In, Weather,
-            Plan Backwards countdown, Habits) removed rather than hidden, so
-            there's nothing left mounting/querying on cold start besides
-            these two. */}
-        <View style={{ marginHorizontal: 12, marginTop: 8, width: '31%' }}>
-          <MedicationQuickLogWidget isDark={isDark} />
+        {/* Widget row: Medication + Weather (Journey/Potential strip, Daily
+            Check-In, and Plan Backwards countdown stay off Home for now). */}
+        <View style={{ flexDirection: 'row', marginHorizontal: 12, marginTop: 8, gap: 8 }}>
+          <View style={{ width: '31%' }}>
+            <MedicationQuickLogWidget isDark={isDark} />
+          </View>
+          <View style={{ width: '31%' }}>
+            <WeatherWidget isDark={isDark} />
+          </View>
         </View>
+
+        <HabitsWidget habits={todayHabits} refresh={refreshHabits} isDark={isDark} />
 
         <TodayCard
           items={visibleTodayItems}

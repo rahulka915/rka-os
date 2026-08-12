@@ -41,6 +41,7 @@ export interface RiverStoneProgressProps {
   fillColor?: string;
   trackColor?: string;
   highlightColor?: string;
+  showZeroFill?: boolean;
   animate?: boolean;
   duration?: number;
   accessibilityLabel?: string;
@@ -64,6 +65,7 @@ export function RiverStoneProgress({
   fillColor,
   trackColor,
   highlightColor,
+  showZeroFill = true,
   animate = true,
   duration = 420,
   accessibilityLabel = 'Progress',
@@ -89,9 +91,13 @@ export function RiverStoneProgress({
     }
   }, [animatedProgress, clamped, duration, shouldAnimate]);
 
-  const fillProps = useAnimatedProps(() => ({
-    width: Math.max(TRACK_HEIGHT_UNITS, animatedProgress.value * 100),
-  }));
+  const fillProps = useAnimatedProps(() => {
+    const value = animatedProgress.value;
+    return {
+      width: showZeroFill || value > 0.02 ? Math.max(TRACK_HEIGHT_UNITS, value * 100) : 0,
+      opacity: showZeroFill || value > 0.02 ? 1 : 0,
+    };
+  });
   const highlightProps = useAnimatedProps(() => ({
     cx: Math.max(TRACK_HEIGHT_UNITS / 2, animatedProgress.value * 100),
     opacity: animatedProgress.value <= 0.02 ? 0 : 1,

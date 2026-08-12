@@ -4,7 +4,7 @@ import { useArchivedItems } from '../hooks/useDb';
 import { updateItemStatus } from '../db/database';
 import { DetailPanel } from './DetailPanel';
 import { ItemDetailForm } from './ItemDetailForm';
-import { webColors, webSpacing, webRadius, webFontSize } from '../theme/webTheme';
+import { webColors, webSpacing, webRadius, webFontSize, webDepth } from '../theme/webTheme';
 import type { Item } from '../db/types';
 
 export function ArchiveScreen() {
@@ -98,9 +98,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: webColors.card,
-    borderRadius: webRadius.md,
-    borderWidth: 1,
-    borderColor: webColors.border,
+    ...webDepth.list,
     paddingHorizontal: webSpacing[4],
     paddingVertical: webSpacing[3],
   },

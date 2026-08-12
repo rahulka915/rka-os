@@ -28,34 +28,39 @@ export const webColors = {
 } as const;
 
 // Injected once into <head> by webThemeController.ts's initWebTheme().
+// Aligned to the iOS "River Stone" design language (src/theme/colors.ts) so the
+// desktop web app reads as the same product as native. Brand/interactive
+// emphasis is restrained vermilion (iOS active-nav/brand accent), not amber;
+// surfaces are warm River-Stone neutrals; brass carries warning/attention.
+// Variable names are unchanged, so all 20+ web screens re-theme with no edits.
 export const WEB_THEME_CSS = `
 :root {
-  --rka-background: #FFFBEB;
-  --rka-foreground: #0F172A;
-  --rka-primary: #78716C;
-  --rka-accent: #D97706;
+  --rka-background: #F6F5F1;
+  --rka-foreground: #1C1C1E;
+  --rka-primary: #8B6936;
+  --rka-accent: #A8402C;
   --rka-card: #FFFFFF;
-  --rka-muted: #F6F6F6;
-  --rka-muted-foreground: #64748B;
-  --rka-border: #EEEDED;
-  --rka-destructive: #DC2626;
-  --rka-warning-bg: #FEF3E2;
-  --rka-warning-border: #F5D8A8;
-  --rka-warning-fg: #B45309;
+  --rka-muted: #EDEAE1;
+  --rka-muted-foreground: #6B6257;
+  --rka-border: #DCD7CB;
+  --rka-destructive: #FF3B30;
+  --rka-warning-bg: #FBEEDD;
+  --rka-warning-border: #EBD9B8;
+  --rka-warning-fg: #8B6936;
 }
 [data-theme="dark"] {
-  --rka-background: #1C1917;
-  --rka-foreground: #F5F5F4;
-  --rka-primary: #A8A29E;
-  --rka-accent: #F59E0B;
-  --rka-card: #292524;
-  --rka-muted: #26211D;
-  --rka-muted-foreground: #A8A29E;
-  --rka-border: #3F3A36;
-  --rka-destructive: #F87171;
-  --rka-warning-bg: #3A2E1A;
-  --rka-warning-border: #5C4626;
-  --rka-warning-fg: #FBBF24;
+  --rka-background: #0B0E16;
+  --rka-foreground: #F2EDE6;
+  --rka-primary: #D4B078;
+  --rka-accent: #C1503A;
+  --rka-card: #151922;
+  --rka-muted: #1C2029;
+  --rka-muted-foreground: #9A968E;
+  --rka-border: #252A34;
+  --rka-destructive: #FF5147;
+  --rka-warning-bg: #2A2416;
+  --rka-warning-border: #4A3E24;
+  --rka-warning-fg: #D4B078;
 }
 `;
 
@@ -72,10 +77,42 @@ export const webSpacing = {
 } as const;
 
 export const webRadius = {
-  sm: 8,
-  md: 12,
-  lg: 16,
+  sm: 10,
+  md: 14,
+  lg: 20,
   pill: 999,
+} as const;
+
+// Sunset "halo" for the Home hero stage that hosts the Rive scene — sampled
+// from the scene art (peach sky → warm amber → dusty rose) then melting into
+// the dark River Stone shell below, so the scene feels built into the page
+// rather than pasted onto it. Only the Home hero uses these; the rest of the
+// web app stays on the dark River Stone tokens above.
+export const webSunset = {
+  skyTop: '#F0A868',
+  skyMid: '#E8894A',
+  rose: '#C77B6B',
+  // Matches --rka-background (dark) so the halo dissolves seamlessly.
+  shell: '#0B0E16',
+  sun: '#F0E4A8',
+} as const;
+
+// River Stone depth for web surfaces — mirrors the native list/card variants in
+// src/components/riverstone/riverStoneTokens.ts (dark palette): a stacked
+// contact + ambient drop shadow plus a faint top light-catch (inset highlight),
+// so cards/rows read as raised graphite stone rather than flat fills. RN Web
+// maps `boxShadow` straight to CSS. Pair with `webColors.card` as the base.
+export const webDepth = {
+  list: {
+    borderRadius: 22,
+    boxShadow:
+      '0 6px 11px rgba(0,0,0,0.40), 0 14px 34px rgba(0,0,0,0.26), inset 0 1px 0 rgba(232,236,244,0.07)',
+  },
+  card: {
+    borderRadius: 26,
+    boxShadow:
+      '0 8px 14px rgba(0,0,0,0.46), 0 20px 44px rgba(0,0,0,0.32), inset 0 1px 0 rgba(232,236,244,0.08)',
+  },
 } as const;
 
 export const webFontSize = {

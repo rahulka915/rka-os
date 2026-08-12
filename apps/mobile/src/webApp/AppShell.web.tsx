@@ -13,6 +13,11 @@ import { MedicationsScreen } from './MedicationsScreen';
 import { WorkoutsScreen } from './WorkoutsScreen';
 import { HabitsScreen } from './HabitsScreen';
 import { SettingsScreen } from './SettingsScreen';
+import { ProfileScreen } from './ProfileScreen';
+import { RoutinesScreen } from './RoutinesScreen';
+import { DailyLogScreen } from './DailyLogScreen';
+import { PillarsScreen } from './PillarsScreen';
+import { ActionsScreen } from './ActionsScreen';
 import { useInbox } from '../hooks/useDb';
 import { webColors } from '../theme/webTheme';
 
@@ -51,6 +56,11 @@ export function AppShell() {
   else if (activeView === 'workouts') content = <WorkoutsScreen />;
   else if (activeView === 'habits') content = <HabitsScreen />;
   else if (activeView === 'settings') content = <SettingsScreen />;
+  else if (activeView === 'potential') content = <ProfileScreen />;
+  else if (activeView === 'routines') content = <RoutinesScreen />;
+  else if (activeView === 'dailylog') content = <DailyLogScreen />;
+  else if (activeView === 'pillars') content = <PillarsScreen />;
+  else if (activeView === 'actions') content = <ActionsScreen />;
   else
     content = (
       <AreasProjectsScreen

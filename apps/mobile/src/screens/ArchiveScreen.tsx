@@ -22,7 +22,7 @@ const TYPE_LABELS: Record<ItemType, string> = {
   'workout-session': 'Workout',
   meal: 'Meal',
   object: 'To Get',
-  'potential-stat': 'Potential Stat',
+  'potential-stat': 'Pillar',
   achievement: 'Achievement',
   focus: 'Focus',
   routine: 'Routine',
@@ -33,6 +33,18 @@ const TYPE_LABELS: Record<ItemType, string> = {
 };
 
 export function ArchiveScreen() {
+  return (
+    <LensSurface title="Archive">
+      <ArchiveList />
+    </LensSurface>
+  );
+}
+
+// Body-only archive list (no LensSurface chrome) so it can be embedded as a
+// segment inside Tasks as well as rendered as its own screen. Its
+// useArchivedItems hook only runs where this is mounted, so Tasks pays no
+// archive-query cost until the Archive segment is actually selected.
+export function ArchiveList() {
   const { items, refresh } = useArchivedItems();
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
@@ -88,19 +100,15 @@ export function ArchiveScreen() {
     </View>
   );
 
-  return (
-    <LensSurface title="Archive">
-      {items.length === 0 ? (
-        <View style={styles.empty}>
-          <Text style={[styles.emptyTitle, { color: palette.text }]}>Nothing archived</Text>
-          <Text style={[styles.emptySub, { color: palette.textSecondary }]}>Archived items show up here</Text>
-        </View>
-      ) : (
-        <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
-          <View style={styles.sectionRows}>{items.map(renderRow)}</View>
-        </ScrollView>
-      )}
-    </LensSurface>
+  return items.length === 0 ? (
+    <View style={styles.empty}>
+      <Text style={[styles.emptyTitle, { color: palette.text }]}>Nothing archived</Text>
+      <Text style={[styles.emptySub, { color: palette.textSecondary }]}>Archived items show up here</Text>
+    </View>
+  ) : (
+    <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
+      <View style={styles.sectionRows}>{items.map(renderRow)}</View>
+    </ScrollView>
   );
 }
 

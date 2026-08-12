@@ -133,19 +133,24 @@ function createAmbientShadowLayer(
   return {
     position: "absolute",
 
-    left: 3,
-    right: 3,
-    top: token.ambientShadowY,
-    bottom: -token.ambientShadowY,
+    left: 2,
+    right: -2,
+    top: token.ambientShadowY * 0.7,
+    bottom: -token.ambientShadowY * 1.25,
 
     ...surfaceCorners(token.borderRadius, shape),
 
     backgroundColor: token.ambientShadow,
     opacity: token.ambientShadowOpacity,
+    shadowColor: token.ambientShadow,
+    shadowOffset: { width: 0, height: token.ambientShadowY * 0.45 },
+    shadowOpacity: token.ambientShadowOpacity,
+    shadowRadius: token.ambientShadowBlur,
+    elevation: 8,
 
     transform: [
-      { scaleX: 0.985 },
-      { scaleY: 0.98 },
+      { scaleX: 0.99 },
+      { scaleY: 1.02 },
     ],
   };
 }
@@ -161,9 +166,9 @@ function createContactShadowLayer(
   return {
     position: "absolute",
 
-    left: 10,
-    right: 10,
-    bottom: -token.contactShadowY,
+    left: 12,
+    right: 8,
+    bottom: -token.contactShadowY * 1.15,
 
     height: contactHeight,
 
@@ -171,9 +176,14 @@ function createContactShadowLayer(
 
     backgroundColor: token.contactShadow,
     opacity: token.contactShadowOpacity,
+    shadowColor: token.contactShadow,
+    shadowOffset: { width: 0, height: Math.max(1, token.contactShadowY * 0.5) },
+    shadowOpacity: token.contactShadowOpacity,
+    shadowRadius: token.contactShadowBlur,
+    elevation: 4,
 
     transform: [
-      { scaleX: 0.98 },
+      { scaleX: 1.02 },
     ],
   };
 }
@@ -227,14 +237,14 @@ function createUpperAmbientPrimaryLayer(
     // face, otherwise that silhouette's edge shows up as a visible boundary
     // no matter how soft the top-to-bottom gradient fade is (a linear
     // gradient only softens vertically, not around the shape's own sides).
-    left: "-30%",
-    right: "-30%",
-    top: "-35%",
+    left: "-42%",
+    right: "-42%",
+    top: "-58%",
 
     // Deeper + level (no rotate/skew) so the fade reads as a broad, evenly
     // diffused glow — a tilted, sharper-falloff band was reading as a
     // glossy streak rather than felt light.
-    height: "88%",
+    height: "126%",
 
     borderRadius: token.borderRadius * 1.6,
 
@@ -253,11 +263,11 @@ function createUpperAmbientSecondaryLayer(
   return {
     position: "absolute",
 
-    left: "-20%",
-    right: "-5%",
-    top: "-18%",
+    left: "-34%",
+    right: "-18%",
+    top: "-40%",
 
-    height: "55%",
+    height: "92%",
 
     borderRadius: token.borderRadius * 1.4,
 
@@ -287,11 +297,11 @@ function createLowerOcclusionLayer(
   return {
     position: "absolute",
 
-    left: "-20%",
-    right: "-20%",
-    bottom: "-25%",
+    left: "-28%",
+    right: "-28%",
+    bottom: "-36%",
 
-    height: "48%",
+    height: "64%",
 
     borderRadius: token.borderRadius * 1.25,
 
@@ -311,11 +321,11 @@ function createLowerCornerOcclusionLayer(
   return {
     position: "absolute",
 
-    [side]: "-20%",
-    bottom: "-20%",
+    [side]: "-28%",
+    bottom: "-30%",
 
-    width: "50%",
-    height: "55%",
+    width: "58%",
+    height: "70%",
 
     borderRadius: token.borderRadius * 1.4,
 
@@ -341,11 +351,11 @@ function createEdgeCatchPrimaryLayer(
   return {
     position: "absolute",
 
-    left: 8,
-    right: "38%",
-    top: 4,
+    left: 10,
+    right: "34%",
+    top: 5,
 
-    height: 1.5,
+    height: 1.25,
 
     borderRadius: 999,
 
@@ -364,9 +374,9 @@ function createEdgeCatchSecondaryLayer(
   return {
     position: "absolute",
 
-    left: 14,
-    width: "18%",
-    top: 7,
+    left: 18,
+    width: "20%",
+    top: 8,
 
     height: 1,
 

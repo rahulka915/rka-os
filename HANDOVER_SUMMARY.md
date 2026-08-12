@@ -1,6 +1,212 @@
 # RKA OS — Handover Summary
-**Last Updated:** 2026-08-10
+**Last Updated:** 2026-08-13
 **Status:** Native iOS (primary, active) + a *separate, current* desktop web app (`apps/mobile/src/webApp/`, Expo web, built 2026-07-30–08-01, partial screen parity — see `apps/mobile/CLAUDE.md`'s "Desktop Web App" section). The *different, unrelated* Web PWA described in Session 1 below (Vite + React + Dexie.js, repo root) has been fully retired; that section is kept as historical record only. Do not conflate the two — one is dead, one is actively developed.
+
+---
+
+## 2026-08-13 — Pillars page + Actions model (shipped, native + web)
+
+Implemented per `docs/superpowers/specs/2026-08-13-pillars-and-actions-design.md`, in one pass across both targets.
+
+- **Pillars page** (`src/screens/PillarsScreen.tsx` + `src/webApp/PillarsScreen.web.tsx`): standalone list of every `potential-stat` — maintenance %, linked Domain, feeding-habit count, expandable per-habit contributions, create/rename/delete/link-unlink Domain, `SUGGESTED_PILLARS` quick-adds. No schema change, reuses existing DB functions only.
+- **Actions model** (no new item type, no migration): an Action is a lightweight `activityLogs` row, `actionType: 'action'`, with a typed `details` JSON (title/kind/duration/intensity/why/optional Domain-Pillar-Skill-Mission links) — this is the first place skill practice with duration/intensity/why is recordable. New DB functions in **both** `database.ts` and `database.web.ts`: `logAction`, `getActions`, `updateAction`, `deleteAction`, plus a unified read-only `getActionFeed` that merges logged Actions with habit check-ins/task completions/medication doses/routine steps, newest-first. Pure types/helpers (`ActionDetails`, `buildActionFeed`, parsing) live in `src/utils/actions.ts` (unit-tested, `actions.test.ts`). **Scoring-safe by design:** logged Actions never write `domainContributions` or touch skill proficiency — recorded + displayed only.
+- **Actions page** (`src/screens/ActionsScreen.tsx` + `src/webApp/ActionsScreen.web.tsx`): log control (capture sheet/panel) + the unified feed, newest-first; logged Actions are editable/deletable, derived feed entries are read-only.
+- **Navigation:** both are standalone top-level destinations for now — native `MenuScreen.tsx` grid tiles + `MenuStack.tsx` registration; web `Sidebar.web.tsx` `PROGRESSION_ITEMS` + `AppShell.web.tsx` routing. Later nesting (Pillars under Potential/Me, Actions near Tasks/Logbook) is tracked but not done this pass.
+- Two screen-building subagents produced the four screen files independently (native+web each); a follow-up pass fixed several wrong-token-key type errors they introduced (web screens used non-existent `webSpacing.sm/md/lg`-style keys instead of the real numeric `webSpacing[N]` scale, `webRadius.full` instead of `.pill`, a nonexistent `webColors.accentForeground`; native `ActionsScreen.tsx` used wrong radius keys; `PillarsScreen.tsx`'s `QuickCreateSheet` call used guessed prop names) — worth double-checking generated screens against the actual token shapes in `theme/webTheme.ts`/`theme/riverStone.ts` rather than assuming subagents got them right.
+- `WEB_PARITY.md` updated with both new destinations (✅/✅, no gaps this pass).
+
+---
+
+## 2026-08-12 — Clean Ronin skeleton reconciliation
+
+- Confirmed the active Rive tab is `RONIN RIG CLEAN REBUILD` in Design mode; the old Ronin and
+  CATCAT donor were not touched.
+- Re-enumerated all 22 live bones from scratch, corrected the reversed provisional arm-side names
+  by anatomy, and connected clavicles, hips, thighs, feet and toes into one pelvis-rooted hierarchy.
+- Re-query and forward-solving verified that every reparent preserved its pre-edit world-space
+  start. Both arm and leg chains are left/right symmetric within the hand-drawn tolerances.
+- With explicit user approval, duplicated the existing head bone and split its former 69.434-unit
+  run into `bone-neck 1-57670` (14.000) and `bone-head 1-57669` (55.434). The complete verified
+  centreline is now `pelvis → spine → chest → neck → head`, with the original hairline endpoint and
+  rotation preserved. The clean skeleton contains 23 bones and Timeline `1-6` remains empty.
+- No artwork was bound, hidden, reordered or deleted. Next: rigidly attach the complete new head
+  assembly to `bone-head`, preserving its internal expression layers. This was completed:
+  `RONIN-HEAD-ART 1-51970` is now a rigid child of `bone-head 1-57669`, its world placement and
+  neutral silhouette are preserved, and all eyes/brows/nose/mouth/hair/skin children remain
+  separate. Next: bind torso/pelvis/neck structural geometry. Canonical artwork spec and project
+  code were unchanged.
+- Torso/pelvis/neck binding is now complete: torso base + both canonical tunic paths jointly use
+  spine/chest; pelvis base + all 21 canonical sash paths jointly use pelvis/spine; both neck paths
+  use `bone-neck`. The first neck bind was caught as inert (zero neck influence), its two failed
+  Skin components were replaced, and all 17 neck vertices now follow the neck bone. All 27 target
+  paths contain Skin components, the test pose was restored exactly, and Timeline `1-6` is empty.
+- Next: rig and fully validate one complete arm, including structural base, deep-root coverage,
+  visible sleeve, wrist wrap and rigid hand before mirroring it.
+- The anatomical right arm is now numerically rigged: four base paths + visible sleeve + five deep
+  roots jointly use upperarm/forearm; 12 wrap paths jointly use forearm/hand; canonical `hand-R` is
+  a rigid child of the hand bone with world placement preserved. Sampled paths show healthy
+  upperarm/forearm influence and appropriate wrap blending.
+- Visual sign-off is still blocked: the Rive desktop canvas remained on a stale neutral render while
+  MCP values held the shoulder/elbow test pose and ignored live selection changes. The test rotations
+  were restored exactly and Timeline `1-6` is empty. Refresh/reopen the clean tab, re-enumerate, then
+  repeat the right shoulder/elbow visual test before mirroring the arm.
+- A user-requested second check reproduced the same split even after `focusArtboard`: MCP held the
+  obvious `-30°/-55°/20°` arm pose while the visible desktop canvas stayed neutral. Direct UI control
+  could not reach the Rive window (`noWindowsAvailable`). Neutral was restored again; no mirror work
+  was started.
+- After the user reconnected and interacted with Rive, the high-resolution right-arm pose rendered.
+  The rigged base/sleeve/wrap/canonical hand followed correctly, but an unnamed near-black hand
+  silhouette stayed at the neutral position. It was identified geometrically as direct `Custom
+  Shape 1-30083` and set to 0% as recoverable rollback-only; nothing was deleted. Other temporary
+  candidate opacities were restored to 100%. Bone values are neutral and Timeline `1-6` is empty;
+  the canvas may hold the last evaluated pose until another direct Rive click.
+- A refreshed isolation pass confirmed `LEGACY-hand-R-base 1-30424` is another stationary hand
+  duplicate and `arm-R-base` shape `1-30254` causes the orange/brown elbow triangle. Both remain at
+  0%; the retained right sleeve/wrap/hand stack bends without a hole.
+- Mirrored the left sleeve/wrap/hand rig and rigid-parented canonical `hand-L 1-29075` with world
+  placement preserved. A `45°/70°/-20°` test exposed stationary duplicate hands (`1-30050`,
+  `1-30326`) plus three base and three deep-root shapes that extruded beyond the silhouette. Those
+  candidates remain recoverably at 0%, not deleted. The retained visible stack passes without holes
+  or stationary fragments; exact neutral rotations were restored and the neutral silhouette is
+  intact.
+- Leg binding has deliberately not started. The left imported structural/deep-root candidates are
+  currently rollback-only and their intended coverage role remains unresolved. Resolve clipping or
+  reconstruction versus superseded-duplicate status before treating the complete-arm gate as passed.
+  Project code and the canonical artwork specification remain unchanged.
+
+## 2026-08-12 — "Potential Stats" → **Pillars** (product rename + optional/first-class model)
+
+- **Terminology:** all user-facing "Potential Stat"/"Stat(s)" copy is now **Pillar/Pillars** on both native and web. The internal item `type` stays `'potential-stat'` and all code symbols (`getPotentialStats`, `metadata.potentialStat`, `PotentialStatResult`, relation `'potentialStatArea'`, etc.) are **unchanged** — no DB migration, no data touched. "Pillar" is purely the product term.
+- **Model shift:** Pillars are now framed as **optional, first-class maintenance/capacity areas, mostly Health & Fitness** (Skin, Oral Health, Hair & Grooming, Sleep, Hydration, Nutrition, Physique, Strength, Stamina, Mobility) — **not** a required child of every Domain. Finance/Relationships/Discipline/Growth/Creativity/Career are expected to have **no** Pillars and are driven by Missions/Skills/Achievements/reflection instead. Habits can feed a Pillar whether or not it's linked to a Domain (already true in the data layer via the `potentialStatArea` relation).
+- **Scoring safety (the one real logic change):** a Domain with **no linked Pillars** used to get maintenance `0`, which read as a "0% failure" and dragged Overall Potential down. New shared pure helper `domainMaintenance(percents)` + `NO_PILLAR_MAINTENANCE_BASELINE = 10` (`src/utils/domainScoring.ts`) give a Pillar-less Domain a neutral **10% maintenance floor** that Mission/Achievement/Skill lift floats above. Domains **with** Pillars are unchanged (same average-of-streaks maintenance as before). Applied in native `computeDomainMaintenance` (`database.ts`) and web `computeDomainScoreApprox` (`PotentialOverview.web.tsx`). New tests in `domainScoring.test.ts` (18 pass).
+- **Neutral UI states:** `AreaDetailScreen.tsx` (native) and `DomainMissionDetailForm.web.tsx` (web) now show "No Pillars tracked for this Domain — Pillars are optional…" instead of implying failure, and the score caption explains a Pillar-less Domain's score comes from Missions/achievements, not daily maintenance.
+- **Suggestions, not auto-creation:** `SUGGESTED_PILLARS` (grouped Health & Wellbeing / Fitness & Performance, `src/utils/potential.ts`) is offered as optional quick-adds in the native "Add Pillar" action sheet. **Nothing is auto-created** — the legacy 4-stat `migratePotentialStats` back-compat seed is deliberately left as-is (expanding it would auto-seed Pillars for every existing user, the opposite of the intent). Onboarding's per-Domain Pillar field stays optional and is relabeled + steered toward Health/Fitness.
+- **Future Actions model (product direction, NOT shipped):** see `apps/mobile/CLAUDE.md` "Actions model (planned)". Actions = umbrella for planned/done things; Tasks = planned actions; habit check-ins = recurring action logs; Skill practice logs should eventually carry duration/type/intensity/why; most actions should optionally answer "why?" and link to Domain/Pillar/Skill/Mission. Not implemented.
+- **Verification:** `domainScoring`/`potential`/`habitMeta` tests pass (33); `npx tsc --noEmit` clean on all touched files (ignoring known `.web.tsx` platform-extension false alarms).
+
+---
+
+## 2026-08-12 — Nav consolidation round 2 (Routines→Habits, Archive→Tasks)
+
+- **Routines folded into Habits** on both targets. Native (`HabitsScreen.tsx`): a "Routines →" header link (Workouts→Trends idiom), Routines tile removed from `MenuScreen.tsx`. Web (`HabitsScreen.web.tsx`): a "Routines" segmented tab rendering the unchanged `RoutinesScreen`, removed from `Sidebar.web.tsx` `PROGRESSION_ITEMS`.
+- **Archive folded into Tasks** on both targets as a third segment (Tasks/Logbook/Archive). Native: extracted a body-only `ArchiveList` from `ArchiveScreen.tsx` (keeps `useArchivedItems` lazy — only queries when the segment is open, per the cold-start guardrail) and rendered it in `TasksScreen.tsx`'s new archive branch; Archive tile removed from `MenuScreen.tsx`. Web: renders the unchanged `ArchiveScreen` in `TasksScreen.web.tsx`'s archive branch, removed from `Sidebar.web.tsx` `NAV_ITEMS`.
+- All four screens (`RoutinesScreen`/`ArchiveScreen`, native + web) remain registered/reachable; only their top-level nav entries moved.
+- Docs synced: `apps/mobile/WEB_PARITY.md`.
+- Verification: `npx tsc --noEmit` clean on all touched files (ignoring the known `.web.tsx` platform-extension false alarms). Web app is behind a Firebase login gate, so no authenticated visual smoke-test was run.
+
+---
+
+## 2026-08-12 — Cross-target navigation consolidation (native ↔ web parity)
+
+- Brought native's top-level navigation in line with the web sidebar consolidation so both targets share the same "these aren't standalone destinations" logic (navigation *model* still differs — bottom tabs + a "More" grid on native, sidebar on web — which is expected variation).
+- **Native** (`MenuScreen.tsx`): removed the **Focus, Potential, Plan Backwards, Upcoming, Skills, Achievements** tiles from the "More" grid. All six screens remain registered in `MenuStack.tsx` and reachable via `navigate`.
+  - Focus / Skills / Achievements are now reached from the **Me** (Profile) tab — Focus via `PotentialOverview.tsx`'s CURRENT FOCUS row, Skills/Achievements via new link rows in `ProfileScreen.tsx`. `PotentialOverview.tsx`'s `navigate('Focus'|'Achievements')` calls now route through `navigate('Menu', { screen })` so they resolve from the Profile tab too.
+  - Plan Backwards + Upcoming are now navigate-chips in `CalendarScreen.tsx`'s view-chip row (next to Calendar/Timeline).
+- **Web**: removed the still-top-level **Upcoming** entry from `Sidebar.web.tsx` and folded it into `CalendarScreen.web.tsx` as a fourth segment (Timeline/Agenda/Plan Backwards/**Upcoming**), rendering the unchanged `UpcomingScreen.web.tsx`. (Focus/Potential/Plan Backwards/Skills/Achievements were already consolidated on web.)
+- Docs synced: `apps/mobile/WEB_PARITY.md` (new "Cross-target navigation parity pass" note + Upcoming row).
+- Verification: `npx tsc --noEmit` clean for all touched files (ignoring the known `.web.tsx` platform-extension false alarms). Web app is behind a Firebase login gate, so no authenticated visual smoke-test was run.
+
+---
+
+## 2026-08-12 — Web Potential Stats and habit maintenance wiring
+
+- Closed the web gap that blocked conversational onboarding from being entered through the preview UI: `database.web.ts` now exports `getPotentialStats()` and `createPotentialStat()`, alongside the existing Domain-link helpers.
+- Updated `DomainMissionDetailForm.web.tsx` so Domain detail can create new Potential Stats/Pillars and unlink existing ones, while keeping the Skills/Achievements/score sections intact.
+- Added `HabitPotentialEditor` in `HabitQuantifiedControls.web.tsx` and wired it into `HabitsScreen.web.tsx`, so web habits can be assigned to a Potential Stat/Pillar and given target days for 100%.
+- Updated `PotentialOverview.web.tsx` scoring from the old Mission-completion approximation to the native-style maintenance baseline: Domain score = average linked Potential Stats, each Stat = average assigned habit streak progress. Web still does not mirror native `domainContributions`, so achievement/mission/skill decay lift remains absent on web.
+- Documentation synced: `AGENTS.md`, `apps/mobile/CLAUDE.md`, and `apps/mobile/WEB_PARITY.md` now describe the web progression state accurately.
+- Verification: `npm run web:build` passes. `npm run typecheck` currently fails with a TypeScript compiler `RangeError: Maximum call stack size exceeded` and no source file, so it could not provide a useful targeted check.
+- Next: deploy the web build before expecting `https://rka-os.web.app/` to show the new controls, then use the web UI to create the starter Health/Fitness Pillars and linked habits.
+
+---
+
+## 2026-08-11 — Ronin Rive reskin structural rig + first idle
+
+- Continued the live `RONIN RIG 1` rebuild only; the shipping `apps/mobile/assets/rka_journey_rig.riv` remains unchanged.
+- Approved the right arm’s structural setup, identified the two direct near-black duplicate hand silhouettes (`1-130395`, `1-130428`) and hid them at 0% as recoverable rollback geometry. The canonical hands are rigid children of their hand bones.
+- Bound all retained character construction: arm bases/sleeves/deep roots/wraps, continuous leg bases/trousers/cuffs, pelvis/torso/tunic/sash, neck, and rigid head/face/bandana/hair. Boots are rigid children of their foot bones; original hip/thigh/shin/foot chains were preserved.
+- Verified representative arm and leg bases have non-zero two-bone influence; reparent operations preserved world positions. All old retirement candidates remain undeleted and unbound.
+- Started a bone-only `idle` clip: a 60-frame cubic, two-cycle breathing/settle loop on pelvis, spine, head and upper arms. `walk` deliberately remains empty because the rebuilt file currently has no IK targets/constraints; a convincing planted-foot walk must first restore leg IK and add the missing symmetric `bone-L-toe`.
+- Remaining validation: high-resolution artwork-only elbow/shoulder/hip/knee/ankle pose captures, particularly to check seam coverage visually. Do not claim visual sign-off merely from the numerical skin audit.
+
+---
+
+## 2026-08-12 — Muscle group icon asset folder
+
+- Added `apps/mobile/assets/icons/muscle-groups/README.md` and the `muscle-groups/` folder as the dedicated home for custom muscle-group artwork.
+- Intended filenames are the eight `MUSCLE_GROUPS` keys: `chest.png`, `back.png`, `shoulders.png`, `arms.png`, `legs.png`, `core.png`, `full-body.png`, and `cardio.png`.
+- This folder is intentionally separate from `apps/mobile/assets/exercises/`, which remains the generated individual exercise thumbnail library driven by `scripts/generateExerciseAssets.cjs`.
+- Next: drop generated transparent PNGs into this folder, then wire them into the muscle-group overview cards when the set is ready.
+
+---
+
+## 2026-08-12 — Generated domain and app-area PNG icons wired
+
+- Updated `DomainIcons.tsx` from the previous single-weight vector marks to transparent PNG wrappers for the new generated eight-Domain artwork in `assets/icons/domains/`.
+- Discipline now uses the wrapped mala replacement; Missions now resolve to the generated mountain destination artwork through the existing project icon wrappers.
+- Updated `CollectionIcons.tsx` and `TaskNoteIcon.tsx` so Habits, Routines, Skills, Tasks, To Get and Workouts use the newer generated app-area PNGs where available, while Archive, Potential and Achievements keep their approved collection PNGs.
+- Documentation synced in `AGENTS.md` and `apps/mobile/CLAUDE.md` so future icon work treats these PNGs as the current runtime baseline rather than reverting to generic vectors.
+- Verification: `git diff --check` passes. `npm run typecheck` still fails with the existing TypeScript compiler `RangeError: Maximum call stack size exceeded`, so it did not provide a targeted check for this icon-only change.
+
+---
+
+## 2026-08-12 — Domains progress indicator refinement
+
+- Adjusted `RiverStoneProgress` with a `showZeroFill` option so 0% states can render as genuinely empty recessed tracks instead of showing a minimum-width accent pill.
+- Updated `AreasScreen.tsx` so Domain-grid progress uses quiet empty tracks at 0%, restrained brass for actual progress and vermilion only for Focus/active emphasis.
+- Lightly rebalanced Domain cards for the new PNG icon baseline: slightly larger icon display, calmer score badge and a little more card padding/height so titles and artwork have room.
+- Documentation synced in `AGENTS.md` and `apps/mobile/CLAUDE.md`.
+- Verification: `git diff --check` passes. `npm run typecheck` still fails with the existing TypeScript compiler `RangeError: Maximum call stack size exceeded`, so it did not provide a targeted check for this visual/progress change.
+
+---
+
+## 2026-08-12 — RKA destination PNG refresh: Skills, Potential, Achievements, Routines
+
+- Added transparent PNG artwork under `apps/mobile/assets/icons/collections/` for four destination concepts: `skills-nodes.png`, `potential-core.png`, `achievement-medal.png`, and `routine-steps.png`.
+- Updated `CollectionIcons.tsx` with RN Image wrappers for those files and wired `MenuScreen.tsx` to use them in the Collections grid, replacing the temporary vector/SVG implementation.
+- Current directions: Skills = connected capability nodes, Potential = simplified core/orbit mark, Achievements = restrained medal, Routines = ordered numbered steps. Existing PNG/object icons for Habits, Workouts, Medications, To Get and Archive are unchanged.
+- Briefly tested a richer standalone generated PNG set, but it was too detailed and game-object-like. The runtime files were then regenerated as individual transparent PNG icons matching the simpler approved mockup-sheet style: rounded, softly dimensional, clean silhouettes, normalized 1254px transparent canvases and consistent active artwork bounds. Illustrator/vector-master exports can still replace the PNG files later without changing the app wiring.
+- Verification: `git diff --check` passes. `npm run typecheck` still fails only on known pre-existing errors: Expo web `.web.tsx` module-resolution entries and the unrelated `src/db/database.ts(1201,11)` `"skill"` type mismatch.
+- Next: review the four icons on-device in the Collections grid at real size; if they read well, replace the provisional PNGs with polished Illustrator exports using the same filenames or wrappers.
+
+---
+
+## 2026-08-11 — Warm-depth River Stone material pass promoted to production tokens
+
+- Promoted the approved cool graphite/warm-depth material direction into the shared native material tokens instead of repainting screens one by one. `RiverStoneSurface` now uses a cooler charcoal base, stronger broad upper-left illumination, deeper lower-right/contact shadowing and larger radii for list/card/hero/tray variants.
+- Adjusted the River Stone layer geometry so ambient highlight and lower occlusion extend well outside the clipped face. This specifically targets the prior task-row horizontal banding problem: the user should no longer be able to point at where the highlight layer terminates on short list rows.
+- Follow-up seam fix after on-device screenshots: River Stone now renders its main light **and** lower thickness as full-face continuous gradients in `RiverStoneSurface`, rather than finite shaped upper/lower slabs. The extra localized upper glow and lower corner slabs were removed from the render stack, and list/card/hero/tray edge-catch strokes were reduced so repeated cards do not expose a visible horizontal layer boundary.
+- Follow-up colour correction after dark/light screenshots: the full-face light/shade gradients now scale the palette colour's own rgba alpha instead of replacing it with absolute token opacity. This keeps dark surfaces graphite rather than silver/washed-out and keeps light-mode surfaces softly warm instead of muddy.
+- Final dense-surface correction: `RiverStoneSurface` now treats `list` and `card` as "everyday stone" with **no internal vertical face gradients and no edge-catch strokes at all**. Dense repeated rows/tiles rely on base graphite/stone colour, silhouette, stronger backing/contact shadows and a subtle full-perimeter boundary; larger hero/tray surfaces can still carry broader continuous lighting. This is the hard rule for avoiding visible two-layer bands in grids and task lists.
+- Kept icon treatment intentionally unchanged in this pass. Collection/destination icons still keep their semantic object colours; the material system governs the stone/iron surfaces around them, while brass/vermilion remain sparse state/action accents.
+- Synced the older `theme/riverStone.ts` tray/header constants with the same depth direction so the bottom navigation and header chrome stay visually related to the updated cards.
+- Cooled the dark app background tokens from purple-black toward sumi blue-black (`#0B0E16`) and updated dark stone surface to `#181B21`.
+- Small Tasks screen cleanup: the filter/status chip now uses a cooler iron-like fill, subtle inactive boundary and soft depth instead of a flat dark rectangle.
+- Verification: `git diff --check` passes. `npm run typecheck` still fails only on known pre-existing errors: Expo web `.web.tsx` module-resolution entries and the unrelated `src/db/database.ts(1201,11)` `"skill"` type mismatch.
+- Next: review Collections, Tasks, Potential/Profile and the bottom dock on-device; tune token strength if the shadows feel too heavy, then do a separate controlled icon-standard pass rather than bundling icon replacement into material adoption.
+
+---
+
+## 2026-08-11 — Material Sheet workbench for RKA.OS material-language exploration
+
+- Added `apps/mobile/src/components/dev/MaterialSheetWorkbench.tsx`, a contained native dev workbench for comparing the proposed Washi/Sumi, River Stone, Blackened Iron, Urushi Lacquer and Gold/Brass material roles against real RKA.OS content patterns.
+- Wired it into `SettingsScreen.tsx` under the existing `__DEV__` "DEV TOOLS" section as an expandable "Material sheet" panel, alongside the existing Hero environment registration workbench.
+- The sheet intentionally does **not** change production surfaces yet. It includes repeated River Stone task rows for seam/banding checks, collection tiles using existing collection artwork, a TimelinePaper washi sample, and first-pass iron/urushi/brass swatches for discussion/tuning.
+- Verification: `npm run typecheck` still fails only on pre-existing project errors: Expo web `.web.tsx` module-resolution false alarms and the unrelated `src/db/database.ts(1201,11)` `"skill"` type mismatch. The new Material Sheet error found on the first run was fixed.
+- Next: review the sheet on-device in dark mode first, tune material physics/tokens, then decide whether to prototype a reusable `MaterialSurface` API before applying changes to real screens.
+
+---
+
+## 2026-08-10 — Calendar and Timeline planning-drawer refresh
+
+- `CalendarScreen.tsx` now keeps the Month grid compact and shows a selected-day mini agenda below it. Date selection remains in the Calendar instead of immediately switching modes; the agenda opens Timeline only when the user chooses it.
+- Replaced the top, full-height Timeblocking overlay with a River Stone bottom planning drawer: a compact persistent `Plan your day · N unscheduled` control above the global dock expands into a lower-half sheet with a grab handle, `Unscheduled` and `Anytime Today` groups, a clear collapse control and restyled, compact planning-queue rows. Rows now show type/status (`Task · Unplanned`, etc.), a restrained type mark and a drag grip instead of repeated `No date` labels.
+- A selected day with no timed blocks now gets an in-grid "Your day is open" prompt and a direct `Plan a block` path instead of a featureless empty timeline.
+- Timeline now stays on one selected day; its header arrows step one day at a time. Drag behavior is unchanged within that day: while dragging, the drawer yields to the 15-minute timeline grid.
+- Removed the continuous-timeline remnants: the between-day paper wave, `Block now` header and category-lane icon strip. Scheduled items now occupy one clean timeline column, while their accent colour still communicates type.
+- Refined the day chrome: the header now reads as one compact date (`Tue, Aug 11`), Calendar/Timeline is a restrained segmented control, midnight is no longer clipped, and a `23:59` end marker closes the grid. Timeline events now render as compact labelled blocks with icon, title and time rather than isolated pins.
+- Verification: `git diff --check` and `npx expo export -p ios` pass (the export still prints the existing React Native package-exports warnings). `npm run typecheck` still stops on the pre-existing Expo-web extension/module-resolution errors and the unrelated `database.ts` skill contribution type mismatch; it reports no CalendarScreen error.
+- Next: validate the compact queue and one-day drag behavior on an iPhone development build with real long task titles and Dynamic Type.
 
 ---
 
@@ -1551,3 +1757,217 @@ PWA-specific docs (`FIX_LOG.md`, `AUDIT_LOG.md`, `SCROLL_*.md`, `IOS_BOTTOM_NAV.
 - Follow-up after the user still felt lag on clean cold reopen: Home was still preloading **all** secondary tabs (`Upcoming`, `Anytime`, `Someday`, `Logbook`) plus Potential on first mount even though the initial view is Today. Fixed by lazy-loading only the selected secondary tab, replacing `getItemsByType('task')` + JS filters with indexed `getAnytimeTaskItems`/`getSomedayTaskItems`, indexing the Logbook order (`status, deletedAt, completedAt DESC, updatedAt DESC`), and deferring the initial Potential/focus summary through `InteractionManager.runAfterInteractions`.
 - App-wide follow-up scan found the same hidden-tab shape in two other places and one broad task scan in an interactive flow. `HomeScreenExperimental` now matches Home's lazy secondary-list behavior and skips its duplicate mount refreshes; `TasksScreen` no longer hydrates completed Logbook rows while the Tasks segment is active; `useTasks`/Daily Check-In suggestions now use indexed `getActiveTaskItems()` instead of fetching all task rows and filtering in JS.
 - `npm test` remains blocked by the pre-existing deleted Ronin manifest fixture, and `npm run typecheck` remains blocked by pre-existing desktop-web module resolution errors plus the existing `"skill"` contribution type mismatch.
+
+# 2026-08-11 — Ronin mountain-home Illustrator organisation and SVG export
+
+- Preserved the organised Illustrator state as `Illustrator Documents/26-organized-scene.ai`, leaving the older saved `26.ai` untouched. The new source has a visible `SCENE_EXPORT_2340x1080` layer and a locked, hidden `ASSET_LIBRARY_HIDDEN` layer; off-artboard source groups and placed/raster references remain recoverable rather than being deleted.
+- Renamed previously unnamed top-level scene and library objects with stable indexed identifiers while preserving existing internal Ronin part names and the assembled scene positions.
+- Added `apps/mobile/ronin-artwork/exports/ronin-mountain-home-scene.svg`, exported at the Rive-matched 2340×1080 canvas with presentation attributes and a normalised SVG coordinate origin.
+- Removed linked/raster content, hidden library artwork and Illustrator-only editability metadata from the deliverable; final SVG size is approximately 604 KB.
+- Verification: rendered the local SVG in headless Chrome at 1170×540 and confirmed the sunset gradient, mountains, deck layers, Ronin and visible scene props retain the intended composition and stacking. Re-opened/audited the saved organised AI source: 2340×1080, two expected layers, 23 visible scene roots, 59 hidden library roots and 3,271 total Illustrator objects. The Rive file and runtime code remain unchanged.
+- Next: provide Claude the scene SVG for inspection/import planning; import the Ronin geometry incrementally according to `RONIN_RESKIN_PLAN.md`, keeping environment artwork separate from the character rig where practical.
+
+# 2026-08-12 — Ronin rigid-art draw-order recovery
+
+- Diagnosed the missing face/hair/boots and apparently detached hands as a Rive hierarchy/draw-order regression: rigid artwork parented under the rebuilt root-bone tree was being occluded by the imported scene/character stack.
+- Restored hands, boots and head artwork to the character's visual stack; hands are confirmed single-bone weighted to their hand bones. Boot and head-detail single-bone binding is in progress/being verified rather than relying on hierarchy parenting.
+- Reconstructed the head draw order so the head base sits behind facial components, rear hair sits behind the head, and front hair remains on top. Restored the actual bright bandana and skin-tone ear detail shapes; changed the broad bandana base to rust red `#a9321b`.
+- No rollback geometry was deleted. Walk authoring remains held until the complete idle/rig visual validation and leg IK/toe symmetry work are complete.
+# 2026-08-12 — Ronin head-v2 live Rive attachment
+
+- Audited the newly imported vector head in the open `RONIN RIG 1` artboard through the live Rive MCP.
+- Confirmed one root assembly with eight direct visual children: hair/ears/bandana, neutral L/R eyes, nose,
+  mouth, L/R brows, and skin base.
+- Renamed the root to `head-v2-visual-assembly` (`1-177493`) and the generated mouth name to `mouth-neutral`
+  (`1-182572`).
+- Rigidly parented the complete head assembly to `bone-head` (`1-168972`) while preserving world placement;
+  internal facial draw order was left untouched.
+- Found that the old `head-visual-assembly` (`1-128131`) had not actually been removed and remained visible at
+  100%; hid the complete old assembly at 0% non-destructively. Its artwork remains recoverable.
+- Restored the head bone to its exact neutral rotation (`-0.9786318661156178°`).
+- Updated `apps/mobile/RONIN_RIVE.md` with the replacement IDs and explicitly retired the removed old head stack.
+- Verification remaining: inspect rendered idle and a controlled head rotation for draw-order correctness before
+  facial-expression authoring; then finish body deformation validation and rebuild leg IK before walk animation.
+
+## Follow-up — visible re-import and first walk pass
+
+- The user re-imported the head after the earlier copy remained invisible. Audited the newest root as
+  `1-188856`, including the previously omitted `neck-v2-base` child.
+- Renamed it `head-v2-visual-assembly`, rigidly parented it to `bone-head`, sent the whole pelvis/skeleton branch
+  to the artboard front, and hid both older head assemblies at 0% without deleting them.
+- Found and removed three accidental frame-35 idle transform keys that moved the new head far off-canvas, plus
+  two accidental frame-35 pelvis sampling keys. The intended idle keys remain.
+- Authored the first 60-frame front-facing `walk` pass: 60 cubic keys, 12 skeleton objects, no artwork keyed.
+  It includes pelvis bounce, torso/head stabilization, alternating thigh/knee motion, foot roll, R-toe motion,
+  and counter-swinging arms.
+- True planted-foot IK is still blocked by absent IK constraints, missing L toe, and no exposed safe constraint
+  creation command in the live MCP. The authored walk is a visual locomotion prototype pending rendered review,
+  not final foot-plant locomotion.
+
+## Follow-up — head placement and retained-leg path audit
+
+- Diagnosed the newest head root (`1-188856`) at artboard `(0,0)` after the user re-added it. Restored its known
+  stage transform (x=1130.34, y=760.11, r=-90.455°, opacity 100). It is visible at the artboard root but still
+  needs a final draw-order-safe head-bone-follow solution and rendered validation.
+- Re-derived every live `PointsPath` from the retained leg groups instead of relying on stale Illustrator/Rive
+  shape IDs. Confirmed 53/53 leg-base, trouser and shinband paths carry the intended same-side bone chains.
+- Found `boot-R` partially cross-bound: one path used R-foot while fifteen used L-foot. Rebound and jointly
+  rigid-weighted all 16 right-boot paths to `bone-R-foot`; boot-L remains correctly L-foot bound.
+- No artwork or rollback geometry was deleted. Walk refinement remains held for controlled assembled-leg and
+  head-follow visual tests, then symmetric toe/IK work.
+
+## Follow-up — complete coverage-geometry correction
+
+- User-provided walk screenshots proved that the retained-group audit was too narrow: concealed reconstruction
+  shapes were remaining at their neutral positions while the rigged top artwork moved.
+- Full live traversal found 51 currently visible, unbound paths across complete tunic underlayers, body coverage,
+  sleeve details, lower tunic, legacy hand bases and legacy trouser/cuff groups. These are now explicitly
+  unclassified coverage candidates; none should be retired merely because it looks redundant in neutral pose.
+- Confirmed the deliberate sleeve deep roots are correctly skinned (5 right, 3 left).
+- Removed three erroneous direct artwork keys (x/y/rotation at walk frame 4) from the artboard-root head-v2
+  assembly. The head needs a draw-order-safe bone-follow solution before walk playback resumes.
+- No coverage artwork was deleted or hidden in this correction. Next work must classify one region at a time
+  through isolation plus extreme-joint deformation, then bind required coverage or hide proven duplicates.
+
+## Follow-up — full Ronin rig coverage audit through step 8
+
+- Completed the region-by-region live hierarchy/binding audit before resuming animation work.
+- Classified the 51 previously ambiguous unbound paths. Old hand silhouettes, legacy trouser/cuff groups,
+  flattened REVIEW composites/details, fragmented complete-tunic groups and the old lower-tunic path are retained
+  as rollback geometry at 0% opacity rather than deleted or allowed to remain as stationary visible fragments.
+- Kept the canonical visible clothing plus continuous torso, pelvis, arm and leg structural bases and deep sleeve
+  roots. Confirmed the current arms, hands, legs, trousers, cuffs, boots, torso, pelvis and sash have their intended
+  bone-follow strategy.
+- Reparented newest `head-v2-visual-assembly` (`1-188856`) under `bone-head` while preserving its stage position;
+  all face/hair/ears/bandana/skin/neck children now share the head transform. Earlier head stacks remain hidden and
+  recoverable. Direct artwork keys were removed from `walk` so only the head bone drives it.
+- Exercised extreme head/shoulder/elbow/hip/knee/ankle rotations with rollback-only geometry hidden, then restored
+  every tested bone to its recorded neutral value.
+- Step 8 is reached: animation work may resume. The existing walk is still a prototype; genuine foot planting is
+  blocked on symmetric left-toe topology and creation of foot-target/IK constraints, so that is the next animation
+  engineering task rather than further keyframe polish on the current non-IK cycle.
+
+## Follow-up — live head, hand and draw-order correction
+
+- Reopened the step-8 verdict after playback showed the head displaced/rotated, its face absent, a visible hand
+  left behind and brown coverage geometry drawing over clothing.
+- Removed three remaining accidental direct `walk` frame-57 transform keys from head-v2 and restored its proven
+  local transform under `bone-head`. Reordered head children so neck/skin sit behind the face and the combined
+  hair/ears/bandana overlay sits foremost.
+- Removed accidental direct `walk` frame-3 transform keys from both visible hands and rigidly reparented them to
+  their corresponding hand bones.
+- Re-established the intended visual stack: structural torso/pelvis/arm bases and sleeve roots behind; canonical
+  tunic, sleeves, trousers, cuffs, sash, wraps and boots in front. Rollback-only artwork remains recoverable at
+  0%; no artwork or paths were deleted.
+
+## Follow-up — neutral-construction audit reopened
+
+- Rechecked the live artboard after the user removed the visible state work. `State Machine 1` and all ten linear
+  animations are still present in the active file, and the editor remains in an evaluated state-machine preview.
+  Consequently, structural transform writes can appear to snap back and the visible canvas is not a reliable
+  neutral-pose reference.
+- Completed a path-by-path Skin scan of the canonical arm bases, sleeves, deep sleeve roots, wraps, leg bases,
+  trousers, cuffs, tunic and neck. All canonical deforming paths are bound; both visible hands remain rigid children
+  of their hand bones. The problem is therefore not a wholesale absence of Skin on retained artwork.
+- Reasserted visual draw order with structural torso/pelvis/arm/leg bases and deep roots behind the visible tunic,
+  sleeves, trousers, cuffs, wraps and sash. Rollback-only geometry remains hidden and recoverable; nothing was
+  deleted.
+- Revoked the earlier step-7/step-8 animation-readiness verdict because the newest head remains displaced/ghosted in
+  the evaluated preview. Next work must first enter a genuinely neutral Design canvas, lock the head assembly's
+  neutral transform, and perform clean artwork-only deformation captures before any walk or IK authoring.
+
+# 2026-08-12 — Tier 2 custom icon production batch
+
+- Created production-ready transparent PNG assets under `apps/mobile/assets/icons/domains/` using the approved Tier 2
+  soft sculpted object language and the Medication bottle as the quality benchmark.
+- Domain icons added: Health & Wellbeing anatomical heart, Finance stacked coins, Career briefcase, Fitness &
+  Performance simplified brown/orange bicep with red wrist wrap, Discipline target, Growth sprout, Creativity thin
+  paintbrush, Relationships interlocking rings.
+- Collection/navigation icons added: Skills skill tree, Missions mountain, Routines stone ring, Tasks clipboard,
+  Workouts dumbbell, Habits red repeat arrows, To Get shopping trolley.
+- Saved individual large keyed source renders in `apps/mobile/assets/icons/domains/source/`; contact sheets saved as
+  `domain-icons-contact-sheet.jpg` and `collection-navigation-icons-contact-sheet.jpg` for visual QA only.
+- Verification: every final PNG is RGBA `1254x1254`, has transparent corners, was trimmed to visible artwork, then
+  normalized back to the standard square canvas with approximately `1050px` active artwork while preserving aspect
+  ratio. No runtime component wiring was changed in this pass.
+- Next steps: decide whether these new collection/navigation assets should replace the currently wired
+  `apps/mobile/assets/icons/collections/` artwork and, if so, update `CollectionIcons.tsx`/web navigation artwork in a
+  separate wiring pass with visual smoke tests.
+
+## Follow-up — native regenerated semantic icon refinements
+
+- Regenerated the semantic refinements as individual native image-generation passes, rather than relying on painted
+  overlays on the previous masters.
+- Regenerated and normalized: Health with integrated cream ECG line, Discipline wrapped mala, Creativity with one red
+  paint stroke, Relationships with compact handshake above interlocking rings, Habits repeat arrows with integrated
+  cord/bead, Skills tree with clearer connected nodes and distinct leaf/trunk greens, Tasks clipboard with stronger
+  three-row checklist, To Get silver trolley, Workouts red-plate/black-handle dumbbell, Missions mountain/cloud
+  arrangement, and Routines stone ring with more intentional red bindings.
+- Unchanged-approved assets retained: Finance coins, Career briefcase, Fitness & Performance bicep and Growth sprout.
+- Saved regenerated keyed sources as `apps/mobile/assets/icons/domains/source/*-native-regenerated-source.png`; previous
+  finals are preserved as `source/*-before-native-regeneration.png` where replaced.
+- Verification: regenerated `tier2-icons-native-regenerated-contact-sheet.jpg`; every final checked icon remains RGBA
+  `1254x1254` with transparent corners and no baked background.
+
+## Follow-up — Creativity brush reference replacement
+
+- Regenerated only `creativity-thin-paintbrush.png` using the user-provided chunky painter's brush reference: dark
+  navy/charcoal rounded handle, brass ferrule/end cap, red bristles and broad red paint swooshes.
+- Kept the icon in the same Tier 2 smooth sculpted object language and preserved the production pipeline: chroma-key
+  source, clean alpha, trim, and normalized `1254x1254` transparent PNG with approximately `1050px` active artwork.
+- Saved provenance as `source/creativity-thin-paintbrush-reference-brush-source.png` and preserved the prior final as
+  `source/creativity-thin-paintbrush-before-reference-brush-regeneration.png`.
+- Verification: refreshed `tier2-icons-native-regenerated-contact-sheet.jpg`; all checked finals still have transparent
+  corners and no baked background.
+
+## Follow-up — Health two-colour reference replacement
+
+- Regenerated only `health-wellbeing-heart.png` using the user-provided reference's simplified colour hierarchy:
+  warm red heart body with warm cream/off-white vessels and ECG line.
+- Kept it as a standalone transparent Tier 2 object, not the reference card/text treatment.
+- Saved provenance as `source/health-wellbeing-heart-two-color-reference-source.png` and preserved the prior final as
+  `source/health-wellbeing-heart-before-two-color-reference-regeneration.png`.
+- Verification: refreshed `tier2-icons-native-regenerated-contact-sheet.jpg`; all checked finals remain RGBA
+  `1254x1254` with transparent corners.
+
+## Follow-up — Habits charm reference replacement
+
+- Regenerated only `collection-habits-repeat.png` using the user-provided red repeat-arrow charm reference: dominant red
+  repeat form, left-side red cord wrap, cream/brass bead charm with spiral bead and hanging red tassel.
+- Saved provenance as `source/collection-habits-repeat-charm-reference-source.png` and preserved the prior final as
+  `source/collection-habits-repeat-before-charm-reference-regeneration.png`.
+- Verification: refreshed `tier2-icons-native-regenerated-contact-sheet.jpg`; all checked finals remain RGBA
+  `1254x1254` with transparent corners.
+
+## Follow-up — Relationships diagonal red/blue rings replacement
+
+- Regenerated only `relationships-interlocking-rings.png` as diagonal interlocking rings with one muted red ring, one
+  muted blue ring, and a compact central handshake at the overlap.
+- Saved provenance as `source/relationships-interlocking-rings-diagonal-red-blue-handshake-source.png` and preserved the
+  prior final as `source/relationships-interlocking-rings-before-diagonal-red-blue-handshake-regeneration.png`.
+- Verification: refreshed `tier2-icons-native-regenerated-contact-sheet.jpg`; all checked finals remain RGBA
+  `1254x1254` with transparent corners.
+
+## Follow-up — Routines open stone-loop reference replacement
+
+- Regenerated only `collection-routines-stone-ring.png` using the user-provided open standing stone loop reference:
+  dark charcoal open loop, central balanced stone stack, mossy base and restrained red wraps at top/base.
+- Saved provenance as `source/collection-routines-stone-ring-open-loop-reference-source.png` and preserved the prior
+  final as `source/collection-routines-stone-ring-before-open-loop-reference-regeneration.png`.
+- Verification: refreshed `tier2-icons-native-regenerated-contact-sheet.jpg`; all checked finals remain RGBA
+  `1254x1254` with transparent corners.
+
+## Follow-up — Archive and muscle-group icon staging
+
+- Generated and normalized the Archive storage-box icon as `apps/mobile/assets/icons/domains/collection-archive-storage-box.png`
+  with keyed source and QA sheet saved alongside the domain icon sources.
+- Created new staged muscle-group asset families under `apps/mobile/assets/icons/muscle-groups/`: `3d/` for the
+  sculpted mannequin icons and `gold/` for the tiny simplified yellow/gold pictograms.
+- Added ten 3D mannequin PNGs: chest, back, shoulders, arms, core, legs, hamstrings, glutes, calves and full-body.
+  The 3D finals are transparent `1254x1254` PNGs with roughly `1050px` active artwork.
+- Added ten matching gold pictogram PNGs with the same semantic names. These are also transparent `1254x1254` PNGs,
+  but intentionally use smaller active artwork for 16-32px UI legibility instead of filling the full icon bounds.
+- Saved raw source renders under `apps/mobile/assets/icons/muscle-groups/source/` and visual QA sheets as
+  `muscle-groups-3d-contact-sheet.jpg` and `muscle-groups-gold-contact-sheet.jpg`.
+- Verification: all staged muscle-group finals are RGBA `1254x1254`, have fully transparent corners, and no baked green
+  or checkerboard background. No existing approved Domain/Collection icons were overwritten during muscle-group work.

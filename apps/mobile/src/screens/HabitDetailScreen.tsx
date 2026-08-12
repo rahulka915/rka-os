@@ -153,7 +153,7 @@ export function HabitDetailScreen() {
         </View>
 
         <View style={styles.potentialSection}>
-          <Text style={[styles.potentialLabel, { color: palette.textTertiary }]}>POTENTIAL</Text>
+          <Text style={[styles.potentialLabel, { color: palette.textTertiary }]}>FEEDS PILLAR</Text>
           <View style={styles.chipRow}>
             <TouchableOpacity
               style={[

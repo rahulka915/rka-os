@@ -6,7 +6,6 @@ import { createItem, updateItemMetadata, updateItemTitle, deleteItem } from '../
 import {
   groupExercisesByMuscle,
   filterExercisesByQuery,
-  pickGroupThumbnailImageKey,
   parseExerciseMeta,
   formatExerciseSubtitle,
   type MuscleGroup,
@@ -18,7 +17,7 @@ import { ExerciseDetailPanel } from './ExerciseDetailPanel.web';
 import { ExerciseEditForm } from './ExerciseEditForm.web';
 import { DetailPanel } from './DetailPanel';
 import type { ExerciseDraft } from '../components/ExerciseEditSheet';
-import { webColors, webSpacing, webRadius, webFontSize } from '../theme/webTheme';
+import { webColors, webSpacing, webRadius, webFontSize, webDepth } from '../theme/webTheme';
 
 interface ExerciseLibraryScreenProps {
   onOpenTemplate: (templateId: string, title: string) => void;
@@ -119,7 +118,7 @@ export function ExerciseLibraryScreen({ onOpenTemplate }: ExerciseLibraryScreenP
                   key={group.muscleGroup}
                   label={group.label}
                   count={group.exercises.length}
-                  imageKey={pickGroupThumbnailImageKey(group)}
+                  muscleGroup={group.muscleGroup}
                   onPress={() => setSelectedMuscleGroup(group.muscleGroup)}
                 />
               ))}
@@ -191,9 +190,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: webSpacing[3],
     backgroundColor: webColors.card,
-    borderRadius: webRadius.md,
-    borderWidth: 1,
-    borderColor: webColors.border,
+    ...webDepth.list,
     paddingHorizontal: webSpacing[4],
     paddingVertical: webSpacing[3],
   },

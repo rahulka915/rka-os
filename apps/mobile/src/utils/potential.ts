@@ -13,6 +13,16 @@ export interface PotentialStatItem {
 
 const DEFAULT_TARGET_DAYS = 100;
 
+// Optional suggested Pillars (the product term for 'potential-stat' items).
+// Pillars are first-class maintenance/capacity areas, NOT a required child of
+// every Domain — they're mostly useful for Health & Fitness. These are only
+// suggestions surfaced in the "Add Pillar" flow; nothing here is auto-created,
+// and Domains like Finance/Relationships/Growth are expected to have none.
+export const SUGGESTED_PILLARS: { group: string; pillars: string[] }[] = [
+  { group: 'Health & Wellbeing', pillars: ['Skin', 'Oral Health', 'Hair & Grooming', 'Sleep', 'Hydration', 'Nutrition'] },
+  { group: 'Fitness & Performance', pillars: ['Physique', 'Strength', 'Stamina', 'Mobility'] },
+];
+
 export interface HabitPotentialMeta {
   potentialStat?: string; // potential-stat item id
   potentialTargetDays?: number;

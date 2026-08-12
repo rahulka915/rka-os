@@ -89,7 +89,7 @@ export function AreasScreen() {
   const promptConvertToSkill = (item: Item) => {
     const otherAreas = areas.filter((a) => a.id !== item.id);
     if (otherAreas.length === 0) {
-      Alert.alert('No other Domain to move into', 'Convert to Skill re-homes this Domain’s Missions and Potential Stats onto another real Domain — create one first.');
+      Alert.alert('No other Domain to move into', 'Convert to Skill re-homes this Domain’s Missions and Pillars onto another real Domain — create one first.');
       return;
     }
     showActionSheet(`Convert "${item.title}" to a Skill — pick its primary Domain`, [
@@ -121,7 +121,7 @@ export function AreasScreen() {
         onPress: () => {
           Alert.alert(
             `Merge "${item.title}" into "${area.title}"?`,
-            'Its Missions, Stats, Achievements, and Skill links move to the target Domain, and this Domain is deleted. This cannot be undone.',
+            'Its Missions, Pillars, Achievements, and Skill links move to the target Domain, and this Domain is deleted. This cannot be undone.',
             [
               { text: 'Cancel', style: 'cancel' },
               {
@@ -206,7 +206,11 @@ export function AreasScreen() {
               <RiverStoneProgress
                 progress={overall / 100}
                 isDark={isDark}
-                height={12}
+                height={9}
+                fillColor={palette.antiqueBrass}
+                highlightColor={palette.ivory}
+                trackColor={isDark ? 'rgba(255,255,255,0.075)' : 'rgba(43,38,32,0.10)'}
+                showZeroFill={false}
                 accessibilityLabel="Overall potential"
               />
               {focus && (
@@ -236,6 +240,8 @@ export function AreasScreen() {
               const score = Math.round(scores[area.id] ?? 0);
               const DomainIcon = getDomainIcon(area.title);
               const isFocus = area.id === focusDomainId;
+              const hasProgress = score > 0;
+              const progressColor = hasProgress ? palette.antiqueBrass : palette.textTertiary;
               const metaParts = [
                 skillCount > 0 ? `${skillCount} skill${skillCount === 1 ? '' : 's'}` : null,
                 count > 0 ? `${count} mission${count === 1 ? '' : 's'}` : null,
@@ -258,8 +264,10 @@ export function AreasScreen() {
                     contentStyle={styles.cardContent}
                   >
                       <View style={styles.cardHeadRow}>
-                        <DomainIcon size={20} color={palette.antiqueBrass} strokeWidth={1.6} />
-                        <Text style={[styles.cardScore, { color: palette.vermilion }]}>{score}%</Text>
+                        <DomainIcon size={24} color={palette.antiqueBrass} strokeWidth={1.6} />
+                        <View style={[styles.scoreBadge, { borderColor: isFocus ? palette.vermilion : palette.separator, backgroundColor: hasProgress ? palette.antiqueBrassSoft : 'transparent' }]}>
+                          <Text style={[styles.cardScore, { color: hasProgress ? palette.antiqueBrass : palette.textTertiary }]}>{score}%</Text>
+                        </View>
                       </View>
                       <Text style={[styles.cardTitle, { color: palette.ivory }]} numberOfLines={2}>{area.title}</Text>
                       <Text style={[styles.cardMeta, { color: palette.greige }]} numberOfLines={1}>
@@ -268,8 +276,12 @@ export function AreasScreen() {
                       <RiverStoneProgress
                         progress={score / 100}
                         isDark={isDark}
-                        height={6}
+                        height={5}
                         showLabel={false}
+                        showZeroFill={false}
+                        fillColor={progressColor}
+                        highlightColor={palette.ivory}
+                        trackColor={isDark ? 'rgba(255,255,255,0.055)' : 'rgba(43,38,32,0.09)'}
                         animate={false}
                         accessibilityLabel={`${area.title} progress`}
                       />
@@ -301,7 +313,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   heroCard: { marginTop: 4 },
-  heroInner: { paddingHorizontal: 16, paddingVertical: 14, gap: 10 },
+  heroInner: { paddingHorizontal: 18, paddingVertical: 16, gap: 12 },
   heroCopy: { gap: 1 },
   heroTitle: { fontFamily: 'Newsreader_600SemiBold', fontSize: 18 },
   heroSubtitle: { fontFamily: 'Inter_400Regular', fontSize: 12, fontWeight: '400' },
@@ -330,9 +342,9 @@ const styles = StyleSheet.create({
   },
   card: {},
   cardContent: {
-    padding: 10,
-    gap: 4,
-    minHeight: 116,
+    padding: 12,
+    gap: 6,
+    minHeight: 124,
   },
   cardHeadRow: {
     flexDirection: 'row',
@@ -343,12 +355,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     fontFamily: 'Inter_700Bold',
-    minHeight: 34,
+    lineHeight: 18,
+    minHeight: 38,
   },
   cardScore: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '700',
     fontFamily: 'Inter_700Bold',
+  },
+  scoreBadge: {
+    minWidth: 42,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
   },
   cardMeta: {
     fontSize: 11,

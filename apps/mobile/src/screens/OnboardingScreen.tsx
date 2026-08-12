@@ -60,7 +60,8 @@ interface OnboardingScreenProps {
   onDone: () => void;
 }
 
-// First-launch guided setup for Domains -> Missions -> Potential Stats -> Focus
+// First-launch guided setup for Domains -> Missions -> Pillars -> Focus
+// (internal item type stays 'potential-stat'; "Pillar" is the product term)
 // (see docs/superpowers/specs/2026-08-04-harada-onboarding-design.md). Purely a
 // UI flow over existing database.ts functions — no schema changes. Every field
 // past Domain selection is individually skippable, matching AreaDetailScreen's
@@ -289,8 +290,9 @@ export function OnboardingScreen({ onDone }: OnboardingScreenProps) {
             </Text>
             <Text style={[styles.title, { color: palette.text }]}>Set up {domains[loopIndex].title}</Text>
             <Text style={[styles.body, { color: palette.textSecondary }]}>
-              A Mission is something you're actively working toward. A Potential Stat is what you're
-              maintaining day to day. Both are optional.
+              A Mission is something you're actively working toward. A Pillar is a maintenance area
+              you keep up day to day (most useful for Health & Fitness — e.g. Sleep, Hydration).
+              Both are optional — many Domains need neither.
             </Text>
 
             <View style={[styles.card, { backgroundColor: palette.surface, borderColor: palette.separator }]}>
@@ -314,7 +316,7 @@ export function OnboardingScreen({ onDone }: OnboardingScreenProps) {
                 <View style={[styles.iconBadge, { backgroundColor: palette.fillStrong }]}>
                   <ChartBar size={18} color={palette.textSecondary} strokeWidth={1.9} />
                 </View>
-                <Text style={[styles.cardLabel, { color: palette.textTertiary }]}>POTENTIAL STAT (OPTIONAL)</Text>
+                <Text style={[styles.cardLabel, { color: palette.textTertiary }]}>PILLAR (OPTIONAL)</Text>
               </View>
               <TextInput
                 style={[styles.cardInput, { color: palette.text, borderColor: palette.separator }]}

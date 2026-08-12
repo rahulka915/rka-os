@@ -36,6 +36,14 @@ function withAlpha(rgba: string, alpha: number): string {
   return `rgba(${r},${g},${b},${clamped})`;
 }
 
+function scaleAlpha(rgba: string, multiplier: number): string {
+  const match = rgba.match(/rgba?\(([^)]+)\)/);
+  if (!match) return rgba;
+  const parts = match[1].split(",").map((part) => part.trim());
+  const baseAlpha = parts[3] ? parseFloat(parts[3]) : 1;
+  return withAlpha(rgba, baseAlpha * multiplier);
+}
+
 const MATERIAL_LIGHT_BOOST = 3;
 
 function glowColors(base: string, opacityMultiplier: number, alphaBoost = MATERIAL_LIGHT_BOOST, midFraction = 0.65): [string, string, string] {
@@ -81,6 +89,7 @@ function RiverStoneSurfaceComponent({
   }
 
   const isChip = variant === "chip";
+  const isEverydayStone = variant === "list" || variant === "card";
   const isFlush = shape === "flush";
   const insetShadowColor = mode === "dark" ? "0,0,0" : "60,50,30";
   // The hero card carries its own opaque time-of-day tint as `background`
@@ -149,26 +158,25 @@ function RiverStoneSurfaceComponent({
               ]}
             />
           </>
+        ) : isEverydayStone ? (
+          null
         ) : (
           <>
-            {/* Broad curved upper illumination — fades to transparent
-                instead of ending in a hard rounded-rect edge. */}
+            {/* Continuous face illumination. This spans the whole clipped
+                face; everyday stone must read as one volume, not a bright
+                upper slab sitting on a darker lower slab. */}
             <LinearGradient
               pointerEvents="none"
-              colors={glowColors(token.upperAmbient, token.upperLightOpacity, MATERIAL_LIGHT_BOOST * heroBoost, 0.5)}
-              locations={[0, 0.5, 1]}
+              colors={[
+                scaleAlpha(token.upperAmbient, token.upperLightOpacity * MATERIAL_LIGHT_BOOST * heroBoost * 0.86),
+                scaleAlpha(token.upperAmbient, token.upperLightOpacity * MATERIAL_LIGHT_BOOST * heroBoost * 0.50),
+                scaleAlpha(token.upperAmbient, token.upperLightOpacity * MATERIAL_LIGHT_BOOST * heroBoost * 0.18),
+                TRANSPARENT,
+              ] as [string, string, string, string]}
+              locations={[0, 0.28, 0.68, 1]}
               start={{ x: 0, y: 0 }}
               end={{ x: 0, y: 1 }}
-              style={stripToPositionOnly(layers.upperAmbientPrimary)}
-            />
-
-            <LinearGradient
-              pointerEvents="none"
-              colors={glowColors(token.upperAmbient, token.upperLightOpacity * 0.34, MATERIAL_LIGHT_BOOST * heroBoost, 0.5)}
-              locations={[0, 0.5, 1]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 0, y: 1 }}
-              style={stripToPositionOnly(layers.upperAmbientSecondary)}
+              style={StyleSheet.absoluteFill}
             />
 
             {/* Restrained, discontinuous polished edge catches — fade out
@@ -193,33 +201,21 @@ function RiverStoneSurfaceComponent({
           </>
         )}
 
-        {/* Lower thickness and corner weight — same fade treatment. */}
-        <LinearGradient
-          pointerEvents="none"
-          colors={[...glowColors(token.lowerOcclusion, token.lowerOcclusionOpacity)].reverse() as [string, string, string]}
-          locations={[0, 0.45, 1]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={stripToPositionOnly(layers.lowerOcclusion)}
-        />
-
-        <LinearGradient
-          pointerEvents="none"
-          colors={glowColors(token.lowerOcclusion, token.lowerOcclusionOpacity * 0.45)}
-          locations={[0, 0.5, 1]}
-          start={{ x: 0, y: 1 }}
-          end={{ x: 1, y: 0 }}
-          style={stripToPositionOnly(layers.lowerCornerOcclusionLeft)}
-        />
-
-        <LinearGradient
-          pointerEvents="none"
-          colors={glowColors(token.lowerOcclusion, token.lowerOcclusionOpacity * 0.45)}
-          locations={[0, 0.5, 1]}
-          start={{ x: 1, y: 1 }}
-          end={{ x: 0, y: 0 }}
-          style={stripToPositionOnly(layers.lowerCornerOcclusionRight)}
-        />
+        {!isEverydayStone ? (
+          <LinearGradient
+            pointerEvents="none"
+            colors={[
+              TRANSPARENT,
+              scaleAlpha(token.lowerOcclusion, token.lowerOcclusionOpacity * 0.22),
+              scaleAlpha(token.lowerOcclusion, token.lowerOcclusionOpacity * 0.62),
+              scaleAlpha(token.lowerOcclusion, token.lowerOcclusionOpacity),
+            ] as [string, string, string, string]}
+            locations={[0, 0.48, 0.82, 1]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+        ) : null}
 
         {!isChip && !isFlush ? (
           <View
@@ -233,7 +229,7 @@ function RiverStoneSurfaceComponent({
                 borderTopRightRadius: layers.face.borderTopRightRadius,
                 borderBottomLeftRadius: layers.face.borderBottomLeftRadius,
                 borderBottomRightRadius: layers.face.borderBottomRightRadius,
-                borderColor: mode === "dark" ? "rgba(255,255,255,0.035)" : "rgba(60,50,35,0.10)",
+                borderColor: mode === "dark" ? "rgba(255,255,255,0.055)" : "rgba(60,50,35,0.13)",
               },
             ]}
           />
