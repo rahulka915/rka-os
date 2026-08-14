@@ -9,7 +9,7 @@ import { DetailPanel } from './DetailPanel';
 import { ItemDetailForm } from './ItemDetailForm';
 import { HabitDetailPanel } from './HabitDetailPanel';
 import { RoutinesScreen } from './RoutinesScreen';
-import { QuickAddOneControl, QuickDurationControl, HabitProgressSection, HabitMeasurementEditor, HabitPotentialEditor, HabitAttributeEditor } from './HabitQuantifiedControls.web';
+import { QuickAddOneControl, QuickDurationControl, HabitProgressSection, HabitRowProgress, HabitMeasurementEditor, HabitPotentialEditor, HabitAttributeEditor } from './HabitQuantifiedControls.web';
 import { webColors, webSpacing, webRadius, webFontSize, webDepth } from '../theme/webTheme';
 import type { ActivityLog } from '../db/types';
 
@@ -97,32 +97,35 @@ export function HabitsScreen() {
         renderItem={({ item: row }) => {
           const meta = parseHabitMeta(row.item);
           return (
-            <Pressable style={styles.row} onPress={() => { setSelectedId(row.item.id); setMode('detail'); }}>
-              {meta.measurement === 'binary' ? (
-                <Pressable
-                  onPress={(event) => {
-                    event.stopPropagation();
-                    checkIn(row);
-                  }}
-                  disabled={!row.isScheduledToday || row.isCompletedToday}
-                  style={[
-                    styles.checkbox,
-                    row.isCompletedToday && styles.checkboxDone,
-                    !row.isScheduledToday && !row.isCompletedToday && styles.checkboxDisabled,
-                  ]}
-                >
-                  {row.isCompletedToday ? <Check size={13} color={webColors.card} strokeWidth={2.5} /> : null}
-                </Pressable>
-              ) : meta.measurement === 'count' ? (
-                <QuickAddOneControl item={row.item} onLogged={refresh} />
-              ) : (
-                <QuickDurationControl item={row.item} onLogged={refresh} />
-              )}
-              <Text style={styles.rowTitle} numberOfLines={1}>{row.item.title}</Text>
-              <View style={styles.streak}>
-                <Flame size={15} color={row.streak > 0 ? webColors.destructive : webColors.mutedForeground} strokeWidth={2} />
-                <Text style={[styles.streakText, row.streak > 0 && styles.streakTextActive]}>{row.streak}</Text>
+            <Pressable style={styles.rowOuter} onPress={() => { setSelectedId(row.item.id); setMode('detail'); }}>
+              <View style={styles.rowTop}>
+                {meta.measurement === 'binary' ? (
+                  <Pressable
+                    onPress={(event) => {
+                      event.stopPropagation();
+                      checkIn(row);
+                    }}
+                    disabled={!row.isScheduledToday || row.isCompletedToday}
+                    style={[
+                      styles.checkbox,
+                      row.isCompletedToday && styles.checkboxDone,
+                      !row.isScheduledToday && !row.isCompletedToday && styles.checkboxDisabled,
+                    ]}
+                  >
+                    {row.isCompletedToday ? <Check size={13} color={webColors.card} strokeWidth={2.5} /> : null}
+                  </Pressable>
+                ) : meta.measurement === 'count' ? (
+                  <QuickAddOneControl item={row.item} onLogged={refresh} />
+                ) : (
+                  <QuickDurationControl item={row.item} onLogged={refresh} />
+                )}
+                <Text style={styles.rowTitle} numberOfLines={1}>{row.item.title}</Text>
+                <View style={styles.streak}>
+                  <Flame size={15} color={row.streak > 0 ? webColors.destructive : webColors.mutedForeground} strokeWidth={2} />
+                  <Text style={[styles.streakText, row.streak > 0 && styles.streakTextActive]}>{row.streak}</Text>
+                </View>
               </View>
+              <HabitRowProgress item={row.item} />
             </Pressable>
           );
         }}
@@ -234,14 +237,16 @@ const styles = StyleSheet.create({
     color: webColors.mutedForeground,
     paddingVertical: webSpacing[4],
   },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: webSpacing[3],
+  rowOuter: {
     backgroundColor: webColors.card,
     ...webDepth.list,
     paddingHorizontal: webSpacing[4],
     paddingVertical: webSpacing[3],
+  },
+  rowTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: webSpacing[3],
   },
   checkbox: {
     width: 18,

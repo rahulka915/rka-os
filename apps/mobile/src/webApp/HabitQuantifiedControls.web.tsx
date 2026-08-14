@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Plus, RotateCcw } from 'lucide-react-native';
-import { getPotentialStats, logHabitSample, undoLastHabitSample, updateItemMetadata, getAttributes, getHabitAttributeContributions, setHabitAttributeContributions } from '../db/database';
+import { getPotentialStats, logHabitSample, undoLastHabitSample, updateItemMetadata, getAttributes, getHabitAttributeContributions, setHabitAttributeContributions, getHabitSamples } from '../db/database';
+import { useDbRefresh } from '../hooks/useDb';
 import {
   parseHabitMeta,
   computeHabitPeriodProgress,
@@ -102,6 +103,33 @@ export function QuickDurationControl({ item, onLogged }: { item: Item; onLogged:
         <Plus size={14} color={webColors.foreground} strokeWidth={2.5} />
       </Pressable>
     </Pressable>
+  );
+}
+
+// Slim progress bar shown directly under a count/duration habit's list row —
+// without this the +1/duration control gives no visible feedback that
+// anything happened. Renders nothing for binary habits.
+export function HabitRowProgress({ item }: { item: Item }) {
+  const [, setTick] = useState(0);
+  useDbRefresh(useCallback(() => setTick((t) => t + 1), []));
+
+  const meta = parseHabitMeta(item);
+  if (meta.measurement === 'binary') return null;
+
+  const progress = computeHabitPeriodProgress(item, getHabitSamples(item.id), new Date());
+  const pct = progress.target > 0 ? Math.min(100, (progress.current / progress.target) * 100) : 0;
+
+  return (
+    <View style={styles.rowProgressSection}>
+      <View style={styles.rowProgressTrack}>
+        <View style={[styles.rowProgressFill, { width: `${pct}%` }]} />
+      </View>
+      <Text style={styles.rowProgressLabel}>
+        {progress.current}
+        {progress.unit ? ` ${progress.unit}` : ''} / {progress.target}
+        {progress.unit ? ` ${progress.unit}` : ''}
+      </Text>
+    </View>
   );
 }
 
@@ -365,6 +393,28 @@ const styles = StyleSheet.create({
     borderRadius: webRadius.pill,
     backgroundColor: webColors.muted,
     overflow: 'hidden',
+  },
+  rowProgressSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: webSpacing[2],
+    marginTop: 6,
+  },
+  rowProgressTrack: {
+    flex: 1,
+    height: 4,
+    borderRadius: webRadius.pill,
+    backgroundColor: webColors.muted,
+    overflow: 'hidden',
+  },
+  rowProgressFill: {
+    height: '100%',
+    backgroundColor: webColors.accent,
+  },
+  rowProgressLabel: {
+    fontSize: webFontSize.xs,
+    color: webColors.mutedForeground,
+    flexShrink: 0,
   },
   progressFill: {
     height: '100%',
