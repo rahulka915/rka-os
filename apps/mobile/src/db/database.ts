@@ -11,6 +11,7 @@ import { buildTimelineEntries, type TimelineEntry } from './timelineEntry';
 import type { WorkoutSetDetails } from '../utils/workoutSet';
 import { getMostRecentSessionSets } from '../utils/workoutSet';
 import { computePotentialStats, parseHabitPotentialMeta, type PotentialStatResult } from '../utils/potential';
+import { parseHabitMeta, computeHabitPeriodProgress, periodWindow } from '../utils/habitMeta';
 import { parseAttributeContributions, type AttributeContributionConfig, type AttributeEvidence, type AttributeWeight } from '../utils/attributes';
 import { computeAttributeValue, DEFAULT_ATTRIBUTE_SCORING_CONFIG, type AttributeScoringConfig } from '../utils/attributeScoring';
 import { computeAlertness as computeAlertnessValue, type AlertnessInputs } from '../utils/alertness';
@@ -261,6 +262,7 @@ function initSchema() {
       sourceType TEXT NOT NULL,
       sourceId TEXT NOT NULL,
       weight TEXT NOT NULL,
+      fraction REAL,
       occurredAt INTEGER NOT NULL,
       excludedAt INTEGER,
       createdAt INTEGER NOT NULL
@@ -339,6 +341,16 @@ function initSchema() {
 
   try {
     db.execSync(`ALTER TABLE items ADD COLUMN completedAt INTEGER`);
+  } catch {
+    // Column already exists on this device's DB — safe to ignore.
+  }
+
+  // Added 2026-08-15 for measurable (count/duration) Habit evidence — see
+  // recordHabitProgressEvidence. A device whose attributeContributions table
+  // predates this column needs it added; a fresh install already has it from
+  // the CREATE TABLE above, so this ALTER harmlessly no-ops there.
+  try {
+    db.execSync(`ALTER TABLE attributeContributions ADD COLUMN fraction REAL`);
   } catch {
     // Column already exists on this device's DB — safe to ignore.
   }
@@ -1046,12 +1058,13 @@ function insertAttributeContribution(
   sourceId: string,
   weight: AttributeWeight,
   occurredAt: number,
+  fraction?: number,
 ): string {
   const id = uuidv4();
   getDb().runSync(
-    `INSERT INTO attributeContributions (id, attributeId, sourceType, sourceId, weight, occurredAt, excludedAt, createdAt)
-     VALUES (?, ?, ?, ?, ?, ?, NULL, ?)`,
-    [id, attributeId, sourceType, sourceId, weight, occurredAt, Date.now()]
+    `INSERT INTO attributeContributions (id, attributeId, sourceType, sourceId, weight, fraction, occurredAt, excludedAt, createdAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?)`,
+    [id, attributeId, sourceType, sourceId, weight, fraction ?? null, occurredAt, Date.now()]
   );
   return id;
 }
@@ -1099,6 +1112,7 @@ export function computeAttributeScore(attributeId: string, now: number = Date.no
     sourceType: row.sourceType,
     sourceId: row.sourceId,
     weight: row.weight,
+    fraction: row.fraction,
     occurredAt: row.occurredAt,
   }));
   return computeAttributeValue(evidence, config, now);
@@ -1113,6 +1127,17 @@ function excludeAttributeContributionsForSource(sourceType: 'habit' | 'action', 
   getDb().runSync(
     `UPDATE attributeContributions SET excludedAt = ? WHERE sourceType = ? AND sourceId = ? AND excludedAt IS NULL`,
     [Date.now(), sourceType, sourceId]
+  );
+}
+
+// Narrower than the above — excludes only the active rows from a source that
+// fall within a specific time window. Used by recordHabitProgressEvidence to
+// replace *this period's* evidence without touching a measurable Habit's
+// earlier, already-finished periods.
+function excludeAttributeContributionsForSourceInWindow(sourceType: 'habit' | 'action', sourceId: string, startMs: number, endMs: number): void {
+  getDb().runSync(
+    `UPDATE attributeContributions SET excludedAt = ? WHERE sourceType = ? AND sourceId = ? AND occurredAt >= ? AND occurredAt <= ? AND excludedAt IS NULL`,
+    [Date.now(), sourceType, sourceId, startMs, endMs]
   );
 }
 
@@ -1155,6 +1180,45 @@ function recordHabitCompletionEvidence(habitId: string, occurredAt: number): voi
   const contributions = getHabitAttributeContributions(habitId);
   for (const { attributeId, weight } of contributions) {
     insertAttributeContribution(attributeId, 'habit', habitId, weight, occurredAt);
+  }
+}
+
+// Measurable (count/duration) Habit evidence — called from logHabitSample and
+// undoLastHabitSample, i.e. every time a sample changes. Unlike
+// recordHabitCompletionEvidence above (one-shot, full credit, for binary
+// Habits), a quantified Habit's progress can be updated many times within
+// the same period (2026-08-15: "3k -> 6k -> 9k -> 12k steps during one day"),
+// and going 12k -> 6k should be able to happen too (undo). So this always
+// recomputes the CURRENT period's completion fraction from scratch (never
+// trusts a previously-passed value) and REPLACES that period's evidence
+// rather than adding to it — excludes whatever this Habit already recorded
+// within the current period window, then inserts one fresh row per
+// configured Attribute at the freshly-computed fraction. Earlier, already-
+// finished periods are untouched. No-ops for binary Habits (measurement ===
+// 'binary'), which go through recordHabitCompletionEvidence instead.
+//
+// `samples` is supplied by the caller rather than fetched internally — on
+// native this is a formality (SQLite writes are synchronous, so a fresh
+// getHabitSamples() call would already reflect the change), but on web,
+// Firestore writes are async with no local optimistic update, so a
+// getHabitSamples() call made immediately after logActivity()/delete would
+// read stale data. Callers construct the truthfully-current list themselves.
+function recordHabitProgressEvidence(habitId: string, occurredAt: number, samples: ActivityLog[]): void {
+  const item = getItemWithMetadata(habitId);
+  if (!item) return;
+  const meta = parseHabitMeta(item);
+  if (meta.measurement === 'binary') return;
+
+  const progress = computeHabitPeriodProgress(item, samples, new Date(occurredAt));
+  const fraction = progress.target > 0 ? Math.max(0, Math.min(progress.current / progress.target, 1)) : 0;
+  const { start, end } = periodWindow(meta.targetPeriod, meta.customPeriodDays, new Date(occurredAt));
+
+  excludeAttributeContributionsForSourceInWindow('habit', habitId, start, end);
+  if (fraction <= 0) return;
+
+  const contributions = getHabitAttributeContributions(habitId);
+  for (const { attributeId, weight } of contributions) {
+    insertAttributeContribution(attributeId, 'habit', habitId, weight, occurredAt, fraction);
   }
 }
 
@@ -2109,6 +2173,7 @@ export function toggleHabitOccurrence(itemId: string, date: string): void {
 // the actual events — no stale/duplicated counter to keep in sync.
 export function logHabitSample(habitId: string, value: number, note?: string): void {
   logActivity(habitId, 'habit-sample', JSON.stringify({ value, note }));
+  recordHabitProgressEvidence(habitId, Date.now(), getHabitSamples(habitId));
 }
 
 export function getHabitSamples(habitId: string, sinceMs?: number): ActivityLog[] {
@@ -2130,6 +2195,7 @@ export function undoLastHabitSample(habitId: string): void {
     [habitId]
   )[0];
   if (last) getDb().runSync(`DELETE FROM activityLogs WHERE id = ?`, [last.id]);
+  recordHabitProgressEvidence(habitId, Date.now(), getHabitSamples(habitId));
 }
 
 // --- Actions --------------------------------------------------------------

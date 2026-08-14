@@ -18,6 +18,8 @@ import { RoutinesScreen } from './RoutinesScreen';
 import { DailyLogScreen } from './DailyLogScreen';
 import { PillarsScreen } from './PillarsScreen';
 import { ActionsScreen } from './ActionsScreen';
+import { AttributesScreen } from './AttributesScreen';
+import type { TasksTab } from './TasksScreen';
 import { useInbox } from '../hooks/useDb';
 import { webColors } from '../theme/webTheme';
 
@@ -25,7 +27,18 @@ export function AppShell() {
   const [activeView, setActiveView] = useState<SidebarView>('home');
   const [selectedAreaId, setSelectedAreaId] = useState<string | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [tasksInitialTab, setTasksInitialTab] = useState<TasksTab | undefined>(undefined);
   const { count: inboxCount } = useInbox();
+
+  const handleHomeNavigate = (view: 'inbox' | 'upcoming' | 'tasks-logbook') => {
+    if (view === 'tasks-logbook') {
+      setTasksInitialTab('logbook');
+      setActiveView('tasks');
+    } else {
+      setTasksInitialTab(undefined);
+      setActiveView(view);
+    }
+  };
 
   const handleSelectArea = (id: string) => {
     setSelectedAreaId(id);
@@ -44,10 +57,15 @@ export function AppShell() {
     setActiveView('areas');
   };
 
+  const handleSelectView = (view: SidebarView) => {
+    setTasksInitialTab(undefined);
+    setActiveView(view);
+  };
+
   let content;
-  if (activeView === 'home') content = <HomeScreen />;
+  if (activeView === 'home') content = <HomeScreen onNavigate={handleHomeNavigate} />;
   else if (activeView === 'inbox') content = <InboxScreen />;
-  else if (activeView === 'tasks') content = <TasksScreen />;
+  else if (activeView === 'tasks') content = <TasksScreen initialTab={tasksInitialTab} />;
   else if (activeView === 'upcoming') content = <UpcomingScreen />;
   else if (activeView === 'calendar') content = <CalendarScreen />;
   else if (activeView === 'archive') content = <ArchiveScreen />;
@@ -61,6 +79,7 @@ export function AppShell() {
   else if (activeView === 'dailylog') content = <DailyLogScreen />;
   else if (activeView === 'pillars') content = <PillarsScreen />;
   else if (activeView === 'actions') content = <ActionsScreen />;
+  else if (activeView === 'attributes') content = <AttributesScreen />;
   else
     content = (
       <AreasProjectsScreen
@@ -76,7 +95,7 @@ export function AppShell() {
     <View style={styles.container}>
       <Sidebar
         activeView={activeView}
-        onSelectView={setActiveView}
+        onSelectView={handleSelectView}
         inboxCount={inboxCount}
         selectedAreaId={selectedAreaId}
         selectedProjectId={selectedProjectId}

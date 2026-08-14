@@ -55,6 +55,7 @@ import type { DailyCheckInAnswers, DailyCheckInPhase } from '../utils/dailyCheck
 import type { CreateAchievementInput, FocusData } from './database';
 import { parseAttributeContributions, type AttributeContributionConfig, type AttributeEvidence, type AttributeWeight } from '../utils/attributes';
 import { computeAttributeValue, DEFAULT_ATTRIBUTE_SCORING_CONFIG, type AttributeScoringConfig } from '../utils/attributeScoring';
+import { parseHabitMeta, computeHabitPeriodProgress, periodWindow } from '../utils/habitMeta';
 import { computeAlertness as computeAlertnessValue, type AlertnessInputs } from '../utils/alertness';
 import type { RoutineStepMeta } from '../utils/routineMeta';
 import type { BackwardPlanMeta, PlacementBehavior, TravelConfig } from '../utils/backwardPlanMeta';
@@ -65,6 +66,7 @@ import {
   getItemRelationsSnapshot,
   getItemOrderSnapshot,
   getItemInstancesSnapshot,
+  isItemsSnapshotLoaded,
   putItem,
   patchItem,
   putActivityLogDoc,
@@ -445,7 +447,13 @@ export function getRepeatingItemsForToday(): Item[] {
 // convention exactly (see database.ts) so period progress is always
 // recomputed from the actual logged events, never a stale running total.
 export function logHabitSample(habitId: string, value: number, note?: string): void {
-  logActivity(habitId, 'habit-sample', JSON.stringify({ value, note }));
+  const now = Date.now();
+  const id = logActivity(habitId, 'habit-sample', JSON.stringify({ value, note }));
+  // Firestore's snapshot listener hasn't fired yet at this point (write() is
+  // fire-and-forget) — construct the just-logged sample by hand rather than
+  // re-reading getHabitSamples(), which would still be missing it.
+  const justLogged: ActivityLog = { id, entityId: habitId, actionType: 'habit-sample', timestamp: now, details: JSON.stringify({ value, note }), createdAt: now };
+  recordHabitProgressEvidence(habitId, now, [...getHabitSamples(habitId), justLogged]);
 }
 
 export function getHabitSamples(habitId: string, sinceMs?: number): ActivityLog[] {
@@ -455,8 +463,12 @@ export function getHabitSamples(habitId: string, sinceMs?: number): ActivityLog[
 }
 
 export function undoLastHabitSample(habitId: string): void {
-  const last = getHabitSamples(habitId)[0];
+  const existing = getHabitSamples(habitId);
+  const last = existing[0];
   if (last) write(deleteActivityLogDoc(last.id), 'undoLastHabitSample');
+  // Same staleness reasoning as logHabitSample above — filter the deleted
+  // sample out by hand rather than trusting a fresh getHabitSamples() call.
+  recordHabitProgressEvidence(habitId, Date.now(), last ? existing.filter((s) => s.id !== last.id) : existing);
 }
 
 // Reads back every occurrence a recurring item (task or habit) has ever
@@ -1426,7 +1438,11 @@ const INITIAL_ATTRIBUTE_SEED: Record<string, string> = { strength: 'Strength', s
 let attributesSeeded = false;
 
 export function getAttributes(): Item[] {
-  if (!attributesSeeded) {
+  // Wait for the first Firestore items snapshot before deciding whether to
+  // seed — otherwise a page reload (which resets attributesSeeded) races an
+  // empty getItemsByType() against the real snapshot still loading, and
+  // writes duplicate Strength/Stamina docs on top of the existing ones.
+  if (!attributesSeeded && isItemsSnapshotLoaded()) {
     attributesSeeded = true;
     const existing = getItemsByType('potential-attribute');
     const seedKeys = new Set(
@@ -1444,7 +1460,42 @@ export function getAttributes(): Item[] {
       updateItemMetadata(id, { seedKey: key });
     }
   }
-  return getItemsByType('potential-attribute');
+  return dedupeSeededAttributes(getItemsByType('potential-attribute'));
+}
+
+// Self-heals duplicate Strength/Stamina docs left over from the pre-fix
+// version of the seeding race above (or any other future double-seed): when
+// more than one item shares a seedKey, keeps the oldest and soft-deletes the
+// rest, so a stale duplicate created on a past page load doesn't linger.
+function dedupeSeededAttributes(items: Item[]): Item[] {
+  const bySeedKey = new Map<string, Item[]>();
+  const rest: Item[] = [];
+  for (const item of items) {
+    let seedKey: string | undefined;
+    try {
+      seedKey = item.metadata ? JSON.parse(item.metadata).seedKey : undefined;
+    } catch {
+      seedKey = undefined;
+    }
+    if (!seedKey) {
+      rest.push(item);
+      continue;
+    }
+    const group = bySeedKey.get(seedKey) ?? [];
+    group.push(item);
+    bySeedKey.set(seedKey, group);
+  }
+  const deduped: Item[] = [...rest];
+  for (const group of bySeedKey.values()) {
+    if (group.length === 1) {
+      deduped.push(group[0]);
+      continue;
+    }
+    const [keep, ...extras] = [...group].sort((a, b) => a.createdAt - b.createdAt);
+    deduped.push(keep);
+    for (const extra of extras) deleteItem(extra.id);
+  }
+  return deduped;
 }
 
 export function createAttribute(title: string): string {
@@ -1479,9 +1530,10 @@ function insertAttributeContribution(
   sourceId: string,
   weight: AttributeWeight,
   occurredAt: number,
+  fraction?: number,
 ): void {
   const rows = loadJsonList<AttributeContributionRow>(ATTRIBUTE_CONTRIBUTIONS_STORAGE_KEY);
-  rows.push({ id: uuidv4(), attributeId, sourceType, sourceId, weight, occurredAt, createdAt: Date.now() });
+  rows.push({ id: uuidv4(), attributeId, sourceType, sourceId, weight, fraction, occurredAt, createdAt: Date.now() });
   saveJsonList(ATTRIBUTE_CONTRIBUTIONS_STORAGE_KEY, rows);
 }
 
@@ -1519,6 +1571,7 @@ export function computeAttributeScore(attributeId: string, now: number = Date.no
     sourceType: row.sourceType,
     sourceId: row.sourceId,
     weight: row.weight,
+    fraction: row.fraction,
     occurredAt: row.occurredAt,
   }));
   return computeAttributeValue(evidence, config, now);
@@ -1529,6 +1582,17 @@ function excludeAttributeContributionsForSource(sourceType: 'habit' | 'action', 
   const now = Date.now();
   for (const row of rows) {
     if (row.sourceType === sourceType && row.sourceId === sourceId && !row.excludedAt) row.excludedAt = now;
+  }
+  saveJsonList(ATTRIBUTE_CONTRIBUTIONS_STORAGE_KEY, rows);
+}
+
+function excludeAttributeContributionsForSourceInWindow(sourceType: 'habit' | 'action', sourceId: string, startMs: number, endMs: number): void {
+  const rows = loadJsonList<AttributeContributionRow>(ATTRIBUTE_CONTRIBUTIONS_STORAGE_KEY);
+  const now = Date.now();
+  for (const row of rows) {
+    if (row.sourceType === sourceType && row.sourceId === sourceId && !row.excludedAt && row.occurredAt >= startMs && row.occurredAt <= endMs) {
+      row.excludedAt = now;
+    }
   }
   saveJsonList(ATTRIBUTE_CONTRIBUTIONS_STORAGE_KEY, rows);
 }
@@ -1554,9 +1618,44 @@ export function setHabitAttributeContributions(habitId: string, contributions: A
   updateItemMetadata(habitId, { ...meta, attributeContributions: contributions });
 }
 
+// Guards against a habit's stored config still pointing at an attributeId
+// that no longer exists (e.g. merged away by dedupeSeededAttributes above) —
+// without this, a stale reference would silently write orphaned evidence
+// that never shows up on any Attribute card.
+function liveAttributeContributions(habitId: string): AttributeContributionConfig[] {
+  const liveIds = new Set(getAttributes().map((a) => a.id));
+  return getHabitAttributeContributions(habitId).filter((c) => liveIds.has(c.attributeId));
+}
+
 function recordHabitCompletionEvidence(habitId: string, occurredAt: number): void {
-  for (const { attributeId, weight } of getHabitAttributeContributions(habitId)) {
+  for (const { attributeId, weight } of liveAttributeContributions(habitId)) {
     insertAttributeContribution(attributeId, 'habit', habitId, weight, occurredAt);
+  }
+}
+
+// Web mirror of database.ts's recordHabitProgressEvidence — same behavior by
+// construction (same pure utils/habitMeta.ts period math). See its comment
+// there for why this replaces the current period's evidence rather than
+// accumulating it.
+// `samples` supplied by the caller — Firestore writes are async with no
+// local optimistic update, so a getHabitSamples() call made right after
+// logActivity()/delete would read stale data (see database.ts's comment on
+// its own version of this function for the full rationale).
+function recordHabitProgressEvidence(habitId: string, occurredAt: number, samples: ActivityLog[]): void {
+  const item = getItemWithMetadata(habitId);
+  if (!item) return;
+  const meta = parseHabitMeta(item);
+  if (meta.measurement === 'binary') return;
+
+  const progress = computeHabitPeriodProgress(item, samples, new Date(occurredAt));
+  const fraction = progress.target > 0 ? Math.max(0, Math.min(progress.current / progress.target, 1)) : 0;
+  const { start, end } = periodWindow(meta.targetPeriod, meta.customPeriodDays, new Date(occurredAt));
+
+  excludeAttributeContributionsForSourceInWindow('habit', habitId, start, end);
+  if (fraction <= 0) return;
+
+  for (const { attributeId, weight } of liveAttributeContributions(habitId)) {
+    insertAttributeContribution(attributeId, 'habit', habitId, weight, occurredAt, fraction);
   }
 }
 

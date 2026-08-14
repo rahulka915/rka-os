@@ -6,6 +6,7 @@ import {
   parseActionRow,
   actionSubtitle,
   buildActionFeed,
+  groupFeedBySource,
 } from './actions.ts';
 
 test('primaryEntityId: uses skill > mission > pillar > domain, else manual', () => {
@@ -64,4 +65,23 @@ test('buildActionFeed: sorts newest-first across sources and applies limit', () 
 
 test('buildActionFeed: empty input is empty', () => {
   assert.deepEqual(buildActionFeed([]), []);
+});
+
+test('groupFeedBySource: buckets by source, preserves within-group order, orders groups by most-recent entry', () => {
+  const feed = buildActionFeed([
+    { id: '1', source: 'action', title: 'A1', timestamp: 100 },
+    { id: '2', source: 'habit', title: 'H1', timestamp: 300 },
+    { id: '3', source: 'task', title: 'T1', timestamp: 250 },
+    { id: '4', source: 'action', title: 'A2', timestamp: 200 },
+    { id: '5', source: 'task', title: 'T2', timestamp: 50 },
+  ]);
+  const groups = groupFeedBySource(feed);
+  assert.deepEqual(groups.map((g) => g.source), ['habit', 'task', 'action']);
+  assert.deepEqual(groups.map((g) => g.label), ['Habit check-ins', 'Tasks', 'Actions']);
+  assert.deepEqual(groups.find((g) => g.source === 'task')?.entries.map((e) => e.id), ['3', '5']);
+  assert.deepEqual(groups.find((g) => g.source === 'action')?.entries.map((e) => e.id), ['4', '1']);
+});
+
+test('groupFeedBySource: empty input is empty', () => {
+  assert.deepEqual(groupFeedBySource([]), []);
 });

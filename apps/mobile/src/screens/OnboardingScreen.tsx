@@ -37,15 +37,16 @@ interface SuggestedDomain {
   Icon: ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
 }
 
-// Fixed 8-Domain baseline (the traditional Harada life-balance count) so the
-// Harada wheel visualization always renders as a proper 8-spoke wheel. Every
-// user gets these 8 as a mandatory minimum — they can be renamed (from the
+// Fixed 6-Domain baseline (was 8, Harada-inspired, through 2026-08-13;
+// Discipline and Growth were dropped 2026-08-14 as too cross-cutting to be
+// their own Domain — see CANONICAL_DOMAIN_TITLES in database.ts). Every user
+// gets these 6 as a mandatory minimum — they can be renamed (from the
 // Domains screen, via Edit) but never deselected here or deleted later; only
-// custom, user-added Domains beyond these 8 can be removed. Created with
+// custom, user-added Domains beyond these 6 can be removed. Created with
 // metadata.canonical = true (see handleContinueDomains / createCanonicalDomains)
 // so AreasScreen can block Delete/Convert-to-Skill on them.
 // The same custom icon resolver is shared with Domains, Potential and Domain
-// detail so the fixed eight identities never drift between screens.
+// detail so the fixed identities never drift between screens.
 const SUGGESTED_DOMAINS: SuggestedDomain[] = CANONICAL_DOMAIN_TITLES.map((title) => ({
   title,
   Icon: getDomainIcon(title),
@@ -92,7 +93,7 @@ export function OnboardingScreen({ onDone }: OnboardingScreenProps) {
   const isMandatoryTitle = (title: string) => SUGGESTED_DOMAINS.some((d) => d.title === title);
 
   const toggleTitle = (title: string) => {
-    if (isMandatoryTitle(title)) return; // the 8 baseline Domains can't be deselected
+    if (isMandatoryTitle(title)) return; // the 6 baseline Domains can't be deselected
     Haptics.selectionAsync();
     setSelectedTitles((current) =>
       current.includes(title) ? current.filter((t) => t !== title) : [...current, title]

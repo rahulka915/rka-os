@@ -2,11 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View, ScrollView } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
-import { getItemWithMetadata, getCompletedOccurrenceDates, formatDate, toggleHabitOccurrence, updateItemMetadata, getPotentialStats } from '../db/database';
+import { getItemWithMetadata, getCompletedOccurrenceDates, formatDate, toggleHabitOccurrence, updateItemMetadata, getPotentialStats, getAttributes, getHabitAttributeContributions, setHabitAttributeContributions } from '../db/database';
 import { computeStreak } from '../utils/streak';
 import { buildHabitCalendarMonth, type HabitCalendarDay } from '../utils/habitCalendar';
 import { parseHabitPotentialMeta } from '../utils/potential';
 import { parseHabitMeta, type HabitMeasurement, type HabitTargetPeriod } from '../utils/habitMeta';
+import type { AttributeWeight } from '../utils/attributes';
 import { useItemComposer } from '../components/item-composer';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
@@ -34,6 +35,7 @@ export function HabitDetailScreen() {
   const [monthAnchor, setMonthAnchor] = useState(new Date());
   const [targetDaysText, setTargetDaysText] = useState('');
   const [potentialStats, setPotentialStats] = useState<Item[]>([]);
+  const [attributes, setAttributes] = useState<Item[]>([]);
   const [measurementExpanded, setMeasurementExpanded] = useState(false);
   const [targetValueText, setTargetValueText] = useState('');
   const [targetUnitText, setTargetUnitText] = useState('');
@@ -44,6 +46,7 @@ export function HabitDetailScreen() {
     const loaded = getItemWithMetadata(habitId);
     setItem(loaded);
     setPotentialStats(getPotentialStats());
+    setAttributes(getAttributes());
     setCompletedDates(getCompletedOccurrenceDates(habitId));
   }, [habitId]);
 
@@ -65,6 +68,7 @@ export function HabitDetailScreen() {
   );
 
   const potentialMeta = useMemo(() => parseHabitPotentialMeta(item?.metadata), [item]);
+  const attributeContribs = useMemo(() => (item ? getHabitAttributeContributions(item.id) : []), [item]);
   const habitMeta = useMemo(() => (item ? parseHabitMeta(item) : null), [item]);
 
   useEffect(() => {
@@ -96,6 +100,18 @@ export function HabitDetailScreen() {
       existing.potentialTargetDays = potentialMeta.potentialTargetDays ?? 100;
     }
     updateItemMetadata(item.id, existing);
+    Haptics.selectionAsync();
+    load();
+  };
+
+  // Independent of and additional to savePotentialStat above — a Habit can
+  // tap zero, one, or several Attributes at once, each at its own weight,
+  // unrelated to its single legacy Pillar assignment.
+  const saveAttributeWeight = (attributeId: string, weight: AttributeWeight | null) => {
+    if (!item) return;
+    const next = attributeContribs.filter((c) => c.attributeId !== attributeId);
+    if (weight) next.push({ attributeId, weight });
+    setHabitAttributeContributions(item.id, next);
     Haptics.selectionAsync();
     load();
   };
@@ -193,6 +209,40 @@ export function HabitDetailScreen() {
             </View>
           )}
         </View>
+
+        {attributes.length > 0 && (
+          <View style={styles.potentialSection}>
+            <Text style={[styles.potentialLabel, { color: palette.textTertiary }]}>ATTRIBUTE EVIDENCE</Text>
+            {attributes.map((attribute) => {
+              const current = attributeContribs.find((c) => c.attributeId === attribute.id)?.weight ?? null;
+              return (
+                <View key={attribute.id} style={styles.attributeRow}>
+                  <Text style={[styles.attributeRowLabel, { color: palette.text }]}>{attribute.title}</Text>
+                  <View style={styles.chipRow}>
+                    {(['minor', 'moderate', 'major'] as AttributeWeight[]).map((weight) => {
+                      const selected = current === weight;
+                      return (
+                        <TouchableOpacity
+                          key={weight}
+                          style={[
+                            styles.chip,
+                            { borderColor: palette.separator },
+                            selected && { backgroundColor: palette.orange, borderColor: palette.orange },
+                          ]}
+                          onPress={() => saveAttributeWeight(attribute.id, selected ? null : weight)}
+                        >
+                          <Text style={[styles.chipText, { color: selected ? palette.surface : palette.text, textTransform: 'capitalize' }]}>
+                            {weight}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        )}
 
         {habitMeta && (
           <View style={styles.potentialSection}>
@@ -377,6 +427,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
+  },
+  attributeRow: {
+    marginBottom: 12,
+  },
+  attributeRowLabel: {
+    fontSize: 13,
+    fontFamily: 'Inter_600SemiBold',
+    fontWeight: '600',
+    marginBottom: 6,
   },
   chip: {
     borderRadius: 16,

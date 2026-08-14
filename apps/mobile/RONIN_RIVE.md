@@ -79,8 +79,9 @@ After the user reconnected and manually interacted with the clean tab, the right
 at high resolution. Functional follow is confirmed: sleeve/base/wrap and the canonical brown hand
 move with the upperarm/forearm/hand chain. The pose also exposed one stationary near-black duplicate
 hand silhouette at the neutral hand location. Geometry and world origin identify it as unnamed
-direct `Custom Shape 1-30083` (world x≈1093.6); it is now recoverable rollback-only at 0% opacity,
-not deleted. A refreshed isolation pass then identified `LEGACY-hand-R-base 1-30424` as a second
+direct `Custom Shape 1-30083` (world x≈1093.6); it was temporarily made rollback-only at 0% opacity,
+not deleted. This was later superseded when Illustrator comparison proved it is required backing.
+A refreshed isolation pass then identified `LEGACY-hand-R-base 1-30424` as a second
 stationary duplicate and `arm-R-base` shape `1-30254` / path `1-30255` as the orange/brown elbow
 triangle. Both remain recoverably at 0%, as do REVIEW overlays `1-29927`, `1-30119`, and `1-30139`.
 Rebinding `1-30255` to forearm alone did not make its buried geometry safe, while disabling it left
@@ -103,6 +104,201 @@ candidates currently serve only as tested rollback geometry rather than active j
 Resolve whether they need clipping/reconstruction or are superseded duplicates before binding legs
 or authoring animation. No bone or artwork object was deleted; only failed Skin components were
 replaced.
+
+On 2026-08-13 the six left candidates were retested as rigid segment children: `1-30179`, `1-30789`,
+and `1-30800` under upperarm; `1-30200`, `1-30220`, and `1-30780` under forearm. The rendered strong
+pose removed mesh stretching but exposed all six as duplicate brown limb fragments outside the
+complete sleeve/wrap silhouette. This deformation test establishes them as intentionally retained
+superseded rollback artwork at 0%, rather than required buried joint coverage. The arm construction
+gate is therefore closed without deleting them.
+
+The anatomical left leg has begun numerical rigging. Six `leg-L-base` paths plus both
+`trousers-L-corrected` paths are jointly bound to thigh+shin; five `shinband-L-extended` paths are
+jointly bound to shin+foot; all 12 `boot-L` paths are jointly bound to foot+toe. Representative
+trouser, shin-band, and boot paths have meaningful two-bone influence, although small isolated base
+and boot detail paths can legitimately resolve to one bone. A hip/knee/ankle/toe pose was applied,
+but Rive entered `LOADING FILE… 0%` before a trustworthy rendered inspection. All five left-leg
+bones were restored to their exact neutral rotations and Timeline `1-6` remains empty. Do not mirror
+or call this leg validated until the live canvas reconnects and the full pose is visually checked.
+
+Follow-up waiting corrected that provisional stop: the loading overlay cleared normally and the
+left leg rendered both a strong knee/ankle/toe bend and an additional hip shift. The complete
+trouser, shin-band, boot, and toe stack followed with no hole, stationary neutral leg, or detached
+fragment. The left leg is visually validated and was restored to exact neutral.
+
+Later full-body walk inspection identified the orange buried backing path `1-31038` inside
+`leg-L-base 1-30989` as the only conspicuous left-leg coverage edge at the strongest stride.
+The base assembly was already behind the visible artwork in draw order. A diagnostic rigid
+`bone-L-foot` binding made the edge substantially worse (a horizontal strip between the feet).
+Restoring the full-chain joint solve then introduced a thin orange curve even in exact neutral.
+Both failed Skin experiments were removed; the isolated backing path is now rigidly bound to
+`bone-L-shin`, which restores the exact clean neutral silhouette. The other five base paths retain
+their full-chain bindings. The backing remains at 100% opacity and is not redundant; the walk
+extremes still require direct coverage validation rather than hiding or deleting the artwork.
+Correction after 1683% isolation: the visible orange triangle was not Shape `1-31037`; changing
+that skinned shape's parent transform and vertices did not affect the triangle, and every such edit
+was reverted exactly (including its original local x `-6.199500`). One-at-a-time opacity isolation
+proved the actual source was Shape `1-31054`, path `1-31055`. That 30-vertex buried shin coverage
+path had an inappropriate five-bone solve spanning hip through toe. Its Skin `1-58868` was replaced
+with rigid `bone-L-shin` binding. Shape `1-31054` was restored to 100% opacity, and the triangle is
+absent in the refreshed 1683% neutral render. No artwork was hidden or deleted.
+
+The anatomical right leg is now numerically mirrored from its own larger live inventory: 17
+base/trouser paths jointly use thigh+shin, 14 extended shin-band paths use shin+foot, and 16 boot
+paths use foot+toe. One boot detail path (`1-26498`) initially remained unbound, was caught by a
+per-path Skin audit, then bound and included in the successful joint boot solve. MCP held the strong
+right-leg test values, but the visible canvas remained on its neutral frame for more than 20 seconds
+without a loading overlay; computer-control could not click the Rive window (`noWindowsAvailable`).
+Therefore the right leg is numerically complete but not visually signed off. Exact neutral values
+were restored; do not start animation until a directly evaluated right-leg pose passes.
+
+Follow-up on 2026-08-13 restored the Rive MCP and paired it with a full-window computer-control
+capture. The anatomical right leg then visibly passed both a strong hip/knee/ankle/toe stress pose
+and a separate planted-foot roll: trousers, shin band, boot, and toe followed without holes,
+stationary layers, or detached fragments. The five exact neutral rotations were written back and
+read back as `93.123195°`, `92.839927°`, `-3.631918°`, `-8.650454°`, and `66.085481°`; Timeline
+`1-6` is still empty. However, the desktop canvas continued to display the last evaluated foot-roll
+frame after that neutral readback, and direct canvas clicks intermittently returned
+`noWindowsAvailable`. The right-leg deformation gate is passed, but the exact neutral-silhouette
+gate is not yet visually proven. Do not create animation until a refreshed Design canvas visibly
+matches the approved neutral stance.
+
+The neutral gate was then closed by targeting the running editor through bundle identifier
+`app.rive.editor` and clicking the Design canvas after a fresh computer-control state read. That
+forced the pending MCP transforms to evaluate: the displayed character returned to the approved
+symmetrical neutral stance, matching the exact five-bone readback above. The complete clean body now
+passes skeleton hierarchy, rigid head attachment, torso/neck construction, both-arm deformation,
+both-leg deformation, planted-foot roll, and exact neutral-silhouette validation. No animation keys
+have yet been authored; Timeline `1-6` remains empty.
+
+Animation phase has now begun incrementally. The existing empty Timeline `1-6` was renamed `idle`,
+kept at 60 fps / 60 frames, set to loop, and slowed to `0.45`. It contains exactly nine cubic keys
+on skeleton objects only: `bone-pelvis.y`, `bone-chest.r`, and `bone-head.r` at frames 0/30/60. The
+cycle rises 2.5 px at midpoint, adds 1° of chest drift, and counters with -0.8° at the head; frames
+0 and 60 exactly match the neutral values. A Design-mode midpoint pose rendered cleanly and the
+three bones were restored/read back at exact neutral afterwards. Continuous timeline playback still
+needs direct visual review before adding a walk.
+
+The first clean `walk` clip is now complete as LinearAnimation `1-60155`: 60 fps, 60 frames,
+speed 1, looping. It has 95 cubic keys across 19 property tracks on 17 skeleton objects only. Five
+poses at frames 0/15/30/45/60 drive pelvis X/Y shift, double-bounce and rotation; chest/head
+counter-motion; bilateral hip/thigh swing; alternating knee flexion; ankle/toe roll; and coordinated
+upperarm/forearm swing. Direct timeline playback plus exact frame-15 and frame-45 captures verified
+alternating swing legs, opposite planted boots, visible foot roll, and intact trousers/bands/boots
+with no holes or detached fragments. The first arm pass swayed both sides together; the left arm
+tracks were corrected to true antiphase and the cycle was replayed cleanly. Audit confirms 95 keys,
+17 bone targets, zero artwork targets, and exact frame-0/frame-60 equality on all 19 tracks. Design
+mode was restored to the exact neutral transforms. `State Machine 1` intentionally still enters
+`idle`; runtime switching to `walk` is a later state-machine integration step, not part of the clip.
+
+**Walk artwork correction (2026-08-13):** close inspection of the user-supplied walk capture
+reopened production sign-off. The apparent internal outlines are not Rive Stroke components: the
+live `trousers-*`, `shinband-*`, `boot-*`, and `leg-*-base` inventories contain zero Strokes. They
+are separate near-black filled paths imported as illustrated detail/edge shapes, each deforming with
+its own Skin. Four lowest dark-detail shapes were proven to be the hanging cuff/trouser lines exposed
+by leg motion and are retained, not deleted, at 0%: `shinband-L` shape `1-27770`, `shinband-R` shape
+`1-27687`, trouser-L shape `1-27440`, and trouser-R shape `1-27330`. Neutral silhouette remains
+intact. This removes the dangling lines but does not make the multi-shape legs continuous: remaining
+knee/hip/ankle seams are artwork-construction defects and cannot be solved by animation timing or
+weight tuning. Production walk sign-off now requires consolidated continuous visible limb pieces or
+dedicated no-outline joint-cover geometry. The authored `walk` clip remains a valid motion test, but
+is not production-ready against the current split illustrated layers.
+
+**Correction to the correction:** the source artwork does contain the intended continuous limb
+silhouettes; the defect was the rigging strategy. The earlier pass bound leg base, trousers, band,
+and boot as separate two-bone surfaces, and nine left-trouser decorative paths were not skinned at
+all. The four isolated dark shapes above were restored to 100%. Every live path across each full leg
+was rebound to that side's complete hip→thigh→shin→foot→toe chain, then solved jointly as one
+overlapping surface (`34` left paths and `47` right paths; blend `0.35`, max influences `3`, smooth).
+One stale/nonexistent left boot id `1-26413` was excluded and path `1-27400` required an explicit
+rebind before the coordinated solve. A frame-45 swing test after the whole-leg solve shows the
+continuous trouser/leg/band/boot stack following together rather than the former independent-layer
+slippage. Exact neutral transforms were restored. The artwork remains production-intended; do not
+revive the earlier conclusion that consolidated replacement geometry is required without first
+testing this coordinated whole-limb weighting model.
+
+**Complete imported-layer accountability audit (2026-08-13):** the body assembly contains 190 live
+vector paths. Before correction, 53 had no Skin and eight shapes had been incorrectly left at 0%
+
+**High-zoom limb audit follow-up:** normalized group counts were incomplete because retained legacy
+assemblies sit elsewhere in the body tree. The true audited leg inventories are 38 left paths
+(34 normalized + 4 legacy) and 50 right paths (47 normalized + 3 legacy). Every queried path is
+bound only to its anatomical side. All 34 normalized left shapes are 100%. The orange ankle triangle
+was conclusively traced to Shape `1-31054` / path `1-31055` and removed by rigid shin binding while
+the shape remained 100%.
+
+A deep left-leg stress pose exposed a large dark rectangle from `LEGACY-trousers-L` path `1-26103`.
+Group and per-shape isolation proved the exact source. Rigid shin, thigh+shin auto-weight, and rigid
+thigh models all failed; those experiments were removed. Some failed binds had been created while
+posed, temporarily corrupting the rest relationship; the skeleton was restored to exact neutral and
+the path was rebound in neutral to the full left chain, jointly solved with companion path `1-26038`.
+Neutral is clean. The stress-pose rectangle remains a confirmed manual-weight/clipping blocker.
+
+The left-arm inventory is 26 paths: six directly reparented structural/deep-root paths, one visible
+sleeve, six wrap paths, seven canonical-hand paths (intentionally rigid through parent `hand-L`), and
+six legacy-hand paths. Six structural/deep-root Shapes (`1-30179`, `1-30200`, `1-30220`, `1-30780`,
+`1-30789`, `1-30800`) were found at 0% and restored to 100% per the production-artwork rule. At close
+neutral, `1-30179` is the exact source of a large orange protrusion. Draw-order, neutral rebind, and
+parent-rotation tests did not contain it; failed transform edits were reverted exactly. Path-level
+inspection found five tail vertices extending beyond the visible sleeve. Their Y values were changed
+from approximately `-56/-81` to `-95/-98`, the stale Skin was deleted, and the path was rebound in
+exact neutral to `bone-L-upperarm`. The rebuilt Skin `1-62518` reports all 18 corrected vertices at
+weight 1.0 to that bone. An explicit selection at 989% confirms the orange structural base is now
+fully contained behind the visible sleeve with the Shape still at 100% opacity.
+
+**Left structural hierarchy correction:** user selection of the two visibly displaced neutral
+objects identified Shape `1-30200` (orange, path `1-30201`) and Shape `1-30800` (dark, path
+`1-30801`) exactly. The hierarchy then exposed the assembly-wide cause: all six structural/deep-root
+Shapes (`1-30179`, `1-30200`, `1-30220`, `1-30780`, `1-30789`, `1-30800`) had been moved directly
+under arm bones while their paths also retained Skins to those bones, causing double transforms and
+throwing concealed artwork across the torso. All six are now back under `RONIN-BODY-ART` `1-25996`,
+all remain 100% opaque, and each path has exactly one rigid single-bone Skin: `1-30180`, `1-30790`,
+`1-30801` → `bone-L-upperarm`; `1-30201`, `1-30221`, `1-30781` → `bone-L-forearm`. A complete Rive
+reload at 144.6% shows a clean neutral silhouette with no displaced orange/dark pieces.
+
+**Illustrator neutral comparison:** the original Illustrator artwork confirms the corrected Rive
+body proportions and layer silhouettes match closely; the skin-tone difference is intentional. The
+1174.3% direct selection established that the anatomical-left (viewer-left) full dark forearm/hand
+backing is Shape `1-30083`, path `1-30084`, fill `#1B1411`—not the separate legacy hand Shape
+`1-30400`. It remains 100% opaque. After a temporary MCP adjustment was rejected visually, it was
+unbound so the user could place it directly at high zoom. The accepted manual position is
+`(-193, 113)`. Path `1-30084` was rebound to `bone-R-forearm` and `bone-R-hand`; Rive auto-weighted
+all 33 vertices, and a fresh query confirms both bones have meaningful influence. The mistaken
+temporary offset on `1-30400` remains restored to `(0,0)`. No path geometry was changed.
+
+The subsequent right-arm stress-pose property write did not visually redraw in Rive even after an
+opacity refresh. The test was therefore not accepted as visual evidence, and all three exact neutral
+rotations were restored and re-queried: upperarm `-67.9811791691765°`, forearm
+`-9.737911479784776°`, hand `-4.118932938093172°`. No test pose remains in the file.
+
+**Leg Skin query caveat:** a depth-4 generic hierarchy query omitted Skin children on nine paths in
+`trousers-L-corrected` (`1-27365`, `1-27371`, `1-27378`, `1-27385`, `1-27393`, `1-27400`,
+`1-27405`, `1-27410`, `1-27424`). Do not classify these as unbound from that response. Direct
+`querySkin` calls prove all nine already retain the five L-leg bone bindings, and every path has at
+least one actively weighted thigh, shin, or foot influence. A bind attempt made no change and
+reported every requested bone as already bound. No reweight was performed.
+
+The right-arm inventory is 33 paths: four structural base paths, one visible sleeve, five deep-root
+paths, twelve wrist-wrap paths, seven canonical-hand paths, and four legacy-hand paths. All 26
+deforming paths are bound only to `bone-R-upperarm`, `bone-R-forearm`, and/or `bone-R-hand`; the seven
+canonical-hand paths are intentionally unskinned because parent `hand-R` is rigidly parented under
+`bone-R-hand`. All 33 parent Shapes are 100% opaque. A requested MCP stress pose initially changed
+the three bone rotations numerically while the desktop canvas remained pixel-identical. Nudging the
+audited visible-sleeve opacity from 100% to 99% and back forced one refresh; the moderate pose then
+exposed large orange structural artwork across the torso, so the right arm does not pass deformation.
+Subsequent per-Shape opacity isolation again failed to invalidate and was inconclusive. Every tested
+Shape was restored to 100% and the exact neutral rotations were read back. Binding/opacity
+accountability is proven, but the orange exposure must be isolated with a reliably refreshed canvas
+before changing weights or geometry.
+after earlier “duplicate/rollback” judgments. All eight are restored to 100%; every one of the 53
+missing paths is now bound, including legacy trousers/bands, `LEGACY-tunic-lower`, upper/lower black
+composites, sleeve overlays/details, concealed hand bases, `tunic-upper-complete`, and
+`tunic-lower-complete`. Related overlap paths were jointly solved by assembly. A fresh full-tree
+audit now reports **190/190 paths skinned, zero unskinned paths, and zero body shapes below 100%
+opacity**. Nothing was deleted. The all-layers frame-45 capture proves every layer moves, but also
+shows that several restored overlap/composite layers need narrower role-specific weighting and/or
+draw-order reconciliation; “all bound” is now true, while “final deformation clean” must be
+revalidated with every layer present. Do not classify any imported layer as redundant.
 
 The rig described in sections 2–8 (the old 19-bone skeleton with ids `1-694xx`, the
 `ronin-travel/scale/anchor` scene graph, stations, ball, leg IK, and the 9 authored clips) was
@@ -499,3 +695,79 @@ on the layout's own x/y. `positionleft` **is** keyframeable — that's how the b
 6. Leg re-skin to include foot bones (§3), if planted-foot gait is ever needed.
 7. **Re-weight the arms** — currently a degenerate forearm-only skin (§3, "ghost elbow"); the elbow
    deforms no art. `autoWeight` upperarm+forearm together to restore an elbow bend.
+
+## 10. Clean rebuild — clipped black coverage audit (2026-08-14)
+
+The live `RONIN RIG CLEAN REBUILD` file contains two intentional clipped copies of the same
+99-vertex `#090B0F` coverage silhouette. They must not be treated as redundant:
+
+- upper: `REVIEW-body-black-upper` `1-29945` → source path `1-29948`, clipped by
+  `clippath-1` (`1-30049` → source `1-50686`);
+- lower: `REVIEW-body-black-lower` `1-30884` → source path `1-30887`, clipped by
+  `clippath` (`1-30988` → source `1-50693`).
+
+The upper path was already skinned to spine/chest and both arm chains. The lower path was bound
+only to pelvis/spine/chest, which made its leg and foot coverage remain torso-driven during the
+walk. It is now bound to pelvis/spine/chest plus both complete hip→thigh→shin→foot→toe chains.
+The initial broad solve (`blend 0.35`, four influences, smoothing enabled) produced a black wedge
+under the lifted foot because one continuous perimeter was blending across independent legs. The
+current corrective solve is deliberately tight (`blend 0.08`, max two influences, smoothing off).
+No source or clip geometry was deleted, hidden, reordered, or split. Extreme-frame visual QA is
+still required before this repair is considered production-proven; if a wedge remains, preserve
+the intact sources and separate lower coverage per leg rather than accepting cross-leg stretching.
+
+High-zoom walk review subsequently confirmed two residual manifestations: square black tabs can
+escape below the tunic sides, and the viewer-left boot can still pull a rearward black wedge. A
+diagnostic centre-split made with duplicated lower sources was rolled back completely because Rive
+placed the duplicate at the artboard root with a different transform basis; auto-weight therefore
+reported the copied leg chain as influencing no vertices. The live file is restored to the single
+lower source, full lower clip bounds, all 13 lower-body tendons, and the tight `0.08`/two-influence
+solve. Safe next technique: duplicate inside the original transformed body parent (or normalize the
+duplicate's world transform in Design mode) before deleting only the duplicate skin and rebuilding
+independent per-leg clips/skins.
+
+The transform-safe left/right split was subsequently created successfully in Design mode. Rive's
+current `duplicate_objects` operation placed the lower node copy as a true sibling under
+`RONIN-BODY-ART` `1-25996`; original `1-30884` and copy `1-63780` both report local
+`(-119.608139, 80.64)` and computed world `(1166.9469, 1025.2440)`. The copied lower path is
+`1-63783`. Because the copied clipping component initially still referenced the original shared
+clip source, clip source `1-50693` was duplicated as `1-63999` (path `1-64001`) and clipping
+component `1-63998` was retargeted to it. The clips overlap by four local units at centre:
+original/anatomical-R runs `x=-63.731..2`, copy/anatomical-L runs `x=-2..63.731`.
+
+Each half now has an independent eight-bone skin: pelvis/spine/chest plus only its corresponding
+hip→thigh→shin→foot→toe chain, using `blend 0.08`, max two influences and smoothing off. Skin
+queries verified every intended tendon has nonzero influence. The exact neutral silhouette remains
+visually unchanged. Walk inspection at frame 8 nevertheless still shows the viewer-left rear boot
+wedge and both tunic-side tabs, proving that left/right separation alone is insufficient: each side
+still spans several independently rotating vertical regions. A diagnostic rigid-nearest solve
+(`blend 0`, one influence) was immediately reverted because it caused chest/hip/toe tendons to
+influence nothing. Safe next technique is vertical region segmentation inside each side (torso/hip,
+leg and boot/foot as required), retaining the proven sibling transform and independent clip-source
+pattern; do not revert to a single cross-leg skin.
+
+The first anatomical-R vertical boot segmentation is now live. Two sibling coverage copies under
+the original transformed body parent use independent clips: ankle/boot `1-64222` / path `1-64225`
+with local clip `x=-63.731..2, y=-44..-18`, and sole `1-64652` / path `1-64655` with
+`x=-63.731..2, y=-22..-7.397`. Their four-unit vertical overlap is intentional. A reconnect audit
+found both 99-vertex source paths unbound; both source paths and both clip rectangles are now rigidly
+bound to `bone-R-foot` (`1-57653`). Skin readback proves all 99 source vertices have weight 1.0 on
+that bone. All 16 visible `boot-R` paths were likewise rebuilt as rigid foot paths, preserving their
+artwork and neutral silhouette.
+
+High-zoom QA at frames 8/15/45/52 shows the large rear boot wedge is substantially reduced, but the
+repair is not yet a pass: frame 15 still exposes detached black fragments between the legs and
+behind the lifted anatomical-R boot. The original R-side clip already ends at local y=-40, so the
+residual is not an untrimmed duplicate boot region. Continue by isolating the remaining spanning
+R-side upper/thigh/shin coverage at the failing frame and splitting it vertically; do not hide or
+delete the source artwork, and do not mirror this incomplete solve yet.
+
+A later non-destructive necessity test set all five live black coverage nodes to 0% opacity together
+(`REVIEW-body-black-upper`, both left/right lower halves, and the two anatomical-R boot bands), then
+inspected neutral plus walk frames 8, 15, 45 and 52. No major torso, limb, hand, leg or boot anatomy
+disappeared, while the detached black fragments did disappear. All five nodes were restored to 100%
+after the test and the editor returned to neutral Design mode. This establishes that the monolithic
+silhouettes are not required for major anatomy in the tested poses. Before permanent deletion, run a
+final high-zoom full-loop joint audit; replace any genuinely exposed micro-gap with a simple local
+patch in the correct colour rigidly bound to the relevant bone, rather than retaining a spanning
+full-body silhouette.

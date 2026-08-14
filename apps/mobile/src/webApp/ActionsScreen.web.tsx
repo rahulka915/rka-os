@@ -1,5 +1,5 @@
-import { useCallback, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { Pressable, SectionList, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Plus, X } from 'lucide-react-native';
 import {
   logAction,
@@ -9,9 +9,12 @@ import {
   getItemsByType,
   getPotentialStats,
   getSkills,
+  getAttributes,
 } from '../db/database';
 import type { Item } from '../db/types';
+import { groupFeedBySource } from '../utils/actions';
 import type { FeedEntry, ActionKind, ActionIntensity } from '../utils/actions';
+import type { AttributeContributionConfig, AttributeWeight } from '../utils/attributes';
 import { useDbRefresh } from '../hooks/useDb';
 import { webColors, webSpacing, webRadius, webFontSize, webDepth } from '../theme/webTheme';
 
@@ -61,11 +64,21 @@ function CaptureForm({ onSaved, onCancel }: CaptureFormProps) {
   const [pillarId, setPillarId] = useState<string | undefined>(undefined);
   const [skillId, setSkillId] = useState<string | undefined>(undefined);
   const [missionId, setMissionId] = useState<string | undefined>(undefined);
+  const [attributeContributions, setAttributeContributions] = useState<AttributeContributionConfig[]>([]);
 
   const domains = getItemsByType('area');
   const pillars = getPotentialStats();
   const skills = getSkills();
   const missions = getItemsByType('project');
+  const attributes = getAttributes();
+
+  const setAttributeWeight = (attributeId: string, weight: AttributeWeight | null) => {
+    setAttributeContributions((prev) => {
+      const next = prev.filter((c) => c.attributeId !== attributeId);
+      if (weight) next.push({ attributeId, weight });
+      return next;
+    });
+  };
 
   const canSave = title.trim().length > 0;
 
@@ -82,6 +95,7 @@ function CaptureForm({ onSaved, onCancel }: CaptureFormProps) {
       pillarId,
       skillId,
       missionId,
+      attributeContributions,
     });
     onSaved();
   };
@@ -189,6 +203,39 @@ function CaptureForm({ onSaved, onCancel }: CaptureFormProps) {
         ))}
       </View>
 
+      {/* Attribute evidence — independent multi-select, unlike the single-select link pickers above */}
+      {attributes.length > 0 && (
+        <View style={cf.row}>
+          <Text style={cf.fieldLabel}>Attributes</Text>
+          <View style={{ flexDirection: 'column', gap: webSpacing[2] }}>
+            {attributes.map((attribute: Item) => {
+              const current = attributeContributions.find((c) => c.attributeId === attribute.id)?.weight ?? null;
+              return (
+                <View key={attribute.id} style={{ flexDirection: 'row', alignItems: 'center', gap: webSpacing[2] }}>
+                  <Text style={[cf.pickerLabel, { minWidth: 60 }]}>{attribute.title}</Text>
+                  <View style={cf.chipRow}>
+                    {(['minor', 'moderate', 'major'] as AttributeWeight[]).map((weight) => {
+                      const active = current === weight;
+                      return (
+                        <Pressable
+                          key={weight}
+                          onPress={() => setAttributeWeight(attribute.id, active ? null : weight)}
+                          style={[cf.chip, active && cf.chipActive]}
+                        >
+                          <Text style={[cf.chipLabel, active && cf.chipLabelActive]}>
+                            {weight.charAt(0).toUpperCase() + weight.slice(1)}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      )}
+
       {/* Actions */}
       <View style={cf.actions}>
         <Pressable onPress={onCancel} style={cf.cancelTextBtn}>
@@ -290,10 +337,16 @@ export function ActionsScreen() {
   const [feed, setFeed] = useState<FeedEntry[]>([]);
   const [capturing, setCapturing] = useState(false);
   const [editingEntry, setEditingEntry] = useState<FeedEntry | null>(null);
+  const [grouped, setGrouped] = useState(true);
 
   const refresh = useCallback(() => {
     setFeed(getActionFeed(50));
   }, []);
+
+  const sections = useMemo(
+    () => groupFeedBySource(feed).map((g) => ({ title: g.label, data: g.entries })),
+    [feed],
+  );
 
   useDbRefresh(refresh);
 
@@ -315,13 +368,21 @@ export function ActionsScreen() {
           <Text style={sc.title}>Actions</Text>
           <Text style={sc.count}>{feed.length > 0 ? `${feed.length} entries` : 'Nothing logged yet'}</Text>
         </View>
-        <Pressable
-          onPress={() => { setCapturing(true); setEditingEntry(null); }}
-          style={sc.logBtn}
-        >
-          <Plus size={14} color={webColors.background} strokeWidth={2.5} />
-          <Text style={sc.logBtnText}>Log Action</Text>
-        </Pressable>
+        <View style={sc.headerRight}>
+          <Pressable
+            onPress={() => setGrouped((g) => !g)}
+            style={sc.groupToggle}
+          >
+            <Text style={sc.groupToggleText}>{grouped ? 'By type' : 'All'}</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => { setCapturing(true); setEditingEntry(null); }}
+            style={sc.logBtn}
+          >
+            <Plus size={14} color={webColors.background} strokeWidth={2.5} />
+            <Text style={sc.logBtnText}>Log Action</Text>
+          </Pressable>
+        </View>
       </View>
 
       {/* Capture form */}
@@ -346,8 +407,8 @@ export function ActionsScreen() {
       )}
 
       {/* Feed */}
-      <FlatList
-        data={feed}
+      <SectionList
+        sections={grouped ? sections : [{ title: '', data: feed }]}
         keyExtractor={(e) => e.id}
         contentContainerStyle={feed.length === 0 && !capturing ? sc.emptyContainer : sc.listContent}
         ListEmptyComponent={
@@ -362,6 +423,9 @@ export function ActionsScreen() {
               </Pressable>
             </View>
           ) : null
+        }
+        renderSectionHeader={({ section }) =>
+          grouped && section.title ? <Text style={sc.sectionHeader}>{section.title.toUpperCase()}</Text> : null
         }
         renderItem={({ item }) => (
           <FeedRowItem
@@ -399,6 +463,35 @@ const sc = StyleSheet.create({
     fontSize: webFontSize.sm,
     color: webColors.mutedForeground,
     marginTop: 2,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: webSpacing[3],
+  },
+  groupToggle: {
+    paddingHorizontal: webSpacing[3],
+    paddingVertical: webSpacing[2],
+    borderRadius: webRadius.pill,
+    borderWidth: 1,
+    borderColor: webColors.border,
+    // @ts-ignore
+    cursor: 'pointer',
+  },
+  groupToggleText: {
+    fontSize: webFontSize.sm,
+    fontWeight: '600',
+    color: webColors.mutedForeground,
+  },
+  sectionHeader: {
+    fontSize: webFontSize.xs,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    color: webColors.mutedForeground,
+    backgroundColor: webColors.background,
+    paddingHorizontal: webSpacing[6],
+    paddingTop: webSpacing[5],
+    paddingBottom: webSpacing[2],
   },
   logBtn: {
     flexDirection: 'row',

@@ -1,6 +1,50 @@
 # RKA OS — Handover Summary
-**Last Updated:** 2026-08-13
+**Last Updated:** 2026-08-14
 **Status:** Native iOS (primary, active) + a *separate, current* desktop web app (`apps/mobile/src/webApp/`, Expo web, built 2026-07-30–08-01, partial screen parity — see `apps/mobile/CLAUDE.md`'s "Desktop Web App" section). The *different, unrelated* Web PWA described in Session 1 below (Vite + React + Dexie.js, repo root) has been fully retired; that section is kept as historical record only. Do not conflate the two — one is dead, one is actively developed.
+
+---
+
+## 2026-08-15 — Measurable (count/duration) Habits now generate proportional Attribute evidence
+
+Follow-up to the entry below — a real gap found before commit/deploy: quantified Habits (e.g. "12k steps") went through `logHabitSample`, never `updateItemStatus`'s completion path, so they generated zero Attribute evidence no matter how tagged. Fixed.
+
+- **New `fraction` column on `attributeContributions`** (REAL, nullable — NULL means full credit). `completionFraction = clamp(actual/target, 0, 1)` scales the configured weight's units linearly, applied once at the raw-unit level in `attributeScoring.ts`'s `bucketEvidenceByWeek` — deliberately NOT run through the weekly-credit curve's `^0.6` a second time (would double-count partial effort).
+- **`recordHabitProgressEvidence(habitId, occurredAt, samples)`** (both DB files) — called from `logHabitSample`/`undoLastHabitSample`. Recomputes the *current period's* completion fraction from scratch every time (via `utils/habitMeta.ts`'s newly-exported `periodWindow`/existing `computeHabitPeriodProgress`) and **replaces** that period's evidence rather than accumulating it — excludes whatever was recorded in the current period window, inserts fresh rows only if fraction > 0. Same weekly-target period math the progress UI already uses, so evidence and displayed progress can never disagree. No-ops for binary Habits (unchanged, still go through `recordHabitCompletionEvidence`).
+- **Real bug caught and fixed mid-implementation**: on web, Firestore writes are async with no local optimistic update — a `getHabitSamples()` call made immediately after `logActivity()`/delete would read stale data (missing the sample just logged, or still containing the one just removed). Fixed by having `logHabitSample`/`undoLastHabitSample` construct the corrected sample list by hand before calling `recordHabitProgressEvidence`, rather than trusting a fresh snapshot read. Native is unaffected (SQLite writes are synchronous) but was given the same explicit-samples-parameter signature for consistency.
+- One new `ALTER TABLE attributeContributions ADD COLUMN fraction REAL` migration (native), wrapped in the existing try/catch-ignore pattern.
+- New tests: 3 added to `attributeScoring.test.ts` covering the exact 0/25/50/75/100/150%+ behavior and confirming the curve is not double-applied.
+- **Live UI validation not completed this pass**: none of the 5 seeded Habits in the test account are actually configured as count/duration (despite names like "120g Protein"/"12k steps" implying it), and the web Habit editor's Measurement section appears to be display-only — no way found to switch Binary → Count/Duration from the panel. Worth a look as a separate, pre-existing gap; not fixed here. Validated instead via unit tests (thorough, exact-percentage coverage) and code review.
+- Docs updated: `SCHEMA.md`'s `attributeContributions` table (new `fraction` column + full mechanism), `CLAUDE.md`'s Potential Attributes note.
+
+---
+
+## 2026-08-14 — Potential Attribute v1 scoring model ("H1") + minimal UI shipped
+
+Follow-up to the evidence-architecture entry below, same day. Two rounds of simulated candidate-model comparison (published as an Artifact, not a repo doc — ask if you need the link) landed on a hybrid model; this entry is what actually got built from it.
+
+- **Scoring engine**: `src/utils/attributeScoring.ts` — `computeAttributeValue(evidence, config, now)`, pure and always recomputed fresh, nothing cached. Weekly buckets (Monday-start, `weekStartMs`) of evidence → `weeklyCredit = 100 × min(raw/target, 1)^curveExponent` (partial credit below target, hard-capped at target) → an asymmetric exponential chase (`alphaUp`/`alphaDown`) walks every week from first evidence to now. `AttributeScoringConfig` lives per-Attribute on `metadata.scoringConfig` (`getAttributeScoringConfig`/`setAttributeScoringConfig`, both DB files) — Strength/Stamina share `DEFAULT_ATTRIBUTE_SCORING_CONFIG` (target 6 units/week, minor/moderate/major = 1/2/4, exponent 0.6, α-up 0.04, α-down 0.015) but nothing hardcodes that they must. `computeAttributeScore(attributeId)` ties it together.
+- **History-aware recovery (H2)** — evaluated in the simulation round, explicitly NOT built. The evidence model already supports adding it later without any migration (it's pure history replay), so this was a scope call, not a technical blocker.
+- **UI, minimal by design**: new `AttributesScreen.tsx`/`.web.tsx` (Strength/Stamina cards + tap-to-expand recent evidence, separate "Current State" section for Alertness) — reachable from native's "More" grid / web sidebar. Habit tagging added to `HabitDetailScreen.tsx` (native) and `HabitAttributeEditor` in `HabitQuantifiedControls.web.tsx` (web, `HabitsScreen.web.tsx` edit mode) — independent multi-select Minor/Moderate/Major chips per Attribute, separate from the legacy single-Pillar picker on the same screen. Action tagging added to `LogActionSheet` (native) / `CaptureForm` (web) alongside the existing Domain/Pillar/Skill/Mission pickers.
+- **Real gap caught and fixed during this pass**: native seeds Strength/Stamina at SQLite cold-init (`seedInitialAttributes`, called from `getDb()`), but web has no equivalent boot hook — a web-only account would never get the two Attributes created. Fixed with a lazy-seed-on-first-`getAttributes()`-read in `database.web.ts`, same idempotent `seedKey` guard as native so a later two-way sync never duplicates.
+- **Validated live**, not just via unit tests: tagged the real "Resistance Training" habit (web) to Strength=Major, completed it, confirmed the Attributes screen showed Strength move from 0 to 3 and the evidence list showed the new row — matches the hand-computed expected value (weekly credit ≈78% for a single Major, α-up 0.04 → 0 + 0.04×78 ≈ 3.1) exactly.
+- Also fixed in passing: an unrelated concurrent change added a `'supplement'` `ItemType` while this was in flight, which broke two exhaustive `Record<ItemType, ...>` maps (`ArchiveScreen.tsx`'s `TYPE_LABELS`, `HomeScreenExperimental.tsx`'s `TYPE_COLORS`) — both patched with a `supplement` entry so the build stays green; not otherwise related to this work.
+- New tests: `utils/attributeScoring.test.ts` (16 tests, including explicit validation-checklist cases: partial-week credit, decay-after-inactivity, excessive-volume capping, per-Attribute config independence, deterministic recompute-from-history).
+
+---
+
+## 2026-08-14 — Domains reduced to 6 + Potential Attribute evidence architecture (shipped, scoring formula deliberately NOT built)
+
+Product direction, discussed at length before implementation: Domains lose their forced-8 Harada framing and stop being RPG stats; a new **Potential Attribute** system (Strength, Stamina for v1) takes over the "developmental stat" role that Pillars were informally drifting toward, plus a separate fast-changing **Alertness** "Current State" reading. Full architecture reasoning lives in this session's chat (not a spec doc this time — see the persistence-model/hierarchy Artifact published earlier the same day for the data-model diagrams this built on).
+
+- **Domains: 8 → 6.** `CANONICAL_DOMAIN_TITLES` (`database.ts`) drops Discipline and Growth — both judged too cross-cutting to be their own Domain. `retireDroppedDomains()` (new, runs once at boot after the existing canonical-backfill pass) re-homes anything linked to either into a fallback Domain (Discipline → Health & Wellbeing, Growth → Creativity) via the existing `mergeAreaIntoArea`, then removes them. **Inspected the live account first, per explicit instruction:** both were confirmed completely empty (0 Missions, 0 Skills, 0 Achievements, 0 Pillars) before this was written, so in practice this is a clean removal. `HaradaWheel.tsx`'s spoke geometry is already `shown.length`-driven, not hardcoded to 8 — renders correctly with 6, no change needed there. `OnboardingScreen.tsx`'s domain list derives from `CANONICAL_DOMAIN_TITLES` directly, so it updated for free.
+- **Pillars (`potential-stat`) are now explicitly legacy**, not removed. Inspected first: all 4 seeded Pillars (Physique/Skin/Oral Hygiene/Vitality) were unlinked to any Domain with zero Habits assigned — nothing real to migrate onto Attributes, so no data migration ran. Domain maintenance scoring still reads from Pillars, kept running for compatibility only.
+- **Skills' 0-100 proficiency is now explicitly legacy too** — future direction is a skill-tree (branch/node, locked/available/mastered), not built this pass. New Attribute architecture is deliberately not designed around `metadata.proficiency` being permanent.
+- **New `potential-attribute` item type**, seeded Strength/Stamina (`seedInitialAttributes`, idempotent). Two new tables: `attributeDomains` (many-to-many Attribute↔Domain association — context only, never itself a scoring input) and `attributeContributions` (the evidence/event log: `{attributeId, sourceType: 'habit'|'action', sourceId, weight: 'minor'|'moderate'|'major', occurredAt, excludedAt}`). Habits (`metadata.attributeContributions`) and Actions (`ActionDetails.attributeContributions`) can each tap zero, one, or several Attributes — independent of and unrelated to the legacy single-target `metadata.potentialStat`. Evidence is generated automatically: every real Habit completion and every logged Action now writes real rows.
+- **Deliberately unimplemented: the scoring formula.** `utils/attributes.ts`'s `computeAttributeValue` is a stub, always returns `null`. Explicit instruction: keep evidence generation and scoring strategy decoupled so the progression/decay model (asymmetric growth/decay, near-asymptotic ceiling at high values, months-long half-life) can be designed against real example timelines before being hardwired — do not assume the existing Achievement decay math (`domainScoring.ts`) is automatically correct just because it's available. A follow-up report with candidate progression models compared against example timelines is expected before this gets built.
+- **Alertness (shipped, simple):** architecturally separate from Attributes — fast-changing, recomputed fresh each read, nothing stored/decayed. `computeAlertness()` derives a basic 0-100 value from today's Daily Check-In `sleepAmount`/`sleepQuality` answers (`utils/alertness.ts`), returns `null` (never guesses) if no check-in logged today. No HP. No manual daily entry required.
+- Mirrored fully in `database.web.ts` — the two new relational tables are localStorage-backed for now (same "no firestoreWebStore mirror yet" pattern already established by `dailyCheckIns`), not yet cross-device synced; everything else (Attribute items, Habit/Action metadata) already syncs via the existing Firestore item/activityLog mirror.
+- New unit tests: `utils/attributes.test.ts`, `utils/alertness.test.ts`. `utils/itemLifecycle.ts`/its test updated for the new item type (classified structural).
+- Docs updated: `apps/mobile/CLAUDE.md` (new "Potential Attributes"/"Alertness"/"Domains are now six" notes, Pillars/Skills sections marked legacy), `apps/mobile/SCHEMA.md` (new tables + item type documented in the same table format as `domainContributions`).
 
 ---
 
@@ -73,6 +117,113 @@ Implemented per `docs/superpowers/specs/2026-08-13-pillars-and-actions-design.md
   currently rollback-only and their intended coverage role remains unresolved. Resolve clipping or
   reconstruction versus superseded-duplicate status before treating the complete-arm gate as passed.
   Project code and the canonical artwork specification remain unchanged.
+- Follow-up deformation testing rigid-parented the six left structural/deep-root candidates by
+  segment. The rendered pose proved they are duplicate brown limb fragments outside an already
+  complete sleeve/wrap silhouette, so they remain intentionally as superseded rollback artwork at
+  0%. This closes the arm construction gate without deleting them.
+- Began only the anatomical left leg: base+corrected trousers use thigh/shin, extended shin band uses
+  shin/foot, and all boot parts use foot/toe. Representative Skin summaries are healthy. Rive then
+  stalled at `LOADING FILE… 0%` before the pose could be visually signed off; exact neutral rotations
+  were restored and Timeline `1-6` is empty. Reconnect and visually validate this leg before mirroring.
+- Waiting through the ordinary loading overlay allowed the left-leg pose to render. Strong knee,
+  ankle, toe, and hip-shift tests showed complete following with no holes or stationary fragments;
+  the left leg is visually validated and neutral was restored.
+- Rechecked the orange buried left-leg backing during the full-body walk. The offender is path
+  `1-31038` in `leg-L-base 1-30989`. A foot-only diagnostic bind worsened the exposure and was
+  removed. A restored five-bone joint solve then caused an orange curve in neutral, so that failed
+  Skin was also removed. The isolated path is now rigidly bound to `bone-L-shin`; exact neutral is
+  visually clean again. It stays at 100% and behind the visible leg artwork; validate/tune the walk
+  extremes rather than hiding it.
+- Corrected an earlier false diagnosis: the orange triangle was not `1-31037`; all experimental
+  transform/vertex edits to it were reverted exactly. Opacity isolation at 1683% identified Shape
+  `1-31054` / path `1-31055`. Its inappropriate five-bone Skin `1-58868` was replaced by rigid
+  `bone-L-shin` binding. The shape remains 100% opaque and the close neutral render is clean.
+- Began the required high-zoom four-limb audit. Expanded inventory to include retained legacy paths:
+  38 left-leg and 50 right-leg paths, all bound only to their anatomical side. Deep left-knee flex
+  isolated a dark rectangle to legacy trouser path `1-26103`; three automated assignment models
+  failed, so it was restored/rebound in exact neutral and marked for manual weights/clipping.
+- Audited 26 left-arm paths. Found six structural/deep-root Shapes incorrectly at 0% and restored all
+  to 100%. Isolation identified `1-30179` as a large neutral orange protrusion. Five tail vertices
+  were shortened into the visible sleeve, its stale Skin was rebuilt in exact neutral, and the new
+  Skin `1-62518` confirms all corrected vertices rigidly follow `bone-L-upperarm`. Explicit selection
+  at 989% verifies the orange base is fully contained while remaining 100% opaque.
+- User-selected screenshots identified the neutral displacement precisely as left structural Shapes
+  `1-30200` and `1-30800`, then exposed the same hierarchy defect across all six structural/deep-root
+  Shapes. They had both bone parenting and a Skin to that bone, so transforms were applied twice.
+  All six were returned under `RONIN-BODY-ART`, kept at 100%, and rebound exactly once: three to
+  `bone-L-upperarm`, three to `bone-L-forearm`. A full reload visually confirms the clean neutral
+  silhouette; final queries confirm parent `1-25996` and the intended single L-side bone per path.
+- Compared the clean neutral against the supplied Illustrator original (ignoring the intentional skin
+  tone change). At 1174.3% zoom, user-assisted direct selection identified the anatomical-left
+  (viewer-left) full dark forearm/hand backing as Shape `1-30083` / path `1-30084`, fill `#1B1411`.
+  It remains 100% opaque. The MCP offset was visually rejected, so the path was unbound and the user
+  manually placed the Shape at the accepted `(-193, 113)`. Rebound path `1-30084` to
+  `bone-R-forearm` plus `bone-R-hand`; Rive auto-weighted all 33 vertices and both bones have verified
+  influence. Restored unrelated Shape `1-30400` to `(0,0)`. No path geometry was changed.
+- Attempted a moderate right-arm stress pose after the backing rebind, but Rive's canvas stayed stale
+  and therefore provided no visual proof. Restored and re-queried the exact neutral rotations for
+  `bone-R-upperarm`, `bone-R-forearm`, and `bone-R-hand`; no test pose remains.
+- Audited the leg assemblies after a generic hierarchy query appeared to show nine unbound paths in
+  `trousers-L-corrected`. Direct `querySkin` proved this was a hierarchy-response omission: all nine
+  already have their five L-leg bones attached and each has active thigh, shin, or foot weights. The
+  attempted bind changed nothing; no paths were reweighted.
+- Audited the complete 33-path right arm. All 26 deforming paths are bound exclusively to R-side arm
+  bones; the seven canonical hand paths remain intentionally unskinned inside rigid `hand-R`; every
+  parent Shape is 100%. MCP stress rotations initially left a stale canvas; a visible-sleeve opacity
+  nudge forced one refresh and revealed large orange structural artwork across the torso in a moderate
+  shoulder/elbow pose. Later isolation toggles again failed to invalidate, so no offender was guessed.
+  All Shapes and exact neutral rotations were restored and read back. Binding/opacity passes; visual
+  deformation fails pending reliable high-zoom isolation of the orange pieces.
+- Mirrored the numerical rig to the anatomical right leg using its larger actual inventory: 17
+  base/trouser, 14 shin-band, and 16 boot paths. A per-path audit caught and repaired one initially
+  unbound boot detail (`1-26498`). The MCP test pose did not evaluate on the visible canvas even after
+  extended waiting without a loading overlay, and UI refresh attempts returned `noWindowsAvailable`.
+  Right-leg neutral was restored; visually sign it off before animation.
+- Follow-up restored the Rive MCP and combined MCP transform control with full-window computer
+  captures. The right leg visibly passed a strong hip/knee/ankle/toe bend plus a planted-foot roll;
+  trousers, band, boot, toe, and the previously missed detail all followed without holes or detached
+  fragments. Exact neutral rotations read back correctly and Timeline `1-6` remains empty, but the
+  desktop canvas stayed on the last evaluated roll frame and direct refresh clicks intermittently
+  returned `noWindowsAvailable`. Right-leg deformation is signed off; exact neutral-silhouette
+  validation remains the final gate before animation.
+- Resolved the last neutral-render gate by addressing Rive as `app.rive.editor`: a fresh state read
+  followed by a Design-canvas click forced the pending neutral transforms to evaluate. The visible
+  character returned to the approved symmetrical stance. Full skeleton, head, torso, both arms,
+  both legs, foot roll, and neutral silhouette are now validated; Timeline `1-6` is still empty.
+- Began animation with one restrained checkpoint: renamed the existing empty Timeline `1-6` to
+  `idle`, set 60 fps / 60 frames / loop / speed `0.45`, and authored nine cubic skeleton-only keys
+  on pelvis Y, chest rotation, and head rotation at frames 0/30/60. Endpoints are exact neutral;
+  midpoint amplitude is 2.5 px / 1° / -0.8°. The midpoint rendered cleanly and Design values were
+  restored exactly. Visually review continuous playback before creating `walk`.
+- Completed and visually validated `walk` (`1-60155`): 60 fps, 60 frames, looping, 95 cubic keys,
+  19 tracks, 17 skeleton objects, and no artwork targets. It includes pelvis shift/double-bounce,
+  torso/head counter-motion, hip/thigh swing, alternating knee flexion, ankle/toe roll, planted-foot
+  phases, and upperarm/forearm coordination. Frame-15 and frame-45 captures show alternating swing
+  legs and opposite planted boots with no holes or detached fragments. Corrected the initial
+  same-direction arm sway to antiphase and replayed the cycle. Every track has equal frame-0/60
+  values; exact Design neutral was restored. The default state machine remains Entry → `idle`;
+  connecting runtime walk transitions is intentionally separate from the completed walk clip.
+- User review correctly reopened production walk sign-off: the animated limbs reveal imported
+  construction edges. Live inventory proves these are not Rive Strokes—there are zero Stroke
+  components in the leg/trouser/band/boot groups—but separate near-black filled detail paths with
+  independent Skin deformation. Isolated the four lowest paths responsible for hanging cuff/trouser
+  lines (`1-27770`, `1-27687`, `1-27440`, `1-27330`) and retained them at 0%; neutral remains intact.
+  Remaining knee/hip/ankle seams require consolidated limb artwork or no-outline joint-cover shapes,
+  not further timing/weight tweaks. Treat `walk` as a validated motion test, not production-ready art.
+- Corrected that conclusion after the user challenged it: continuous limb silhouettes do exist.
+  Root cause was separate per-role weight solves plus nine unskinned left-trouser decorative paths.
+  Restored the four isolated dark shapes to 100%, rebound every full-leg path to the complete
+  hip→thigh→shin→foot→toe chain, and jointly auto-weighted 34 left / 47 right paths as one surface
+  per leg (blend 0.35, max influences 3, smooth). Excluded stale id `1-26413`; explicitly rebound
+  `1-27400`. Frame-45 inspection shows coordinated continuous following; exact neutral restored.
+- Completed a full imported-body audit after the user clarified that every layer is intentional.
+  Found 190 live paths, of which 53 were unskinned, plus eight shapes incorrectly left at 0% by
+  earlier rollback/duplicate judgments. Restored all eight to 100% and bound all 53 missing paths,
+  including legacy trousers/bands, complete tunics, composite masks, sleeve details, and concealed
+  hand coverage. Final machine audit: 190/190 paths skinned, zero unskinned, zero hidden body shapes.
+  Frame-45 proves all layers follow, but restored composites still require role-specific weight and
+  draw-order refinement before the walk is visually clean. Nothing was deleted; no imported layer
+  may be called redundant.
 
 ## 2026-08-12 — "Potential Stats" → **Pillars** (product rename + optional/first-class model)
 
@@ -1971,3 +2122,43 @@ PWA-specific docs (`FIX_LOG.md`, `AUDIT_LOG.md`, `SCROLL_*.md`, `IOS_BOTTOM_NAV.
   `muscle-groups-3d-contact-sheet.jpg` and `muscle-groups-gold-contact-sheet.jpg`.
 - Verification: all staged muscle-group finals are RGBA `1254x1254`, have fully transparent corners, and no baked green
   or checkerboard background. No existing approved Domain/Collection icons were overwritten during muscle-group work.
+
+## 2026-08-14 — Ronin clean rebuild black coverage repair
+
+- Inspected the live `RONIN RIG CLEAN REBUILD` Rive document and proved that the apparent full-body
+  black overlay is two intentional 99-vertex copies divided by upper/lower clip masks.
+- Kept the upper source and both masks unchanged. Added both complete leg chains to lower source
+  path `1-30887`, which had previously been weighted only to pelvis/spine/chest.
+- A broad auto-weight exposed cross-leg stretching as a black wedge under a lifted foot. Tightened
+  the lower-source solve to blend `0.08`, two influences, smoothing off; no geometry was deleted,
+  hidden, reordered, or split.
+- Verified through MCP that all 13 intended lower-body tendons now influence vertices. Immediate
+  next step: inspect every walk extreme at high zoom; if any wedge remains, preserve the intact
+  clipped sources and split the lower coverage into independent per-leg pieces before animation work.
+- High-zoom user frames confirmed residual tunic-side tabs and a viewer-left boot wedge. A diagnostic
+  duplicated centre-split was not retained: the copy landed at the artboard root with a mismatched
+  transform basis and its leg tendons influenced no vertices. Temporary copies and copied skins were
+  removed, the original clip bounds/names were restored, and the original lower path was rebound to
+  all 13 tendons with the tight `0.08`/two-influence solve. No diagnostic copy remains live.
+- A later retry using the updated sibling-preserving duplicate operation succeeded. The original
+  lower node `1-30884` and copy `1-63780` are both under `RONIN-BODY-ART` `1-25996` with identical
+  local and computed-world transforms. Copy path is `1-63783`; its independent clip source is
+  `1-63999`/path `1-64001`, referenced by clipping component `1-63998`.
+- Lower coverage is now split with a small centre overlap into anatomical-R and anatomical-L halves.
+  Each path is bound only to pelvis/spine/chest plus its own complete leg chain and tightly weighted
+  at `0.08`/two influences/smoothing off. All intended tendons have nonzero influence and neutral is
+  unchanged. Frame-8 inspection still shows a same-side rear boot wedge and tunic-side tabs, so the
+  next repair is vertical per-region segmentation using the now-proven sibling/independent-clip
+  method. A one-influence diagnostic was reverted after producing zero-influence tendons.
+- Began the proven vertical segmentation on anatomical-R. Independent ankle/boot and sole coverage
+  bands now overlap by four local units and are rigidly bound to `bone-R-foot`; their source paths
+  (`1-64225`, `1-64655`) were discovered unbound on reconnect and corrected, with all 99 vertices
+  confirmed at weight 1.0. The 16 visible `boot-R` paths are also rigid foot-bound and neutral remains
+  clean. Exact frames 8/15/45/52 were inspected at 277%; the large wedge improved, but frame 15 still
+  exposes detached black fragments, so this remains an in-progress diagnostic and must not yet be
+  mirrored or treated as production-proven.
+- A non-destructive 0%-opacity test of all five black coverage nodes was visually checked in neutral
+  and at walk frames 8/15/45/52. No major anatomy disappeared and the detached fragments vanished.
+  All nodes were restored to 100% and Rive was returned to neutral Design mode. Current recommendation:
+  perform one final high-zoom full-loop joint audit, then remove the monolithic silhouettes if clean;
+  use small correctly coloured bone-local patches only for any proven micro-gaps.

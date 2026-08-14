@@ -132,15 +132,24 @@ export interface DomainContributionRow {
 // Evidence log row for the Potential Attribute system — see
 // src/utils/attributes.ts. Deliberately has no `magnitude`/`halfLifeDays`
 // like DomainContributionRow: those encode a specific decay formula, and the
-// Attribute scoring formula is intentionally not decided yet (see the
-// 2026-08-14 architecture note in apps/mobile/CLAUDE.md). `weight` is the
-// only thing recorded at evidence time.
+// weekly-credit curve is applied once, at the Attribute level (see
+// utils/attributeScoring.ts), not baked into each row. `weight` + `fraction`
+// is the raw fact recorded at evidence time — how strong the tap was
+// configured, and (for measurable Habits only) how much of that tap was
+// actually earned.
 export interface AttributeContributionRow {
   id: string;
   attributeId: string;
   sourceType: 'habit' | 'action';
   sourceId: string;
   weight: 'minor' | 'moderate' | 'major';
+  // Proportional credit toward the configured weight, 0..1. Undefined means
+  // 1 (full credit) — the case for binary Habit completions and Actions,
+  // which have no partial/measurable notion. Only count/duration Habits
+  // (see database.ts's recordHabitProgressEvidence) set this to something
+  // other than 1, reflecting actual/target progress at the time it was
+  // last recomputed for the current period.
+  fraction?: number;
   occurredAt: number;
   excludedAt?: number;
   createdAt: number;

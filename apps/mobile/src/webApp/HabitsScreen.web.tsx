@@ -9,7 +9,7 @@ import { DetailPanel } from './DetailPanel';
 import { ItemDetailForm } from './ItemDetailForm';
 import { HabitDetailPanel } from './HabitDetailPanel';
 import { RoutinesScreen } from './RoutinesScreen';
-import { QuickAddOneControl, QuickDurationControl, HabitProgressSection, HabitMeasurementEditor, HabitPotentialEditor } from './HabitQuantifiedControls.web';
+import { QuickAddOneControl, QuickDurationControl, HabitProgressSection, HabitMeasurementEditor, HabitPotentialEditor, HabitAttributeEditor } from './HabitQuantifiedControls.web';
 import { webColors, webSpacing, webRadius, webFontSize, webDepth } from '../theme/webTheme';
 import type { ActivityLog } from '../db/types';
 
@@ -142,6 +142,7 @@ export function HabitsScreen() {
               />
               <HabitMeasurementEditor item={selectedItem} onChanged={refresh} />
               <HabitPotentialEditor item={selectedItem} onChanged={refresh} />
+              <HabitAttributeEditor item={selectedItem} onChanged={refresh} />
             </>
           ) : (
             <>

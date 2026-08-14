@@ -40,6 +40,7 @@ let uid: string | null = null;
 let state: StoreState = EMPTY_STATE;
 let unsubscribers: Unsubscribe[] = [];
 const listeners = new Set<() => void>();
+let itemsSnapshotLoaded = false;
 
 function requireFirestore() {
   if (!firestore) throw new Error('Firestore is not configured — check EXPO_PUBLIC_FIREBASE_* env vars');
@@ -66,6 +67,7 @@ export function startWebStore(userId: string): void {
   if (uid === userId) return;
   stopWebStore();
   uid = userId;
+  itemsSnapshotLoaded = false;
   const db = requireFirestore();
 
   const watch = <K extends keyof StoreState>(name: K) => {
@@ -74,6 +76,7 @@ export function startWebStore(userId: string): void {
         collection(db, 'users', userId, name),
         (snap) => {
           state = { ...state, [name]: snap.docs.map((d) => d.data()) } as StoreState;
+          if (name === 'items') itemsSnapshotLoaded = true;
           notify();
         },
         (error) => {
@@ -95,10 +98,19 @@ export function stopWebStore(): void {
   unsubscribers = [];
   uid = null;
   state = EMPTY_STATE;
+  itemsSnapshotLoaded = false;
 }
 
 export function getItemsSnapshot(): Item[] {
   return state.items;
+}
+
+// True once the first 'items' onSnapshot has landed — callers that seed
+// default items (see database.web.ts's getAttributes()) must wait for this
+// before trusting an empty getItemsSnapshot() result to mean "genuinely no
+// items exist" rather than "cache hasn't loaded yet".
+export function isItemsSnapshotLoaded(): boolean {
+  return itemsSnapshotLoaded;
 }
 export function getItemInstancesSnapshot(): ItemInstance[] {
   return state.itemInstances;

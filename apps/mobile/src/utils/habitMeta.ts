@@ -45,7 +45,11 @@ export interface HabitPeriodProgress {
   periodLabel: HabitTargetPeriod;
 }
 
-function periodWindow(period: HabitTargetPeriod, customDays: number | undefined, today: Date): { start: number; end: number } {
+// Exported so other call sites (e.g. Potential Attribute evidence, see
+// database.ts's recordHabitProgressEvidence) can find "the current period's"
+// boundaries without duplicating this date math — they must always agree
+// with computeHabitPeriodProgress below on where a period starts/ends.
+export function periodWindow(period: HabitTargetPeriod, customDays: number | undefined, today: Date): { start: number; end: number } {
   const end = new Date(today);
   end.setHours(23, 59, 59, 999);
   const start = new Date(today);

@@ -15,6 +15,7 @@ import {
   ToGetParcelIcon,
   WorkoutTrainingIcon,
 } from '../components/icons/CollectionIcons';
+import { FitnessDomainIcon } from '../components/icons/DomainIcons';
 
 const CALENDAR_GOLD = '#D4B078';
 
@@ -96,6 +97,14 @@ export function MenuScreen() {
       icon: TaskNoteIcon,
       iconSize: 42,
       accent: palette.blue,
+    },
+    {
+      route: 'Attributes',
+      label: 'Attributes',
+      sub: 'Strength, Stamina and Alertness',
+      icon: FitnessDomainIcon,
+      iconSize: 42,
+      accent: palette.orange,
     },
   ] as const;
 

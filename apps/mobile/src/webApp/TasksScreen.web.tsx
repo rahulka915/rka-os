@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactElement } from 'react';
+import { useEffect, useMemo, useState, type ReactElement } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Check, Plus, Filter, ChevronUp, ChevronDown, Lock, Flag, Repeat, ListChecks, MoveRight } from 'lucide-react-native';
 import { useTasks, useProjects } from '../hooks/useDb';
@@ -25,7 +25,7 @@ import { ItemDetailForm } from './ItemDetailForm';
 import { webColors, webSpacing, webRadius, webFontSize, webDepth } from '../theme/webTheme';
 import type { Item } from '../db/types';
 
-type TasksTab = 'tasks' | 'logbook' | 'archive';
+export type TasksTab = 'tasks' | 'logbook' | 'archive';
 
 function filterLabel(filter: TasksFilter): string {
   switch (filter.type) {
@@ -45,11 +45,11 @@ function parseMetadata(item: Item): Record<string, unknown> {
   }
 }
 
-export function TasksScreen() {
+export function TasksScreen({ initialTab }: { initialTab?: TasksTab } = {}) {
   const { tasks, refresh } = useTasks();
   const { projects } = useProjects();
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<TasksTab>('tasks');
+  const [activeTab, setActiveTab] = useState<TasksTab>(initialTab ?? 'tasks');
   const [captureText, setCaptureText] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'someday'>('all');
   const [completedItems, setCompletedItems] = useState<Item[]>([]);
@@ -58,6 +58,11 @@ export function TasksScreen() {
   const [moveMenuTaskId, setMoveMenuTaskId] = useState<string | null>(null);
 
   const refreshCompleted = () => setCompletedItems(getCompletedItems());
+
+  useEffect(() => {
+    if (initialTab === 'logbook') refreshCompleted();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const openLogbook = () => {
     setActiveTab('logbook');

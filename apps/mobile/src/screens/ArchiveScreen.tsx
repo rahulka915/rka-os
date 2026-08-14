@@ -16,6 +16,7 @@ const TYPE_LABELS: Record<ItemType, string> = {
   area: 'Domain',
   habit: 'Habit',
   medication: 'Medication',
+  supplement: 'Supplement',
   'workout-template': 'Workout',
   'workout-block': 'Workout',
   exercise: 'Exercise',
@@ -30,6 +31,7 @@ const TYPE_LABELS: Record<ItemType, string> = {
   'routine-session': 'Routine',
   skill: 'Skill',
   'backward-plan': 'Plan Backwards',
+  'potential-attribute': 'Attribute',
 };
 
 export function ArchiveScreen() {

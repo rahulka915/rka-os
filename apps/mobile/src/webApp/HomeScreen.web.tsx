@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Check, Plus } from 'lucide-react-native';
@@ -31,13 +31,21 @@ function relativeTime(timestamp: number): string {
   return `${days}d ago`;
 }
 
-export function HomeScreen() {
+export interface HomeScreenProps {
+  onNavigate?: (view: 'inbox' | 'upcoming' | 'tasks-logbook') => void;
+}
+
+export function HomeScreen({ onNavigate }: HomeScreenProps = {}) {
   const { anytime, morningItems, afternoonItems, eveningItems, inboxCount, upcomingCount, refresh } = useHomeData();
   const { items: completedItems, refresh: refreshCompleted } = useCompletedItems();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [captureText, setCaptureText] = useState('');
   const [overall, setOverall] = useState(0);
   const [focusLabel, setFocusLabel] = useState<string | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
+  const todaySectionY = useRef(0);
+
+  const scrollToToday = () => scrollRef.current?.scrollTo({ y: Math.max(0, todaySectionY.current - webSpacing[6]), animated: true });
 
   useEffect(() => {
     const { overall: nextOverall } = computeDomains();
@@ -80,7 +88,7 @@ export function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.scrollContent}>
         <LinearGradient
           colors={[webSunset.skyTop, webSunset.skyMid, webSunset.rose, webSunset.shell]}
           locations={[0, 0.45, 0.75, 1]}
@@ -95,10 +103,10 @@ export function HomeScreen() {
         </LinearGradient>
 
         <View style={styles.statsRow}>
-          <StatCard label="Inbox" value={inboxCount} />
-          <StatCard label="Today" value={todayCount} />
-          <StatCard label="Upcoming" value={upcomingCount} />
-          <StatCard label="Completed today" value={completedTodayCount} />
+          <StatCard label="Inbox" value={inboxCount} onPress={() => onNavigate?.('inbox')} />
+          <StatCard label="Today" value={todayCount} onPress={scrollToToday} />
+          <StatCard label="Upcoming" value={upcomingCount} onPress={() => onNavigate?.('upcoming')} />
+          <StatCard label="Completed today" value={completedTodayCount} onPress={() => onNavigate?.('tasks-logbook')} />
         </View>
 
         <View style={styles.captureRow}>
@@ -130,6 +138,7 @@ export function HomeScreen() {
           <PlanBackwardsCountdownWidget />
         </View>
 
+        <View onLayout={(event) => { todaySectionY.current = event.nativeEvent.layout.y; }}>
         {todayCount === 0 ? (
           <Text style={styles.empty}>Nothing scheduled for today.</Text>
         ) : (
@@ -162,6 +171,7 @@ export function HomeScreen() {
             );
           })
         )}
+        </View>
 
         {completedItems.length > 0 ? (
           <View style={styles.section}>
@@ -201,12 +211,19 @@ export function HomeScreen() {
   );
 }
 
-function StatCard({ label, value }: { label: string; value: number }) {
+function StatCard({ label, value, onPress }: { label: string; value: number; onPress?: () => void }) {
   return (
-    <View style={styles.statCard}>
+    <Pressable
+      onPress={onPress}
+      style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => [
+        styles.statCard,
+        hovered && styles.statCardHovered,
+        pressed && styles.statCardPressed,
+      ]}
+    >
       <Text style={styles.statValue}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
-    </View>
+    </Pressable>
   );
 }
 
@@ -267,6 +284,14 @@ const styles = StyleSheet.create({
     padding: webSpacing[4],
     ...webDepth.card,
     borderRadius: webRadius.lg,
+    // @ts-ignore
+    cursor: 'pointer',
+  },
+  statCardHovered: {
+    backgroundColor: webColors.muted,
+  },
+  statCardPressed: {
+    opacity: 0.7,
   },
   statValue: {
     fontSize: webFontSize.xl,

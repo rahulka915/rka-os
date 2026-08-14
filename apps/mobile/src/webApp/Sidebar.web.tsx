@@ -36,7 +36,7 @@ function inboxArtworkName(inboxCount: number): NavArtworkName {
 export type SidebarView =
   | 'home' | 'inbox' | 'tasks' | 'upcoming' | 'areas' | 'calendar' | 'archive' | 'objects'
   | 'medications' | 'workouts' | 'habits' | 'settings'
-  | 'potential' | 'routines' | 'dailylog' | 'pillars' | 'actions';
+  | 'potential' | 'routines' | 'dailylog' | 'pillars' | 'actions' | 'attributes';
 
 export interface SidebarProps {
   activeView: SidebarView;
@@ -65,6 +65,7 @@ const PROGRESSION_ITEMS: Array<{ view: SidebarView; label: string; icon: NavArtw
   { view: 'dailylog', label: 'Daily Log', icon: 'dailylog' },
   { view: 'pillars', label: 'Pillars', icon: 'potential' },
   { view: 'actions', label: 'Actions', icon: 'tasks' },
+  { view: 'attributes', label: 'Attributes', icon: 'workouts' },
 ];
 
 export function Sidebar({

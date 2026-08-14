@@ -41,6 +41,7 @@ const TYPE_COLORS: Record<ItemType, string> = {
   task: '#3B82F6',
   habit: '#22C55E',
   medication: '#F97316',
+  supplement: '#F97316',
   project: '#A855F7',
   area: '#0EA5E9',
   'workout-template': '#EF4444',
@@ -57,6 +58,7 @@ const TYPE_COLORS: Record<ItemType, string> = {
   'routine-session': '#14B8A6',
   skill: '#6B7280',
   'backward-plan': '#A8402C',
+  'potential-attribute': '#6B7280',
 };
 
 function typeColor(type: ItemType): string {

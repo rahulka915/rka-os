@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Plus, RotateCcw } from 'lucide-react-native';
-import { getPotentialStats, logHabitSample, undoLastHabitSample, updateItemMetadata } from '../db/database';
+import { getPotentialStats, logHabitSample, undoLastHabitSample, updateItemMetadata, getAttributes, getHabitAttributeContributions, setHabitAttributeContributions } from '../db/database';
 import {
   parseHabitMeta,
   computeHabitPeriodProgress,
@@ -9,9 +9,55 @@ import {
   type HabitTargetPeriod,
 } from '../utils/habitMeta';
 import { parseHabitPotentialMeta } from '../utils/potential';
+import type { AttributeWeight } from '../utils/attributes';
 import type { ActivityLog } from '../db/types';
 import type { Item } from '../db/types';
 import { webColors, webSpacing, webRadius, webFontSize } from '../theme/webTheme';
+
+const ATTRIBUTE_WEIGHTS: AttributeWeight[] = ['minor', 'moderate', 'major'];
+
+// Independent of and additional to HabitPotentialEditor's single legacy
+// Pillar assignment below — a Habit can tap zero, one, or several
+// Potential Attributes at once, each at its own Minor/Moderate/Major weight.
+export function HabitAttributeEditor({ item, onChanged }: { item: Item; onChanged: () => void }) {
+  const attributes = getAttributes();
+  if (attributes.length === 0) return null;
+  const contributions = getHabitAttributeContributions(item.id);
+
+  const setWeight = (attributeId: string, weight: AttributeWeight | null) => {
+    const next = contributions.filter((c) => c.attributeId !== attributeId);
+    if (weight) next.push({ attributeId, weight });
+    setHabitAttributeContributions(item.id, next);
+    onChanged();
+  };
+
+  return (
+    <View style={styles.editorSection}>
+      <Text style={styles.editorHeader}>Attribute evidence</Text>
+      {attributes.map((attribute) => {
+        const current = contributions.find((c) => c.attributeId === attribute.id)?.weight ?? null;
+        return (
+          <View key={attribute.id} style={{ marginBottom: webSpacing[2] }}>
+            <Text style={styles.editorFieldLabel}>{attribute.title}</Text>
+            <View style={styles.chipRow}>
+              <Pressable onPress={() => setWeight(attribute.id, null)} style={[styles.chip, !current && styles.chipActive]}>
+                <Text style={[styles.chipText, !current && styles.chipTextActive]}>None</Text>
+              </Pressable>
+              {ATTRIBUTE_WEIGHTS.map((weight) => {
+                const selected = current === weight;
+                return (
+                  <Pressable key={weight} onPress={() => setWeight(attribute.id, weight)} style={[styles.chip, selected && styles.chipActive]}>
+                    <Text style={[styles.chipText, selected && styles.chipTextActive, { textTransform: 'capitalize' }]}>{weight}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
 
 // Quick "+1" control for count habits, used inline in the list row.
 export function QuickAddOneControl({ item, onLogged }: { item: Item; onLogged: () => void }) {

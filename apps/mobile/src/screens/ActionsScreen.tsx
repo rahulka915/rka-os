@@ -1,7 +1,7 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
-  FlatList,
+  SectionList,
   StyleSheet,
   Text,
   TextInput,
@@ -21,9 +21,12 @@ import {
   getItemsByType,
   getPotentialStats,
   getSkills,
+  getAttributes,
 } from '../db/database';
 import type { Item } from '../db/types';
+import { groupFeedBySource } from '../utils/actions';
 import type { FeedEntry, ActionKind, ActionIntensity } from '../utils/actions';
+import type { AttributeContributionConfig, AttributeWeight } from '../utils/attributes';
 import { Plus } from '../icons';
 
 // ── helpers ────────────────────────────────────────────────────────────────
@@ -68,11 +71,13 @@ function LogActionSheet({ visible, onClose, onSaved, isDark }: LogActionSheetPro
   const [pillarId, setPillarId] = useState<string | undefined>(undefined);
   const [skillId, setSkillId] = useState<string | undefined>(undefined);
   const [missionId, setMissionId] = useState<string | undefined>(undefined);
+  const [attributeContributions, setAttributeContributions] = useState<AttributeContributionConfig[]>([]);
 
   const [domains, setDomains] = useState<Item[]>([]);
   const [pillars, setPillars] = useState<Item[]>([]);
   const [skills, setSkills] = useState<Item[]>([]);
   const [missions, setMissions] = useState<Item[]>([]);
+  const [attributes, setAttributes] = useState<Item[]>([]);
 
   const [showDomainPicker, setShowDomainPicker] = useState(false);
   const [showPillarPicker, setShowPillarPicker] = useState(false);
@@ -84,6 +89,7 @@ function LogActionSheet({ visible, onClose, onSaved, isDark }: LogActionSheetPro
     setPillars(getPotentialStats());
     setSkills(getSkills());
     setMissions(getItemsByType('project'));
+    setAttributes(getAttributes());
   }, []);
 
   const reset = useCallback(() => {
@@ -96,11 +102,24 @@ function LogActionSheet({ visible, onClose, onSaved, isDark }: LogActionSheetPro
     setPillarId(undefined);
     setSkillId(undefined);
     setMissionId(undefined);
+    setAttributeContributions([]);
     setShowDomainPicker(false);
     setShowPillarPicker(false);
     setShowSkillPicker(false);
     setShowMissionPicker(false);
   }, []);
+
+  useEffect(() => {
+    if (visible) setAttributes(getAttributes());
+  }, [visible]);
+
+  const setAttributeWeight = (attributeId: string, weight: AttributeWeight | null) => {
+    setAttributeContributions((prev) => {
+      const next = prev.filter((c) => c.attributeId !== attributeId);
+      if (weight) next.push({ attributeId, weight });
+      return next;
+    });
+  };
 
   const handleSave = () => {
     const trimmed = title.trim();
@@ -119,6 +138,7 @@ function LogActionSheet({ visible, onClose, onSaved, isDark }: LogActionSheetPro
       pillarId,
       skillId,
       missionId,
+      attributeContributions,
     });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     reset();
@@ -314,6 +334,41 @@ function LogActionSheet({ visible, onClose, onSaved, isDark }: LogActionSheetPro
           );
         })}
 
+        {/* Attribute evidence — independent multi-select, unlike the single-select link pickers above */}
+        {attributes.length > 0 && (
+          <>
+            <Text style={[sh.sectionLabel, { color: palette.textTertiary }]}>ATTRIBUTE EVIDENCE (OPTIONAL)</Text>
+            {attributes.map((attribute) => {
+              const current = attributeContributions.find((c) => c.attributeId === attribute.id)?.weight ?? null;
+              return (
+                <View key={attribute.id} style={sh.fieldRow}>
+                  <Text style={[sh.fieldLabel, { color: palette.textSecondary }]}>{attribute.title}</Text>
+                  <View style={{ flexDirection: 'row', gap: spacing[2] }}>
+                    {(['minor', 'moderate', 'major'] as AttributeWeight[]).map((weight) => {
+                      const selected = current === weight;
+                      return (
+                        <TouchableOpacity
+                          key={weight}
+                          onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setAttributeWeight(attribute.id, selected ? null : weight); }}
+                          style={[
+                            sh.chip,
+                            { borderColor: palette.separator },
+                            selected && { backgroundColor: palette.orange, borderColor: palette.orange },
+                          ]}
+                        >
+                          <Text style={[sh.chipLabel, { color: selected ? '#fff' : palette.text, textTransform: 'capitalize' }]}>
+                            {weight}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              );
+            })}
+          </>
+        )}
+
         <View style={{ height: spacing[8] }} />
       </View>
     </BottomSheet>
@@ -374,10 +429,16 @@ export function ActionsScreen() {
   const [feed, setFeed] = useState<FeedEntry[]>([]);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [grouped, setGrouped] = useState(true);
 
   const refresh = useCallback(() => {
     setFeed(getActionFeed(50));
   }, []);
+
+  const sections = useMemo(
+    () => groupFeedBySource(feed).map((g) => ({ title: g.label, data: g.entries })),
+    [feed],
+  );
 
   useFocusEffect(refresh);
 
@@ -426,21 +487,35 @@ export function ActionsScreen() {
             {feed.length > 0 ? `${feed.length} entries` : 'No entries yet'}
           </Text>
         </View>
-        <TouchableOpacity
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            setSheetOpen(true);
-          }}
-          style={[sc.fabButton, { backgroundColor: palette.blue }]}
-        >
-          <Plus size={20} color="#fff" strokeWidth={2.5} />
-        </TouchableOpacity>
+        <View style={sc.headerRight}>
+          <TouchableOpacity
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setGrouped((g) => !g);
+            }}
+            style={[sc.groupToggle, { borderColor: palette.separator }]}
+          >
+            <Text style={[sc.groupToggleText, { color: palette.textSecondary }]}>
+              {grouped ? 'By type' : 'All'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              setSheetOpen(true);
+            }}
+            style={[sc.fabButton, { backgroundColor: palette.blue }]}
+          >
+            <Plus size={20} color="#fff" strokeWidth={2.5} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Feed */}
-      <FlatList
-        data={feed}
+      <SectionList
+        sections={grouped ? sections : [{ title: '', data: feed }]}
         keyExtractor={(e) => e.id}
+        stickySectionHeadersEnabled={false}
         contentContainerStyle={feed.length === 0 ? sc.emptyContainer : sc.listContent}
         ListEmptyComponent={
           <View style={sc.emptyInner}>
@@ -449,6 +524,13 @@ export function ActionsScreen() {
               Log an action to start tracking what you do — skill practice, workouts, events, anything.
             </Text>
           </View>
+        }
+        renderSectionHeader={({ section }) =>
+          grouped && section.title ? (
+            <Text style={[sc.sectionHeader, { color: palette.textTertiary, backgroundColor: palette.bg }]}>
+              {section.title.toUpperCase()}
+            </Text>
+          ) : null
         }
         renderItem={({ item }) => (
           <FeedRow
@@ -495,6 +577,31 @@ const sc = StyleSheet.create({
   screenSubtitle: {
     fontSize: fontSize.sm,
     marginTop: 2,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+  },
+  groupToggle: {
+    paddingHorizontal: spacing[3],
+    height: 32,
+    borderRadius: radius.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  groupToggleText: {
+    fontSize: fontSize.sm,
+    fontWeight: '600',
+  },
+  sectionHeader: {
+    fontSize: fontSize.xs,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    paddingHorizontal: spacing[4],
+    paddingTop: spacing[4],
+    paddingBottom: spacing[2],
   },
   fabButton: {
     width: 40,
