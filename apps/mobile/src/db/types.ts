@@ -1,4 +1,4 @@
-export type ItemType = 'area' | 'project' | 'task' | 'habit' | 'medication' | 'workout-template' | 'workout-block' | 'exercise' | 'workout-session' | 'meal' | 'object' | 'potential-stat' | 'achievement' | 'focus' | 'routine' | 'routine-step' | 'routine-session' | 'skill' | 'backward-plan';
+export type ItemType = 'area' | 'project' | 'task' | 'habit' | 'medication' | 'supplement' | 'workout-template' | 'workout-block' | 'exercise' | 'workout-session' | 'meal' | 'object' | 'potential-stat' | 'achievement' | 'focus' | 'routine' | 'routine-step' | 'routine-session' | 'skill' | 'backward-plan' | 'potential-attribute';
 export type ItemStatus = 'inbox' | 'active' | 'someday' | 'scheduled' | 'due-today' | 'overdue' | 'completed' | 'skipped' | 'archived' | 'cancelled';
 
 // Object's own possession-tracking lifecycle — independent of the generic ItemStatus
@@ -124,6 +124,23 @@ export interface DomainContributionRow {
   sourceId: string;
   magnitude: number;
   halfLifeDays: number;
+  occurredAt: number;
+  excludedAt?: number;
+  createdAt: number;
+}
+
+// Evidence log row for the Potential Attribute system — see
+// src/utils/attributes.ts. Deliberately has no `magnitude`/`halfLifeDays`
+// like DomainContributionRow: those encode a specific decay formula, and the
+// Attribute scoring formula is intentionally not decided yet (see the
+// 2026-08-14 architecture note in apps/mobile/CLAUDE.md). `weight` is the
+// only thing recorded at evidence time.
+export interface AttributeContributionRow {
+  id: string;
+  attributeId: string;
+  sourceType: 'habit' | 'action';
+  sourceId: string;
+  weight: 'minor' | 'moderate' | 'major';
   occurredAt: number;
   excludedAt?: number;
   createdAt: number;

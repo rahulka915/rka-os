@@ -7,7 +7,6 @@ import {
   getTodayInstances,
   getTodayLogs,
   getItemsByStatus,
-  getItemCountByStatus,
   getActiveTaskItems,
   getItemsByType,
   createItem,
@@ -19,6 +18,8 @@ import {
   logHalfDoseTaken,
   getMedicationLogs,
   getLastTakenLog,
+  getSupplements,
+  logSupplementTaken,
   getItemsForDate,
   getInstancesForDate,
   getTimelineEntriesForDate,
@@ -116,7 +117,10 @@ export function useHomeData() {
     }
     setTodayItems(merged);
     setInboxCount(getInboxCount());
-    setUpcomingCount(getItemCountByStatus('active'));
+    // "Upcoming" = scheduled for a future date (matches UpcomingScreen's own
+    // query), NOT every active/unscheduled task — getItemCountByStatus('active')
+    // was wrongly used here before and counted hundreds of unscheduled tasks.
+    setUpcomingCount(getUpcomingItems(formatDate(new Date())).length);
   }, []);
 
   useDbRefresh(refresh);
@@ -184,6 +188,23 @@ export function useMedications() {
   }, [refresh, startTimerForLatestLog]);
 
   return { medications, refresh, takeMedication, takeHalfDose };
+}
+
+export function useSupplements() {
+  const [supplements, setSupplements] = useState<Item[]>([]);
+
+  const refresh = useCallback(() => {
+    setSupplements(getSupplements());
+  }, []);
+
+  useDbRefresh(refresh);
+
+  const logDose = useCallback((id: string) => {
+    logSupplementTaken(id);
+    refresh();
+  }, [refresh]);
+
+  return { supplements, refresh, logDose };
 }
 
 export function useCalendar(date: string) {

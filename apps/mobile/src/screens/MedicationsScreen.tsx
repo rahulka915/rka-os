@@ -1,19 +1,20 @@
 import { useCallback, useMemo, useState, useEffect } from 'react';
 import { Modal, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Alert, View as RNView, Text as RNText, StyleSheet, TextInput, SectionList, Switch } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { useMedications } from '../hooks/useDb';
+import { useMedications, useSupplements } from '../hooks/useDb';
 import { computeMedicationEligibility } from '../utils/medicationState';
-import { createMedication, updateMedication, deleteItem, getLastTakenLog, getMedicationDoseHistory, getMedicationLogs, getTotalStock, getStockBreakdown, restockMedication, startTimerFromLoggedDose, getPersistentMedicationTimers, type MedicationMeta } from '../db/database';
+import { createMedication, updateMedication, deleteItem, getLastTakenLog, getMedicationDoseHistory, getMedicationLogs, getTotalStock, getStockBreakdown, restockMedication, startTimerFromLoggedDose, getPersistentMedicationTimers, getTodayNutrientTotals, type MedicationMeta, type SupplementMeta, type NutrientProfile } from '../db/database';
 import { groupLogsByDay } from '../utils/medicationDoseHistory';
 import { LogDoseSheet } from '../components/LogDoseSheet';
 import { LensSurface } from '../components/LensSurface';
 import { MedicationStockMeter } from '../components/MedicationStockMeter';
+import { SupplementEditForm } from '../components/SupplementEditForm';
 import { useRegisterFabHoldAction } from '../hooks/useFabHoldAction';
 import { startMedicationLiveActivity } from '../services/medicationLiveActivity';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors } from '../theme';
 import type { Item } from '../db/types';
-import { X, AlertTriangle, Clock, PlayCircle } from '../icons';
+import { X, AlertTriangle, Clock, PlayCircle, Beaker, Plus } from '../icons';
 import { MedicationBottleIcon } from '../components/icons/MedicationBottleIcon';
 import { ensureMedicationTimerAutoStop } from '../services/medicationTimerController';
 import { presentMedicationTimer } from '../utils/timerPresentation';
@@ -223,6 +224,83 @@ function HistoryRow({ item, isDark, onPress }: { item: Item; isDark: boolean; on
             </RNView>
           );
         })}
+      </RNView>
+    </TouchableOpacity>
+  );
+}
+
+const NUTRIENT_LABELS: Record<keyof NutrientProfile, string> = {
+  sodium: 'Na',
+  potassium: 'K',
+  magnesium: 'Mg',
+  calcium: 'Ca',
+  chloride: 'Cl',
+};
+
+function nutrientChipsText(nutrients: NutrientProfile | undefined): string | null {
+  if (!nutrients) return null;
+  const parts = (Object.keys(NUTRIENT_LABELS) as (keyof NutrientProfile)[])
+    .filter((key) => typeof nutrients[key] === 'number' && nutrients[key]! > 0)
+    .map((key) => `${NUTRIENT_LABELS[key]} ${nutrients[key]}mg`);
+  return parts.length > 0 ? parts.join(' · ') : null;
+}
+
+function NutrientSummaryStrip({ isDark }: { isDark: boolean }) {
+  const palette = getThemeColors(isDark);
+  const totals = getTodayNutrientTotals();
+  const text = nutrientChipsText(totals);
+  if (!text) return null;
+  return (
+    <RNView style={[s.nutrientStrip, { backgroundColor: palette.fill }]}>
+      <RNText style={[s.nutrientStripText, { color: palette.textSecondary }]}>Today · {text}</RNText>
+    </RNView>
+  );
+}
+
+interface SupplementRowProps {
+  item: Item;
+  isDark: boolean;
+  onLog: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}
+
+function SupplementRow({ item, isDark, onLog, onEdit, onDelete }: SupplementRowProps) {
+  const palette = getThemeColors(isDark);
+  const meta: SupplementMeta = item.metadata ? JSON.parse(item.metadata) : {};
+  const chips = nutrientChipsText(meta.nutrients);
+
+  const handleLongPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    showActionSheet(item.title, [
+      { label: 'Edit', onPress: onEdit },
+      { label: 'Delete', onPress: onDelete, destructive: true },
+    ]);
+  };
+
+  const handleLog = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    onLog();
+  };
+
+  return (
+    <TouchableOpacity onLongPress={handleLongPress} delayLongPress={400} activeOpacity={0.5}>
+      <RNView
+        style={[
+          s.todayRow,
+          isDark
+            ? { backgroundColor: palette.fillStrong, borderWidth: StyleSheet.hairlineWidth, borderColor: palette.separatorStrong }
+            : null,
+        ]}
+      >
+        <RNView style={s.medContent}>
+          <RNText style={[s.medTitle, { color: palette.text }]}>{item.title}</RNText>
+          {meta.dose && <RNText style={[s.medDose, { color: palette.textSecondary }]}>{meta.dose}</RNText>}
+          {chips && <RNText style={[s.medSummary, { color: palette.textTertiary, marginTop: 4 }]}>{chips}</RNText>}
+        </RNView>
+        <TouchableOpacity onPress={handleLog} style={[s.actionBtn, { backgroundColor: isDark ? palette.blue : palette.text }]}>
+          <RNText style={[s.actionBtnText, { color: isDark ? '#182229' : palette.bg }]}>Log</RNText>
+        </TouchableOpacity>
       </RNView>
     </TouchableOpacity>
   );
@@ -564,10 +642,13 @@ export function MedicationsScreen() {
   const { isDark } = useThemeContext();
   const palette = getThemeColors(isDark);
   const { medications, refresh, takeMedication, takeHalfDose } = useMedications();
+  const { supplements, refresh: refreshSupplements, logDose: logSupplementDose } = useSupplements();
   const [addOpen, setAddOpen] = useState(false);
   const [logTarget, setLogTarget] = useState<Item | null>(null);
   const [editTarget, setEditTarget] = useState<Item | null>(null);
   const [historyTarget, setHistoryTarget] = useState<Item | null>(null);
+  const [supplementFormOpen, setSupplementFormOpen] = useState(false);
+  const [supplementEditTarget, setSupplementEditTarget] = useState<Item | null>(null);
 
   useRegisterFabHoldAction(useCallback(() => setAddOpen(true), []));
 
@@ -598,6 +679,21 @@ export function MedicationsScreen() {
           deleteItem(item.id);
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           refresh();
+        },
+      },
+    ]);
+  };
+
+  const handleDeleteSupplement = (item: Item) => {
+    Alert.alert(`Delete ${item.title}?`, 'This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          deleteItem(item.id);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          refreshSupplements();
         },
       },
     ]);
@@ -656,16 +752,16 @@ export function MedicationsScreen() {
   };
 
   return (
-    <LensSurface title="Medications">
-      {medications.length === 0 ? (
+    <LensSurface title="Medications & Supplements">
+      {medications.length === 0 && supplements.length === 0 ? (
         <RNView style={s.empty}>
           <MedicationBottleIcon size={36} />
-          <RNText style={[s.emptyTitle, { color: palette.text }]}>No medications</RNText>
-          <RNText style={[s.emptySub, { color: palette.textSecondary }]}>Hold the + in the dock to add one</RNText>
+          <RNText style={[s.emptyTitle, { color: palette.text }]}>No medications or supplements</RNText>
+          <RNText style={[s.emptySub, { color: palette.textSecondary }]}>Hold the + in the dock to add a medication, or use + Add below for a supplement</RNText>
         </RNView>
       ) : (
         <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
-          <FocusTimelineCard states={focusStates} isDark={isDark} />
+          {medications.length > 0 && <FocusTimelineCard states={focusStates} isDark={isDark} />}
 
           {needsAttention.length > 0 && (
             <RNView style={s.section}>
@@ -678,26 +774,56 @@ export function MedicationsScreen() {
             </RNView>
           )}
 
-          <RNView style={s.section}>
-            <RNText style={[s.sectionLabel, { color: palette.textTertiary }]}>TODAY</RNText>
-            <RNView style={s.sectionRows}>
-              {medications.map(item => (
-                <TodayRow
-                  key={item.id}
-                  item={item}
-                  isDark={isDark}
-                  onTake={(startTimer, overrideReason) => takeMedication(item.id, undefined, startTimer, overrideReason)}
-                  onTakeHalf={(startTimer) => takeHalfDose(item.id, undefined, startTimer)}
-                  onLogPast={() => setLogTarget(item)}
-                  onEdit={() => setEditTarget(item)}
-                  onDelete={() => handleDelete(item)}
-                  onRestock={() => handleRestock(item)}
-                  onStartTimer={() => handleStartTimer(item)}
-                />
-              ))}
+          {medications.length > 0 && (
+            <RNView style={s.section}>
+              <RNText style={[s.sectionLabel, { color: palette.textTertiary }]}>TODAY</RNText>
+              <RNView style={s.sectionRows}>
+                {medications.map(item => (
+                  <TodayRow
+                    key={item.id}
+                    item={item}
+                    isDark={isDark}
+                    onTake={(startTimer, overrideReason) => takeMedication(item.id, undefined, startTimer, overrideReason)}
+                    onTakeHalf={(startTimer) => takeHalfDose(item.id, undefined, startTimer)}
+                    onLogPast={() => setLogTarget(item)}
+                    onEdit={() => setEditTarget(item)}
+                    onDelete={() => handleDelete(item)}
+                    onRestock={() => handleRestock(item)}
+                    onStartTimer={() => handleStartTimer(item)}
+                  />
+                ))}
+              </RNView>
             </RNView>
+          )}
+
+          <RNView style={s.section}>
+            <RNView style={s.historyHeader}>
+              <RNText style={[s.sectionLabel, { color: palette.textTertiary }]}>SUPPLEMENTS</RNText>
+              <TouchableOpacity onPress={() => setSupplementFormOpen(true)} style={s.addSupplementBtn} hitSlop={8}>
+                <Plus size={14} color={palette.blue} strokeWidth={2.5} />
+                <RNText style={[s.seeAll, { color: palette.blue }]}>Add</RNText>
+              </TouchableOpacity>
+            </RNView>
+            <NutrientSummaryStrip isDark={isDark} />
+            {supplements.length === 0 ? (
+              <RNText style={[s.emptySub, { color: palette.textSecondary, paddingVertical: 4 }]}>No supplements yet</RNText>
+            ) : (
+              <RNView style={s.sectionRows}>
+                {supplements.map(item => (
+                  <SupplementRow
+                    key={item.id}
+                    item={item}
+                    isDark={isDark}
+                    onLog={() => logSupplementDose(item.id)}
+                    onEdit={() => setSupplementEditTarget(item)}
+                    onDelete={() => handleDeleteSupplement(item)}
+                  />
+                ))}
+              </RNView>
+            )}
           </RNView>
 
+          {medications.length > 0 && (
           <RNView style={s.section}>
             <RNView style={s.historyHeader}>
               <RNText style={[s.sectionLabel, { color: palette.textTertiary }]}>HISTORY</RNText>
@@ -709,6 +835,7 @@ export function MedicationsScreen() {
               ))}
             </RNView>
           </RNView>
+          )}
         </ScrollView>
       )}
 
@@ -730,6 +857,14 @@ export function MedicationsScreen() {
         />
       )}
       <SeeAllHistorySheet visible={!!historyTarget} item={historyTarget} onClose={() => setHistoryTarget(null)} isDark={isDark} />
+      <SupplementEditForm visible={supplementFormOpen} onClose={() => setSupplementFormOpen(false)} onSaved={refreshSupplements} isDark={isDark} />
+      <SupplementEditForm
+        visible={!!supplementEditTarget}
+        editTarget={supplementEditTarget}
+        onClose={() => setSupplementEditTarget(null)}
+        onSaved={refreshSupplements}
+        isDark={isDark}
+      />
     </LensSurface>
   );
 }
@@ -763,6 +898,22 @@ const s = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     fontFamily: 'Inter_600SemiBold',
+  },
+  addSupplementBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  nutrientStrip: {
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 8,
+  },
+  nutrientStripText: {
+    fontSize: 12,
+    fontWeight: '500',
+    fontFamily: 'Inter_500Medium',
   },
   attentionRow: {
     flexDirection: 'row',

@@ -11,6 +11,7 @@ export { default as ChevronUp } from 'react-native-heroicons/outline/ChevronUpIc
 export { default as ChevronLeft } from 'react-native-heroicons/outline/ChevronLeftIcon';
 export { default as ChevronRight } from 'react-native-heroicons/outline/ChevronRightIcon';
 export { default as Pill } from 'react-native-heroicons/outline/CircleStackIcon';
+export { default as Beaker } from 'react-native-heroicons/outline/BeakerIcon';
 export { default as PlayCircle } from 'react-native-heroicons/outline/PlayCircleIcon';
 export { default as StopCircle } from 'react-native-heroicons/outline/StopCircleIcon';
 export { default as Clock } from 'react-native-heroicons/outline/ClockIcon';

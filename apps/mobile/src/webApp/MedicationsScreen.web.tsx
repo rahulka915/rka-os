@@ -10,13 +10,18 @@ import {
   getContainerSummary,
   getMedicationDoseHistory,
   restockMedication,
+  getSupplements,
+  createSupplement,
+  logSupplementTaken,
+  getTodayNutrientTotals,
 } from '../db/database';
 import { useDbRefresh } from '../hooks/useDb';
 import { DetailPanel } from './DetailPanel';
 import { MedicationLogPanel } from './MedicationLogPanel';
 import { MedicationEditForm } from './MedicationEditForm';
+import { SupplementEditForm } from './SupplementEditForm.web';
 import { webColors, webSpacing, webRadius, webFontSize, webDepth } from '../theme/webTheme';
-import type { MedicationMeta } from '../db/database';
+import type { MedicationMeta, SupplementMeta, NutrientProfile } from '../db/database';
 import type { Item } from '../db/types';
 
 function parseMetadata(item: Item): MedicationMeta {
@@ -26,6 +31,31 @@ function parseMetadata(item: Item): MedicationMeta {
   } catch {
     return {};
   }
+}
+
+function parseSupplementMetadata(item: Item): SupplementMeta {
+  if (!item.metadata) return {};
+  try {
+    return JSON.parse(item.metadata) as SupplementMeta;
+  } catch {
+    return {};
+  }
+}
+
+const NUTRIENT_LABELS: Record<keyof NutrientProfile, string> = {
+  sodium: 'Na',
+  potassium: 'K',
+  magnesium: 'Mg',
+  calcium: 'Ca',
+  chloride: 'Cl',
+};
+
+function nutrientChipsText(nutrients: NutrientProfile | undefined): string | null {
+  if (!nutrients) return null;
+  const parts = (Object.keys(NUTRIENT_LABELS) as (keyof NutrientProfile)[])
+    .filter((key) => typeof nutrients[key] === 'number' && nutrients[key]! > 0)
+    .map((key) => `${NUTRIENT_LABELS[key]} ${nutrients[key]}mg`);
+  return parts.length > 0 ? parts.join(' · ') : null;
 }
 
 function isTrackingStock(meta: MedicationMeta): boolean {
@@ -53,11 +83,22 @@ function useMedications() {
   return { medications, refresh };
 }
 
+function useSupplements() {
+  const [supplements, setSupplements] = useState<Item[]>([]);
+  const refresh = useCallback(() => {
+    setSupplements(getSupplements());
+  }, []);
+  useDbRefresh(refresh);
+  return { supplements, refresh };
+}
+
 export function MedicationsScreen() {
   const { medications, refresh } = useMedications();
+  const { supplements, refresh: refreshSupplements } = useSupplements();
   const [captureText, setCaptureText] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedSupplementId, setSelectedSupplementId] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -67,6 +108,7 @@ export function MedicationsScreen() {
 
   const selectedItem = medications.find((i) => i.id === selectedId) ?? null;
   const editingItem = medications.find((i) => i.id === editingId) ?? null;
+  const selectedSupplement = supplements.find((i) => i.id === selectedSupplementId) ?? null;
 
   const submit = () => {
     const trimmed = captureText.trim();
@@ -75,6 +117,22 @@ export function MedicationsScreen() {
     setCaptureText('');
     refresh();
   };
+
+  const [supplementCaptureText, setSupplementCaptureText] = useState('');
+  const submitSupplement = () => {
+    const trimmed = supplementCaptureText.trim();
+    if (!trimmed) return;
+    createSupplement(trimmed, {});
+    setSupplementCaptureText('');
+    refreshSupplements();
+  };
+
+  const logSupplement = (item: Item) => {
+    logSupplementTaken(item.id);
+    refreshSupplements();
+  };
+
+  const nutrientTotalsText = nutrientChipsText(getTodayNutrientTotals());
 
   const take = (item: Item, withTimer: boolean) => {
     const meta = parseMetadata(item);
@@ -110,7 +168,7 @@ export function MedicationsScreen() {
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <Text style={styles.title}>Medications</Text>
+          <Text style={styles.title}>Medications & Supplements</Text>
           <Text style={styles.count}>{medications.length}</Text>
         </View>
 
@@ -227,10 +285,74 @@ export function MedicationsScreen() {
             })}
           </View>
         ) : null}
+
+        <View style={styles.section}>
+          <View style={styles.header}>
+            <Text style={styles.sectionLabel}>SUPPLEMENTS</Text>
+          </View>
+
+          <View style={styles.captureRow}>
+            <Plus size={16} color={webColors.mutedForeground} strokeWidth={2} />
+            <TextInput
+              value={supplementCaptureText}
+              onChangeText={setSupplementCaptureText}
+              onSubmitEditing={submitSupplement}
+              placeholder="Add a supplement..."
+              placeholderTextColor={webColors.mutedForeground}
+              style={styles.captureInput}
+            />
+          </View>
+
+          {nutrientTotalsText ? (
+            <Text style={styles.nutrientSummary}>Today · {nutrientTotalsText}</Text>
+          ) : null}
+
+          {supplements.length === 0 ? (
+            <Text style={styles.empty}>No supplements yet.</Text>
+          ) : (
+            supplements.map((item) => {
+              const meta = parseSupplementMetadata(item);
+              const chips = nutrientChipsText(meta.nutrients);
+              return (
+                <Pressable key={item.id} style={styles.row} onPress={() => setSelectedSupplementId(item.id)}>
+                  <View style={styles.rowBody}>
+                    <Text style={styles.rowTitle} numberOfLines={1}>{item.title}</Text>
+                    <Text style={styles.rowSub}>
+                      {meta.dose ? `${meta.dose}${chips ? ' · ' : ''}` : ''}
+                      {chips ?? ''}
+                    </Text>
+                  </View>
+                  <Pressable
+                    onPress={(event) => {
+                      event.stopPropagation();
+                      logSupplement(item);
+                    }}
+                    style={styles.takeChip}
+                  >
+                    <Text style={styles.takeChipText}>Log</Text>
+                  </Pressable>
+                </Pressable>
+              );
+            })
+          )}
+        </View>
       </ScrollView>
 
       <DetailPanel visible={!!selectedItem} onClose={() => setSelectedId(null)} title={selectedItem?.title ?? 'Medication'}>
         {selectedItem ? <MedicationLogPanel item={selectedItem} onChanged={refresh} /> : null}
+      </DetailPanel>
+
+      <DetailPanel visible={!!selectedSupplement} onClose={() => setSelectedSupplementId(null)} title={selectedSupplement?.title ?? 'Supplement'}>
+        {selectedSupplement ? (
+          <SupplementEditForm
+            item={selectedSupplement}
+            onChanged={refreshSupplements}
+            onDeleted={() => {
+              setSelectedSupplementId(null);
+              refreshSupplements();
+            }}
+          />
+        ) : null}
       </DetailPanel>
 
       <DetailPanel visible={!!editingItem} onClose={() => setEditingId(null)} title="Edit Medication">
@@ -301,6 +423,11 @@ const styles = StyleSheet.create({
     fontSize: webFontSize.sm,
     color: webColors.mutedForeground,
     paddingVertical: webSpacing[2],
+  },
+  nutrientSummary: {
+    fontSize: webFontSize.xs,
+    color: webColors.mutedForeground,
+    fontWeight: '600',
   },
   row: {
     flexDirection: 'row',

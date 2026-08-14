@@ -117,6 +117,7 @@ export function InboxScreenV2({ visible, onClose }: InboxScreenV2Props) {
       { text: 'Domain', onPress: () => handleBulkProcess('area') },
       { text: 'Habit', onPress: () => handleBulkProcess('habit') },
       { text: 'Medication', onPress: () => handleBulkProcess('medication') },
+      { text: 'Supplement', onPress: () => handleBulkProcess('supplement') },
       { text: 'Object', onPress: () => handleBulkProcess('object') },
       { text: 'Reference', onPress: () => handleBulkProcess('reference') },
     ]);

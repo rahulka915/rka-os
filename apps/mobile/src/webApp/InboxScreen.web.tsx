@@ -18,6 +18,7 @@ const MENU_ACTIONS: Array<{ destination: GtdDestination; label: string; section:
   { destination: 'area', label: 'Convert to Domain', section: 'classify' },
   { destination: 'habit', label: 'Convert to Habit', section: 'classify' },
   { destination: 'medication', label: 'Convert to Medication', section: 'classify' },
+  { destination: 'supplement', label: 'Convert to Supplement', section: 'classify' },
   { destination: 'object', label: 'Convert to Object', section: 'classify' },
   { destination: 'reference', label: 'Convert to Reference', section: 'classify' },
   { destination: 'delete', label: 'Delete', section: 'danger' },

@@ -1,15 +1,19 @@
 import * as SQLite from 'expo-sqlite';
-import { Item, ItemInstance, ActivityLog, DomainContributionRow, DailyCheckInRow } from './types';
+import { Item, ItemInstance, ActivityLog, DomainContributionRow, AttributeContributionRow, DailyCheckInRow } from './types';
 import 'react-native-get-random-values';
 import { v4 as uuidv4 } from 'uuid';
 import { getTimeOfDayFromHour, normalizeTimeInput, timeToMinutes, type TimeOfDay } from '../utils/time';
 import { resolveAutoStopAfterMs } from '../domain/medicationTimer/timerMath';
 import { nextOccurrenceDate, parseRepeatRule, dayMatchesRepeat } from '../utils/repeat';
 import { countDosesByDay } from '../utils/medicationDoseHistory';
+import { sumNutrientLogs, type NutrientProfile } from '../utils/nutrientTotals';
 import { buildTimelineEntries, type TimelineEntry } from './timelineEntry';
 import type { WorkoutSetDetails } from '../utils/workoutSet';
 import { getMostRecentSessionSets } from '../utils/workoutSet';
 import { computePotentialStats, parseHabitPotentialMeta, type PotentialStatResult } from '../utils/potential';
+import { parseAttributeContributions, type AttributeContributionConfig, type AttributeEvidence, type AttributeWeight } from '../utils/attributes';
+import { computeAttributeValue, DEFAULT_ATTRIBUTE_SCORING_CONFIG, type AttributeScoringConfig } from '../utils/attributeScoring';
+import { computeAlertness as computeAlertnessValue, type AlertnessInputs } from '../utils/alertness';
 import {
   primaryEntityId,
   parseActionRow,
@@ -120,6 +124,10 @@ export function getDb(): SQLite.SQLiteDatabase {
     stepStart = nowMs();
     migratePotentialStats();
     logDevTiming('migratePotentialStats', stepStart);
+    stepStart = nowMs();
+    retireDroppedDomains();
+    seedInitialAttributes();
+    logDevTiming('attributesMigration', stepStart);
     logDevTiming('getDb cold init', bootStart);
     // Instrument after one-time schema/migration work so steady-state queries
     // are what's measured, not the legitimately heavier first-boot setup.
@@ -226,6 +234,38 @@ function initSchema() {
       createdAt INTEGER NOT NULL
     );
 
+    -- Many-to-many association between a 'potential-attribute' item (Strength,
+    -- Stamina, ...) and a Domain — display/context only, deliberately NOT a
+    -- scoring input (see src/utils/attributes.ts). itemRelations enforces one
+    -- target per (sourceId, relationType), which is wrong for this — an
+    -- Attribute can relate to more than one Domain, so this is a plain join
+    -- table instead of reusing itemRelations.
+    CREATE TABLE IF NOT EXISTS attributeDomains (
+      attributeId TEXT NOT NULL,
+      areaId TEXT NOT NULL,
+      createdAt INTEGER NOT NULL,
+      PRIMARY KEY (attributeId, areaId)
+    );
+
+    -- Evidence log for the Potential Attribute system (see
+    -- src/utils/attributes.ts) — one row per piece of real-world evidence
+    -- (a Habit occurrence, a logged Action) that a given Attribute happened.
+    -- Deliberately separate from whatever formula eventually turns this into
+    -- a live Attribute value: this table only records what happened and how
+    -- strong the evidence was (weight), never a computed score, so the
+    -- progression/decay model can be designed and re-tuned later without
+    -- touching or replaying this history.
+    CREATE TABLE IF NOT EXISTS attributeContributions (
+      id TEXT PRIMARY KEY,
+      attributeId TEXT NOT NULL,
+      sourceType TEXT NOT NULL,
+      sourceId TEXT NOT NULL,
+      weight TEXT NOT NULL,
+      occurredAt INTEGER NOT NULL,
+      excludedAt INTEGER,
+      createdAt INTEGER NOT NULL
+    );
+
     -- Plan Backwards: a plan revolves around one anchor 'backward-plan' item
     -- (see items.type) whose metadata holds Goal/Start/Expected/Latest/End
     -- time + location + an optional device-calendar event reference (never
@@ -286,6 +326,9 @@ function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_itemOrder_list ON itemOrder(listKey);
     CREATE INDEX IF NOT EXISTS idx_domainContributions_area ON domainContributions(areaId);
     CREATE INDEX IF NOT EXISTS idx_domainContributions_source ON domainContributions(sourceType, sourceId);
+    CREATE INDEX IF NOT EXISTS idx_attributeDomains_area ON attributeDomains(areaId);
+    CREATE INDEX IF NOT EXISTS idx_attributeContributions_attribute ON attributeContributions(attributeId);
+    CREATE INDEX IF NOT EXISTS idx_attributeContributions_source ON attributeContributions(sourceType, sourceId);
     CREATE INDEX IF NOT EXISTS idx_activityLogs_entity ON activityLogs(entityId, actionType);
     CREATE INDEX IF NOT EXISTS idx_activityLogs_action_timestamp ON activityLogs(actionType, timestamp DESC);
     CREATE INDEX IF NOT EXISTS idx_activityLogs_entity_action_timestamp ON activityLogs(entityId, actionType, timestamp DESC);
@@ -429,20 +472,63 @@ function initSchema() {
   }
 }
 
-// Single source of truth for the 8-Domain Harada baseline every user gets
-// from onboarding (see OnboardingScreen.tsx's SUGGESTED_DOMAINS, which pairs
-// these titles with icons) — used by the retroactive canonical-flag backfill
-// above.
+// Single source of truth for the 6-Domain baseline every user gets from
+// onboarding (see OnboardingScreen.tsx's SUGGESTED_DOMAINS, which pairs these
+// titles with icons) — used by the retroactive canonical-flag backfill above.
+// Was 8 (Harada-inspired) through 2026-08-13; Discipline and Growth were
+// dropped 2026-08-14 as deliberately too cross-cutting to be their own
+// Domain (Growth happens across every Domain; Discipline may resurface later
+// as a Potential Attribute, not a Domain) — see RETIRED_DOMAIN_TITLES below
+// for the one-time migration that retires any pre-existing rows.
 export const CANONICAL_DOMAIN_TITLES = [
   'Health & Wellbeing',
+  'Fitness & Performance',
   'Career',
   'Finance',
-  'Relationships',
   'Creativity',
-  'Growth',
-  'Discipline',
-  'Fitness & Performance',
+  'Relationships',
 ];
+
+// Domains dropped from the canonical baseline on 2026-08-14 (see
+// CANONICAL_DOMAIN_TITLES above). Both were confirmed empty on the live
+// account before removal — no Missions, Habits, Skills, Pillars, or
+// Achievements linked to either — so retireDroppedDomains() below simply
+// un-flags and deletes them rather than re-homing any data via
+// mergeAreaIntoArea. If a future install somehow has real data on one of
+// these, retireDroppedDomains() re-homes it into Creativity (Growth) /
+// Health & Wellbeing (Discipline) instead of silently dropping it.
+export const RETIRED_DOMAIN_TITLES = ['Discipline', 'Growth'] as const;
+const RETIRED_DOMAIN_FALLBACK: Record<string, string> = {
+  Discipline: 'Health & Wellbeing',
+  Growth: 'Creativity',
+};
+
+// One-time, idempotent: retires the two dropped canonical Domains (see
+// RETIRED_DOMAIN_TITLES) so they stop being undeletable and actually
+// disappear, instead of the boot-time "fill the gaps" pass (further down)
+// recreating them forever now that they're no longer in
+// CANONICAL_DOMAIN_TITLES. Must run AFTER that fill-the-gaps pass so the
+// fallback Domains below are guaranteed to already exist. Confirmed empty on
+// the live account before this was written (no Missions/Habits/Skills/
+// Pillars/Achievements linked to either) — mergeAreaIntoArea re-homes
+// anything found anyway rather than assuming that stays true forever, and
+// already bypasses the canonical-delete guard itself (see its own body).
+function retireDroppedDomains(): void {
+  const db = getDb();
+  for (const title of RETIRED_DOMAIN_TITLES) {
+    const rows = db.getAllSync<{ id: string }>(
+      `SELECT id FROM items WHERE type = 'area' AND title = ? AND deletedAt IS NULL`,
+      [title]
+    );
+    if (rows.length === 0) continue;
+    const fallback = db.getAllSync<{ id: string }>(
+      `SELECT id FROM items WHERE type = 'area' AND title = ? AND deletedAt IS NULL LIMIT 1`,
+      [RETIRED_DOMAIN_FALLBACK[title]]
+    )[0];
+    if (!fallback) continue; // fallback should always exist post fill-the-gaps; skip rather than guess
+    for (const row of rows) mergeAreaIntoArea(row.id, fallback.id);
+  }
+}
 
 export function formatDate(date: Date): string {
   return date.toISOString().split('T')[0];
@@ -860,6 +946,233 @@ function migratePotentialStats(): void {
       updateItemMetadata(habit.id, meta);
     }
   }
+}
+
+// ── Potential Attributes (Strength, Stamina, ... — see utils/attributes.ts)
+// A separate developmental-stat system from the legacy Pillar
+// (`potential-stat`) model above. The 2026-08-14 product direction is that
+// these two should NOT remain two permanent parallel systems long-term —
+// Pillars are legacy and expected to be retired once the Attribute scoring
+// formula is designed — but no migration of existing Pillar data happens
+// here: an inspection of the live account on 2026-08-14 found all 4 seeded
+// Pillars (Physique/Skin/Oral Hygiene/Vitality) unlinked to any Domain with
+// zero Habits assigned to any of them, so there was nothing real to migrate.
+// A fresh account may differ; check before assuming this is a no-op forever.
+
+const INITIAL_ATTRIBUTE_SEED: Record<string, string> = {
+  strength: 'Strength',
+  stamina: 'Stamina',
+};
+
+// One-time, idempotent — same seedKey pattern as migratePotentialStats
+// above, so re-running never duplicates. Deliberately does NOT link these
+// to any Domain by default (Attribute<->Domain association is many-to-many
+// and left for the user/UI to configure, per the 2026-08-14 direction that
+// association must not be assumed).
+function seedInitialAttributes(): void {
+  const existing = getAttributes();
+  const seedKeyToId = new Set<string>();
+  for (const attribute of existing) {
+    if (!attribute.metadata) continue;
+    try {
+      const meta = JSON.parse(attribute.metadata);
+      if (typeof meta.seedKey === 'string') seedKeyToId.add(meta.seedKey);
+    } catch {
+      // Malformed metadata — treated as unseeded below.
+    }
+  }
+  for (const [key, label] of Object.entries(INITIAL_ATTRIBUTE_SEED)) {
+    if (seedKeyToId.has(key)) continue;
+    const id = createItem('potential-attribute', label, 'active');
+    updateItemMetadata(id, { seedKey: key });
+  }
+}
+
+export function getAttributes(): Item[] {
+  return getItemsByType('potential-attribute');
+}
+
+export function createAttribute(title: string): string {
+  return createItem('potential-attribute', title, 'active');
+}
+
+// ── Attribute <-> Domain association (many-to-many, context only) ────────
+// Deliberately NOT itemRelations (which enforces one target per
+// (sourceId, relationType) — wrong here, since e.g. Strength can relate to
+// both Fitness & Performance and Health & Wellbeing at once). Association
+// here is display/context only — it does not by itself cause any scoring
+// effect anywhere (see the 2026-08-14 direction: "association does not
+// automatically mean scoring contribution").
+
+export function linkAttributeToDomain(attributeId: string, areaId: string): void {
+  getDb().runSync(
+    `INSERT OR IGNORE INTO attributeDomains (attributeId, areaId, createdAt) VALUES (?, ?, ?)`,
+    [attributeId, areaId, Date.now()]
+  );
+}
+
+export function unlinkAttributeFromDomain(attributeId: string, areaId: string): void {
+  getDb().runSync(`DELETE FROM attributeDomains WHERE attributeId = ? AND areaId = ?`, [attributeId, areaId]);
+}
+
+export function getDomainsForAttribute(attributeId: string): Item[] {
+  return getDb().getAllSync<Item>(
+    `SELECT items.* FROM items
+     JOIN attributeDomains ON attributeDomains.areaId = items.id
+     WHERE attributeDomains.attributeId = ? AND items.deletedAt IS NULL`,
+    [attributeId]
+  );
+}
+
+export function getAttributesForDomain(areaId: string): Item[] {
+  return getDb().getAllSync<Item>(
+    `SELECT items.* FROM items
+     JOIN attributeDomains ON attributeDomains.attributeId = items.id
+     WHERE attributeDomains.areaId = ? AND items.deletedAt IS NULL`,
+    [areaId]
+  );
+}
+
+// ── Attribute evidence (attributeContributions) ───────────────────────────
+// The event/history layer only — see utils/attributes.ts's
+// computeAttributeValue for why nothing here turns this into a live score
+// yet. sourceType/sourceId identify what produced the evidence (a Habit
+// occurrence, a logged Action) so a source can be re-edited/deleted and its
+// evidence rows found again (see excludeAttributeContributionsForSource).
+
+function insertAttributeContribution(
+  attributeId: string,
+  sourceType: 'habit' | 'action',
+  sourceId: string,
+  weight: AttributeWeight,
+  occurredAt: number,
+): string {
+  const id = uuidv4();
+  getDb().runSync(
+    `INSERT INTO attributeContributions (id, attributeId, sourceType, sourceId, weight, occurredAt, excludedAt, createdAt)
+     VALUES (?, ?, ?, ?, ?, ?, NULL, ?)`,
+    [id, attributeId, sourceType, sourceId, weight, occurredAt, Date.now()]
+  );
+  return id;
+}
+
+export function getContributionsForAttribute(attributeId: string): AttributeContributionRow[] {
+  return getDb().getAllSync<AttributeContributionRow>(
+    `SELECT * FROM attributeContributions WHERE attributeId = ? AND excludedAt IS NULL ORDER BY occurredAt DESC`,
+    [attributeId]
+  );
+}
+
+// Per-Attribute scoring configuration (weekly target, evidence weights,
+// growth/decay rates, credit-curve shape — see utils/attributeScoring.ts).
+// Lives on the Attribute item's own metadata so Strength and Stamina can
+// diverge later without any schema change; unset fields fall back to
+// DEFAULT_ATTRIBUTE_SCORING_CONFIG. weightMagnitude merges shallowly so
+// overriding just one weight doesn't require repeating the other two.
+export function getAttributeScoringConfig(attributeId: string): AttributeScoringConfig {
+  const item = getItemWithMetadata(attributeId);
+  const stored = item?.metadata ? JSON.parse(item.metadata).scoringConfig : undefined;
+  if (!stored || typeof stored !== 'object') return DEFAULT_ATTRIBUTE_SCORING_CONFIG;
+  return {
+    ...DEFAULT_ATTRIBUTE_SCORING_CONFIG,
+    ...stored,
+    weightMagnitude: { ...DEFAULT_ATTRIBUTE_SCORING_CONFIG.weightMagnitude, ...(stored.weightMagnitude ?? {}) },
+  };
+}
+
+export function setAttributeScoringConfig(attributeId: string, config: Partial<AttributeScoringConfig>): void {
+  const item = getItemWithMetadata(attributeId);
+  const meta = item?.metadata ? JSON.parse(item.metadata) : {};
+  const current = getAttributeScoringConfig(attributeId);
+  updateItemMetadata(attributeId, { ...meta, scoringConfig: { ...current, ...config } });
+}
+
+// The only place that turns evidence history into a live 0-100 value —
+// always recomputed from getContributionsForAttribute, never cached/stored,
+// so changing this Attribute's config (or the scoring model itself) takes
+// effect immediately on the next read with no migration of past evidence.
+export function computeAttributeScore(attributeId: string, now: number = Date.now()): number {
+  const config = getAttributeScoringConfig(attributeId);
+  const rows = getContributionsForAttribute(attributeId);
+  const evidence: AttributeEvidence[] = rows.map((row) => ({
+    attributeId: row.attributeId,
+    sourceType: row.sourceType,
+    sourceId: row.sourceId,
+    weight: row.weight,
+    occurredAt: row.occurredAt,
+  }));
+  return computeAttributeValue(evidence, config, now);
+}
+
+// Soft-excludes (never hard-deletes) every active evidence row from a given
+// source — used when an Action is deleted/edited (its old evidence must stop
+// counting) or a Habit's Attribute config changes (old rows stay as history,
+// matching how domainContributions treats achievements: history isn't
+// rewritten, just excluded from the live calculation).
+function excludeAttributeContributionsForSource(sourceType: 'habit' | 'action', sourceId: string): void {
+  getDb().runSync(
+    `UPDATE attributeContributions SET excludedAt = ? WHERE sourceType = ? AND sourceId = ? AND excludedAt IS NULL`,
+    [Date.now(), sourceType, sourceId]
+  );
+}
+
+// Hard-deletes every evidence row from a given source, active or already
+// excluded — used only when the source item itself is deleted (an Action
+// being deleted), where keeping orphaned history rows around serves no
+// purpose (unlike excludeAttributeContributionsForSource above, used for
+// edits where the source item still exists).
+function deleteAttributeContributionsForSource(sourceType: 'habit' | 'action', sourceId: string): void {
+  getDb().runSync(`DELETE FROM attributeContributions WHERE sourceType = ? AND sourceId = ?`, [sourceType, sourceId]);
+}
+
+// ── Habit -> Attribute contribution config ────────────────────────────────
+// A Habit's own metadata.attributeContributions — independent of and
+// unrelated to metadata.potentialStat (the legacy single-Pillar field, see
+// utils/potential.ts). A Habit may tap zero, one, or several Attributes.
+
+export function getHabitAttributeContributions(habitId: string): AttributeContributionConfig[] {
+  const item = getItemWithMetadata(habitId);
+  if (!item?.metadata) return [];
+  try {
+    return parseAttributeContributions(JSON.parse(item.metadata).attributeContributions);
+  } catch {
+    return [];
+  }
+}
+
+export function setHabitAttributeContributions(habitId: string, contributions: AttributeContributionConfig[]): void {
+  const item = getItemWithMetadata(habitId);
+  const meta = item?.metadata ? JSON.parse(item.metadata) : {};
+  updateItemMetadata(habitId, { ...meta, attributeContributions: contributions });
+}
+
+// Called from every path that records a Habit occurrence (updateItemStatus's
+// repeating-completion branch, toggleHabitOccurrence's add branch) — inserts
+// one attributeContributions row per Attribute the Habit is configured to
+// tap, timestamped at the occurrence itself so evidence decays from when the
+// behaviour actually happened, not from whenever it's later queried.
+function recordHabitCompletionEvidence(habitId: string, occurredAt: number): void {
+  const contributions = getHabitAttributeContributions(habitId);
+  for (const { attributeId, weight } of contributions) {
+    insertAttributeContribution(attributeId, 'habit', habitId, weight, occurredAt);
+  }
+}
+
+// ── Alertness (Current State — see utils/alertness.ts) ────────────────────
+// Deliberately NOT evidence/decay-based like Attributes — recomputed fresh
+// from today's Daily Check-In every time, nothing stored.
+
+export function computeAlertness(dateKey: string = formatDate(new Date())): number | null {
+  const morning = getDailyCheckIn(dateKey, 'morning');
+  if (!morning) return null;
+  let answers: AlertnessInputs = {};
+  try {
+    const parsed = JSON.parse(morning.answers ?? '{}');
+    answers = { sleepAmount: parsed.sleepAmount, sleepQuality: parsed.sleepQuality };
+  } catch {
+    return null;
+  }
+  return computeAlertnessValue(answers);
 }
 
 // ── Domain contributions (live scoring) ───────────────────────────────────
@@ -1772,6 +2085,12 @@ export function toggleHabitOccurrence(itemId: string, date: string): void {
     }
   });
   if (existing) {
+    // Note: does not retract any attributeContributions evidence generated
+    // when this occurrence was added — evidence rows aren't linked back to a
+    // specific activityLogs row, only to the Habit itself, so a single
+    // undone occurrence can't be cleanly un-recorded. Acceptable for v1
+    // (this path is a rare calendar backfill/correction, not the common
+    // completion flow); worth revisiting if that turns out to matter.
     getDb().runSync(`DELETE FROM activityLogs WHERE id = ?`, [existing.id]);
     const item = getItemWithMetadata(itemId);
     if (item?.scheduledDate && item.scheduledDate > date) {
@@ -1779,6 +2098,7 @@ export function toggleHabitOccurrence(itemId: string, date: string): void {
     }
   } else {
     logActivity(itemId, 'completed-occurrence', JSON.stringify({ occurrence: date }));
+    recordHabitCompletionEvidence(itemId, new Date(`${date}T00:00:00`).getTime());
   }
 }
 
@@ -1820,7 +2140,12 @@ export function undoLastHabitSample(habitId: string): void {
 
 export function logAction(input: LogActionInput): string {
   const { occurredAt: _ignored, ...details } = input;
-  return logActivity(primaryEntityId(details), 'action', JSON.stringify(details));
+  const id = logActivity(primaryEntityId(details), 'action', JSON.stringify(details));
+  const row = getDb().getAllSync<{ timestamp: number }>(`SELECT timestamp FROM activityLogs WHERE id = ?`, [id])[0];
+  for (const { attributeId, weight } of parseAttributeContributions(details.attributeContributions)) {
+    insertAttributeContribution(attributeId, 'action', id, weight, row?.timestamp ?? Date.now());
+  }
+  return id;
 }
 
 export function getActions(limit?: number): ActionRow[] {
@@ -1844,10 +2169,19 @@ export function updateAction(id: string, patch: Partial<ActionDetails>): void {
     primaryEntityId(details),
     id,
   ]);
+  // Re-derive evidence from the new config rather than diffing — exclude
+  // whatever this Action previously recorded (same pattern deleteAchievement
+  // uses before deleteItem: never leave a stale active row for a config that
+  // no longer exists) and insert fresh rows for the current tags.
+  excludeAttributeContributionsForSource('action', id);
+  for (const { attributeId, weight } of parseAttributeContributions(details.attributeContributions)) {
+    insertAttributeContribution(attributeId, 'action', id, weight, row.timestamp);
+  }
 }
 
 export function deleteAction(id: string): void {
   getDb().runSync(`DELETE FROM activityLogs WHERE id = ? AND actionType = 'action'`, [id]);
+  deleteAttributeContributionsForSource('action', id);
 }
 
 // Unified, read-only "everything I've done" feed: logged actions + habit
@@ -2421,6 +2755,74 @@ export interface MedicationMeta {
   peakMaxHours?: number;    // latest hours until peak effect
   fadeEndMinHours?: number; // earliest hours until fully worn off
   fadeEndMaxHours?: number; // latest hours until fully worn off
+}
+
+export type { NutrientProfile } from '../utils/nutrientTotals';
+
+// Supplements are a lighter sibling of medications — no stock/timer/Live-Activity
+// machinery, just dosing + a fixed-but-extensible micronutrient profile (see
+// NutrientProfile) for daily electrolyte/micronutrient tracking.
+export interface SupplementMeta {
+  dose?: string;
+  nutrients?: NutrientProfile;
+}
+
+export function getSupplements(): Item[] {
+  return getItemsByType('supplement');
+}
+
+export function createSupplement(title: string, meta: SupplementMeta): string {
+  const id = uuid();
+  const now = Date.now();
+  getDb().runSync(
+    `INSERT INTO items (id, type, title, status, metadata, createdAt, updatedAt)
+     VALUES (?, 'supplement', ?, 'active', ?, ?, ?)`,
+    [id, title, JSON.stringify(meta), now, now]
+  );
+  logActivity(id, 'created');
+  syncItemToRemote(id);
+  return id;
+}
+
+// Merges into existing metadata rather than replacing it outright, matching updateMedication.
+export function updateSupplement(id: string, title: string, meta: SupplementMeta): void {
+  const item = getItemWithMetadata(id);
+  const existing: SupplementMeta = item?.metadata ? JSON.parse(item.metadata) : {};
+  updateItem(id, { title });
+  updateItemMetadata(id, { ...existing, ...meta });
+  logActivity(id, 'edited');
+}
+
+// Nutrients are snapshotted into the log at the moment a dose is logged, so editing
+// a supplement's nutrient values later never retroactively changes historical daily totals.
+export function logSupplementTaken(itemId: string, takenAt: number = Date.now()): void {
+  const item = getItemWithMetadata(itemId);
+  if (!item) return;
+  const meta: SupplementMeta = item.metadata ? JSON.parse(item.metadata) : {};
+  const now = Date.now();
+  getDb().runSync(
+    `INSERT INTO activityLogs (id, entityId, actionType, timestamp, details, createdAt)
+     VALUES (?, ?, 'supplement-taken', ?, ?, ?)`,
+    [uuid(), itemId, takenAt, JSON.stringify({ nutrients: meta.nutrients ?? {} }), now]
+  );
+}
+
+export function getSupplementLogs(itemId: string, limit = 10): ActivityLog[] {
+  return getDb().getAllSync<ActivityLog>(
+    `SELECT * FROM activityLogs WHERE entityId = ? AND actionType = 'supplement-taken' ORDER BY timestamp DESC LIMIT ?`,
+    [itemId, limit]
+  );
+}
+
+export function getTodayNutrientTotals(): NutrientProfile {
+  const today = formatDate(new Date());
+  const startOfDay = new Date(`${today}T00:00:00`).getTime();
+  const endOfDay = startOfDay + 24 * 60 * 60 * 1000;
+  const logs = getDb().getAllSync<ActivityLog>(
+    `SELECT * FROM activityLogs WHERE actionType = 'supplement-taken' AND timestamp >= ? AND timestamp < ? ORDER BY timestamp DESC`,
+    [startOfDay, endOfDay]
+  );
+  return sumNutrientLogs(logs);
 }
 
 // Total pills across all containers, falling back to the legacy flat count for medications
@@ -3156,6 +3558,13 @@ export function updateItemStatus(id: string, status: Item['status']): void {
         [next, 'active', now, id]
       );
       logActivity(id, 'completed-occurrence', JSON.stringify({ occurrence: item.scheduledDate, next }));
+      // Attribute evidence only for actual Habits — this branch also covers
+      // repeating Tasks, which have no attributeContributions config and
+      // shouldn't generate any (getHabitAttributeContributions would just
+      // return [] for them anyway, but the type check makes the intent explicit).
+      if (item.type === 'habit') {
+        recordHabitCompletionEvidence(id, now);
+      }
       syncItemToRemote(id);
       return;
     }
@@ -3188,7 +3597,7 @@ export function deleteItem(id: string): void {
 
 export type GtdDestination =
   | 'today' | 'morning' | 'evening'
-  | 'project' | 'area' | 'habit' | 'medication' | 'object'
+  | 'project' | 'area' | 'habit' | 'medication' | 'supplement' | 'object'
   | 'reference' | 'someday' | 'delete';
 
 export function processInboxItem(id: string, destination: GtdDestination): void {
@@ -3246,6 +3655,12 @@ export function processInboxItem(id: string, destination: GtdDestination): void 
       db.runSync(
         'UPDATE items SET type = ?, status = ?, metadata = ?, updatedAt = ? WHERE id = ?',
         ['medication', 'active', JSON.stringify({ ...meta, gtdContext: 'medication' }), now, id]
+      );
+      break;
+    case 'supplement':
+      db.runSync(
+        'UPDATE items SET type = ?, status = ?, metadata = ?, updatedAt = ? WHERE id = ?',
+        ['supplement', 'active', JSON.stringify({ ...meta, gtdContext: 'supplement' }), now, id]
       );
       break;
     case 'object':

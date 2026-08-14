@@ -10,6 +10,8 @@ import type {
   TimerWidgetPreferences,
   TimelineEntry,
   GtdDestination,
+  NutrientProfile,
+  SupplementMeta,
 } from './database';
 
 export type {
@@ -24,6 +26,8 @@ export type {
   TimerWidgetPreferences,
   TimelineEntry,
   GtdDestination,
+  NutrientProfile,
+  SupplementMeta,
 };
 
 import 'react-native-get-random-values';
@@ -44,10 +48,14 @@ import {
 import { buildTimelineEntries } from './timelineEntry';
 import { getTimeOfDayFromHour, normalizeTimeInput, timeToMinutes, type TimeOfDay } from '../utils/time';
 import { countDosesByDay } from '../utils/medicationDoseHistory';
+import { sumNutrientLogs } from '../utils/nutrientTotals';
 import { resolveAutoStopAfterMs } from '../domain/medicationTimer/timerMath';
-import type { DailyCheckInRow, Item, ItemInstance, ActivityLog, PlanBlockRow, PlanBlockStepRow } from './types';
+import type { DailyCheckInRow, Item, ItemInstance, ActivityLog, PlanBlockRow, PlanBlockStepRow, AttributeContributionRow } from './types';
 import type { DailyCheckInAnswers, DailyCheckInPhase } from '../utils/dailyCheckIn';
 import type { CreateAchievementInput, FocusData } from './database';
+import { parseAttributeContributions, type AttributeContributionConfig, type AttributeEvidence, type AttributeWeight } from '../utils/attributes';
+import { computeAttributeValue, DEFAULT_ATTRIBUTE_SCORING_CONFIG, type AttributeScoringConfig } from '../utils/attributeScoring';
+import { computeAlertness as computeAlertnessValue, type AlertnessInputs } from '../utils/alertness';
 import type { RoutineStepMeta } from '../utils/routineMeta';
 import type { BackwardPlanMeta, PlacementBehavior, TravelConfig } from '../utils/backwardPlanMeta';
 import { parseBackwardPlanMeta } from '../utils/backwardPlanMeta';
@@ -85,6 +93,33 @@ function loadDailyCheckIns(): DailyCheckInRow[] {
     return raw ? (JSON.parse(raw) as DailyCheckInRow[]) : [];
   } catch {
     return [];
+  }
+}
+
+// Same localStorage-not-Firestore rationale as dailyCheckIns above: the
+// Potential Attribute association/evidence tables (attributeDomains,
+// attributeContributions — see database.ts's schema comment) have no
+// firestoreWebStore mirror yet. Known limitation: not cross-device synced
+// on web until that's added, same caveat as dailyCheckIns already carries.
+const ATTRIBUTE_DOMAINS_STORAGE_KEY = 'rka-os:attributeDomains';
+const ATTRIBUTE_CONTRIBUTIONS_STORAGE_KEY = 'rka-os:attributeContributions';
+
+interface AttributeDomainLink { attributeId: string; areaId: string; createdAt: number }
+
+function loadJsonList<T>(key: string): T[] {
+  try {
+    const raw = globalThis.localStorage?.getItem(key);
+    return raw ? (JSON.parse(raw) as T[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveJsonList<T>(key: string, rows: T[]): void {
+  try {
+    globalThis.localStorage?.setItem(key, JSON.stringify(rows));
+  } catch {
+    // Storage unavailable/full — in-memory state still holds for this session.
   }
 }
 
@@ -326,6 +361,7 @@ export function updateItemStatus(id: string, status: Item['status']): void {
         'updateItemStatus'
       );
       logActivity(id, 'completed-occurrence', JSON.stringify({ occurrence: item.scheduledDate, next }));
+      if (item.type === 'habit') recordHabitCompletionEvidence(id, now);
       return;
     }
   }
@@ -465,6 +501,7 @@ export function toggleHabitOccurrence(itemId: string, date: string): void {
     }
   } else {
     logActivity(itemId, 'completed-occurrence', JSON.stringify({ occurrence: date }));
+    recordHabitCompletionEvidence(itemId, new Date(`${date}T00:00:00`).getTime());
   }
 }
 
@@ -808,6 +845,11 @@ export function processInboxItem(id: string, destination: GtdDestination): void 
       status: 'active',
       metadata: JSON.stringify({ ...meta, gtdContext: 'medication' }),
     },
+    supplement: {
+      type: 'supplement',
+      status: 'active',
+      metadata: JSON.stringify({ ...meta, gtdContext: 'supplement' }),
+    },
     object: {
       type: 'object',
       status: 'active',
@@ -893,12 +935,20 @@ export function getMedicationLogs(itemId: string, limit = 10): ActivityLog[] {
 
 // --- Actions --------------------------------------------------------------
 // Firestore-backed mirror of database.ts's Actions section. An Action is an
-// activityLogs doc (actionType 'action'); logging one never affects scoring.
-// Same pure helpers (utils/actions.ts) as native so behavior can't drift.
+// activityLogs doc (actionType 'action'). Same pure helpers (utils/actions.ts)
+// as native so behavior can't drift. Since 2026-08-14, an Action can also
+// tag Potential Attributes (attributeContributions) — see the Attribute
+// section further down; that part is scoring-evidence, everything else here
+// stays contextual.
 
 export function logAction(input: LogActionInput): string {
   const { occurredAt: _ignored, ...details } = input;
-  return logActivity(primaryEntityId(details), 'action', JSON.stringify(details));
+  const id = logActivity(primaryEntityId(details), 'action', JSON.stringify(details));
+  const now = Date.now();
+  for (const { attributeId, weight } of parseAttributeContributions(details.attributeContributions)) {
+    insertAttributeContribution(attributeId, 'action', id, weight, now);
+  }
+  return id;
 }
 
 export function getActions(limit?: number): ActionRow[] {
@@ -915,12 +965,17 @@ export function updateAction(id: string, patch: Partial<ActionDetails>): void {
   const current = parseActionRow(row);
   const { id: _i, entityId: _e, timestamp: _t, ...details } = { ...current, ...patch };
   write(patchActivityLogDoc(id, { details: JSON.stringify(details), entityId: primaryEntityId(details) }), 'updateAction');
+  excludeAttributeContributionsForSource('action', id);
+  for (const { attributeId, weight } of parseAttributeContributions(details.attributeContributions)) {
+    insertAttributeContribution(attributeId, 'action', id, weight, row.timestamp);
+  }
 }
 
 export function deleteAction(id: string): void {
   const row = getActivityLogsSnapshot().find((l) => l.id === id && l.actionType === 'action');
   if (!row) return;
   write(deleteActivityLogDoc(id), 'deleteAction');
+  deleteAttributeContributionsForSource('action', id);
 }
 
 export function getActionFeed(limit?: number): FeedEntry[] {
@@ -1108,6 +1163,63 @@ export function getMedicationDoseHistory(itemId: string, days = 7): Array<{ date
   const logs = getMedicationLogs(itemId, days * 3);
   return countDosesByDay(logs.map((log) => log.timestamp), days);
 }
+
+// ── Supplements ─────────────────────────────────────────────────────────
+// Lighter sibling of Medications above — no stock/timer/Live-Activity machinery,
+// just dosing + a micronutrient profile. See database.ts for the parity implementation.
+
+export function getSupplements(): Item[] {
+  return getItemsByType('supplement');
+}
+
+export function createSupplement(title: string, meta: SupplementMeta): string {
+  const id = uuidv4();
+  const now = Date.now();
+  write(
+    putItem({ id, type: 'supplement', title, status: 'active', metadata: JSON.stringify(meta), createdAt: now, updatedAt: now }),
+    'createSupplement'
+  );
+  return id;
+}
+
+export function updateSupplement(id: string, title: string, meta: SupplementMeta): void {
+  write(patchItem(id, { title, metadata: JSON.stringify(meta), updatedAt: Date.now() }), 'updateSupplement');
+}
+
+export function logSupplementTaken(itemId: string, takenAt: number = Date.now()): void {
+  const item = getItemWithMetadata(itemId);
+  if (!item) return;
+  const meta: SupplementMeta = item.metadata ? JSON.parse(item.metadata) : {};
+  const now = Date.now();
+  write(
+    putActivityLogDoc({
+      id: uuidv4(),
+      entityId: itemId,
+      actionType: 'supplement-taken',
+      timestamp: takenAt,
+      details: JSON.stringify({ nutrients: meta.nutrients ?? {} }),
+      createdAt: now,
+    }),
+    'logSupplementTaken'
+  );
+}
+
+export function getSupplementLogs(itemId: string, limit = 10): ActivityLog[] {
+  return getActivityLogsSnapshot()
+    .filter((l) => l.entityId === itemId && l.actionType === 'supplement-taken')
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .slice(0, limit);
+}
+
+export function getTodayNutrientTotals(): NutrientProfile {
+  const today = formatDate(new Date());
+  const startOfDay = new Date(`${today}T00:00:00`).getTime();
+  const endOfDay = startOfDay + 24 * 60 * 60 * 1000;
+  const logs = getActivityLogsSnapshot().filter(
+    (l) => l.actionType === 'supplement-taken' && l.timestamp >= startOfDay && l.timestamp < endOfDay
+  );
+  return sumNutrientLogs(logs);
+}
 export function deleteMedicationLog(logId: string, itemId: string): void {
   write(deleteActivityLogDoc(logId), 'deleteMedicationLog');
   syncLastTakenAt(itemId);
@@ -1294,6 +1406,173 @@ export function createPotentialStat(title: string, areaId?: string | null): stri
   const id = createItem('potential-stat', title, 'active');
   if (areaId) setPotentialStatArea(id, areaId);
   return id;
+}
+
+// ── Potential Attributes (Strength, Stamina, ... — see utils/attributes.ts)
+// Firestore-backed mirror of database.ts's Attribute section, same behavior
+// by construction (same pure helpers). attributeDomains/attributeContributions
+// are localStorage-backed for now (see the storage helpers above) rather
+// than Firestore — not yet cross-device synced, same known limitation as
+// dailyCheckIns.
+
+// Native seeds Strength/Stamina once at SQLite cold-init (see database.ts's
+// seedInitialAttributes, called from getDb()) — web has no equivalent boot
+// hook, so this lazily seeds on first read instead. Same metadata.seedKey
+// idempotency guard as native, so a device that later syncs both ways never
+// ends up with duplicates. A getter with a write side effect is unusual, but
+// consistent with this file's existing "make it work the first time it's
+// touched" pattern (see getDb() itself on the native side).
+const INITIAL_ATTRIBUTE_SEED: Record<string, string> = { strength: 'Strength', stamina: 'Stamina' };
+let attributesSeeded = false;
+
+export function getAttributes(): Item[] {
+  if (!attributesSeeded) {
+    attributesSeeded = true;
+    const existing = getItemsByType('potential-attribute');
+    const seedKeys = new Set(
+      existing.map((item) => {
+        try {
+          return item.metadata ? JSON.parse(item.metadata).seedKey : undefined;
+        } catch {
+          return undefined;
+        }
+      }),
+    );
+    for (const [key, label] of Object.entries(INITIAL_ATTRIBUTE_SEED)) {
+      if (seedKeys.has(key)) continue;
+      const id = createItem('potential-attribute', label, 'active');
+      updateItemMetadata(id, { seedKey: key });
+    }
+  }
+  return getItemsByType('potential-attribute');
+}
+
+export function createAttribute(title: string): string {
+  return createItem('potential-attribute', title, 'active');
+}
+
+export function linkAttributeToDomain(attributeId: string, areaId: string): void {
+  const links = loadJsonList<AttributeDomainLink>(ATTRIBUTE_DOMAINS_STORAGE_KEY);
+  if (links.some((l) => l.attributeId === attributeId && l.areaId === areaId)) return;
+  links.push({ attributeId, areaId, createdAt: Date.now() });
+  saveJsonList(ATTRIBUTE_DOMAINS_STORAGE_KEY, links);
+}
+
+export function unlinkAttributeFromDomain(attributeId: string, areaId: string): void {
+  const links = loadJsonList<AttributeDomainLink>(ATTRIBUTE_DOMAINS_STORAGE_KEY);
+  saveJsonList(ATTRIBUTE_DOMAINS_STORAGE_KEY, links.filter((l) => !(l.attributeId === attributeId && l.areaId === areaId)));
+}
+
+export function getDomainsForAttribute(attributeId: string): Item[] {
+  const areaIds = new Set(loadJsonList<AttributeDomainLink>(ATTRIBUTE_DOMAINS_STORAGE_KEY).filter((l) => l.attributeId === attributeId).map((l) => l.areaId));
+  return getItemsByType('area').filter((item) => areaIds.has(item.id));
+}
+
+export function getAttributesForDomain(areaId: string): Item[] {
+  const attributeIds = new Set(loadJsonList<AttributeDomainLink>(ATTRIBUTE_DOMAINS_STORAGE_KEY).filter((l) => l.areaId === areaId).map((l) => l.attributeId));
+  return getAttributes().filter((item) => attributeIds.has(item.id));
+}
+
+function insertAttributeContribution(
+  attributeId: string,
+  sourceType: 'habit' | 'action',
+  sourceId: string,
+  weight: AttributeWeight,
+  occurredAt: number,
+): void {
+  const rows = loadJsonList<AttributeContributionRow>(ATTRIBUTE_CONTRIBUTIONS_STORAGE_KEY);
+  rows.push({ id: uuidv4(), attributeId, sourceType, sourceId, weight, occurredAt, createdAt: Date.now() });
+  saveJsonList(ATTRIBUTE_CONTRIBUTIONS_STORAGE_KEY, rows);
+}
+
+export function getContributionsForAttribute(attributeId: string): AttributeContributionRow[] {
+  return loadJsonList<AttributeContributionRow>(ATTRIBUTE_CONTRIBUTIONS_STORAGE_KEY)
+    .filter((row) => row.attributeId === attributeId && !row.excludedAt)
+    .sort((a, b) => b.occurredAt - a.occurredAt);
+}
+
+// Web mirror of database.ts's config/score functions — same behavior by
+// construction (same pure utils/attributeScoring.ts).
+export function getAttributeScoringConfig(attributeId: string): AttributeScoringConfig {
+  const item = getItemWithMetadata(attributeId);
+  const stored = item?.metadata ? JSON.parse(item.metadata).scoringConfig : undefined;
+  if (!stored || typeof stored !== 'object') return DEFAULT_ATTRIBUTE_SCORING_CONFIG;
+  return {
+    ...DEFAULT_ATTRIBUTE_SCORING_CONFIG,
+    ...stored,
+    weightMagnitude: { ...DEFAULT_ATTRIBUTE_SCORING_CONFIG.weightMagnitude, ...(stored.weightMagnitude ?? {}) },
+  };
+}
+
+export function setAttributeScoringConfig(attributeId: string, config: Partial<AttributeScoringConfig>): void {
+  const item = getItemWithMetadata(attributeId);
+  const meta = item?.metadata ? JSON.parse(item.metadata) : {};
+  const current = getAttributeScoringConfig(attributeId);
+  updateItemMetadata(attributeId, { ...meta, scoringConfig: { ...current, ...config } });
+}
+
+export function computeAttributeScore(attributeId: string, now: number = Date.now()): number {
+  const config = getAttributeScoringConfig(attributeId);
+  const rows = getContributionsForAttribute(attributeId);
+  const evidence: AttributeEvidence[] = rows.map((row) => ({
+    attributeId: row.attributeId,
+    sourceType: row.sourceType,
+    sourceId: row.sourceId,
+    weight: row.weight,
+    occurredAt: row.occurredAt,
+  }));
+  return computeAttributeValue(evidence, config, now);
+}
+
+function excludeAttributeContributionsForSource(sourceType: 'habit' | 'action', sourceId: string): void {
+  const rows = loadJsonList<AttributeContributionRow>(ATTRIBUTE_CONTRIBUTIONS_STORAGE_KEY);
+  const now = Date.now();
+  for (const row of rows) {
+    if (row.sourceType === sourceType && row.sourceId === sourceId && !row.excludedAt) row.excludedAt = now;
+  }
+  saveJsonList(ATTRIBUTE_CONTRIBUTIONS_STORAGE_KEY, rows);
+}
+
+function deleteAttributeContributionsForSource(sourceType: 'habit' | 'action', sourceId: string): void {
+  const rows = loadJsonList<AttributeContributionRow>(ATTRIBUTE_CONTRIBUTIONS_STORAGE_KEY);
+  saveJsonList(ATTRIBUTE_CONTRIBUTIONS_STORAGE_KEY, rows.filter((row) => !(row.sourceType === sourceType && row.sourceId === sourceId)));
+}
+
+export function getHabitAttributeContributions(habitId: string): AttributeContributionConfig[] {
+  const item = getItemWithMetadata(habitId);
+  if (!item?.metadata) return [];
+  try {
+    return parseAttributeContributions(JSON.parse(item.metadata).attributeContributions);
+  } catch {
+    return [];
+  }
+}
+
+export function setHabitAttributeContributions(habitId: string, contributions: AttributeContributionConfig[]): void {
+  const item = getItemWithMetadata(habitId);
+  const meta = item?.metadata ? JSON.parse(item.metadata) : {};
+  updateItemMetadata(habitId, { ...meta, attributeContributions: contributions });
+}
+
+function recordHabitCompletionEvidence(habitId: string, occurredAt: number): void {
+  for (const { attributeId, weight } of getHabitAttributeContributions(habitId)) {
+    insertAttributeContribution(attributeId, 'habit', habitId, weight, occurredAt);
+  }
+}
+
+// ── Alertness (Current State — see utils/alertness.ts) ────────────────────
+
+export function computeAlertness(dateKey: string = formatDate(new Date())): number | null {
+  const morning = getDailyCheckIn(dateKey, 'morning');
+  if (!morning) return null;
+  let answers: AlertnessInputs = {};
+  try {
+    const parsed = JSON.parse(morning.answers ?? '{}');
+    answers = { sleepAmount: parsed.sleepAmount, sleepQuality: parsed.sleepQuality };
+  } catch {
+    return null;
+  }
+  return computeAlertnessValue(answers);
 }
 
 export function getAllAchievements(): Item[] {

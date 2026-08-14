@@ -26,7 +26,7 @@ Each arrow is one `itemRelations` edge, labeled with its `relationType` — read
 
 ### `items` — the master table
 
-Every entity type (`area`, `project`, `task`, `habit`, `medication`, `workout-template`, `workout-block`, `exercise`, `workout-session`, `meal`, `potential-stat`, `achievement`, `focus`, `routine`, `routine-step`, `routine-session`, `skill`, `backward-plan`) is a row here, discriminated by `type`.
+Every entity type (`area`, `project`, `task`, `habit`, `medication`, `workout-template`, `workout-block`, `exercise`, `workout-session`, `meal`, `potential-stat`, `achievement`, `focus`, `routine`, `routine-step`, `routine-session`, `skill`, `backward-plan`, `potential-attribute`) is a row here, discriminated by `type`.
 
 Startup-critical item list queries are indexed by status/type plus `deletedAt` and `createdAt DESC`; Home, badge counts and Inbox call these during launch, so keep those indexes aligned with the query shapes. Home's secondary Today-adjacent tabs (Upcoming/Anytime/Someday/Logbook) are intentionally lazy-loaded after selection, and Logbook uses the completedAt/updatedAt index instead of a `COALESCE` sort.
 
@@ -109,6 +109,35 @@ One row per completion-event's *current, decaying* effect on a Domain's score �
 
 At most one row is active per completion event: completing a Mission creates exactly one (Mission-tier for ordinary Missions, Achievement-tier instead-of for `achievementEligible` ones — never both). Toggling `achievementEligible` after completion excludes one tier's row and reactivates/creates the other, always preserving the original `occurredAt`.
 
+### Potential Attributes (`potential-attribute` item type + `attributeDomains` + `attributeContributions`) — shipped 2026-08-14, scoring formula not yet decided
+
+A separate developmental-stat system from the legacy `potential-stat` (Pillar) model above — see `apps/mobile/CLAUDE.md`'s "Potential Attributes" note for the full architecture/rationale. `potential-attribute` is a normal `items` row (seeded: Strength, Stamina — `seedInitialAttributes`, idempotent via `metadata.seedKey`, same pattern as `migratePotentialStats`).
+
+`attributeDomains` — many-to-many Attribute↔Domain association, **context only, not a scoring input** (an Attribute can relate to more than one Domain, e.g. Strength to both Fitness & Performance and Health & Wellbeing). Deliberately not `itemRelations`, which only supports one target per `(sourceId, relationType)`.
+
+| Column | Type | Notes |
+|---|---|---|
+| `attributeId` | TEXT | the `potential-attribute` item |
+| `areaId` | TEXT | the associated Domain |
+| `createdAt` | INTEGER | epoch ms |
+
+Primary key `(attributeId, areaId)`.
+
+`attributeContributions` — the evidence/event log. One row per piece of real-world evidence (a Habit occurrence, a logged Action) that a given Attribute happened. Deliberately has no `magnitude`/`halfLifeDays` like `domainContributions` above — those would encode a specific decay formula into raw history, and the whole point of this table is that the scoring formula can change without touching it. As of 2026-08-14 the formula is `src/utils/attributeScoring.ts`'s `computeAttributeValue` (the "H1" model — weekly-bucketed, partial-credit-below-target/hard-cap-at-target, asymmetric slow chase), driven by a per-Attribute `AttributeScoringConfig` stored on the Attribute item's own `metadata.scoringConfig` (`getAttributeScoringConfig`/`setAttributeScoringConfig`) — always recomputed live from this table, never cached.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | TEXT PK | uuid |
+| `attributeId` | TEXT | the Attribute this is evidence for |
+| `sourceType` | TEXT | `'habit'` \| `'action'` |
+| `sourceId` | TEXT | id of the Habit item or the Action's `activityLogs` row |
+| `weight` | TEXT | `'minor'` \| `'moderate'` \| `'major'` — the only user-facing contribution strength for v1; hidden numerical magnitudes live in `WEIGHT_MAGNITUDE` (`utils/attributes.ts`), tunable independently of this table |
+| `occurredAt` | INTEGER | epoch ms the evidence happened at |
+| `excludedAt` | INTEGER? | soft-disable (NULL = active) — used when an Action is edited (old tags excluded, current ones re-inserted) |
+| `createdAt` | INTEGER | epoch ms |
+
+Evidence-generation call sites: `updateItemStatus`'s repeating-completion branch and `toggleHabitOccurrence`'s add branch (both via `recordHabitCompletionEvidence`, reading a Habit's `metadata.attributeContributions`) for Habits; `logAction`/`updateAction`/`deleteAction` for Actions (reading `ActionDetails.attributeContributions`). A Habit's Attribute config is independent of and unrelated to its legacy single-target `metadata.potentialStat`. Web mirror: both tables are localStorage-backed (`rka-os:attributeDomains`/`rka-os:attributeContributions`), same "no firestoreWebStore mirror yet" caveat as `dailyCheckIns` — not cross-device synced yet.
+
 ### `planBlocks` / `planBlockSteps` — Plan Backwards plan components
 
 Not part of the `items`/`itemRelations` model — a plan's ordered components (Routine/Task/Travel) are plan-instance-specific (placement, buffer, completion) and must never leak back into a reusable `routine` template, so they're dedicated tables rather than `items` rows. Owned by one `backward-plan` item via `planId`.
@@ -149,6 +178,7 @@ API (`src/db/database.ts`, "Plan Backwards" section): `createBackwardPlan`, `get
 | `routine-step` | built | `RoutineStepMeta` (see `src/utils/routineMeta.ts`): `{ durationSeconds?, autoAdvance, instructions? }`; step order is the app's shared manual-order table (`itemOrder`, listKey `routine:<routineId>`), not a metadata field |
 | `routine-session` | built | `RoutineSessionMeta`: `{ currentStepIndex, stepStartedAt, elapsedBeforePauseMs, status: 'running'\|'paused', stepOverrides? }`. Remaining step time is always derived from these persisted timestamps (`computeStepRemainingSeconds`), never a local counter, so it is correct immediately after backgrounding or a full relaunch. Step transitions are logged as `activityLogs` rows (`'routine-step-completed'`\|`'routine-step-skipped'`). **Never writes to `domainContributions` and never sets `potentialStat`** — only a linked habit's own maintenance math may affect Potential, so finishing a routine never double-counts. A session can be abandoned via `cancelRoutineSession` (sets `items.status = 'cancelled'`), which `getActiveRoutineSession`'s `status = 'active'`-only query already excludes — the escape hatch for a session with no steps to play (Play is hidden on zero-step routines) or one the user no longer wants to resume. |
 | `medication` | built | `dose`, `stockRemaining` (derived total, see Packaging below), `initialStock`, `refillThreshold`, `lastTakenAt`, `maxPerDay`, `minHoursBetweenDoses`, `frequency`, `containerLabel`, `containerSize`, `containersPerRestock`, `sheetsPerContainer`, `pillsPerSheet`, `packagingNote`, `containers[]` |
+| `supplement` | built | `dose` (freeform string), `nutrients` (`NutrientProfile`: `{sodium?, potassium?, magnesium?, calcium?, chloride?}`, all mg — see Supplement nutrient tracking below). Deliberately has none of `medication`'s stock/timer/Live-Activity fields. |
 | `workout-template` | built | none yet |
 | `workout-block` | built | `sets`, `reps`, `weight`, `restSeconds`, `notes` |
 | `exercise` | built | `muscleGroup`, `equipment`, `movementFamily` (one of the 32 canonical parent movement ids), `notes`, `imageKey`; legacy/custom rows without `movementFamily` are classified from their title at read time |
@@ -178,6 +208,10 @@ Stock isn't just one flat pill count — a medication can track real inventory a
 Display is projected against the *configured* full-restock shape, not just whatever containers happen to exist yet — `getStockBreakdown(meta)` pads out to `containersPerRestock` slots (so an empty, never-restocked medication still shows a `0/30` slot instead of nothing) and, when `sheetsPerContainer`/`pillsPerSheet` are set, derives a sheet-level view assuming pills are consumed front-to-back (the in-use sheet drains first; later sheets stay full until reached). `getContainerSummary(meta)` renders this as a compact string, e.g. for Dexamfetamine after 7 doses taken: `23/60 · 23/30 (3/10+10/10+10/10) + 0/30 (0/10+0/10+0/10)`.
 
 `packagingNote` is a free-text escape hatch for one-off quirks that don't fit the container model cleanly (e.g. "28 in main pack + 2 topper blister").
+
+## Supplement nutrient tracking
+
+Supplements (`type: 'supplement'`) are a lighter sibling of `medication` — no stock/refill, dose timers, or Live Activities, just a name/dose plus an optional micronutrient profile (`NutrientProfile`: `sodium`/`potassium`/`magnesium`/`calcium`/`chloride`, all in mg — a fixed but easily-extensible set, add new optional keys to the interface as needed, e.g. toward future calorie/macro tracking). Logging a dose (`logSupplementTaken`) writes a `'supplement-taken'` `activityLogs` row whose `details` **snapshots** the supplement's current nutrient values at that moment — so editing a supplement's nutrient values later never retroactively changes historical daily totals. `getTodayNutrientTotals()` sums each nutrient key across today's `supplement-taken` logs, giving an at-a-glance daily total (e.g. "Na 680mg · K 400mg") shown above the Supplements list in the merged Medications & Supplements screen (`MedicationsScreen.tsx`/`.web.tsx`).
 
 ## Known gaps
 
