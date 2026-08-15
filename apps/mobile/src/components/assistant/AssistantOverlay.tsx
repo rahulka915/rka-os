@@ -296,12 +296,17 @@ export function AssistantOverlay({ onClose, onOpenItem }: AssistantOverlayProps)
           })}
           {pending ? (
             <View
-              style={[
-                styles.bubble,
-                { alignSelf: 'flex-start', backgroundColor: mat.surfaceRaised, borderColor: mat.rim, borderWidth: 1, maxWidth: '100%' },
-              ]}
+              style={{
+                alignSelf: 'stretch',
+                backgroundColor: mat.surfaceRaised,
+                borderColor: mat.rim,
+                borderWidth: 1,
+                borderRadius: radius.card,
+                paddingHorizontal: spacing[5],
+                paddingVertical: spacing[4],
+              }}
             >
-              <Text style={[styles.bubbleText, { color: mat.platinumMuted, marginBottom: spacing[3], fontSize: fontSize.sm }]}>
+              <Text style={{ color: mat.platinumMuted, marginBottom: spacing[3], fontSize: fontSize.base, fontFamily: 'Inter_600SemiBold', fontWeight: '600' }}>
                 {pending.length > 1 ? 'Review each — tap to include or skip:' : 'Confirm this action:'}
               </Text>
               {pending.map((call, i) => {
@@ -321,7 +326,7 @@ export function AssistantOverlay({ onClose, onOpenItem }: AssistantOverlayProps)
                       flexDirection: 'row',
                       alignItems: 'center',
                       gap: spacing[3],
-                      paddingVertical: spacing[2],
+                      paddingVertical: spacing[3],
                       opacity: isOn ? 1 : 0.45,
                     }}
                     accessibilityRole="checkbox"
@@ -330,9 +335,9 @@ export function AssistantOverlay({ onClose, onOpenItem }: AssistantOverlayProps)
                   >
                     <View
                       style={{
-                        width: 20,
-                        height: 20,
-                        borderRadius: 6,
+                        width: 24,
+                        height: 24,
+                        borderRadius: 7,
                         borderWidth: 1.5,
                         borderColor: isOn ? mat.accent : mat.rim,
                         backgroundColor: isOn ? mat.accent : 'transparent',
@@ -342,30 +347,30 @@ export function AssistantOverlay({ onClose, onOpenItem }: AssistantOverlayProps)
                     >
                       {isOn ? <Text style={{ color: mat.onAccent, fontSize: 13, fontWeight: '700' }}>✓</Text> : null}
                     </View>
-                    <Text style={[styles.bubbleText, { color: mat.platinum, flex: 1, textDecorationLine: isOn ? 'none' : 'line-through' }]}>
+                    <Text style={{ color: mat.platinum, flex: 1, flexShrink: 1, fontSize: fontSize.lg, lineHeight: 23, textDecorationLine: isOn ? 'none' : 'line-through' }}>
                       {call.preview}
                     </Text>
                   </TouchableOpacity>
                 );
               })}
-              <View style={{ flexDirection: 'row', gap: spacing[3], marginTop: spacing[3] }}>
+              <View style={{ flexDirection: 'row', gap: spacing[3], marginTop: spacing[4] }}>
                 <TouchableOpacity
                   onPress={() => handleResolvePending(new Set(accepted))}
-                  style={[styles.sendBtn, { width: 'auto', paddingHorizontal: spacing[4], backgroundColor: mat.accent }]}
+                  style={{ flex: 1, height: 48, borderRadius: radius.card, alignItems: 'center', justifyContent: 'center', backgroundColor: mat.accent }}
                   accessibilityRole="button"
                   accessibilityLabel={accepted.size > 0 ? 'Confirm selected' : 'Skip all'}
                 >
-                  <Text style={{ color: mat.onAccent, fontFamily: 'Inter_600SemiBold', fontWeight: '600' }}>
+                  <Text style={{ color: mat.onAccent, fontFamily: 'Inter_600SemiBold', fontWeight: '600', fontSize: fontSize.lg }}>
                     {accepted.size === 0 ? 'Skip all' : accepted.size === pending.length ? 'Confirm' : `Confirm ${accepted.size}`}
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => handleResolvePending(new Set())}
-                  style={[styles.sendBtn, { width: 'auto', paddingHorizontal: spacing[4], backgroundColor: mat.fill }]}
+                  style={{ flex: 1, height: 48, borderRadius: radius.card, alignItems: 'center', justifyContent: 'center', backgroundColor: mat.fill }}
                   accessibilityRole="button"
                   accessibilityLabel="Cancel"
                 >
-                  <Text style={{ color: mat.platinum, fontFamily: 'Inter_600SemiBold', fontWeight: '600' }}>Cancel</Text>
+                  <Text style={{ color: mat.platinum, fontFamily: 'Inter_600SemiBold', fontWeight: '600', fontSize: fontSize.lg }}>Cancel</Text>
                 </TouchableOpacity>
               </View>
             </View>
