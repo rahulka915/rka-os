@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -34,6 +35,18 @@ type DisplayTurn =
   | { kind: 'text'; role: 'user' | 'model'; text: string }
   | { kind: 'action-result'; text: string };
 
+// Module-level cache so the conversation survives closing/reopening the overlay
+// (which unmounts it) — "pause and come back" keeps the same thread. Persists
+// for the life of the app process; a full app restart starts fresh. Cleared by
+// the header "New" button.
+type SessionCache = {
+  turns: DisplayTurn[];
+  rawHistory: any[];
+  pending: PendingAssistantCall[] | null;
+  accepted: number[];
+};
+let sessionCache: SessionCache = { turns: [], rawHistory: [], pending: null, accepted: [] };
+
 export function AssistantOverlay({ onClose, onOpenItem }: AssistantOverlayProps) {
   const mat = itemComposerMaterial.dark;
   const insets = useSafeAreaInsets();
@@ -41,15 +54,42 @@ export function AssistantOverlay({ onClose, onOpenItem }: AssistantOverlayProps)
   const scrollRef = useRef<ScrollView>(null);
   const inputRef = useRef<any>(null);
 
-  const [turns, setTurns] = useState<DisplayTurn[]>([]);
-  const [pending, setPending] = useState<PendingAssistantCall[] | null>(null);
+  // Initialise from the module cache so a reopened overlay resumes its thread.
+  const [turns, setTurns] = useState<DisplayTurn[]>(sessionCache.turns);
+  const [pending, setPending] = useState<PendingAssistantCall[] | null>(sessionCache.pending);
   // Per-action accept state for the confirmation card — each proposed action is
   // toggled individually; Done submits the accepted set. Defaults to all accepted.
-  const [accepted, setAccepted] = useState<Set<number>>(new Set());
-  const [rawHistory, setRawHistory] = useState<any[]>([]);
+  const [accepted, setAccepted] = useState<Set<number>>(new Set(sessionCache.accepted));
+  const [rawHistory, setRawHistory] = useState<any[]>(sessionCache.rawHistory);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [headerHeight, setHeaderHeight] = useState(0);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardWillShow', () => setKeyboardVisible(true));
+    const hide = Keyboard.addListener('keyboardWillHide', () => setKeyboardVisible(false));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+
+  // Keep the module cache in sync so closing (unmount) then reopening restores it.
+  useEffect(() => {
+    sessionCache = { turns, rawHistory, pending, accepted: [...accepted] };
+  }, [turns, rawHistory, pending, accepted]);
+
+  const startNewConversation = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setTurns([]);
+    setRawHistory([]);
+    setPending(null);
+    setAccepted(new Set());
+    setError(null);
+    setInput('');
+  };
 
   const opacity = useSharedValue(0);
   useState(() => {
@@ -182,26 +222,42 @@ export function AssistantOverlay({ onClose, onOpenItem }: AssistantOverlayProps)
       ]}
       accessibilityViewIsModal
     >
-      <View style={styles.header}>
+      <View style={styles.header} onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}>
         <View style={styles.headerTitle}>
           <Sparkles size={16} color={mat.accent} strokeWidth={1.75} />
           <Text style={[styles.title, { color: mat.platinumMuted }]}>Assistant</Text>
         </View>
-        <TouchableOpacity
-          onPress={handleClose}
-          style={styles.closeBtn}
-          accessibilityRole="button"
-          accessibilityLabel="Close assistant"
-          hitSlop={12}
-        >
-          <X size={20} color={mat.platinum} strokeWidth={2} />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          {turns.length > 0 || pending ? (
+            <TouchableOpacity
+              onPress={startNewConversation}
+              style={{ height: 44, paddingHorizontal: spacing[3], alignItems: 'center', justifyContent: 'center' }}
+              accessibilityRole="button"
+              accessibilityLabel="New conversation"
+              hitSlop={8}
+            >
+              <Text style={{ color: mat.platinumMuted, fontFamily: 'Inter_600SemiBold', fontWeight: '600', fontSize: fontSize.sm }}>New</Text>
+            </TouchableOpacity>
+          ) : null}
+          <TouchableOpacity
+            onPress={handleClose}
+            style={styles.closeBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Close assistant"
+            hitSlop={12}
+          >
+            <X size={20} color={mat.platinum} strokeWidth={2} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={insets.top}
+        // Distance from the top of the window to the top of this avoiding view
+        // (status-bar inset + the header above it). Using just insets.top left an
+        // extra header-height gap between the input and the keyboard.
+        keyboardVerticalOffset={insets.top + headerHeight}
       >
         <ScrollView
           ref={scrollRef}
@@ -383,7 +439,18 @@ export function AssistantOverlay({ onClose, onOpenItem }: AssistantOverlayProps)
           {error ? <Text style={[styles.errorText, { color: '#e0716b' }]}>{error}</Text> : null}
         </ScrollView>
 
-        <View style={[styles.inputRow, { borderTopColor: mat.rim, paddingBottom: Math.max(insets.bottom, spacing[4]) }]}>
+        <View
+          style={[
+            styles.inputRow,
+            {
+              borderTopColor: mat.rim,
+              // The home-indicator safe-area inset is only needed when the
+              // keyboard is hidden — while it's up the keyboard covers that
+              // area, so collapse the padding to avoid a dead gap.
+              paddingBottom: keyboardVisible ? spacing[3] : Math.max(insets.bottom, spacing[4]),
+            },
+          ]}
+        >
           <TextInput
             ref={inputRef}
             value={input}
@@ -393,6 +460,10 @@ export function AssistantOverlay({ onClose, onOpenItem }: AssistantOverlayProps)
             style={[styles.input, { color: mat.platinum, backgroundColor: mat.fill }]}
             editable={hasAssistant && !busy && !pending}
             multiline
+            autoCorrect
+            autoCapitalize="sentences"
+            spellCheck
+            keyboardAppearance="dark"
             onSubmitEditing={handleSend}
           />
           <TouchableOpacity
