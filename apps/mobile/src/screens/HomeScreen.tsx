@@ -12,6 +12,7 @@ import { WeatherWidget } from '../components/home/WeatherWidget';
 import { HabitsWidget } from '../components/home/HabitsWidget';
 import { TodayCard } from '../components/home/TodayCard';
 import { HomeTaskRow } from '../components/home/HomeTaskRow';
+import { RoninJourneyPrototype } from '../components/home/RoninJourneyPrototype';
 import { useHomeData, useProjects, useTodayHabits } from '../hooks/useDb';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { useItemComposer } from '../components/item-composer';
@@ -27,6 +28,7 @@ import {
   deleteItem,
   formatDate,
 } from '../db/database';
+import { computeTodayJourneyProgress } from '../utils/todayJourneyProgress';
 import { LACQUER_DISC_COMPLETION_DURATION } from '../components/ui/LacquerDiscControl';
 import { UndoToast, type UndoToastState } from '../components/ui/UndoToast';
 import { getThemeColors } from '../theme';
@@ -329,6 +331,10 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress }: HomeScr
     () => somedayItems.filter((item) => !pendingActions.has(item.id)),
     [somedayItems, pendingActions],
   );
+  const journeyProgress = useMemo(
+    () => computeTodayJourneyProgress(todayItems, pendingActions),
+    [todayItems, pendingActions],
+  );
   return (
     <YStack flex={1} backgroundColor="$bg">
       <AppHeader
@@ -407,8 +413,16 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress }: HomeScr
 
         {activeView === 'today' && (
         <>
-        {/* Widget row: Medication + Weather (Journey/Potential strip, Daily
-            Check-In, and Plan Backwards countdown stay off Home for now). */}
+        {/* Journey strip: always-walking Ronin sprite (see
+            docs/superpowers/specs/2026-08-15-simplified-walking-ronin-avatar-design.md),
+            reactivated 2026-08-15. Daily Check-In and Plan Backwards countdown
+            still stay off Home for now. */}
+        <RoninJourneyPrototype
+          completedCount={journeyProgress.completedCount}
+          totalCount={journeyProgress.totalCount}
+          isDark={isDark}
+        />
+
         <View style={{ flexDirection: 'row', marginHorizontal: 12, marginTop: 8, gap: 8 }}>
           <View style={{ width: '31%' }}>
             <MedicationQuickLogWidget isDark={isDark} />
