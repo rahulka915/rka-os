@@ -118,7 +118,19 @@ export function AppShell() {
           <Sparkles size={22} color="#fff" strokeWidth={1.75} />
         </TouchableOpacity>
       ) : null}
-      {assistantOpen ? <AssistantOverlay onClose={() => setAssistantOpen(false)} /> : null}
+      {assistantOpen ? (
+        <AssistantOverlay
+          onClose={() => setAssistantOpen(false)}
+          onOpenItem={(item) => {
+            if (item.type === 'area') handleSelectArea(item.id);
+            else if (item.type === 'project') handleSelectProject(item.id);
+            else if (item.type === 'object') setActiveView('objects');
+            else if (item.type === 'habit') setActiveView('habits');
+            else if (item.type === 'medication' || item.type === 'supplement') setActiveView('medications');
+            else setActiveView('tasks');
+          }}
+        />
+      ) : null}
     </View>
   );
 }

@@ -22,24 +22,28 @@ import { askAssistant, hasAssistant } from '../../services/ai/assistant';
 import type { PendingAssistantCall } from '../../services/ai/assistant.web';
 import { parseAssistantMessage } from './parseAssistantMessage';
 import { getItemWithMetadata } from '../../db/database';
-import { useOpenItem } from '../../hooks/useOpenItem';
+import type { Item } from '../../db/types';
 import { X, Sparkles } from '../../icons';
 import PaperAirplaneIcon from 'react-native-heroicons/solid/PaperAirplaneIcon';
 
 interface AssistantOverlayProps {
   onClose: () => void;
+  // How to open an item when the user taps an [[id:Title]] link in a reply.
+  // Injected by the caller because navigation differs per platform — native
+  // uses react-navigation + ItemComposer, web uses its own sidebar model.
+  // When omitted, tapping a link just closes the overlay.
+  onOpenItem?: (item: Item) => void;
 }
 
 type DisplayTurn =
   | { kind: 'text'; role: 'user' | 'model'; text: string }
   | { kind: 'action-result'; text: string };
 
-export function AssistantOverlay({ onClose }: AssistantOverlayProps) {
+export function AssistantOverlay({ onClose, onOpenItem }: AssistantOverlayProps) {
   const mat = itemComposerMaterial.dark;
   const insets = useSafeAreaInsets();
   const reducedMotion = useReducedMotion();
   const scrollRef = useRef<ScrollView>(null);
-  const openItem = useOpenItem();
 
   const [turns, setTurns] = useState<DisplayTurn[]>([]);
   const [pending, setPending] = useState<PendingAssistantCall[] | null>(null);
@@ -64,7 +68,7 @@ export function AssistantOverlay({ onClose }: AssistantOverlayProps) {
     if (!item) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     onClose();
-    openItem({ item });
+    onOpenItem?.(item);
   };
 
   const handleSend = async () => {
