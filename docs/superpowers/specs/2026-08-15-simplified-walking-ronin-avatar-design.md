@@ -115,8 +115,9 @@ data plumbing.
 - `npx tsc --noEmit` passes.
 - On-device (or simulator) visual check: walk-cycle loop reads as smooth motion, not jittery/misaligned
   frames.
-- Reduce Motion toggle: confirm the sprite freezes on a neutral frame while the rest of the widget's
-  existing Reduce Motion behavior (slower bob, no rotation) is unaffected.
+- Reduce Motion toggle: confirm the walk-cycle sprite keeps cycling (corrected 2026-08-15 — see
+  "Correction" below) while the rest of the widget's existing Reduce Motion behavior (slower bob, no
+  rotation) is unaffected.
 - Tap interaction still triggers haptic + bubble + hop/scale exactly as it did before this change (no
   regression, since that logic is untouched).
 - Progress-driven horizontal travel still correctly reflects `completedCount`/`totalCount` at 0%, partial,
@@ -143,3 +144,14 @@ by the preview — it's a purely visual, temporary offset. A quick tap still beh
 **Verification:** hold anywhere on the widget — character should walk forward past its real position over
 ~1.8s if held that long, and animate back to the real position on release. Quick taps should look
 unchanged from before this addendum (reaction bubble still appears, no visible extra movement).
+
+## Correction (same day): Reduce Motion no longer freezes the walk-cycle
+
+The original design (above) froze `RoninWalkCycleSprite` on a single frame under Reduce Motion, matching
+the host widget's existing pattern of removing its own bob/rotation under that setting. In practice this
+read as broken rather than considerate: the character's *position* still moves under Reduce Motion (both
+the real progress-driven travel and the new hold-to-preview offset are unaffected by it), so freezing only
+the leg-cycle produced a static-posed character visibly sliding across the trail. Corrected: the sprite
+always cycles frames regardless of Reduce Motion — a small, self-contained sprite swap isn't the
+large-scale/parallax motion that setting is meant to suppress. The widget's other Reduce Motion behavior
+(reduced bob amplitude, no rotation, slower progress-transition duration) is unchanged.

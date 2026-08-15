@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AccessibilityInfo, Image, StyleSheet } from 'react-native';
+import { Image, StyleSheet } from 'react-native';
 import type { ImageStyle, StyleProp } from 'react-native';
 import { getNextWalkCycleFrame, WALK_CYCLE_FRAME_COUNT, WALK_CYCLE_FRAME_INTERVAL_MS } from '../../utils/walkCycle';
 
@@ -18,23 +18,19 @@ interface RoninWalkCycleSpriteProps {
   style?: StyleProp<ImageStyle>;
 }
 
+// Always cycles, including under Reduce Motion — a small in-place sprite
+// swap isn't the kind of large-scale/parallax motion that setting targets,
+// and freezing it read as broken (character sliding in a single pose)
+// rather than as a deliberate accessibility accommodation.
 export function RoninWalkCycleSprite({ style }: RoninWalkCycleSpriteProps) {
   const [frameIndex, setFrameIndex] = useState(0);
-  const [reduceMotion, setReduceMotion] = useState(false);
 
   useEffect(() => {
-    AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
-    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
-    return () => subscription.remove();
-  }, []);
-
-  useEffect(() => {
-    if (reduceMotion) return;
     const interval = setInterval(() => {
       setFrameIndex((current) => getNextWalkCycleFrame(current, WALK_CYCLE_FRAME_COUNT));
     }, WALK_CYCLE_FRAME_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [reduceMotion]);
+  }, []);
 
   return <Image source={WALK_CYCLE_FRAMES[frameIndex]} resizeMode="contain" style={[styles.image, style]} />;
 }
