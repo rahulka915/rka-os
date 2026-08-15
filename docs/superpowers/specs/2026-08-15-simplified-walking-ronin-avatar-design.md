@@ -168,3 +168,21 @@ true when the real-progress `withTiming` transition starts (on a `ratio` change 
 cleared via a matching-duration `setTimeout` when that transition would have finished. Real
 `completedCount`/`totalCount`/`progress` are still never touched by either signal — this only gates which
 sprite frame renders.
+
+## Addendum (same day): breathing-idle loop
+
+Standing on a single frozen frame while `!isWalking` still read as static. Added a second, slower 4-frame
+breathing-idle loop so the character is never fully still.
+
+**Assets:** `assets/ronin/journey/idle/ronin-idle-01.png`…`04.png`, generated the same way as the
+walk-cycle sheet (one sprite sheet, sliced/aligned/despilled) — a subtle inhale/hold/exhale/settle cycle,
+feet planted, no stride.
+
+**Component:** `RoninWalkCycleSprite` gains a second frame set. When `isWalking` is false it cycles the 4
+idle frames at ~650ms/frame (vs. walking's 83ms/frame) instead of freezing on frame 1. The existing
+`getNextWalkCycleFrame(current, frameCount)` helper is already generic on frame count, so both loops share
+it — no new pure-logic code. `RoninJourneyPrototype`'s `isWalking` derivation is unchanged.
+
+**Script:** `build-ronin-walk-cycle-frames.py` generalized to accept `--source`/`--output-dir`/
+`--frame-count`/`--prefix` (same crop/align/despill logic, now parameterized rather than duplicated for a
+second sheet with different frame count and destination).
