@@ -16,8 +16,10 @@ import { itemComposerMaterial } from '../../theme/itemComposer';
 import { fontSize, spacing, radius } from '../../theme/spacing';
 import { askAssistant, hasAssistant } from '../../services/ai/assistant';
 // resolveAssistantActions/PendingAssistantCall only exist on the web build's assistant.web.ts;
-// native's assistant.ts doesn't export them. Imported as a type only so this file typechecks on both.
-import type { PendingAssistantCall } from '../../services/ai/assistant';
+// native's assistant.ts doesn't export them, and tsc's module resolution (unlike Metro) doesn't
+// understand the .web.ts platform-extension convention, so the type import points at the .web.ts
+// file explicitly — it's erased at runtime anyway, so this doesn't affect native's actual bundle.
+import type { PendingAssistantCall } from '../../services/ai/assistant.web';
 import { parseAssistantMessage } from './parseAssistantMessage';
 import { getItemWithMetadata } from '../../db/database';
 import { useOpenItem } from '../../hooks/useOpenItem';
@@ -97,7 +99,12 @@ export function AssistantOverlay({ onClose }: AssistantOverlayProps) {
     setBusy(true);
     setError(null);
     try {
-      const { resolveAssistantActions } = await import('../../services/ai/assistant');
+      // Cast to any: this branch only ever runs when `pending` was set, which only happens on
+      // web (native's askAssistant never returns { kind: 'pending' }), so resolveAssistantActions
+      // is guaranteed to exist at runtime even though native's assistant.ts doesn't statically
+      // export it — see the type-import comment above.
+      const assistantModule: any = await import('../../services/ai/assistant');
+      const resolveAssistantActions = assistantModule.resolveAssistantActions;
       const decisions = calls.map((call, i) => ({ call, confirmed: confirmedIndices.has(i) }));
       const resultLines = calls
         .filter((_, i) => confirmedIndices.has(i))
