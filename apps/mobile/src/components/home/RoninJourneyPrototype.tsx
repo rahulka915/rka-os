@@ -44,6 +44,11 @@ export function RoninJourneyPrototype({ completedCount, totalCount, isDark, pote
   const progress = useSharedValue(ratio);
   const walkCycle = useSharedValue(0);
   const reaction = useSharedValue(0);
+  // Fraction (0-1) of the *remaining* distance to the path's end covered by
+  // an active press-and-hold preview — never written to progress/ratio
+  // itself, purely a temporary visual offset (see the walking-Ronin spec's
+  // "hold-to-preview-walk" addendum).
+  const previewProgress = useSharedValue(0);
   const [width, setWidth] = useState(0);
   const [reduceMotion, setReduceMotion] = useState(false);
   const [reactionIndex, setReactionIndex] = useState(0);
@@ -102,13 +107,30 @@ export function RoninJourneyPrototype({ completedCount, totalCount, isDark, pote
     );
   };
 
+  const handlePressIn = () => {
+    previewProgress.value = withTiming(1, {
+      duration: 1800,
+      easing: Easing.linear,
+      reduceMotion: ReduceMotion.Never,
+    });
+  };
+
+  const handlePressOut = () => {
+    previewProgress.value = withTiming(0, {
+      duration: 400,
+      easing: Easing.out(Easing.cubic),
+      reduceMotion: ReduceMotion.Never,
+    });
+  };
+
   const walkerStyle = useAnimatedStyle(() => {
     const travel = Math.max(0, width - WALKER_SIZE - 4);
-    const pathRise = interpolate(progress.value, [0, 0.5, 1], [0, -4, -11]);
+    const displayProgress = progress.value + previewProgress.value * (1 - progress.value);
+    const pathRise = interpolate(displayProgress, [0, 0.5, 1], [0, -4, -11]);
     const bob = interpolate(walkCycle.value, [0, 1], [2, reduceMotion ? 0 : -4]);
     return {
       transform: [
-        { translateX: progress.value * travel },
+        { translateX: displayProgress * travel },
         { translateY: pathRise + bob - reaction.value * 18 },
         { rotate: `${reduceMotion ? 0 : interpolate(walkCycle.value, [0, 1], [-1.2, 1.2])}deg` },
         { scale: 1 + reaction.value * 0.055 },
@@ -147,10 +169,12 @@ export function RoninJourneyPrototype({ completedCount, totalCount, isDark, pote
       <Pressable
         style={StyleSheet.absoluteFill}
         onPress={handlePress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
         onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
         accessibilityRole="button"
         accessibilityLabel={`Today\u2019s path. ${progressLabel}. Ronin and cat.`}
-        accessibilityHint="Tap for a reaction"
+        accessibilityHint="Tap for a reaction, hold to preview the walk"
       >
         <View pointerEvents="none" style={styles.scrim} />
         <LinearGradient
