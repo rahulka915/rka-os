@@ -52,7 +52,18 @@ export function RoninJourneyPrototype({ completedCount, totalCount, isDark, pote
   const [width, setWidth] = useState(0);
   const [reduceMotion, setReduceMotion] = useState(false);
   const [reactionIndex, setReactionIndex] = useState(0);
+  const [isHolding, setIsHolding] = useState(false);
+  // True only while progress.value is actually animating toward a new ratio
+  // (see the progress useEffect below) — the walk-cycle should play while
+  // the character is really moving, not sit in a standing pose while its
+  // position visibly slides.
+  const [isProgressAnimating, setIsProgressAnimating] = useState(false);
   const didMount = useRef(false);
+  const progressAnimationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (progressAnimationTimeoutRef.current) clearTimeout(progressAnimationTimeoutRef.current);
+  }, []);
 
   useEffect(() => {
     AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
@@ -81,11 +92,15 @@ export function RoninJourneyPrototype({ completedCount, totalCount, isDark, pote
       didMount.current = true;
       return;
     }
+    const duration = reduceMotion ? 1400 : 900;
     progress.value = withTiming(ratio, {
-      duration: reduceMotion ? 1400 : 900,
+      duration,
       easing: Easing.inOut(Easing.cubic),
       reduceMotion: ReduceMotion.Never,
     });
+    setIsProgressAnimating(true);
+    if (progressAnimationTimeoutRef.current) clearTimeout(progressAnimationTimeoutRef.current);
+    progressAnimationTimeoutRef.current = setTimeout(() => setIsProgressAnimating(false), duration);
   }, [progress, ratio, reduceMotion]);
 
   const handlePress = () => {
@@ -108,6 +123,7 @@ export function RoninJourneyPrototype({ completedCount, totalCount, isDark, pote
   };
 
   const handlePressIn = () => {
+    setIsHolding(true);
     previewProgress.value = withTiming(1, {
       duration: 1800,
       easing: Easing.linear,
@@ -116,12 +132,15 @@ export function RoninJourneyPrototype({ completedCount, totalCount, isDark, pote
   };
 
   const handlePressOut = () => {
+    setIsHolding(false);
     previewProgress.value = withTiming(0, {
       duration: 400,
       easing: Easing.out(Easing.cubic),
       reduceMotion: ReduceMotion.Never,
     });
   };
+
+  const isWalking = isHolding || isProgressAnimating;
 
   const walkerStyle = useAnimatedStyle(() => {
     const travel = Math.max(0, width - WALKER_SIZE - 4);
@@ -203,7 +222,7 @@ export function RoninJourneyPrototype({ completedCount, totalCount, isDark, pote
         </Svg>
 
         <Animated.View pointerEvents="none" style={[styles.walker, walkerStyle]}>
-          <RoninWalkCycleSprite style={styles.walkerImage} />
+          <RoninWalkCycleSprite style={styles.walkerImage} isWalking={isWalking} />
           <Animated.View style={[styles.reactionBubble, bubbleStyle]}>
             <Text style={styles.reactionText}>{REACTIONS[reactionIndex]}</Text>
           </Animated.View>

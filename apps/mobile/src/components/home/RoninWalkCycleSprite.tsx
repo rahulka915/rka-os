@@ -16,21 +16,30 @@ const WALK_CYCLE_FRAMES: number[] = [
 
 interface RoninWalkCycleSpriteProps {
   style?: StyleProp<ImageStyle>;
+  /**
+   * Whether the character is actually translating right now (real progress
+   * transitioning, or a hold-to-preview in progress). Cycles frames only
+   * while true; holds a single standing pose (frame 1) otherwise, so the
+   * character doesn't appear to jog in place while stationary. Always
+   * cycles regardless of Reduce Motion when true — a small in-place sprite
+   * swap isn't the large-scale/parallax motion that setting targets.
+   */
+  isWalking: boolean;
 }
 
-// Always cycles, including under Reduce Motion — a small in-place sprite
-// swap isn't the kind of large-scale/parallax motion that setting targets,
-// and freezing it read as broken (character sliding in a single pose)
-// rather than as a deliberate accessibility accommodation.
-export function RoninWalkCycleSprite({ style }: RoninWalkCycleSpriteProps) {
+export function RoninWalkCycleSprite({ style, isWalking }: RoninWalkCycleSpriteProps) {
   const [frameIndex, setFrameIndex] = useState(0);
 
   useEffect(() => {
+    if (!isWalking) {
+      setFrameIndex(0);
+      return;
+    }
     const interval = setInterval(() => {
       setFrameIndex((current) => getNextWalkCycleFrame(current, WALK_CYCLE_FRAME_COUNT));
     }, WALK_CYCLE_FRAME_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, []);
+  }, [isWalking]);
 
   return <Image source={WALK_CYCLE_FRAMES[frameIndex]} resizeMode="contain" style={[styles.image, style]} />;
 }

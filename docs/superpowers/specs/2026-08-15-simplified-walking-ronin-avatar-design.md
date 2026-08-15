@@ -155,3 +155,16 @@ the leg-cycle produced a static-posed character visibly sliding across the trail
 always cycles frames regardless of Reduce Motion — a small, self-contained sprite swap isn't the
 large-scale/parallax motion that setting is meant to suppress. The widget's other Reduce Motion behavior
 (reduced bob amplitude, no rotation, slower progress-transition duration) is unchanged.
+
+## Correction (same day): walk-cycle only plays while actually moving
+
+The original design cycled frames continuously and permanently, regardless of whether the character was
+translating — this read as the character jogging in place while idle (no real progress change, no
+hold-preview active), rather than a considered "never static" motif. Corrected: `RoninWalkCycleSprite`
+takes an `isWalking` prop and only cycles frames while true, holding a single standing pose (frame 1)
+otherwise. `RoninJourneyPrototype` derives `isWalking = isHolding || isProgressAnimating` — `isHolding`
+toggles directly from the hold-to-preview `onPressIn`/`onPressOut` handlers; `isProgressAnimating` is set
+true when the real-progress `withTiming` transition starts (on a `ratio` change after initial mount) and
+cleared via a matching-duration `setTimeout` when that transition would have finished. Real
+`completedCount`/`totalCount`/`progress` are still never touched by either signal — this only gates which
+sprite frame renders.
