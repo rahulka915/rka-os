@@ -121,3 +121,25 @@ data plumbing.
   regression, since that logic is untouched).
 - Progress-driven horizontal travel still correctly reflects `completedCount`/`totalCount` at 0%, partial,
   and 100% states.
+
+## Addendum (same day): hold-to-preview-walk
+
+After initial verification, added a "thru"-style hold interaction so the walk can be previewed without
+needing to complete real tasks. Approved as a **permanent** feature, not a dev-only affordance.
+
+**Mechanic:** the widget's existing full-surface `Pressable` gains `onPressIn`/`onPressOut` alongside its
+existing `onPress` (unchanged — still the tap-reaction bubble/haptic). A new Reanimated shared value
+`previewProgress` (0→1) animates toward 1 over ~1.8s linear motion on press-in (walking to the path's end
+if held that long) and back to 0 over ~400ms on press-out (the snap-back). The walker's displayed position
+becomes `progress.value + previewProgress.value * (1 - progress.value)` — real progress plus whatever
+fraction of the *remaining* distance the hold has covered, naturally capped at 1 (the path's end) since
+`previewProgress` never exceeds 1. This single derived value feeds the same `translateX = displayProgress
+* travel` calculation `walkerStyle` already used for `progress.value` alone — no new positioning logic.
+
+**Explicitly not changed:** `completedCount`/`totalCount`/`progress` (the real data) are never written to
+by the preview — it's a purely visual, temporary offset. A quick tap still behaves exactly as before
+(press-in/out happen too fast to visibly move the character; `onPress`'s reaction bubble still fires).
+
+**Verification:** hold anywhere on the widget — character should walk forward past its real position over
+~1.8s if held that long, and animate back to the real position on release. Quick taps should look
+unchanged from before this addendum (reaction bubble still appears, no visible extra movement).
