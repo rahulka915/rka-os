@@ -50,6 +50,7 @@ import { ProfileScreen } from './src/screens/ProfileScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { InboxScreenV2 } from './src/screens/InboxScreenV2';
 import { ItemComposerProvider, useItemComposer } from './src/components/item-composer';
+import { useOpenItem } from './src/hooks/useOpenItem';
 import { OverlayHostProvider } from './src/hooks/useOverlayHost';
 import { AssistantOverlay } from './src/components/assistant/AssistantOverlay';
 import { navigationRef } from './src/navigation/rootNavigation';
@@ -199,6 +200,7 @@ function NavigationLayer({
 }) {
   const { openCapture } = useItemComposer();
   const { isExperimentalHome } = useUIModeContext();
+  const openItem = useOpenItem();
   const [assistantOpen, setAssistantOpen] = useState(false);
 
   const openQuickCapture = () => {
@@ -318,7 +320,9 @@ function NavigationLayer({
       </NavigationContainer>
 
       <InboxScreenV2 visible={inboxOpen} onClose={() => setInboxOpen(false)} />
-      {assistantOpen ? <AssistantOverlay onClose={() => setAssistantOpen(false)} /> : null}
+      {assistantOpen ? (
+        <AssistantOverlay onClose={() => setAssistantOpen(false)} onOpenItem={(item) => openItem({ item })} />
+      ) : null}
       {/* Medication timers aren't ported to web yet — the banner mounts app-wide
           and reads timer state that database.web.ts doesn't implement. */}
       {Platform.OS !== 'web' ? <PersistentTimerBanner /> : null}

@@ -1,5 +1,5 @@
-// Native (SQLite) executor for the agentic tool set declared in
-// assistantTools.ts — Metro resolves this over the .web.ts variant on native.
+// Web (Firestore) executor for the agentic tool set declared in
+// assistantTools.ts — Metro resolves this over the native .ts variant on web.
 // Kept separate from the pure schema/preview logic because it pulls in the
 // whole data layer, which isn't unit-testable under plain Node — see
 // assistantTools.test.ts instead.
@@ -20,7 +20,7 @@ import {
   setRelation,
   updateItemMetadata,
   setFocus,
-} from '../../db/database';
+} from '../../db/database.web';
 import type { ActionKind, ActionIntensity } from '../../utils/actions';
 import type { AssistantToolName } from './assistantTools';
 
