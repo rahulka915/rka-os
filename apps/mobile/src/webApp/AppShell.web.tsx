@@ -1,6 +1,9 @@
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Sidebar, type SidebarView } from './Sidebar';
+import { AssistantOverlay } from '../components/assistant/AssistantOverlay';
+import { hasAssistant } from '../services/ai/assistant';
+import { Sparkles } from '../icons';
 import { HomeScreen } from './HomeScreen';
 import { InboxScreen } from './InboxScreen';
 import { TasksScreen } from './TasksScreen';
@@ -28,6 +31,7 @@ export function AppShell() {
   const [selectedAreaId, setSelectedAreaId] = useState<string | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [tasksInitialTab, setTasksInitialTab] = useState<TasksTab | undefined>(undefined);
+  const [assistantOpen, setAssistantOpen] = useState(false);
   const { count: inboxCount } = useInbox();
 
   const handleHomeNavigate = (view: 'inbox' | 'upcoming' | 'tasks-logbook') => {
@@ -104,6 +108,17 @@ export function AppShell() {
         onSelectAreasOverview={handleSelectAreasOverview}
       />
       <View style={styles.content}>{content}</View>
+      {hasAssistant ? (
+        <TouchableOpacity
+          onPress={() => setAssistantOpen(true)}
+          style={styles.assistantFab}
+          accessibilityRole="button"
+          accessibilityLabel="Open assistant"
+        >
+          <Sparkles size={22} color="#fff" strokeWidth={1.75} />
+        </TouchableOpacity>
+      ) : null}
+      {assistantOpen ? <AssistantOverlay onClose={() => setAssistantOpen(false)} /> : null}
     </View>
   );
 }
@@ -117,5 +132,21 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  assistantFab: {
+    position: 'absolute',
+    right: 24,
+    bottom: 24,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: webColors.accent,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 6,
   },
 });
