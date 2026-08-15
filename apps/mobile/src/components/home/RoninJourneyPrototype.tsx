@@ -135,6 +135,13 @@ export function RoninJourneyPrototype({ completedCount, totalCount, isDark, pote
       variant="hero"
       mode={isDark ? 'dark' : 'light'}
       style={[styles.surface, styles.card]}
+      // RiverStoneSurface's content layer has no explicit size, so it
+      // collapses to zero height when its only child is position:absolute
+      // (as this widget's Pressable is) — Yoga excludes absolute children
+      // from a parent's auto-size calculation. flex:1 makes the content
+      // layer actually fill the card so the absoluteFill Pressable inside
+      // it has a real box to fill instead of a 0x0 one.
+      contentStyle={styles.content}
       background={<Image source={sunsetTrail} resizeMode="cover" style={styles.background} />}
     >
       <Pressable
@@ -186,6 +193,9 @@ const styles = StyleSheet.create({
   surface: {
     marginHorizontal: 12,
     marginTop: 8,
+  },
+  content: {
+    flex: 1,
   },
   card: {
     height: 270,
