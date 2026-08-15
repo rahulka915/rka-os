@@ -89,3 +89,58 @@ test('previews plan_for_today with no bucket', () => {
   const preview = previewAssistantTool('plan_for_today', { itemId: 't1', itemTitle: 'Call the bank' });
   assert.equal(preview, 'Add "Call the bank" to Today');
 });
+
+test('previews create_mission with a domain', () => {
+  const preview = previewAssistantTool('create_mission', { title: 'Launch app', domainTitle: 'Career' });
+  assert.equal(preview, 'Create mission "Launch app" in Career');
+});
+
+test('previews create_mission without a domain', () => {
+  const preview = previewAssistantTool('create_mission', { title: 'Launch app' });
+  assert.equal(preview, 'Create mission "Launch app"');
+});
+
+test('previews create_skill locked with primary domain', () => {
+  const preview = previewAssistantTool('create_skill', { title: 'Spanish', primaryDomainTitle: 'Creativity' });
+  assert.equal(preview, 'Create skill "Spanish" in Creativity (still learning)');
+});
+
+test('previews create_skill unlocked without domain', () => {
+  const preview = previewAssistantTool('create_skill', { title: 'Cooking', unlocked: true });
+  assert.equal(preview, 'Create skill "Cooking"');
+});
+
+test('previews create_habit binary', () => {
+  const preview = previewAssistantTool('create_habit', { title: 'Meditate', measurement: 'binary' });
+  assert.equal(preview, 'Create habit "Meditate"');
+});
+
+test('previews create_habit with count target and unit', () => {
+  const preview = previewAssistantTool('create_habit', {
+    title: 'Drink water',
+    measurement: 'count',
+    target: 8,
+    unit: 'glasses',
+    period: 'daily',
+  });
+  assert.equal(preview, 'Create habit "Drink water" (8 glasses daily)');
+});
+
+test('previews link_items', () => {
+  const preview = previewAssistantTool('link_items', {
+    sourceId: 'h1',
+    sourceTitle: 'Meditate',
+    relationType: 'habitSkill',
+    targetId: 's1',
+    targetTitle: 'Mindfulness',
+  });
+  assert.equal(preview, 'Link "Meditate" → "Mindfulness" (habitSkill)');
+});
+
+test('previews set_focus', () => {
+  const preview = previewAssistantTool('set_focus', {
+    label: 'Health sprint',
+    weights: [{ domainId: 'd1', weight: 1 }, { domainId: 'd2', weight: 0.5 }],
+  });
+  assert.equal(preview, 'Set focus to "Health sprint" (2 domains)');
+});

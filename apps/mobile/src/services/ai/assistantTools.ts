@@ -15,13 +15,21 @@ export type AssistantToolName =
   | 'toggle_habit_occurrence'
   | 'log_medication_taken'
   | 'log_action'
-  | 'plan_for_today';
+  | 'plan_for_today'
+  | 'create_mission'
+  | 'create_skill'
+  | 'create_habit'
+  | 'link_items'
+  | 'set_focus';
 
 // Firebase AI Logic's function-declaration schema shape (JSON Schema subset).
 interface AssistantFunctionParamSchema {
   type: string;
   description?: string;
   enum?: string[];
+  items?: AssistantFunctionParamSchema;
+  properties?: Record<string, AssistantFunctionParamSchema>;
+  required?: string[];
 }
 
 interface AssistantFunctionDeclaration {
@@ -182,6 +190,108 @@ const ASSISTANT_FUNCTION_DECLARATIONS: AssistantFunctionDeclaration[] = [
       required: ['itemId', 'itemTitle'],
     },
   },
+  {
+    name: 'create_mission',
+    description:
+      'Create a Mission (a project/goal) optionally linked to a Domain. Use during setup or when the user describes a goal/project to work toward.',
+    parameters: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', description: 'The mission title.' },
+        domainId: { type: 'string', description: "Optional id of the Domain (area item) this mission belongs to, from the data you were given." },
+        domainTitle: { type: 'string', description: 'The Domain\'s title, for the confirmation prompt (omit if no domain).' },
+        notes: { type: 'string', description: 'Optional notes.' },
+      },
+      required: ['title'],
+    },
+  },
+  {
+    name: 'create_skill',
+    description:
+      'Create a Skill (a capability the user develops), optionally linked to a primary Domain and secondary Domains. New skills start locked ("still learning") unless unlocked is true.',
+    parameters: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', description: 'The skill title.' },
+        primaryDomainId: { type: 'string', description: "Optional id of the primary Domain (area item), from the data you were given." },
+        primaryDomainTitle: { type: 'string', description: "The primary Domain's title, for the confirmation prompt." },
+        secondaryDomainIds: { type: 'array', items: { type: 'string' }, description: 'Optional ids of secondary Domains.' },
+        unlocked: { type: 'boolean', description: 'True if the user already practises this; false/omitted = still learning.' },
+      },
+      required: ['title'],
+    },
+  },
+  {
+    name: 'create_habit',
+    description:
+      'Create a measurable Habit. measurement "binary" = simple tap-to-complete; "count"/"duration" track a target amount per period. Optionally tag Potential Attribute evidence (e.g. Strength/Stamina) so completing it develops that attribute.',
+    parameters: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', description: 'The habit title.' },
+        measurement: { type: 'string', enum: ['binary', 'count', 'duration'], description: 'How it is measured.' },
+        target: { type: 'number', description: 'Target amount per period (for count/duration). Ignored for binary.' },
+        unit: { type: 'string', description: "Unit label for count/duration, e.g. 'glasses', 'min', 'reps'." },
+        period: { type: 'string', enum: ['daily', 'weekly', 'monthly'], description: 'Target period. Defaults to daily.' },
+        intent: { type: 'string', enum: ['build', 'quit'], description: 'Building a habit or quitting one. Defaults to build.' },
+        attributeEvidence: {
+          type: 'array',
+          description: 'Optional Potential Attribute evidence tags.',
+          items: {
+            type: 'object',
+            properties: {
+              attributeId: { type: 'string', description: 'Attribute id from the data you were given (e.g. Strength/Stamina).' },
+              attributeTitle: { type: 'string', description: "The attribute's title, for the confirmation prompt." },
+              weight: { type: 'string', enum: ['minor', 'moderate', 'major'], description: 'How strongly this habit develops the attribute.' },
+            },
+            required: ['attributeId', 'weight'],
+          },
+        },
+      },
+      required: ['title', 'measurement'],
+    },
+  },
+  {
+    name: 'link_items',
+    description:
+      'Link one item to another via a relation. Use to attach a Habit to a Skill (relationType "habitSkill"), a Mission to a Skill ("missionSkill"), or a Mission to a Domain ("area"). sourceId/targetId are ids from the data you were given.',
+    parameters: {
+      type: 'object',
+      properties: {
+        sourceId: { type: 'string', description: 'The item being linked (e.g. the habit or mission).' },
+        sourceTitle: { type: 'string', description: "The source item's title, for the confirmation prompt." },
+        relationType: { type: 'string', enum: ['habitSkill', 'missionSkill', 'area', 'skillArea'], description: 'The relation.' },
+        targetId: { type: 'string', description: 'The item it links to (e.g. the skill or domain).' },
+        targetTitle: { type: 'string', description: "The target item's title, for the confirmation prompt." },
+      },
+      required: ['sourceId', 'sourceTitle', 'relationType', 'targetId', 'targetTitle'],
+    },
+  },
+  {
+    name: 'set_focus',
+    description:
+      'Set the user\'s Current Focus — a label plus per-Domain weights (0..1) describing where they want to concentrate. weights maps Domain id → weight.',
+    parameters: {
+      type: 'object',
+      properties: {
+        label: { type: 'string', description: 'A short focus label, e.g. "Health sprint".' },
+        weights: {
+          type: 'array',
+          description: 'Per-Domain weights.',
+          items: {
+            type: 'object',
+            properties: {
+              domainId: { type: 'string', description: 'Domain (area) id.' },
+              domainTitle: { type: 'string', description: "Domain's title, for the confirmation prompt." },
+              weight: { type: 'number', description: 'Weight 0..1.' },
+            },
+            required: ['domainId', 'weight'],
+          },
+        },
+      },
+      required: ['label', 'weights'],
+    },
+  },
 ];
 
 export const ASSISTANT_TOOL_DECLARATIONS = [{ functionDeclarations: ASSISTANT_FUNCTION_DECLARATIONS as any }];
@@ -223,6 +333,28 @@ export function previewAssistantTool(name: AssistantToolName, args: Record<strin
     case 'plan_for_today': {
       const base = `Add ${quote(args.itemTitle)} to Today`;
       return args.bucket ? `${base} (${args.bucket})` : base;
+    }
+    case 'create_mission': {
+      const base = `Create mission ${quote(args.title)}`;
+      return args.domainTitle ? `${base} in ${args.domainTitle}` : base;
+    }
+    case 'create_skill': {
+      const base = `Create skill ${quote(args.title)}`;
+      const inDomain = args.primaryDomainTitle ? ` in ${args.primaryDomainTitle}` : '';
+      const lock = args.unlocked ? '' : ' (still learning)';
+      return `${base}${inDomain}${lock}`;
+    }
+    case 'create_habit': {
+      if (args.measurement === 'binary') return `Create habit ${quote(args.title)}`;
+      const unit = args.unit ? ` ${args.unit}` : '';
+      const period = args.period ?? 'daily';
+      return `Create habit ${quote(args.title)} (${args.target ?? ''}${unit} ${period})`.replace('( ', '(');
+    }
+    case 'link_items':
+      return `Link ${quote(args.sourceTitle)} → ${quote(args.targetTitle)} (${args.relationType})`;
+    case 'set_focus': {
+      const count = Array.isArray(args.weights) ? args.weights.length : 0;
+      return `Set focus to ${quote(args.label)} (${count} domain${count === 1 ? '' : 's'})`;
     }
     default:
       return `Run ${name}`;

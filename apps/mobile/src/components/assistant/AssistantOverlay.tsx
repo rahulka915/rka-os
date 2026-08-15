@@ -48,6 +48,9 @@ export function AssistantOverlay({ onClose, onOpenItem }: AssistantOverlayProps)
 
   const [turns, setTurns] = useState<DisplayTurn[]>([]);
   const [pending, setPending] = useState<PendingAssistantCall[] | null>(null);
+  // Per-action accept state for the confirmation card — each proposed action is
+  // toggled individually; Done submits the accepted set. Defaults to all accepted.
+  const [accepted, setAccepted] = useState<Set<number>>(new Set());
   const [rawHistory, setRawHistory] = useState<any[]>([]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
@@ -72,8 +75,7 @@ export function AssistantOverlay({ onClose, onOpenItem }: AssistantOverlayProps)
     onOpenItem?.(item);
   };
 
-  const handleSend = async () => {
-    const question = input.trim();
+  const submitMessage = async (question: string) => {
     if (!question || busy || pending) return;
     setInput('');
     setError(null);
@@ -83,6 +85,7 @@ export function AssistantOverlay({ onClose, onOpenItem }: AssistantOverlayProps)
       const result: any = await askAssistant(question, rawHistory);
       if (result && result.kind === 'pending') {
         setPending(result.calls);
+        setAccepted(new Set(result.calls.map((_: any, i: number) => i)));
         setRawHistory(result.rawHistory);
       } else {
         const text = typeof result === 'string' ? result : result.text;
@@ -96,6 +99,8 @@ export function AssistantOverlay({ onClose, onOpenItem }: AssistantOverlayProps)
       requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
     }
   };
+
+  const handleSend = () => submitMessage(input.trim());
 
   const handleResolvePending = async (confirmedIndices: Set<number>) => {
     if (!pending) return;
@@ -120,6 +125,7 @@ export function AssistantOverlay({ onClose, onOpenItem }: AssistantOverlayProps)
       const result: any = await (resolveAssistantActions as any)(rawHistory, decisions);
       if (result.kind === 'pending') {
         setPending(result.calls);
+        setAccepted(new Set(result.calls.map((_: any, i: number) => i)));
         setRawHistory(result.rawHistory);
       } else {
         setTurns((prev) => [...prev, { kind: 'text', role: 'model', text: result.text }]);
@@ -134,15 +140,18 @@ export function AssistantOverlay({ onClose, onOpenItem }: AssistantOverlayProps)
   };
 
   // Web: while a confirmation card is up the text input is disabled, so it
-  // can't catch Enter — listen at the window instead. Enter confirms all
-  // pending actions, Escape cancels them. No-op on native.
+  // can't catch Enter — listen at the window instead. Enter submits the
+  // currently-accepted actions, Escape cancels them all. acceptedRef keeps the
+  // listener reading the latest selection without re-subscribing. No-op on native.
+  const acceptedRef = useRef(accepted);
+  acceptedRef.current = accepted;
   useEffect(() => {
     if (Platform.OS !== 'web' || !pending) return;
     const w: any = globalThis;
     const handler = (e: any) => {
       if (e.key === 'Enter') {
         e.preventDefault();
-        handleResolvePending(new Set(pending.map((_, i) => i)));
+        handleResolvePending(new Set(acceptedRef.current));
       } else if (e.key === 'Escape') {
         e.preventDefault();
         handleResolvePending(new Set());
@@ -212,10 +221,41 @@ export function AssistantOverlay({ onClose, onOpenItem }: AssistantOverlayProps)
           onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
         >
           {turns.length === 0 ? (
-            <Text style={[styles.empty, { color: mat.platinumMuted }]}>
-              Ask about your tasks, missions, medications, or domains — or ask me to add, update,
-              complete, or delete something. I'll always check with you before making a change.
-            </Text>
+            <View>
+              <Text style={[styles.empty, { color: mat.platinumMuted }]}>
+                Ask about your tasks, missions, medications, or domains — or ask me to add, update,
+                complete, or delete something. I'll always check with you before making a change.
+              </Text>
+              {hasAssistant ? (
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2], marginTop: spacing[5] }}>
+                  {[
+                    { label: '✦ Set up my system', prompt: 'Guide me through setting up my whole system — my domains, missions, skills and habits — asking me questions one at a time.' },
+                    { label: 'Plan my day', prompt: 'Help me plan my day. Ask me what I need to about my time and energy, then suggest what to focus on.' },
+                    { label: 'What should I focus on?', prompt: 'Looking at my current data, what should I focus on right now?' },
+                  ].map((chip) => (
+                    <TouchableOpacity
+                      key={chip.label}
+                      onPress={() => submitMessage(chip.prompt)}
+                      disabled={busy}
+                      style={{
+                        paddingHorizontal: spacing[4],
+                        paddingVertical: spacing[3],
+                        borderRadius: radius.card,
+                        backgroundColor: mat.surfaceRaised,
+                        borderColor: mat.rim,
+                        borderWidth: 1,
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel={chip.label}
+                    >
+                      <Text style={{ color: mat.platinum, fontSize: fontSize.sm, fontFamily: 'Inter_600SemiBold', fontWeight: '600' }}>
+                        {chip.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ) : null}
+            </View>
           ) : null}
           {turns.map((turn, i) => {
             if (turn.kind === 'action-result') {
@@ -272,19 +312,63 @@ export function AssistantOverlay({ onClose, onOpenItem }: AssistantOverlayProps)
                 { alignSelf: 'flex-start', backgroundColor: mat.surfaceRaised, borderColor: mat.rim, borderWidth: 1, maxWidth: '100%' },
               ]}
             >
-              {pending.map((call, i) => (
-                <Text key={i} style={[styles.bubbleText, { color: mat.platinum, marginBottom: spacing[2] }]}>
-                  {call.preview}
-                </Text>
-              ))}
-              <View style={{ flexDirection: 'row', gap: spacing[3], marginTop: spacing[2] }}>
+              <Text style={[styles.bubbleText, { color: mat.platinumMuted, marginBottom: spacing[3], fontSize: fontSize.sm }]}>
+                {pending.length > 1 ? 'Review each — tap to include or skip:' : 'Confirm this action:'}
+              </Text>
+              {pending.map((call, i) => {
+                const isOn = accepted.has(i);
+                return (
+                  <TouchableOpacity
+                    key={i}
+                    onPress={() =>
+                      setAccepted((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(i)) next.delete(i);
+                        else next.add(i);
+                        return next;
+                      })
+                    }
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: spacing[3],
+                      paddingVertical: spacing[2],
+                      opacity: isOn ? 1 : 0.45,
+                    }}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: isOn }}
+                    accessibilityLabel={call.preview}
+                  >
+                    <View
+                      style={{
+                        width: 20,
+                        height: 20,
+                        borderRadius: 6,
+                        borderWidth: 1.5,
+                        borderColor: isOn ? mat.accent : mat.rim,
+                        backgroundColor: isOn ? mat.accent : 'transparent',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      {isOn ? <Text style={{ color: mat.onAccent, fontSize: 13, fontWeight: '700' }}>✓</Text> : null}
+                    </View>
+                    <Text style={[styles.bubbleText, { color: mat.platinum, flex: 1, textDecorationLine: isOn ? 'none' : 'line-through' }]}>
+                      {call.preview}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+              <View style={{ flexDirection: 'row', gap: spacing[3], marginTop: spacing[3] }}>
                 <TouchableOpacity
-                  onPress={() => handleResolvePending(new Set(pending.map((_, i) => i)))}
+                  onPress={() => handleResolvePending(new Set(accepted))}
                   style={[styles.sendBtn, { width: 'auto', paddingHorizontal: spacing[4], backgroundColor: mat.accent }]}
                   accessibilityRole="button"
-                  accessibilityLabel="Confirm"
+                  accessibilityLabel={accepted.size > 0 ? 'Confirm selected' : 'Skip all'}
                 >
-                  <Text style={{ color: mat.onAccent, fontFamily: 'Inter_600SemiBold', fontWeight: '600' }}>Confirm</Text>
+                  <Text style={{ color: mat.onAccent, fontFamily: 'Inter_600SemiBold', fontWeight: '600' }}>
+                    {accepted.size === 0 ? 'Skip all' : accepted.size === pending.length ? 'Confirm' : `Confirm ${accepted.size}`}
+                  </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => handleResolvePending(new Set())}

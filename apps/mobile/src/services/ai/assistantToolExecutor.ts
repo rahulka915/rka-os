@@ -14,6 +14,11 @@ import {
   logAction,
   planForToday,
   getItemWithMetadata,
+  createSkill,
+  setSkillUnlocked,
+  setRelation,
+  updateItemMetadata,
+  setFocus,
 } from '../../db/database.web';
 import type { ActionKind, ActionIntensity } from '../../utils/actions';
 import type { AssistantToolName } from './assistantTools';
@@ -77,6 +82,51 @@ export function executeAssistantTool(
       case 'plan_for_today': {
         planForToday(args.itemId, args.bucket);
         return { ok: true, result: 'Added to Today' };
+      }
+      case 'create_mission': {
+        const id = createItem('project', args.title, 'active', undefined, args.notes);
+        if (args.domainId) setRelation(id, 'area', args.domainId);
+        return { ok: true, result: `Created mission ${id}` };
+      }
+      case 'create_skill': {
+        const id = createSkill(args.title, args.primaryDomainId ?? null, args.secondaryDomainIds ?? []);
+        if (args.unlocked) setSkillUnlocked(id, true);
+        return { ok: true, result: `Created skill ${id}` };
+      }
+      case 'create_habit': {
+        const id = createItem('habit', args.title, 'active');
+        const measurement = args.measurement ?? 'binary';
+        const contextualAction =
+          measurement === 'count' ? 'add-one' : measurement === 'duration' ? 'enter-value' : 'mark-done';
+        const meta: Record<string, any> = {
+          intent: args.intent ?? 'build',
+          measurement,
+          targetValue: measurement === 'binary' ? 1 : args.target ?? 1,
+          targetPeriod: args.period ?? 'daily',
+          contextualAction,
+        };
+        if (args.unit) meta.targetUnit = args.unit;
+        if (Array.isArray(args.attributeEvidence) && args.attributeEvidence.length > 0) {
+          meta.attributeContributions = args.attributeEvidence
+            .filter((e: any) => e && e.attributeId && e.weight)
+            .map((e: any) => ({ attributeId: e.attributeId, weight: e.weight }));
+        }
+        updateItemMetadata(id, meta);
+        return { ok: true, result: `Created habit ${id}` };
+      }
+      case 'link_items': {
+        if (!getItemWithMetadata(args.sourceId)) return { ok: false, error: 'Source item not found' };
+        if (!getItemWithMetadata(args.targetId)) return { ok: false, error: 'Target item not found' };
+        setRelation(args.sourceId, args.relationType, args.targetId);
+        return { ok: true, result: 'Linked' };
+      }
+      case 'set_focus': {
+        const weights: Record<string, number> = {};
+        for (const w of args.weights ?? []) {
+          if (w && w.domainId) weights[w.domainId] = typeof w.weight === 'number' ? w.weight : 1;
+        }
+        setFocus(args.label, weights);
+        return { ok: true, result: 'Focus set' };
       }
       default:
         return { ok: false, error: `Unknown tool ${name}` };
