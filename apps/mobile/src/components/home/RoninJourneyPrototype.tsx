@@ -14,7 +14,7 @@ import Animated, {
 import Svg, { Path } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { RiverStoneSurface } from '../riverstone';
-import { RoninJourneyRiveWalker } from './RoninJourneyRiveWalker';
+import { RoninWalkCycleSprite } from './RoninWalkCycleSprite';
 
 // Warm off-white instead of pure #fff — softer against the sunset photo and
 // consistent with the app's dark-mode text tone (theme/colors.ts `text`).
@@ -24,8 +24,6 @@ const JOURNEY_TEXT = '#f5efe4';
 // transparency, so lossless PNG was pure waste (1.7MB vs 278KB at q92
 // with no visible banding in the gradient sky).
 const sunsetTrail = require('../../../assets/ronin/journey/sunset-trail-background-v1.jpg');
-const roninAndCat = require('../../../assets/ronin/journey/ronin-cat-walkers-v1.png');
-const roninJourneyRive = require('../../../assets/rka_journey_rig.riv');
 const WALKER_SIZE = 164;
 const REACTIONS = ['Onward.', 'One step at a time.', 'The path is yours.'];
 
@@ -174,11 +172,7 @@ export function RoninJourneyPrototype({ completedCount, totalCount, isDark, pote
         </Svg>
 
         <Animated.View pointerEvents="none" style={[styles.walker, walkerStyle]}>
-          <RoninJourneyRiveWalker
-            source={roninJourneyRive}
-            style={styles.walkerImage}
-            fallback={<Image source={roninAndCat} resizeMode="contain" style={styles.walkerImage} />}
-          />
+          <RoninWalkCycleSprite style={styles.walkerImage} />
           <Animated.View style={[styles.reactionBubble, bubbleStyle]}>
             <Text style={styles.reactionText}>{REACTIONS[reactionIndex]}</Text>
           </Animated.View>
