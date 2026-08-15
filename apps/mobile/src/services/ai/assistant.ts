@@ -37,10 +37,10 @@ export async function askAssistant(question: string, priorTurns: AssistantTurn[]
   // depleted AI Studio prepay pool.
   const ai = getAI(app, { backend: new VertexAIBackend() });
   const model = getGenerativeModel(ai, {
-    // Stable alias (currently resolves to gemini-3.6-flash) rather than a
-    // pinned version — gemini-2.5-flash stopped being available to new
-    // Firebase AI Logic projects, which is what broke this before.
-    model: 'gemini-flash-latest',
+    // Concrete Vertex model ID — the 'gemini-flash-latest' alias is a Gemini
+    // Developer API construct and 404s on Vertex. gemini-2.5-flash is confirmed
+    // available to this project in us-central1.
+    model: 'gemini-2.5-flash',
     systemInstruction: SYSTEM_PROMPT_PREFIX + context,
   });
 
