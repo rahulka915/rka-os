@@ -1,4 +1,4 @@
-import { getAI, getGenerativeModel, GoogleAIBackend } from 'firebase/ai';
+import { getAI, getGenerativeModel, VertexAIBackend } from 'firebase/ai';
 import { app, hasFirebaseConfig } from '../../lib/firebase';
 import { buildAssistantContext } from './assistantContext';
 
@@ -32,7 +32,10 @@ export async function askAssistant(question: string, priorTurns: AssistantTurn[]
   }
 
   const context = buildAssistantContext();
-  const ai = getAI(app, { backend: new GoogleAIBackend() });
+  // Vertex AI backend (not the Gemini Developer API's GoogleAIBackend) so calls
+  // bill against the Google Cloud project's credit rather than the separate,
+  // depleted AI Studio prepay pool.
+  const ai = getAI(app, { backend: new VertexAIBackend() });
   const model = getGenerativeModel(ai, {
     // Stable alias (currently resolves to gemini-3.6-flash) rather than a
     // pinned version — gemini-2.5-flash stopped being available to new

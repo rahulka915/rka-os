@@ -2,7 +2,7 @@
 // platform-extension convention on web builds — native's assistant.ts is
 // untouched and stays read-only. See docs/superpowers/specs/
 // 2026-08-15-agentic-web-assistant-design.md.
-import { getAI, getGenerativeModel, GoogleAIBackend } from 'firebase/ai';
+import { getAI, getGenerativeModel, VertexAIBackend } from 'firebase/ai';
 import { app, hasFirebaseConfig } from '../../lib/firebase';
 import { buildAssistantContext } from './assistantContext';
 import { ASSISTANT_TOOL_DECLARATIONS, previewAssistantTool, type AssistantToolName } from './assistantTools';
@@ -51,7 +51,10 @@ function buildModel() {
     throw new Error('The assistant needs Firebase to be configured.');
   }
   const context = buildAssistantContext();
-  const ai = getAI(app, { backend: new GoogleAIBackend() });
+  // Vertex AI backend (not the Gemini Developer API's GoogleAIBackend) so calls
+  // bill against the Google Cloud project's credit rather than the separate,
+  // depleted AI Studio prepay pool.
+  const ai = getAI(app, { backend: new VertexAIBackend() });
   return getGenerativeModel(ai, {
     model: 'gemini-flash-latest',
     systemInstruction: SYSTEM_PROMPT_PREFIX + context,
