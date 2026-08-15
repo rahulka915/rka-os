@@ -1,3 +1,4 @@
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { BackupProvider, useBackup } from './src/hooks/useBackup';
 import { AppShell } from './src/webApp/AppShell';
 import { SignInScreen } from './src/webApp/SignInScreen';
@@ -12,8 +13,10 @@ function AppContent() {
 
 export default function App() {
   return (
-    <BackupProvider>
-      <AppContent />
-    </BackupProvider>
+    <SafeAreaProvider>
+      <BackupProvider>
+        <AppContent />
+      </BackupProvider>
+    </SafeAreaProvider>
   );
 }
