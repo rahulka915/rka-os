@@ -17,7 +17,12 @@ import { itemComposerMaterial } from '../../theme/itemComposer';
 import { fontSize, spacing, radius } from '../../theme/spacing';
 import { askAssistant, resolveAssistantActions, hasAssistant, type PendingAssistantCall } from '../../services/ai/assistant';
 import { parseAssistantMessage } from './parseAssistantMessage';
-import { getItemWithMetadata } from '../../db/database';
+import {
+  getItemWithMetadata,
+  getAssistantConversation,
+  setAssistantConversation,
+  clearAssistantConversation,
+} from '../../db/database';
 import type { Item } from '../../db/types';
 import { X, Sparkles } from '../../icons';
 import PaperAirplaneIcon from 'react-native-heroicons/solid/PaperAirplaneIcon';
@@ -35,17 +40,25 @@ type DisplayTurn =
   | { kind: 'text'; role: 'user' | 'model'; text: string }
   | { kind: 'action-result'; text: string };
 
-// Module-level cache so the conversation survives closing/reopening the overlay
-// (which unmounts it) — "pause and come back" keeps the same thread. Persists
-// for the life of the app process; a full app restart starts fresh. Cleared by
-// the header "New" button.
-type SessionCache = {
+// Durable conversation snapshot — persisted via the data layer (SQLite on
+// native, localStorage on web) so the thread survives closing/reopening the
+// overlay AND a full app restart or crash. Cleared by the header "New" button.
+type PersistedConversation = {
   turns: DisplayTurn[];
   rawHistory: any[];
   pending: PendingAssistantCall[] | null;
   accepted: number[];
 };
-let sessionCache: SessionCache = { turns: [], rawHistory: [], pending: null, accepted: [] };
+
+function loadPersistedConversation(): PersistedConversation {
+  const stored = getAssistantConversation<PersistedConversation>();
+  return {
+    turns: stored?.turns ?? [],
+    rawHistory: stored?.rawHistory ?? [],
+    pending: stored?.pending ?? null,
+    accepted: stored?.accepted ?? [],
+  };
+}
 
 export function AssistantOverlay({ onClose, onOpenItem }: AssistantOverlayProps) {
   const mat = itemComposerMaterial.dark;
@@ -54,13 +67,15 @@ export function AssistantOverlay({ onClose, onOpenItem }: AssistantOverlayProps)
   const scrollRef = useRef<ScrollView>(null);
   const inputRef = useRef<any>(null);
 
-  // Initialise from the module cache so a reopened overlay resumes its thread.
-  const [turns, setTurns] = useState<DisplayTurn[]>(sessionCache.turns);
-  const [pending, setPending] = useState<PendingAssistantCall[] | null>(sessionCache.pending);
+  // Restore the persisted thread once, on mount, so a reopened overlay (or one
+  // relaunched after a crash/restart) resumes exactly where it left off.
+  const restored = useRef(loadPersistedConversation()).current;
+  const [turns, setTurns] = useState<DisplayTurn[]>(restored.turns);
+  const [pending, setPending] = useState<PendingAssistantCall[] | null>(restored.pending);
   // Per-action accept state for the confirmation card — each proposed action is
   // toggled individually; Done submits the accepted set. Defaults to all accepted.
-  const [accepted, setAccepted] = useState<Set<number>>(new Set(sessionCache.accepted));
-  const [rawHistory, setRawHistory] = useState<any[]>(sessionCache.rawHistory);
+  const [accepted, setAccepted] = useState<Set<number>>(new Set(restored.accepted));
+  const [rawHistory, setRawHistory] = useState<any[]>(restored.rawHistory);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,9 +90,9 @@ export function AssistantOverlay({ onClose, onOpenItem }: AssistantOverlayProps)
     };
   }, []);
 
-  // Keep the module cache in sync so closing (unmount) then reopening restores it.
+  // Persist on every change so the thread survives unmount, reload, and crash.
   useEffect(() => {
-    sessionCache = { turns, rawHistory, pending, accepted: [...accepted] };
+    setAssistantConversation({ turns, rawHistory, pending, accepted: [...accepted] });
   }, [turns, rawHistory, pending, accepted]);
 
   const startNewConversation = () => {
@@ -88,6 +103,7 @@ export function AssistantOverlay({ onClose, onOpenItem }: AssistantOverlayProps)
     setAccepted(new Set());
     setError(null);
     setInput('');
+    clearAssistantConversation();
   };
 
   const opacity = useSharedValue(0);

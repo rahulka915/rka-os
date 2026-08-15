@@ -155,6 +155,35 @@ export function setDefaultDeparturePoint(location: string): void {
   }
 }
 
+// Durable assistant conversation — localStorage mirror of database.ts's
+// appSettings-backed version, so the thread survives a reload/crash.
+const ASSISTANT_CONVERSATION_STORAGE_KEY = 'assistant.conversation';
+
+export function getAssistantConversation<T>(): T | null {
+  try {
+    const raw = globalThis.localStorage?.getItem(ASSISTANT_CONVERSATION_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as T) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setAssistantConversation(data: unknown): void {
+  try {
+    globalThis.localStorage?.setItem(ASSISTANT_CONVERSATION_STORAGE_KEY, JSON.stringify(data));
+  } catch {
+    // Storage unavailable/full — thread just won't persist across reloads.
+  }
+}
+
+export function clearAssistantConversation(): void {
+  try {
+    globalThis.localStorage?.removeItem(ASSISTANT_CONVERSATION_STORAGE_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 // ── Items ──────────────────────────────────────────────────────────────
 // Each query below is a direct port of the SQL predicate in database.ts,
 // evaluated over the in-memory Firestore mirror instead of SQLite.

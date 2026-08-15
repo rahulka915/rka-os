@@ -2667,6 +2667,21 @@ export function setDefaultDeparturePoint(location: string): void {
   setAppSetting('planBackwards.defaultDeparture', location);
 }
 
+// Durable assistant conversation (survives app restart/crash) — stores the
+// whole thread (display turns + raw Gemini history + any pending confirmation).
+// Web mirrors this in localStorage (see database.web.ts).
+export function getAssistantConversation<T>(): T | null {
+  return getAppSetting<T | null>('assistant.conversation', null);
+}
+
+export function setAssistantConversation(data: unknown): void {
+  setAppSetting('assistant.conversation', data);
+}
+
+export function clearAssistantConversation(): void {
+  setAppSetting('assistant.conversation', null);
+}
+
 export function isPlannedForToday(item: Item): boolean {
   if (!item.metadata) return false;
   try {
