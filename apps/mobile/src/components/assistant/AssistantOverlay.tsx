@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -44,6 +44,7 @@ export function AssistantOverlay({ onClose, onOpenItem }: AssistantOverlayProps)
   const insets = useSafeAreaInsets();
   const reducedMotion = useReducedMotion();
   const scrollRef = useRef<ScrollView>(null);
+  const inputRef = useRef<any>(null);
 
   const [turns, setTurns] = useState<DisplayTurn[]>([]);
   const [pending, setPending] = useState<PendingAssistantCall[] | null>(null);
@@ -131,6 +132,47 @@ export function AssistantOverlay({ onClose, onOpenItem }: AssistantOverlayProps)
       requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
     }
   };
+
+  // Web: while a confirmation card is up the text input is disabled, so it
+  // can't catch Enter — listen at the window instead. Enter confirms all
+  // pending actions, Escape cancels them. No-op on native.
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !pending) return;
+    const w: any = globalThis;
+    const handler = (e: any) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleResolvePending(new Set(pending.map((_, i) => i)));
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        handleResolvePending(new Set());
+      }
+    };
+    w.addEventListener?.('keydown', handler);
+    return () => w.removeEventListener?.('keydown', handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pending]);
+
+  // Web: send on Enter, newline on Shift+Enter. react-native-web's onKeyPress
+  // mapping is unreliable for the Enter key (keypress often doesn't fire), so
+  // attach a real DOM keydown listener to the underlying <textarea> via ref.
+  // handleSendRef keeps the listener pointed at the latest closure without
+  // re-attaching every render. No-op on native (ref node has no addEventListener).
+  const handleSendRef = useRef(handleSend);
+  handleSendRef.current = handleSend;
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const node = inputRef.current;
+    if (!node || typeof node.addEventListener !== 'function') return;
+    const handler = (e: any) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        handleSendRef.current();
+      }
+    };
+    node.addEventListener('keydown', handler);
+    return () => node.removeEventListener('keydown', handler);
+  }, []);
 
   return (
     <Animated.View
@@ -265,6 +307,7 @@ export function AssistantOverlay({ onClose, onOpenItem }: AssistantOverlayProps)
 
         <View style={[styles.inputRow, { borderTopColor: mat.rim, paddingBottom: Math.max(insets.bottom, spacing[4]) }]}>
           <TextInput
+            ref={inputRef}
             value={input}
             onChangeText={setInput}
             placeholder={hasAssistant ? 'Ask anything…' : 'Assistant unavailable — Firebase not configured'}
