@@ -64,7 +64,6 @@ export function AssistantOverlay({ onClose, onOpenItem }: AssistantOverlayProps)
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [headerHeight, setHeaderHeight] = useState(0);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
 
   useEffect(() => {
@@ -222,7 +221,7 @@ export function AssistantOverlay({ onClose, onOpenItem }: AssistantOverlayProps)
       ]}
       accessibilityViewIsModal
     >
-      <View style={styles.header} onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}>
+      <View style={styles.header}>
         <View style={styles.headerTitle}>
           <Sparkles size={16} color={mat.accent} strokeWidth={1.75} />
           <Text style={[styles.title, { color: mat.platinumMuted }]}>Assistant</Text>
@@ -254,10 +253,11 @@ export function AssistantOverlay({ onClose, onOpenItem }: AssistantOverlayProps)
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        // Distance from the top of the window to the top of this avoiding view
-        // (status-bar inset + the header above it). Using just insets.top left an
-        // extra header-height gap between the input and the keyboard.
-        keyboardVerticalOffset={insets.top + headerHeight}
+        // Must be 0 here: with behavior="padding" the avoided space is
+        // ~keyboardHeight + keyboardVerticalOffset, so any positive value adds a
+        // dead gap between the input and the keyboard. The view already extends
+        // to the screen bottom, so 0 seats the input flush above the keyboard.
+        keyboardVerticalOffset={0}
       >
         <ScrollView
           ref={scrollRef}
