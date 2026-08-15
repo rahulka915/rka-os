@@ -1,0 +1,122 @@
+// Web-only agentic assistant. Resolved over assistant.ts by Metro's
+// platform-extension convention on web builds — native's assistant.ts is
+// untouched and stays read-only. See docs/superpowers/specs/
+// 2026-08-15-agentic-web-assistant-design.md.
+import { getAI, getGenerativeModel, GoogleAIBackend } from 'firebase/ai';
+import { app, hasFirebaseConfig } from '../../lib/firebase';
+import { buildAssistantContext } from './assistantContext';
+import { ASSISTANT_TOOL_DECLARATIONS, previewAssistantTool, type AssistantToolName } from './assistantTools';
+import { executeAssistantTool } from './assistantToolExecutor';
+
+export const hasAssistant = hasFirebaseConfig && !!app;
+
+export interface AssistantTurn {
+  role: 'user' | 'model';
+  text: string;
+}
+
+export interface PendingAssistantCall {
+  name: AssistantToolName;
+  args: Record<string, any>;
+  preview: string;
+}
+
+export type AskAssistantResult =
+  | { kind: 'text'; text: string; rawHistory: any[] }
+  | { kind: 'pending'; calls: PendingAssistantCall[]; rawHistory: any[] };
+
+const SYSTEM_PROMPT_PREFIX = `You are the personal assistant embedded in RKA OS, a personal task/life
+management app, running in the desktop web app. You have read access to the user's current data,
+given below as JSON, AND you can create, update, complete, and delete items using the tools
+provided — every tool call you make is shown to the user for explicit confirmation before it
+takes effect, so propose actions confidently when the user's intent is clear.
+
+When the user's request refers to a SPECIFIC existing item by name (not a general category), find
+it by title in the data below and use its own "id" field as the tool argument — never invent an id.
+If nothing in the data plausibly matches, ask the user to clarify instead of guessing.
+
+When you refer to a SPECIFIC item from the data below by name in your text responses, wrap it
+exactly as [[id:Title]] using that item's own "id" field, e.g. [[a1b2c3:MUSIC]]. Only wrap specific
+named items this way, never general category words.
+
+Be concise and conversational.
+
+Today's date: ${new Date().toISOString().slice(0, 10)}
+
+Current data (JSON array of items):
+`;
+
+function buildModel() {
+  if (!hasAssistant || !app) {
+    throw new Error('The assistant needs Firebase to be configured.');
+  }
+  const context = buildAssistantContext();
+  const ai = getAI(app, { backend: new GoogleAIBackend() });
+  return getGenerativeModel(ai, {
+    model: 'gemini-flash-latest',
+    systemInstruction: SYSTEM_PROMPT_PREFIX + context,
+    tools: ASSISTANT_TOOL_DECLARATIONS as any,
+  });
+}
+
+function extractFunctionCalls(response: any): Array<{ name: AssistantToolName; args: Record<string, any> }> {
+  const calls = typeof response.functionCalls === 'function' ? response.functionCalls() : null;
+  if (!calls || calls.length === 0) return [];
+  return calls.map((c: any) => ({ name: c.name as AssistantToolName, args: c.args ?? {} }));
+}
+
+export async function askAssistant(question: string, priorRawHistory: any[]): Promise<AskAssistantResult> {
+  const model = buildModel();
+  const chat = model.startChat({ history: priorRawHistory });
+  const result = await chat.sendMessage(question);
+  const response = result.response;
+
+  const calls = extractFunctionCalls(response);
+  const rawHistory = await chat.getHistory();
+
+  if (calls.length === 0) {
+    return { kind: 'text', text: response.text(), rawHistory };
+  }
+
+  return {
+    kind: 'pending',
+    calls: calls.map((c) => ({ ...c, preview: previewAssistantTool(c.name, c.args) })),
+    rawHistory,
+  };
+}
+
+export async function resolveAssistantActions(
+  rawHistory: any[],
+  decisions: Array<{ call: PendingAssistantCall; confirmed: boolean }>
+): Promise<AskAssistantResult> {
+  const model = buildModel();
+  const chat = model.startChat({ history: rawHistory });
+
+  const functionResponseParts = decisions.map(({ call, confirmed }) => {
+    if (!confirmed) {
+      return { functionResponse: { name: call.name, response: { cancelled: true } } };
+    }
+    const outcome = executeAssistantTool(call.name, call.args);
+    return {
+      functionResponse: {
+        name: call.name,
+        response: outcome.ok ? { result: outcome.result } : { error: outcome.error },
+      },
+    };
+  });
+
+  const result = await chat.sendMessage(functionResponseParts as any);
+  const response = result.response;
+  const calls = extractFunctionCalls(response);
+  const newRawHistory = await chat.getHistory();
+
+  if (calls.length === 0) {
+    return { kind: 'text', text: response.text(), rawHistory: newRawHistory };
+  }
+
+  return {
+    kind: 'pending',
+    calls: calls.map((c) => ({ ...c, preview: previewAssistantTool(c.name, c.args) })),
+    rawHistory: newRawHistory,
+  };
+}

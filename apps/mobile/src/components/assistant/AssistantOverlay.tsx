@@ -14,7 +14,12 @@ import Animated, { useSharedValue, useAnimatedStyle, withTiming, useReducedMotio
 import * as Haptics from 'expo-haptics';
 import { itemComposerMaterial } from '../../theme/itemComposer';
 import { fontSize, spacing, radius } from '../../theme/spacing';
-import { askAssistant, hasAssistant, type AssistantTurn } from '../../services/ai/assistant';
+import { askAssistant, hasAssistant } from '../../services/ai/assistant';
+// resolveAssistantActions/PendingAssistantCall only exist on the web build's assistant.web.ts;
+// native's assistant.ts doesn't export them, and tsc's module resolution (unlike Metro) doesn't
+// understand the .web.ts platform-extension convention, so the type import points at the .web.ts
+// file explicitly — it's erased at runtime anyway, so this doesn't affect native's actual bundle.
+import type { PendingAssistantCall } from '../../services/ai/assistant.web';
 import { parseAssistantMessage } from './parseAssistantMessage';
 import { getItemWithMetadata } from '../../db/database';
 import { useOpenItem } from '../../hooks/useOpenItem';
@@ -25,6 +30,10 @@ interface AssistantOverlayProps {
   onClose: () => void;
 }
 
+type DisplayTurn =
+  | { kind: 'text'; role: 'user' | 'model'; text: string }
+  | { kind: 'action-result'; text: string };
+
 export function AssistantOverlay({ onClose }: AssistantOverlayProps) {
   const mat = itemComposerMaterial.dark;
   const insets = useSafeAreaInsets();
@@ -32,7 +41,9 @@ export function AssistantOverlay({ onClose }: AssistantOverlayProps) {
   const scrollRef = useRef<ScrollView>(null);
   const openItem = useOpenItem();
 
-  const [turns, setTurns] = useState<AssistantTurn[]>([]);
+  const [turns, setTurns] = useState<DisplayTurn[]>([]);
+  const [pending, setPending] = useState<PendingAssistantCall[] | null>(null);
+  const [rawHistory, setRawHistory] = useState<any[]>([]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,15 +69,57 @@ export function AssistantOverlay({ onClose }: AssistantOverlayProps) {
 
   const handleSend = async () => {
     const question = input.trim();
-    if (!question || busy) return;
+    if (!question || busy || pending) return;
     setInput('');
     setError(null);
-    const nextTurns: AssistantTurn[] = [...turns, { role: 'user', text: question }];
-    setTurns(nextTurns);
+    setTurns((prev) => [...prev, { kind: 'text', role: 'user', text: question }]);
     setBusy(true);
     try {
-      const answer = await askAssistant(question, turns);
-      setTurns([...nextTurns, { role: 'model', text: answer }]);
+      const result: any = await askAssistant(question, rawHistory);
+      if (result && result.kind === 'pending') {
+        setPending(result.calls);
+        setRawHistory(result.rawHistory);
+      } else {
+        const text = typeof result === 'string' ? result : result.text;
+        setTurns((prev) => [...prev, { kind: 'text', role: 'model', text }]);
+        if (result && result.rawHistory) setRawHistory(result.rawHistory);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong.');
+    } finally {
+      setBusy(false);
+      requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
+    }
+  };
+
+  const handleResolvePending = async (confirmedIndices: Set<number>) => {
+    if (!pending) return;
+    const calls = pending;
+    setPending(null);
+    setBusy(true);
+    setError(null);
+    try {
+      // Cast to any: this branch only ever runs when `pending` was set, which only happens on
+      // web (native's askAssistant never returns { kind: 'pending' }), so resolveAssistantActions
+      // is guaranteed to exist at runtime even though native's assistant.ts doesn't statically
+      // export it — see the type-import comment above.
+      const assistantModule: any = await import('../../services/ai/assistant');
+      const resolveAssistantActions = assistantModule.resolveAssistantActions;
+      const decisions = calls.map((call, i) => ({ call, confirmed: confirmedIndices.has(i) }));
+      const resultLines = calls
+        .filter((_, i) => confirmedIndices.has(i))
+        .map((call) => `✓ ${call.preview}`);
+      if (resultLines.length > 0) {
+        setTurns((prev) => [...prev, ...resultLines.map((text) => ({ kind: 'action-result' as const, text }))]);
+      }
+      const result: any = await (resolveAssistantActions as any)(rawHistory, decisions);
+      if (result.kind === 'pending') {
+        setPending(result.calls);
+        setRawHistory(result.rawHistory);
+      } else {
+        setTurns((prev) => [...prev, { kind: 'text', role: 'model', text: result.text }]);
+        setRawHistory(result.rawHistory);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong.');
     } finally {
@@ -114,49 +167,90 @@ export function AssistantOverlay({ onClose }: AssistantOverlayProps) {
         >
           {turns.length === 0 ? (
             <Text style={[styles.empty, { color: mat.platinumMuted }]}>
-              Ask about your tasks, missions, medications, or domains — I can see your current data
-              but can't change anything yet.
+              Ask about your tasks, missions, medications, or domains — or ask me to add, update,
+              complete, or delete something. I'll always check with you before making a change.
             </Text>
           ) : null}
-          {turns.map((turn, i) => (
+          {turns.map((turn, i) => {
+            if (turn.kind === 'action-result') {
+              return (
+                <View key={i} style={[styles.bubble, { alignSelf: 'flex-start', backgroundColor: mat.accentSoft }]}>
+                  <Text style={[styles.bubbleText, { color: mat.platinum }]}>{turn.text}</Text>
+                </View>
+              );
+            }
+            return (
+              <View
+                key={i}
+                style={[
+                  styles.bubble,
+                  turn.role === 'user'
+                    ? { alignSelf: 'flex-end', backgroundColor: mat.accentSoft }
+                    : { alignSelf: 'flex-start', backgroundColor: mat.surfaceRaised, borderColor: mat.rim, borderWidth: 1 },
+                ]}
+              >
+                {turn.role === 'model' ? (
+                  <Text style={[styles.bubbleText, { color: mat.platinum }]}>
+                    {parseAssistantMessage(turn.text).map((segment, segIndex) => {
+                      if (segment.kind === 'bold') {
+                        return (
+                          <Text key={segIndex} style={styles.bold}>
+                            {segment.text}
+                          </Text>
+                        );
+                      }
+                      if (segment.kind === 'link') {
+                        return (
+                          <Text
+                            key={segIndex}
+                            style={[styles.link, { color: mat.accent }]}
+                            onPress={() => handleLinkPress(segment.id)}
+                          >
+                            {segment.text}
+                          </Text>
+                        );
+                      }
+                      return <Text key={segIndex}>{segment.text}</Text>;
+                    })}
+                  </Text>
+                ) : (
+                  <Text style={[styles.bubbleText, { color: mat.platinum }]}>{turn.text}</Text>
+                )}
+              </View>
+            );
+          })}
+          {pending ? (
             <View
-              key={i}
               style={[
                 styles.bubble,
-                turn.role === 'user'
-                  ? { alignSelf: 'flex-end', backgroundColor: mat.accentSoft }
-                  : { alignSelf: 'flex-start', backgroundColor: mat.surfaceRaised, borderColor: mat.rim, borderWidth: 1 },
+                { alignSelf: 'flex-start', backgroundColor: mat.surfaceRaised, borderColor: mat.rim, borderWidth: 1, maxWidth: '100%' },
               ]}
             >
-              {turn.role === 'model' ? (
-                <Text style={[styles.bubbleText, { color: mat.platinum }]}>
-                  {parseAssistantMessage(turn.text).map((segment, segIndex) => {
-                    if (segment.kind === 'bold') {
-                      return (
-                        <Text key={segIndex} style={styles.bold}>
-                          {segment.text}
-                        </Text>
-                      );
-                    }
-                    if (segment.kind === 'link') {
-                      return (
-                        <Text
-                          key={segIndex}
-                          style={[styles.link, { color: mat.accent }]}
-                          onPress={() => handleLinkPress(segment.id)}
-                        >
-                          {segment.text}
-                        </Text>
-                      );
-                    }
-                    return <Text key={segIndex}>{segment.text}</Text>;
-                  })}
+              {pending.map((call, i) => (
+                <Text key={i} style={[styles.bubbleText, { color: mat.platinum, marginBottom: spacing[2] }]}>
+                  {call.preview}
                 </Text>
-              ) : (
-                <Text style={[styles.bubbleText, { color: mat.platinum }]}>{turn.text}</Text>
-              )}
+              ))}
+              <View style={{ flexDirection: 'row', gap: spacing[3], marginTop: spacing[2] }}>
+                <TouchableOpacity
+                  onPress={() => handleResolvePending(new Set(pending.map((_, i) => i)))}
+                  style={[styles.sendBtn, { width: 'auto', paddingHorizontal: spacing[4], backgroundColor: mat.accent }]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Confirm"
+                >
+                  <Text style={{ color: mat.onAccent, fontFamily: 'Inter_600SemiBold', fontWeight: '600' }}>Confirm</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => handleResolvePending(new Set())}
+                  style={[styles.sendBtn, { width: 'auto', paddingHorizontal: spacing[4], backgroundColor: mat.fill }]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Cancel"
+                >
+                  <Text style={{ color: mat.platinum, fontFamily: 'Inter_600SemiBold', fontWeight: '600' }}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          ))}
+          ) : null}
           {busy ? (
             <View style={[styles.bubble, { alignSelf: 'flex-start', backgroundColor: mat.surfaceRaised, borderColor: mat.rim, borderWidth: 1 }]}>
               <Text style={[styles.bubbleText, { color: mat.platinumMuted }]}>Thinking…</Text>
@@ -172,14 +266,14 @@ export function AssistantOverlay({ onClose }: AssistantOverlayProps) {
             placeholder={hasAssistant ? 'Ask anything…' : 'Assistant unavailable — Firebase not configured'}
             placeholderTextColor={mat.platinumMuted}
             style={[styles.input, { color: mat.platinum, backgroundColor: mat.fill }]}
-            editable={hasAssistant && !busy}
+            editable={hasAssistant && !busy && !pending}
             multiline
             onSubmitEditing={handleSend}
           />
           <TouchableOpacity
             onPress={handleSend}
-            disabled={!hasAssistant || busy || !input.trim()}
-            style={[styles.sendBtn, { backgroundColor: mat.accent, opacity: !hasAssistant || busy || !input.trim() ? 0.4 : 1 }]}
+            disabled={!hasAssistant || busy || !!pending || !input.trim()}
+            style={[styles.sendBtn, { backgroundColor: mat.accent, opacity: !hasAssistant || busy || !!pending || !input.trim() ? 0.4 : 1 }]}
             accessibilityRole="button"
             accessibilityLabel="Send"
           >
