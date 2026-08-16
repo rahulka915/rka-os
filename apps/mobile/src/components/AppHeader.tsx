@@ -100,8 +100,20 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   wordmarkGroup: {
+    // Absolute + left:0/right:0 centers on the row's true midpoint,
+    // independent of the settings button (44pt) and right-side group
+    // (96pt) having different widths — flex space-between alone would
+    // center this between their inner edges instead, which visibly skews
+    // it left of center.
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
   },
   circleButton: {
     width: 44,
@@ -110,8 +122,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   wordmarkLogo: {
-    width: 30,
-    height: 30,
+    width: 44,
+    height: 44,
   },
   settingsButton: {
     width: 44,
