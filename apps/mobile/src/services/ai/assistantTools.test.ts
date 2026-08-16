@@ -17,6 +17,15 @@ test('previews create_item with no scheduled date', () => {
   assert.equal(preview, 'Create task "Buy milk"');
 });
 
+test('previews create_item with a duration', () => {
+  const preview = previewAssistantTool('create_item', {
+    type: 'task',
+    title: 'Sort wardrobe',
+    durationMinutes: 30,
+  });
+  assert.equal(preview, 'Create task "Sort wardrobe" (30 min)');
+});
+
 test('previews update_item with multiple fields', () => {
   const preview = previewAssistantTool('update_item', {
     id: 'abc123',
@@ -135,6 +144,28 @@ test('previews link_items', () => {
     targetTitle: 'Mindfulness',
   });
   assert.equal(preview, 'Link "Meditate" → "Mindfulness" (habitSkill)');
+});
+
+test('previews link_items with dependsOn', () => {
+  const preview = previewAssistantTool('link_items', {
+    sourceId: 't2',
+    sourceTitle: 'Post to Instagram',
+    relationType: 'dependsOn',
+    targetId: 't1',
+    targetTitle: 'Take photos',
+  });
+  assert.equal(preview, '"Post to Instagram" depends on "Take photos" (must be done first)');
+});
+
+test('previews link_items with subtaskOf', () => {
+  const preview = previewAssistantTool('link_items', {
+    sourceId: 't3',
+    sourceTitle: 'Sort shirts',
+    relationType: 'subtaskOf',
+    targetId: 't4',
+    targetTitle: 'Organise wardrobe',
+  });
+  assert.equal(preview, '"Sort shirts" becomes a subtask of "Organise wardrobe"');
 });
 
 test('previews set_focus', () => {

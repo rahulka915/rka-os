@@ -62,6 +62,7 @@ const ASSISTANT_FUNCTION_DECLARATIONS: AssistantFunctionDeclaration[] = [
         title: { type: 'string', description: 'The item title.' },
         notes: { type: 'string', description: 'Optional notes/description.' },
         scheduledDate: { type: 'string', description: 'Optional ISO date (YYYY-MM-DD) it should appear on.' },
+        durationMinutes: { type: 'number', description: 'For tasks: a rough time estimate in minutes, if known/asked about.' },
       },
       required: ['type', 'title'],
     },
@@ -254,14 +255,14 @@ const ASSISTANT_FUNCTION_DECLARATIONS: AssistantFunctionDeclaration[] = [
   {
     name: 'link_items',
     description:
-      'Link one item to another via a relation. Use to attach a Habit to a Skill (relationType "habitSkill"), a Mission to a Skill ("missionSkill"), or a Mission to a Domain ("area"). sourceId/targetId are ids from the data you were given.',
+      'Link one item to another via a relation. Use to attach a Habit to a Skill (relationType "habitSkill"), a Mission to a Skill ("missionSkill"), a Mission to a Domain ("area"), one task to a task it must wait on ("dependsOn": sourceId is the WAITING task, targetId is the task that must be done first), or one task to its parent task ("subtaskOf": sourceId is the SUBTASK, targetId is the parent). sourceId/targetId are ids from the data you were given.',
     parameters: {
       type: 'object',
       properties: {
-        sourceId: { type: 'string', description: 'The item being linked (e.g. the habit or mission).' },
+        sourceId: { type: 'string', description: 'The item being linked (e.g. the habit, mission, or dependent/subtask task).' },
         sourceTitle: { type: 'string', description: "The source item's title, for the confirmation prompt." },
-        relationType: { type: 'string', enum: ['habitSkill', 'missionSkill', 'area', 'skillArea'], description: 'The relation.' },
-        targetId: { type: 'string', description: 'The item it links to (e.g. the skill or domain).' },
+        relationType: { type: 'string', enum: ['habitSkill', 'missionSkill', 'area', 'skillArea', 'dependsOn', 'subtaskOf'], description: 'The relation.' },
+        targetId: { type: 'string', description: 'The item it links to (e.g. the skill, domain, blocking task, or parent task).' },
         targetTitle: { type: 'string', description: "The target item's title, for the confirmation prompt." },
       },
       required: ['sourceId', 'sourceTitle', 'relationType', 'targetId', 'targetTitle'],
@@ -303,7 +304,8 @@ function quote(s: string): string {
 export function previewAssistantTool(name: AssistantToolName, args: Record<string, any>): string {
   switch (name) {
     case 'create_item': {
-      const base = `Create ${args.type} ${quote(args.title)}`;
+      let base = `Create ${args.type} ${quote(args.title)}`;
+      if (args.durationMinutes) base += ` (${args.durationMinutes} min)`;
       return args.scheduledDate ? `${base}, scheduled ${args.scheduledDate}` : base;
     }
     case 'update_item': {
@@ -350,8 +352,15 @@ export function previewAssistantTool(name: AssistantToolName, args: Record<strin
       const period = args.period ?? 'daily';
       return `Create habit ${quote(args.title)} (${args.target ?? ''}${unit} ${period})`.replace('( ', '(');
     }
-    case 'link_items':
+    case 'link_items': {
+      if (args.relationType === 'dependsOn') {
+        return `${quote(args.sourceTitle)} depends on ${quote(args.targetTitle)} (must be done first)`;
+      }
+      if (args.relationType === 'subtaskOf') {
+        return `${quote(args.sourceTitle)} becomes a subtask of ${quote(args.targetTitle)}`;
+      }
       return `Link ${quote(args.sourceTitle)} → ${quote(args.targetTitle)} (${args.relationType})`;
+    }
     case 'set_focus': {
       const count = Array.isArray(args.weights) ? args.weights.length : 0;
       return `Set focus to ${quote(args.label)} (${count} domain${count === 1 ? '' : 's'})`;
