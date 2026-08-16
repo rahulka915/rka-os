@@ -19,6 +19,19 @@ Usage:
         --output-dir assets/ronin/journey/idle \
         --frame-count 4 \
         --prefix ronin-idle
+
+    # For a source that's already a transparent PNG (real alpha channel,
+    # no green-key background) rather than a chroma-key sheet — skips the
+    # green-key/despill/erosion pipeline entirely and just uses the
+    # existing alpha as the foreground mask. --min-area drops small
+    # antialiasing-noise blobs (stray 1px specks) that would otherwise
+    # throw off the expected frame-count check.
+    python3 scripts/build-ronin-walk-cycle-frames.py \
+        --source assets/ronin/journey/tap-reaction/source/ronin-tap-reaction-sheet-raw.png \
+        --output-dir assets/ronin/journey/tap-reaction \
+        --frame-count 6 \
+        --prefix ronin-tap \
+        --already-alpha --min-area 1000
 """
 from __future__ import annotations
 
@@ -45,6 +58,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", required=True, help="Directory to write the sliced frame PNGs into (repo-relative or absolute)")
     parser.add_argument("--frame-count", type=int, required=True, help="Number of poses in the sheet, left to right")
     parser.add_argument("--prefix", required=True, help="Output filename prefix, e.g. 'ronin-walk' -> ronin-walk-01.png")
+    parser.add_argument(
+        "--already-alpha",
+        action="store_true",
+        help="Source is already a transparent PNG (real alpha channel) rather than a green-key sheet — skip green-key/despill/erosion.",
+    )
+    parser.add_argument(
+        "--min-area",
+        type=int,
+        default=0,
+        help="Drop connected components smaller than this many pixels before the frame-count check (useful for --already-alpha sources with antialiasing noise specks).",
+    )
     return parser.parse_args()
 
 
@@ -53,7 +77,7 @@ def resolve(path_str: str) -> Path:
     return path if path.is_absolute() else MOBILE_ROOT / path
 
 
-def load_source(source_path: Path) -> np.ndarray:
+def load_source_rgb(source_path: Path) -> np.ndarray:
     if not source_path.exists():
         raise FileNotFoundError(
             f"Raw sprite sheet not found at {source_path}. Save the generated sheet there before running this script."
@@ -62,21 +86,36 @@ def load_source(source_path: Path) -> np.ndarray:
     return np.array(image)
 
 
+def load_source_rgba(source_path: Path) -> np.ndarray:
+    if not source_path.exists():
+        raise FileNotFoundError(
+            f"Raw sprite sheet not found at {source_path}. Save the generated sheet there before running this script."
+        )
+    image = Image.open(source_path).convert("RGBA")
+    return np.array(image)
+
+
 def foreground_mask(rgb: np.ndarray) -> np.ndarray:
     distance = np.linalg.norm(rgb.astype(np.float32) - GREEN_KEY, axis=-1)
     return distance > GREEN_TOLERANCE
 
 
-def find_character_boxes(mask: np.ndarray, frame_count: int) -> list[tuple[slice, slice]]:
+def find_character_boxes(
+    mask: np.ndarray, frame_count: int, min_area: int = 0
+) -> tuple[list[tuple[tuple[slice, slice], int]], np.ndarray]:
     labeled, count = label(mask)
-    if count != frame_count:
+    all_boxes = find_objects(labeled)
+    entries = [(box, index) for index, box in enumerate(all_boxes, start=1)]
+    if min_area > 0:
+        entries = [(box, index) for box, index in entries if int((labeled[box] == index).sum()) >= min_area]
+    if len(entries) != frame_count:
         raise ValueError(
-            f"Expected {frame_count} separate characters in the sheet, found {count}. "
-            "Check the source sheet for touching/merged silhouettes before re-running."
+            f"Expected {frame_count} separate characters in the sheet, found {len(entries)}. "
+            "Check the source sheet for touching/merged silhouettes, or tune --min-area, before re-running."
         )
-    boxes = find_objects(labeled)
     # Sort left-to-right by the box's horizontal start, matching pose order.
-    return sorted(boxes, key=lambda box: box[1].start)
+    entries.sort(key=lambda entry: entry[0][1].start)
+    return entries, labeled
 
 
 def despill(rgb: np.ndarray, distance: np.ndarray) -> np.ndarray:
@@ -101,7 +140,16 @@ def despill(rgb: np.ndarray, distance: np.ndarray) -> np.ndarray:
     return np.stack([r, corrected_g, b], axis=-1)
 
 
-def build_frame(rgb: np.ndarray, mask: np.ndarray, box: tuple[slice, slice], canvas_size: int) -> Image.Image:
+def build_frame(
+    rgb: np.ndarray,
+    mask: np.ndarray,
+    box: tuple[slice, slice],
+    canvas_size: int,
+    already_alpha: bool = False,
+    source_alpha: np.ndarray | None = None,
+    labeled: np.ndarray | None = None,
+    label_id: int | None = None,
+) -> Image.Image:
     row_slice, col_slice = box
     top = max(row_slice.start - PAD_PX, 0)
     bottom = min(row_slice.stop + PAD_PX, rgb.shape[0])
@@ -111,24 +159,39 @@ def build_frame(rgb: np.ndarray, mask: np.ndarray, box: tuple[slice, slice], can
     crop_rgb = rgb[top:bottom, left:right]
     crop_mask = mask[top:bottom, left:right]
 
-    # Erode the mask by EDGE_EROSION_PX before compositing: the outermost
-    # ring of keyed pixels is the least reliable green-key data (most mixed
-    # with background), so we discard it rather than try to color-correct
-    # it — this is what actually kills the residual green fringe that a
-    # despill-only pass leaves behind.
-    eroded_mask = binary_erosion(crop_mask, iterations=EDGE_EROSION_PX) if EDGE_EROSION_PX > 0 else crop_mask
+    if already_alpha:
+        # Source already has a real, clean alpha channel — no green-key
+        # spill to correct, so skip erosion/despill/feather entirely and
+        # just use its own alpha values as-is. Restrict to THIS connected
+        # component only — the padded crop rectangle can otherwise clip in
+        # stray pixels (a neighboring frame's hair/tail) that fall inside
+        # the padding margin but belong to a different pose.
+        assert source_alpha is not None and labeled is not None and label_id is not None
+        crop_alpha = source_alpha[top:bottom, left:right].copy()
+        crop_labeled = labeled[top:bottom, left:right]
+        crop_alpha[crop_labeled != label_id] = 0
+        crop_mask = crop_labeled == label_id
+        rgba = np.dstack([crop_rgb, crop_alpha]).astype(np.uint8)
+        frame = Image.fromarray(rgba, mode="RGBA")
+    else:
+        # Erode the mask by EDGE_EROSION_PX before compositing: the outermost
+        # ring of keyed pixels is the least reliable green-key data (most mixed
+        # with background), so we discard it rather than try to color-correct
+        # it — this is what actually kills the residual green fringe that a
+        # despill-only pass leaves behind.
+        eroded_mask = binary_erosion(crop_mask, iterations=EDGE_EROSION_PX) if EDGE_EROSION_PX > 0 else crop_mask
 
-    distance = np.linalg.norm(crop_rgb.astype(np.float32) - GREEN_KEY, axis=-1)
-    # Narrower falloff band (0.85x tolerance instead of 0.5x) means fewer
-    # semi-transparent edge pixels retain any green tint at all.
-    alpha = np.clip((distance - GREEN_TOLERANCE * 0.85) / (GREEN_TOLERANCE * 0.15), 0.0, 1.0)
-    alpha[~eroded_mask] = 0.0
-    if ALPHA_FEATHER_SIGMA > 0:
-        alpha = gaussian_filter(alpha, sigma=ALPHA_FEATHER_SIGMA)
-    corrected_rgb = despill(crop_rgb, distance)
+        distance = np.linalg.norm(crop_rgb.astype(np.float32) - GREEN_KEY, axis=-1)
+        # Narrower falloff band (0.85x tolerance instead of 0.5x) means fewer
+        # semi-transparent edge pixels retain any green tint at all.
+        alpha = np.clip((distance - GREEN_TOLERANCE * 0.85) / (GREEN_TOLERANCE * 0.15), 0.0, 1.0)
+        alpha[~eroded_mask] = 0.0
+        if ALPHA_FEATHER_SIGMA > 0:
+            alpha = gaussian_filter(alpha, sigma=ALPHA_FEATHER_SIGMA)
+        corrected_rgb = despill(crop_rgb, distance)
 
-    rgba = np.dstack([corrected_rgb, alpha * 255.0]).astype(np.uint8)
-    frame = Image.fromarray(rgba, mode="RGBA")
+        rgba = np.dstack([corrected_rgb, alpha * 255.0]).astype(np.uint8)
+        frame = Image.fromarray(rgba, mode="RGBA")
 
     # Head-top anchor: topmost foreground row within this crop.
     foreground_rows = np.where(crop_mask.any(axis=1))[0]
@@ -148,21 +211,38 @@ def main() -> None:
     source_path = resolve(args.source)
     output_dir = resolve(args.output_dir)
 
-    rgb = load_source(source_path)
-    mask = foreground_mask(rgb)
-    boxes = find_character_boxes(mask, args.frame_count)
+    source_alpha = None
+    if args.already_alpha:
+        rgba_source = load_source_rgba(source_path)
+        rgb = rgba_source[..., :3]
+        source_alpha = rgba_source[..., 3]
+        mask = source_alpha > 10
+    else:
+        rgb = load_source_rgb(source_path)
+        mask = foreground_mask(rgb)
+
+    entries, labeled = find_character_boxes(mask, args.frame_count, min_area=args.min_area)
 
     # Canvas must fit the largest cropped frame plus padding, shared by every
     # frame so swapping never changes the Image element's own size.
     max_dim = 0
-    for row_slice, col_slice in boxes:
+    for (row_slice, col_slice), _label_id in entries:
         height = (row_slice.stop - row_slice.start) + PAD_PX * 2
         width = (col_slice.stop - col_slice.start) + PAD_PX * 2
         max_dim = max(max_dim, height, width)
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    for index, box in enumerate(boxes, start=1):
-        frame = build_frame(rgb, mask, box, max_dim)
+    for index, (box, label_id) in enumerate(entries, start=1):
+        frame = build_frame(
+            rgb,
+            mask,
+            box,
+            max_dim,
+            already_alpha=args.already_alpha,
+            source_alpha=source_alpha,
+            labeled=labeled,
+            label_id=label_id,
+        )
         out_path = output_dir / f"{args.prefix}-{index:02d}.png"
         frame.save(out_path)
         print(f"wrote {out_path} ({frame.width}x{frame.height})")
