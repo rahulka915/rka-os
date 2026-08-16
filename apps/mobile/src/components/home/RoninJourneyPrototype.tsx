@@ -171,16 +171,20 @@ export function RoninJourneyPrototype({ completedCount, totalCount, isDark, pote
     const travel = Math.max(0, width - WALKER_SIZE - 4);
     const displayProgress = progress.value + previewProgress.value * (1 - progress.value);
     const pathRise = interpolate(displayProgress, [0, 0.5, 1], [0, -4, -11]);
-    const bob = interpolate(walkCycle.value, [0, 1], [2, reduceMotion ? 0 : -4]);
+    // The idle/walking breathing bob+rotate runs continuously (it's not
+    // gated by isWalking, it's always cycling) — freeze it at 0 while a
+    // one-shot Jump/Bow animation is playing, or it visibly bleeds into
+    // those poses (most noticeable as a residual bounce during a bow).
+    const bob = activeAction ? 0 : interpolate(walkCycle.value, [0, 1], [2, reduceMotion ? 0 : -4]);
     return {
       transform: [
         { translateX: displayProgress * travel },
         { translateY: pathRise + bob - reaction.value * 18 },
-        { rotate: `${reduceMotion ? 0 : interpolate(walkCycle.value, [0, 1], [-1.2, 1.2])}deg` },
+        { rotate: `${activeAction || reduceMotion ? 0 : interpolate(walkCycle.value, [0, 1], [-1.2, 1.2])}deg` },
         { scale: 1 + reaction.value * 0.055 },
       ],
     };
-  }, [reduceMotion, width]);
+  }, [reduceMotion, width, activeAction]);
 
   const progressLabel = totalCount === 0
     ? 'A clear path today'
