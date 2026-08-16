@@ -34,8 +34,9 @@ PAD_PX = 24
 GREEN_KEY = np.array([0, 255, 0], dtype=np.float32)
 GREEN_TOLERANCE = 90.0  # euclidean RGB distance under which a pixel counts as background
 HEAD_TOP_MARGIN_PX = 20  # distance from canvas top to each frame's topmost foreground pixel
-EDGE_EROSION_PX = 1  # shrink the foreground mask by this many px before compositing, to drop unreliable green-key edge pixels
-ALPHA_FEATHER_SIGMA = 0.6  # Gaussian blur radius applied to the alpha channel only, softens the eroded edge instead of leaving a hard cutoff
+EDGE_EROSION_PX = 2  # shrink the foreground mask by this many px before compositing, to drop unreliable green-key edge pixels
+ALPHA_FEATHER_SIGMA = 0.8  # Gaussian blur radius applied to the alpha channel only, softens the eroded edge instead of leaving a hard cutoff
+DESPILL_REACH = 3.5  # despill correction ramps in over this many multiples of GREEN_TOLERANCE, applied by raw distance-to-key, not by alpha
 
 
 def parse_args() -> argparse.Namespace:
@@ -78,17 +79,23 @@ def find_character_boxes(mask: np.ndarray, frame_count: int) -> list[tuple[slice
     return sorted(boxes, key=lambda box: box[1].start)
 
 
-def despill(rgb: np.ndarray, alpha: np.ndarray) -> np.ndarray:
-    # Standard green-spill fix: where a pixel is semi-transparent (edge of the
-    # key), pull its green channel down toward the min of red/blue so no green
-    # fringe survives compositing over a non-green background.
+def despill(rgb: np.ndarray, distance: np.ndarray) -> np.ndarray:
+    # Standard green-spill fix: pull green down toward the min of red/blue
+    # for any pixel still close to the green key, regardless of whether it
+    # ended up opaque or semi-transparent. Gating this by alpha (as opposed
+    # to raw distance-to-key) was the actual bug behind the visible fringe —
+    # a rim pixel that's opaque-but-still-greenish (distance just past the
+    # foreground cutoff) got alpha=1 and therefore NO correction under an
+    # alpha-gated formula, even though it's exactly the pixel that reads as
+    # a green fringe once composited over a non-green background.
     r = rgb[..., 0].astype(np.float32)
     g = rgb[..., 1].astype(np.float32)
     b = rgb[..., 2].astype(np.float32)
-    spill_strength = np.clip(1.0 - alpha, 0.0, 1.0)
+    # 0 at the green key itself, ramping to 1 by DESPILL_REACH * GREEN_TOLERANCE away.
+    correction = np.clip(distance / (GREEN_TOLERANCE * DESPILL_REACH), 0.0, 1.0)
     corrected_g = np.where(
         g > np.minimum(r, b),
-        np.minimum(r, b) + (g - np.minimum(r, b)) * (1.0 - spill_strength),
+        np.minimum(r, b) + (g - np.minimum(r, b)) * correction,
         g,
     )
     return np.stack([r, corrected_g, b], axis=-1)
@@ -118,7 +125,7 @@ def build_frame(rgb: np.ndarray, mask: np.ndarray, box: tuple[slice, slice], can
     alpha[~eroded_mask] = 0.0
     if ALPHA_FEATHER_SIGMA > 0:
         alpha = gaussian_filter(alpha, sigma=ALPHA_FEATHER_SIGMA)
-    corrected_rgb = despill(crop_rgb, alpha)
+    corrected_rgb = despill(crop_rgb, distance)
 
     rgba = np.dstack([corrected_rgb, alpha * 255.0]).astype(np.uint8)
     frame = Image.fromarray(rgba, mode="RGBA")
