@@ -21,6 +21,13 @@ only"), not yet closed. Home's Today card (native only) also gained subtask-row 
 the new `subtaskOf` relation — web's Today rendering is unaffected since web has no equivalent
 per-batch conversational planning entry point yet.
 
+**Downtime Tasks — native-only gap (2026-08-16):** 🟡 A new lightweight interstitial task type
+(`metadata.interstitial` on a Task, sessions logged via the existing Actions model's new `taskId`
+field) shipped native-only: the "Downtime task" toggle + session log in the item editor, the Home
+"DOWNTIME" section (`DowntimeShelf.tsx`), and Sensei's `create_item`/`log_action` support for it.
+Not ported to web — same deliberate native-only scope as the conversational day-planning feature
+above, not yet closed. See `docs/superpowers/specs/2026-08-16-downtime-tasks-design.md`.
+
 **Web-only sidebar consolidation (2026-08-12):** four former top-level sidebar destinations were folded into the screen they conceptually belong to, since they aren't standalone concepts on native either — this is a web navigation cleanup, not a feature change (all underlying functionality is unchanged, just relocated):
 - **Workout Trends** → now a third tab ("Trends") inside `WorkoutsScreen.web.tsx`, alongside Templates/Exercises, rendering the existing `WorkoutTrendsScreen.web.tsx` unchanged.
 - **Focus** → now an inline expandable "Edit" row under Potential's "CURRENT FOCUS" section (`PotentialOverview.web.tsx`), backed by a new body-only `FocusEditor.web.tsx` (extracted from the old `FocusScreen.web.tsx`, which is deleted).
