@@ -25,7 +25,14 @@ const IDLE_CYCLE_FRAMES: number[] = [
 // Populated by a later task once the tap-reaction sheet is sliced. Kept as
 // its own registry entry now (rather than added later) so every consumer of
 // SPRITE_STATES already handles an arbitrary state count.
-const TAP_REACTION_FRAMES: number[] = [];
+const TAP_REACTION_FRAMES: number[] = [
+  require('../../../assets/ronin/journey/tap-reaction/ronin-tap-01.png'),
+  require('../../../assets/ronin/journey/tap-reaction/ronin-tap-02.png'),
+  require('../../../assets/ronin/journey/tap-reaction/ronin-tap-03.png'),
+  require('../../../assets/ronin/journey/tap-reaction/ronin-tap-04.png'),
+  require('../../../assets/ronin/journey/tap-reaction/ronin-tap-05.png'),
+  require('../../../assets/ronin/journey/tap-reaction/ronin-tap-06.png'),
+];
 
 // Single source of truth for every sprite state's playback: which frames,
 // how fast, and whether it loops forever or plays once and holds. Adding a
