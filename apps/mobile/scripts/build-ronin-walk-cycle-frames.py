@@ -27,13 +27,15 @@ from pathlib import Path
 
 import numpy as np
 from PIL import Image
-from scipy.ndimage import label, find_objects
+from scipy.ndimage import binary_erosion, gaussian_filter, label, find_objects
 
 MOBILE_ROOT = Path(__file__).resolve().parents[1]
 PAD_PX = 24
 GREEN_KEY = np.array([0, 255, 0], dtype=np.float32)
 GREEN_TOLERANCE = 90.0  # euclidean RGB distance under which a pixel counts as background
 HEAD_TOP_MARGIN_PX = 20  # distance from canvas top to each frame's topmost foreground pixel
+EDGE_EROSION_PX = 1  # shrink the foreground mask by this many px before compositing, to drop unreliable green-key edge pixels
+ALPHA_FEATHER_SIGMA = 0.6  # Gaussian blur radius applied to the alpha channel only, softens the eroded edge instead of leaving a hard cutoff
 
 
 def parse_args() -> argparse.Namespace:
@@ -102,9 +104,20 @@ def build_frame(rgb: np.ndarray, mask: np.ndarray, box: tuple[slice, slice], can
     crop_rgb = rgb[top:bottom, left:right]
     crop_mask = mask[top:bottom, left:right]
 
+    # Erode the mask by EDGE_EROSION_PX before compositing: the outermost
+    # ring of keyed pixels is the least reliable green-key data (most mixed
+    # with background), so we discard it rather than try to color-correct
+    # it — this is what actually kills the residual green fringe that a
+    # despill-only pass leaves behind.
+    eroded_mask = binary_erosion(crop_mask, iterations=EDGE_EROSION_PX) if EDGE_EROSION_PX > 0 else crop_mask
+
     distance = np.linalg.norm(crop_rgb.astype(np.float32) - GREEN_KEY, axis=-1)
-    alpha = np.clip((distance - GREEN_TOLERANCE * 0.5) / (GREEN_TOLERANCE * 0.5), 0.0, 1.0)
-    alpha[~crop_mask] = 0.0
+    # Narrower falloff band (0.85x tolerance instead of 0.5x) means fewer
+    # semi-transparent edge pixels retain any green tint at all.
+    alpha = np.clip((distance - GREEN_TOLERANCE * 0.85) / (GREEN_TOLERANCE * 0.15), 0.0, 1.0)
+    alpha[~eroded_mask] = 0.0
+    if ALPHA_FEATHER_SIGMA > 0:
+        alpha = gaussian_filter(alpha, sigma=ALPHA_FEATHER_SIGMA)
     corrected_rgb = despill(crop_rgb, alpha)
 
     rgba = np.dstack([corrected_rgb, alpha * 255.0]).astype(np.uint8)
