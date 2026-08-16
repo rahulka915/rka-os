@@ -11,6 +11,7 @@ import { MedicationQuickLogWidget } from '../components/home/MedicationQuickLogW
 import { WeatherWidget } from '../components/home/WeatherWidget';
 import { HabitsWidget } from '../components/home/HabitsWidget';
 import { TodayCard } from '../components/home/TodayCard';
+import { DowntimeShelf } from '../components/home/DowntimeShelf';
 import { HomeTaskRow } from '../components/home/HomeTaskRow';
 import { RoninJourneyPrototype } from '../components/home/RoninJourneyPrototype';
 import { useHomeData, useProjects, useTodayHabits } from '../hooks/useDb';
@@ -441,6 +442,8 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress }: HomeScr
           onOpen={handleItemTap}
           isDark={isDark}
         />
+
+        <DowntimeShelf isDark={isDark} onOpen={handleItemTap} />
         </>
         )}
 
