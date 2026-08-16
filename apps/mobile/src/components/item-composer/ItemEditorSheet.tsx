@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getItemsByType, formatDate } from '../../db/database';
+import { getItemsByType, formatDate, getActionsForTask, logAction } from '../../db/database';
 import { useThemeContext } from '../../hooks/useThemeContext';
 import { Check, ChevronLeft, ChevronRight, Clock, Flag, Trash2, X } from '../../icons';
 import { DateCalendarIcon } from '../icons/DateCalendarIcon';
@@ -22,6 +22,7 @@ import { TagLabelIcon } from '../icons/TagLabelIcon';
 import { TaskNoteIcon } from '../icons/TaskNoteIcon';
 import { TimeClockIcon } from '../icons/TimeClockIcon';
 import { getItemComposerMaterial, getThemeColors, radius, spacing } from '../../theme';
+import type { ActionRow } from '../../utils/actions';
 import type { ItemDraft, ItemPriority } from './types';
 import { LacquerDatePicker, LacquerTimePicker } from './SchedulePickers';
 import { timeOfDayLabel, timeToMinutes, type TimeOfDay } from '../../utils/time';
@@ -88,6 +89,7 @@ export function ItemEditorSheet({
   const [view, setView] = useState<EditorView>('form');
   const [tagDraft, setTagDraft] = useState('');
   const [checklistDraft, setChecklistDraft] = useState('');
+  const [downtimeSessions, setDowntimeSessions] = useState<ActionRow[]>([]);
   const projects = useMemo(() => visible ? getItemsByType('project').filter((item) => !item.deletedAt) : [], [visible]);
 
   useEffect(() => {
@@ -96,6 +98,14 @@ export function ItemEditorSheet({
     setTagDraft('');
     setChecklistDraft('');
   }, [visible, draft?.itemId]);
+
+  useEffect(() => {
+    if (!draft || !(visible && draft.mode === 'edit' && draft.itemId && draft.interstitial)) {
+      setDowntimeSessions([]);
+      return;
+    }
+    setDowntimeSessions(getActionsForTask(draft.itemId));
+  }, [visible, draft?.mode, draft?.itemId, draft?.interstitial]);
 
   if (!draft) return null;
   const scheduled = Boolean(draft.scheduledDate);
@@ -609,6 +619,52 @@ export function ItemEditorSheet({
                   </TouchableOpacity>
                 ) : null}
               </View>
+
+              {draft.mode === 'edit' && draft.interstitial && draft.itemId ? (
+                <View style={[styles.card, { backgroundColor: material.surface, borderColor: material.rim, marginTop: 12 }]}>
+                  <TouchableOpacity
+                    style={styles.navigationRow}
+                    onPress={() => {
+                      const itemId = draft.itemId!;
+                      const itemTitle = draft.title;
+                      Alert.prompt(
+                        'Log a session',
+                        'Minutes spent (optional)',
+                        (text) => {
+                          const minutes = text ? parseInt(text, 10) : undefined;
+                          logAction({
+                            title: itemTitle || 'Downtime session',
+                            kind: 'general',
+                            durationMinutes: minutes && minutes > 0 ? minutes : undefined,
+                            taskId: itemId,
+                          });
+                          setDowntimeSessions(getActionsForTask(itemId));
+                        },
+                        'plain-text'
+                      );
+                    }}
+                  >
+                    <View style={styles.rowLabelWithIcon}>
+                      <Clock size={20} color={palette.iconMuted} strokeWidth={1.8} />
+                      <Text style={[styles.fieldLabel, { color: palette.text }]}>Log a session</Text>
+                    </View>
+                    <Text style={[styles.trailingValue, { color: palette.textMuted }]}>+</Text>
+                  </TouchableOpacity>
+                  {downtimeSessions.length > 0 ? (
+                    <>
+                      <View style={[styles.separator, { backgroundColor: material.rim }]} />
+                      {downtimeSessions.slice(0, 3).map((session) => (
+                        <Text
+                          key={session.id}
+                          style={[styles.trailingValue, { color: palette.textMuted, paddingVertical: 4, textAlign: 'left' }]}
+                        >
+                          {session.durationMinutes ? `${session.durationMinutes} min` : 'Session'} · {new Date(session.timestamp).toLocaleString()}
+                        </Text>
+                      ))}
+                    </>
+                  ) : null}
+                </View>
+              ) : null}
 
               {error ? <Text style={[styles.errorText, { color: palette.red }]}>{error}</Text> : null}
 
