@@ -27,6 +27,7 @@ export interface ActionDetails {
   pillarId?: string; // 'potential-stat' item
   skillId?: string;
   missionId?: string; // 'project' item
+  taskId?: string; // 'task' item this session's progress counts toward (Downtime tasks)
   attributeContributions?: AttributeContributionConfig[]; // which Attribute(s) this is evidence for, and how strongly
 }
 
@@ -73,6 +74,7 @@ export function parseActionRow(row: { id: string; entityId: string; timestamp: n
     pillarId: d.pillarId || undefined,
     skillId: d.skillId || undefined,
     missionId: d.missionId || undefined,
+    taskId: d.taskId || undefined,
     attributeContributions: parseAttributeContributions(d.attributeContributions),
   };
 }

@@ -32,6 +32,16 @@ test('parseActionRow: reads valid details', () => {
   assert.equal(a.skillId, 's');
 });
 
+test('parseActionRow: reads taskId when present', () => {
+  const row = parseActionRow({
+    id: 'a1',
+    entityId: 'manual',
+    timestamp: 1000,
+    details: JSON.stringify({ title: 'Sorted a drawer', kind: 'general', taskId: 't1' }),
+  });
+  assert.equal(row.taskId, 't1');
+});
+
 test('parseActionRow: tolerates malformed/missing details', () => {
   const a = parseActionRow({ id: 'a1', entityId: 'manual', timestamp: 1, details: 'not json' });
   assert.equal(a.title, 'Action');

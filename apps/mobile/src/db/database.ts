@@ -2128,6 +2128,16 @@ export function getPlannedTodayItems(): Item[] {
   );
 }
 
+// Active tasks tagged as Downtime tasks (metadata.interstitial) — worked on
+// in short sessions whenever there's spare time, surfaced on Home. Same
+// metadata-LIKE pattern as getPlannedTodayItems.
+export function getInterstitialTasks(): Item[] {
+  return getDb().getAllSync<Item>(
+    `SELECT * FROM items WHERE type = 'task' AND status NOT IN ('completed', 'inbox')
+       AND deletedAt IS NULL AND metadata LIKE '%"interstitial":true%'`
+  );
+}
+
 // Repeating tasks whose rule fires today. These usually have no scheduledDate
 // of their own, so getTodayItems can never see them — the rule itself decides
 // membership. scheduledDate doubles as the rule's "not before" start date,
@@ -2263,6 +2273,18 @@ export function getActions(limit?: number): ActionRow[] {
   const rows = getDb().getAllSync<ActivityLog>(
     `SELECT * FROM activityLogs WHERE actionType = 'action' ORDER BY timestamp DESC${limit ? ' LIMIT ?' : ''}`,
     limit ? [limit] : []
+  );
+  return rows.map(parseActionRow);
+}
+
+// All logged sessions against one Downtime task, newest first — powers the
+// task detail screen's session history. Same actionType='action' filter as
+// getActions, narrowed by a LIKE on the stored details JSON (same pattern
+// getPlannedTodayItems uses for metadata.plannedDate).
+export function getActionsForTask(taskId: string): ActionRow[] {
+  const rows = getDb().getAllSync<ActivityLog>(
+    `SELECT * FROM activityLogs WHERE actionType = 'action' AND details LIKE ? ORDER BY timestamp DESC`,
+    [`%"taskId":"${taskId}"%`]
   );
   return rows.map(parseActionRow);
 }
