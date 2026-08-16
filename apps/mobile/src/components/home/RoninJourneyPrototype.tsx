@@ -15,6 +15,7 @@ import Svg, { Path } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { RiverStoneSurface } from '../riverstone';
 import { RoninWalkCycleSprite } from './RoninWalkCycleSprite';
+import type { RoninSpriteState } from './roninSpriteStates';
 
 // Warm off-white instead of pure #fff — softer against the sunset photo and
 // consistent with the app's dark-mode text tone (theme/colors.ts `text`).
@@ -25,7 +26,6 @@ const JOURNEY_TEXT = '#f5efe4';
 // with no visible banding in the gradient sky).
 const sunsetTrail = require('../../../assets/ronin/journey/sunset-trail-background-v1.jpg');
 const WALKER_SIZE = 164;
-const REACTIONS = ['Onward.', 'One step at a time.', 'The path is yours.'];
 
 interface RoninJourneyPrototypeProps {
   completedCount: number;
@@ -51,13 +51,16 @@ export function RoninJourneyPrototype({ completedCount, totalCount, isDark, pote
   const previewProgress = useSharedValue(0);
   const [width, setWidth] = useState(0);
   const [reduceMotion, setReduceMotion] = useState(false);
-  const [reactionIndex, setReactionIndex] = useState(0);
   const [isHolding, setIsHolding] = useState(false);
   // True only while progress.value is actually animating toward a new ratio
   // (see the progress useEffect below) — the walk-cycle should play while
   // the character is really moving, not sit in a standing pose while its
   // position visibly slides.
   const [isProgressAnimating, setIsProgressAnimating] = useState(false);
+  // True while the one-shot tap-reaction sprite animation is playing —
+  // takes priority over walking/idle until RoninWalkCycleSprite's
+  // onComplete fires and reverts it.
+  const [isTapReacting, setIsTapReacting] = useState(false);
   const didMount = useRef(false);
   const progressAnimationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -104,7 +107,7 @@ export function RoninJourneyPrototype({ completedCount, totalCount, isDark, pote
   }, [progress, ratio, reduceMotion]);
 
   const handlePress = () => {
-    setReactionIndex((current) => (current + 1) % REACTIONS.length);
+    setIsTapReacting(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     reaction.value = 0;
     reaction.value = withSequence(
@@ -121,6 +124,8 @@ export function RoninJourneyPrototype({ completedCount, totalCount, isDark, pote
       }),
     );
   };
+
+  const handleTapReactionComplete = () => setIsTapReacting(false);
 
   const handlePressIn = () => {
     setIsHolding(true);
@@ -141,6 +146,7 @@ export function RoninJourneyPrototype({ completedCount, totalCount, isDark, pote
   };
 
   const isWalking = isHolding || isProgressAnimating;
+  const spriteState: RoninSpriteState = isTapReacting ? 'tapReaction' : isWalking ? 'walking' : 'idle';
 
   const walkerStyle = useAnimatedStyle(() => {
     const travel = Math.max(0, width - WALKER_SIZE - 4);
@@ -156,14 +162,6 @@ export function RoninJourneyPrototype({ completedCount, totalCount, isDark, pote
       ],
     };
   }, [reduceMotion, width]);
-
-  const bubbleStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(reaction.value, [0, 0.15, 1], [0, 1, 1]),
-    transform: [
-      { translateY: interpolate(reaction.value, [0, 1], [5, 0]) },
-      { scale: interpolate(reaction.value, [0, 1], [0.9, 1]) },
-    ],
-  }));
 
   const progressLabel = totalCount === 0
     ? 'A clear path today'
@@ -222,10 +220,7 @@ export function RoninJourneyPrototype({ completedCount, totalCount, isDark, pote
         </Svg>
 
         <Animated.View pointerEvents="none" style={[styles.walker, walkerStyle]}>
-          <RoninWalkCycleSprite style={styles.walkerImage} isWalking={isWalking} />
-          <Animated.View style={[styles.reactionBubble, bubbleStyle]}>
-            <Text style={styles.reactionText}>{REACTIONS[reactionIndex]}</Text>
-          </Animated.View>
+          <RoninWalkCycleSprite style={styles.walkerImage} state={spriteState} onComplete={handleTapReactionComplete} />
         </Animated.View>
       </Pressable>
     </RiverStoneSurface>
@@ -339,20 +334,5 @@ const styles = StyleSheet.create({
   walkerImage: {
     width: '100%',
     height: '100%',
-  },
-  reactionBubble: {
-    position: 'absolute',
-    right: -28,
-    top: 20,
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.94)',
-  },
-  reactionText: {
-    color: '#26203c',
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 10,
-    fontWeight: '600',
   },
 });
