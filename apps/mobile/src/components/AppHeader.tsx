@@ -33,7 +33,7 @@ export function AppHeader({ onSettingsPress, onInboxPress, inboxCount = 0 }: App
   const palette = getThemeColors(isDark);
 
   return (
-    <RNView style={[styles.row, { paddingTop: insets.top + 10 }]}>
+    <RNView style={[styles.row, { paddingTop: insets.top + 6 }]}>
       <TouchableOpacity
         style={styles.settingsButton}
         onPress={press(onSettingsPress)}
@@ -43,7 +43,7 @@ export function AppHeader({ onSettingsPress, onInboxPress, inboxCount = 0 }: App
         <SettingsMedallionIcon size={34} />
       </TouchableOpacity>
 
-      <RNView style={[styles.wordmarkGroup, { top: insets.top + 20 }]}>
+      <RNView style={[styles.wordmarkGroup, { top: insets.top + 6 }]}>
         <Image
           source={require('../../assets/branding/rka-logo-mark-transparent.png')}
           style={styles.wordmarkLogo}
