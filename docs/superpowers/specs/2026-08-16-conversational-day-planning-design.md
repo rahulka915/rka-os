@@ -4,6 +4,21 @@
 **Scope:** Native mobile assistant (`assistant.ts`, `assistantTools.ts`, `AssistantOverlay.tsx`) and the shared `itemRelations` data model. Home/Tasks list rendering gets minimal additions. Web assistant unchanged (separate tool set, out of scope this pass).
 **Builds on:** the existing agentic assistant + confirm-before-write loop (`935232cb` and later), `plan_for_today` (Home Today Buckets), and `set_task_priority`.
 
+> **Implementation note (2026-08-16):** while implementing this spec, two of its assumptions
+> turned out to be wrong and were corrected — see `docs/superpowers/plans/2026-08-16-conversational-day-planning.md`
+> for the actual design used:
+> 1. Task dependencies already existed (`dependsOn` relation, `getBlockingTask`, `BlockedBadge`,
+>    already wired into `TasksScreen.tsx`/`HomeTaskRow.tsx`/`HomeScreen.tsx`, including a
+>    completion-time Alert gate) — the spec's proposed new `blockedBy` relation and new blocked-badge
+>    UI were unnecessary; `link_items` just gained `dependsOn` as an allowed `relationType`, reusing
+>    everything else as-is.
+> 2. `plan_for_today`'s proposed `order` parameter was dropped — `planForToday` was instead fixed to
+>    always auto-append a manual-order position on first call (a real, general bug fix, not scoped to
+>    this feature), which makes plain call order sufficient for correct Today sequencing.
+> Subtask indentation shipped as designed (`subtaskOf`, new relation, indent-only in Home's Today
+> list); the blocked-badge-in-Today-list UI idea was dropped, not just deferred — the connector/badge
+> pattern already exists in a more appropriate place (`TasksScreen.tsx`'s dedicated Tasks list).
+
 ## Problem
 
 The user wants to talk through an unstructured brain-dump of things to get done ("take photos for insta, clear phone apps, sort out tabs, organise wardrobe") and have the assistant turn it into an actual plan for today: asking follow-up questions per task (how important, roughly how long, does it break into steps, does it depend on another task first), then creating real, correctly-ordered Tasks the user sees in their normal Home/Today view afterward.
