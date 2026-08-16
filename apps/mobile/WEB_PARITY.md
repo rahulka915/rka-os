@@ -10,6 +10,17 @@ _Last audited: 2026-08-12._
 
 **Agentic AI assistant — now at parity, both targets (2026-08-15):** ✅ The AI assistant (`AssistantOverlay`) is agentic on **both** web and native. It can create/update/complete/delete items, log habit samples/medication doses/actions, create Missions/Skills/measurable Habits, link items, set Focus, and run the conversational "Set up my system" onboarding, all via Gemini (Vertex AI backend, `gemini-2.5-flash`) function calling with per-item confirm-before-write. The agentic loop is a single shared `services/ai/assistant.ts`; the only platform split is the data layer — `assistantContext` (SQLite `getDb` native / Firestore snapshot web) and `assistantToolExecutor` (`database.ts` native / `database.web.ts` web), both resolved by Metro. **Entry points differ (expected variation):** web = floating Sparkles button in `AppShell.web.tsx`; native = **FAB long-press** (`App.tsx`'s `handleFabHold` → `openAssistantOverlay`). Enter-to-send / per-item confirm keyboard shortcuts are web-only (native uses the send button + tap). See `docs/superpowers/specs/2026-08-15-agentic-web-assistant-design.md` and `2026-08-15-conversational-onboarding-design.md`.
 
+**Conversational day planning — native-only gap (2026-08-16):** 🟡 Native's assistant tool set
+(`assistantTools.ts`) gained `create_item`'s `durationMinutes` field and `link_items`'s
+`dependsOn`/`subtaskOf` relation types, plus a "PLANNING A DAY/EVENING" system-prompt section
+teaching a conversational flow (ask priority/duration/subtasks/dependencies, then batch-propose
+tasks) for turning a loose to-do list into ordered, linked Today tasks. None of this was ported to
+the web assistant's tool set — a deliberate scope decision for this pass (see
+`docs/superpowers/plans/2026-08-16-conversational-day-planning.md`'s Global Constraints, "native
+only"), not yet closed. Home's Today card (native only) also gained subtask-row indentation reading
+the new `subtaskOf` relation — web's Today rendering is unaffected since web has no equivalent
+per-batch conversational planning entry point yet.
+
 **Web-only sidebar consolidation (2026-08-12):** four former top-level sidebar destinations were folded into the screen they conceptually belong to, since they aren't standalone concepts on native either — this is a web navigation cleanup, not a feature change (all underlying functionality is unchanged, just relocated):
 - **Workout Trends** → now a third tab ("Trends") inside `WorkoutsScreen.web.tsx`, alongside Templates/Exercises, rendering the existing `WorkoutTrendsScreen.web.tsx` unchanged.
 - **Focus** → now an inline expandable "Edit" row under Potential's "CURRENT FOCUS" section (`PotentialOverview.web.tsx`), backed by a new body-only `FocusEditor.web.tsx` (extracted from the old `FocusScreen.web.tsx`, which is deleted).

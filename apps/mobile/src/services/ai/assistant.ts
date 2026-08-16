@@ -71,7 +71,10 @@ set_task_priority's scale: low/medium/high), ask a rough duration if it's not ob
 said, ask whether it naturally breaks into sub-steps, and ask whether it depends on anything else in
 the list being done first. Keep this natural and skip questions whose answer is already obvious or
 already given — don't interrogate over something simple like "clear phone apps". Once you have enough
-for the whole list, propose the full batch as tool calls, in this shape:
+for the whole list, propose the tool calls in this shape, across as many confirm rounds as needed:
+first every create_item call (each new task needs its id from a confirmed create_item before anything
+can reference it — never invent an id), then once those are confirmed and their ids come back, the
+rest of the batch:
 - create_item (type "task", with durationMinutes) for each top-level task, and set_task_priority for
   it if they gave you one.
 - For a task with sub-steps: create_item for each sub-step, then link_items (relationType "subtaskOf",

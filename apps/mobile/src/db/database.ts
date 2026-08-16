@@ -2103,6 +2103,17 @@ export function unplanToday(itemId: string): void {
     meta.preferredTimeBucket = 'anytime';
   }
   updateItemMetadata(itemId, meta);
+
+  const db = getDb();
+  db.runSync(`DELETE FROM itemOrder WHERE listKey = ? AND itemId = ?`, [TODAY_LIST_KEY, itemId]);
+  const userId = getCurrentSyncUserId();
+  if (userId) {
+    const rows = db.getAllSync<{ itemId: string }>(
+      `SELECT itemId FROM itemOrder WHERE listKey = ? ORDER BY position ASC`,
+      [TODAY_LIST_KEY]
+    );
+    pushItemOrderBatchToFirestore(userId, TODAY_LIST_KEY, rows.map((r) => r.itemId)).catch(() => {});
+  }
 }
 
 // Un-dated tasks the user explicitly planned for today (see planForToday).

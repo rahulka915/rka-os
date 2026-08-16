@@ -84,6 +84,7 @@ export function executeAssistantTool(
         return { ok: true, result: 'Action logged' };
       }
       case 'plan_for_today': {
+        if (!getItemWithMetadata(args.itemId)) return { ok: false, error: 'Item not found' };
         planForToday(args.itemId, args.bucket);
         return { ok: true, result: 'Added to Today' };
       }
