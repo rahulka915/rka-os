@@ -174,6 +174,16 @@ def build_frame(
         rgba = np.dstack([crop_rgb, crop_alpha]).astype(np.uint8)
         frame = Image.fromarray(rgba, mode="RGBA")
     else:
+        # Restrict to THIS connected component only — the padded crop
+        # rectangle can otherwise pull in a stray disconnected fragment (a
+        # flying bandana-tail accent, a neighboring frame's loose sword tip)
+        # that falls inside the rectangle but belongs to a different pose.
+        # Bounding boxes of adjacent frames can legitimately overlap in x
+        # when such fragments drift wide of the main silhouette.
+        if labeled is not None and label_id is not None:
+            crop_labeled = labeled[top:bottom, left:right]
+            crop_mask = crop_labeled == label_id
+
         # Erode the mask by EDGE_EROSION_PX before compositing: the outermost
         # ring of keyed pixels is the least reliable green-key data (most mixed
         # with background), so we discard it rather than try to color-correct
