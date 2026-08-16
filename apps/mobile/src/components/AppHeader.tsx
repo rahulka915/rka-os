@@ -44,7 +44,12 @@ export function AppHeader({ onSettingsPress, onInboxPress, inboxCount = 0 }: App
       </TouchableOpacity>
 
       <RNView style={styles.wordmarkGroup}>
-        <Text style={[styles.wordmark, { color: palette.textSecondary }]}>RKA</Text>
+        <Image
+          source={require('../../assets/branding/rka-logo-mark-transparent.png')}
+          style={styles.wordmarkLogo}
+          resizeMode="contain"
+          accessibilityIgnoresInvertColors
+        />
         <SyncIndicator />
       </RNView>
 
@@ -104,11 +109,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  wordmark: {
-    fontFamily: 'Newsreader_600SemiBold',
-    fontWeight: '600',
-    fontSize: 15,
-    letterSpacing: 0.5,
+  wordmarkLogo: {
+    width: 30,
+    height: 30,
   },
   settingsButton: {
     width: 44,
