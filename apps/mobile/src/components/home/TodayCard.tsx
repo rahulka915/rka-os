@@ -1,10 +1,10 @@
-import { memo, useEffect, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { NestedReorderableList } from 'react-native-reorderable-list';
 import { LacquerDiscControl } from '../ui/LacquerDiscControl';
 import { DragHandleButton } from '../ui/DragHandleButton';
 import { getThemeColors } from '../../theme';
-import { applyManualOrder, TODAY_LIST_KEY } from '../../db/database';
+import { applyManualOrder, getRelation, TODAY_LIST_KEY } from '../../db/database';
 import { useHapticReorder } from '../../hooks/useHapticReorder';
 import { nonVirtualizedListProps } from '../../utils/nestedReorderableListProps';
 import type { Item } from '../../db/types';
@@ -21,6 +21,7 @@ const TodayTaskRow = memo(function TodayTaskRow({
   item,
   isDark,
   isCompleting,
+  isSubtask,
   onComplete,
   onOpen,
   onMoveUp,
@@ -29,6 +30,7 @@ const TodayTaskRow = memo(function TodayTaskRow({
   item: Item;
   isDark: boolean;
   isCompleting: boolean;
+  isSubtask: boolean;
   onComplete: (item: Item) => void;
   onOpen: (item: Item) => void;
   onMoveUp: () => void;
@@ -37,7 +39,7 @@ const TodayTaskRow = memo(function TodayTaskRow({
   const palette = getThemeColors(isDark);
   const isOverdue = item.status === 'overdue';
   return (
-    <View style={[styles.row, { backgroundColor: palette.surface }]}>
+    <View style={[styles.row, { backgroundColor: palette.surface }, isSubtask && styles.subtaskRow]}>
       <LacquerDiscControl
         isCompleted={isCompleting}
         accessibilityLabel={`Complete ${item.title}`}
@@ -79,6 +81,14 @@ export function TodayCard({
   }, [items]);
   const { onDragStart, onIndexChange, onReorder, moveItem } = useHapticReorder(TODAY_LIST_KEY, ordered, setOrdered);
 
+  const subtaskIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const item of ordered) {
+      if (getRelation(item.id, 'subtaskOf')) ids.add(item.id);
+    }
+    return ids;
+  }, [ordered]);
+
   return (
     <View style={styles.container}>
       {ordered.length === 0 ? (
@@ -95,6 +105,7 @@ export function TodayCard({
               item={item}
               isDark={isDark}
               isCompleting={completingIds.has(item.id)}
+              isSubtask={subtaskIds.has(item.id)}
               onComplete={onComplete}
               onOpen={onOpen}
               onMoveUp={() => moveItem(item.id, 'up')}
@@ -129,6 +140,9 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 44,
     justifyContent: 'center',
+  },
+  subtaskRow: {
+    marginLeft: 24,
   },
   // Task/card titles use 600, not 700/800 — one consistent emphasis level
   // instead of every title shouting louder than the text around it.
