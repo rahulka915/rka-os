@@ -33,7 +33,7 @@ export function AppHeader({ onSettingsPress, onInboxPress, inboxCount = 0 }: App
   const palette = getThemeColors(isDark);
 
   return (
-    <RNView style={[styles.row, { paddingTop: insets.top + 14 }]}>
+    <RNView style={[styles.row, { paddingTop: insets.top + 10 }]}>
       <TouchableOpacity
         style={styles.settingsButton}
         onPress={press(onSettingsPress)}
@@ -43,7 +43,7 @@ export function AppHeader({ onSettingsPress, onInboxPress, inboxCount = 0 }: App
         <SettingsMedallionIcon size={34} />
       </TouchableOpacity>
 
-      <RNView style={styles.wordmarkGroup}>
+      <RNView style={[styles.wordmarkGroup, { top: insets.top + 20 }]}>
         <Image
           source={require('../../assets/branding/rka-logo-mark-transparent.png')}
           style={styles.wordmarkLogo}
@@ -104,12 +104,15 @@ const styles = StyleSheet.create({
     // independent of the settings button (44pt) and right-side group
     // (96pt) having different widths — flex space-between alone would
     // center this between their inner edges instead, which visibly skews
-    // it left of center.
+    // it left of center. `top` is set inline (insets.top + 20) rather than
+    // top:0/bottom:0 stretch-centering — RN doesn't inset absolute children
+    // by the parent's padding, so stretching across the full row (which
+    // includes the big safe-area paddingTop) centered this well above the
+    // button row instead of level with it.
     position: 'absolute',
     left: 0,
     right: 0,
-    top: 0,
-    bottom: 0,
+    height: 44,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
