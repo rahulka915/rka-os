@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ArrowUp, ChevronsDown } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   Easing,
@@ -57,10 +58,11 @@ export function RoninJourneyPrototype({ completedCount, totalCount, isDark, pote
   // the character is really moving, not sit in a standing pose while its
   // position visibly slides.
   const [isProgressAnimating, setIsProgressAnimating] = useState(false);
-  // True while the one-shot tap-reaction sprite animation is playing —
-  // takes priority over walking/idle until RoninWalkCycleSprite's
-  // onComplete fires and reverts it.
-  const [isTapReacting, setIsTapReacting] = useState(false);
+  // Which one-shot sprite animation (if any) is currently playing — takes
+  // priority over walking/idle until RoninWalkCycleSprite's onComplete
+  // fires and reverts it to null. Only one plays at a time: triggerAction
+  // no-ops while this is already non-null.
+  const [activeAction, setActiveAction] = useState<'jump' | 'bow' | null>(null);
   const didMount = useRef(false);
   const progressAnimationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -106,9 +108,7 @@ export function RoninJourneyPrototype({ completedCount, totalCount, isDark, pote
     progressAnimationTimeoutRef.current = setTimeout(() => setIsProgressAnimating(false), duration);
   }, [progress, ratio, reduceMotion]);
 
-  const handlePress = () => {
-    setIsTapReacting(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  const playHopReaction = () => {
     reaction.value = 0;
     reaction.value = withSequence(
       ReduceMotion.Never,
@@ -125,7 +125,26 @@ export function RoninJourneyPrototype({ completedCount, totalCount, isDark, pote
     );
   };
 
-  const handleTapReactionComplete = () => setIsTapReacting(false);
+  // Character tap keeps only a light acknowledgment (the hop) — it no
+  // longer switches the sprite to a one-shot animation. Jump/Bow buttons
+  // are the explicit way to trigger those.
+  const handlePress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    playHopReaction();
+  };
+
+  // Ignores the press if an action is already playing, so a jump and a bow
+  // can never run at once. Jump also plays the hop transform (it's an
+  // upward motion, consistent with the hop); Bow does not (it's a downward
+  // motion that would visually fight an upward hop).
+  const triggerAction = (action: 'jump' | 'bow') => {
+    if (activeAction !== null) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setActiveAction(action);
+    if (action === 'jump') playHopReaction();
+  };
+
+  const handleActionComplete = () => setActiveAction(null);
 
   const handlePressIn = () => {
     setIsHolding(true);
@@ -146,7 +165,7 @@ export function RoninJourneyPrototype({ completedCount, totalCount, isDark, pote
   };
 
   const isWalking = isHolding || isProgressAnimating;
-  const spriteState: RoninSpriteState = isTapReacting ? 'tapReaction' : isWalking ? 'walking' : 'idle';
+  const spriteState: RoninSpriteState = activeAction ?? (isWalking ? 'walking' : 'idle');
 
   const walkerStyle = useAnimatedStyle(() => {
     const travel = Math.max(0, width - WALKER_SIZE - 4);
@@ -220,8 +239,29 @@ export function RoninJourneyPrototype({ completedCount, totalCount, isDark, pote
         </Svg>
 
         <Animated.View pointerEvents="none" style={[styles.walker, walkerStyle]}>
-          <RoninWalkCycleSprite style={styles.walkerImage} state={spriteState} onComplete={handleTapReactionComplete} />
+          <RoninWalkCycleSprite style={styles.walkerImage} state={spriteState} onComplete={handleActionComplete} />
         </Animated.View>
+
+        <View style={styles.actionButtonRow}>
+          <Pressable
+            style={styles.actionButton}
+            onPress={() => triggerAction('jump')}
+            disabled={activeAction !== null}
+            accessibilityRole="button"
+            accessibilityLabel="Jump"
+          >
+            <ArrowUp size={16} color={JOURNEY_TEXT} strokeWidth={2.5} />
+          </Pressable>
+          <Pressable
+            style={styles.actionButton}
+            onPress={() => triggerAction('bow')}
+            disabled={activeAction !== null}
+            accessibilityRole="button"
+            accessibilityLabel="Bow"
+          >
+            <ChevronsDown size={16} color={JOURNEY_TEXT} strokeWidth={2.5} />
+          </Pressable>
+        </View>
       </Pressable>
     </RiverStoneSurface>
   );
@@ -334,5 +374,26 @@ const styles = StyleSheet.create({
   walkerImage: {
     width: '100%',
     height: '100%',
+  },
+  // In-game HUD-style action buttons, top-right of the card — above the
+  // heading scrim/text (zIndex) but out of the way of both the heading copy
+  // and the walker's path along the bottom.
+  actionButtonRow: {
+    position: 'absolute',
+    top: 15,
+    right: 16,
+    flexDirection: 'row',
+    gap: 8,
+    zIndex: 5,
+  },
+  actionButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(7,12,34,0.38)',
+    borderWidth: 1,
+    borderColor: 'rgba(245,239,228,0.28)',
   },
 });

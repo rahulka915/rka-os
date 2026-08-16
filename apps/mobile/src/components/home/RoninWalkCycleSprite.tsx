@@ -22,16 +22,24 @@ const IDLE_CYCLE_FRAMES: number[] = [
   require('../../../assets/ronin/journey/idle/ronin-idle-04.png'),
 ];
 
-// Populated by a later task once the tap-reaction sheet is sliced. Kept as
-// its own registry entry now (rather than added later) so every consumer of
-// SPRITE_STATES already handles an arbitrary state count.
-const TAP_REACTION_FRAMES: number[] = [
+// Bow-down-to-pet-the-cat animation, triggered by the Bow button (not by
+// tapping the character — see RoninJourneyPrototype.tsx's triggerAction).
+const BOW_FRAMES: number[] = [
   require('../../../assets/ronin/journey/tap-reaction/ronin-tap-01.png'),
   require('../../../assets/ronin/journey/tap-reaction/ronin-tap-02.png'),
   require('../../../assets/ronin/journey/tap-reaction/ronin-tap-03.png'),
   require('../../../assets/ronin/journey/tap-reaction/ronin-tap-04.png'),
   require('../../../assets/ronin/journey/tap-reaction/ronin-tap-05.png'),
   require('../../../assets/ronin/journey/tap-reaction/ronin-tap-06.png'),
+];
+
+const JUMP_FRAMES: number[] = [
+  require('../../../assets/ronin/journey/jump/ronin-jump-01.png'),
+  require('../../../assets/ronin/journey/jump/ronin-jump-02.png'),
+  require('../../../assets/ronin/journey/jump/ronin-jump-03.png'),
+  require('../../../assets/ronin/journey/jump/ronin-jump-04.png'),
+  require('../../../assets/ronin/journey/jump/ronin-jump-05.png'),
+  require('../../../assets/ronin/journey/jump/ronin-jump-06.png'),
 ];
 
 // Single source of truth for every sprite state's playback: which frames,
@@ -41,7 +49,8 @@ const TAP_REACTION_FRAMES: number[] = [
 const SPRITE_STATES: Record<RoninSpriteState, SpriteStateConfig> = {
   walking: { frames: WALK_CYCLE_FRAMES, intervalMs: WALK_CYCLE_FRAME_INTERVAL_MS, loopMode: 'loop' },
   idle: { frames: IDLE_CYCLE_FRAMES, intervalMs: 650, loopMode: 'loop' },
-  tapReaction: { frames: TAP_REACTION_FRAMES, intervalMs: 90, loopMode: 'once' },
+  bow: { frames: BOW_FRAMES, intervalMs: 90, loopMode: 'once' },
+  jump: { frames: JUMP_FRAMES, intervalMs: 90, loopMode: 'once' },
 };
 
 interface RoninWalkCycleSpriteProps {
