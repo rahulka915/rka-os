@@ -599,6 +599,15 @@ export function ItemEditorSheet({
                     );
                   })}
                 </View>
+                {draft.itemType === 'task' ? (
+                  <TouchableOpacity
+                    style={[styles.priorityChip, { alignSelf: 'flex-start', marginTop: 8, backgroundColor: draft.interstitial ? `${material.accent}20` : material.fill, borderColor: draft.interstitial ? material.accent : 'transparent' }]}
+                    onPress={() => onChange({ interstitial: !draft.interstitial })}
+                  >
+                    <Clock size={14} color={draft.interstitial ? material.accent : palette.iconMuted} strokeWidth={1.8} />
+                    <Text style={[styles.priorityText, { color: draft.interstitial ? material.accent : palette.textSecondary }]}>Downtime task</Text>
+                  </TouchableOpacity>
+                ) : null}
               </View>
 
               {error ? <Text style={[styles.errorText, { color: palette.red }]}>{error}</Text> : null}

@@ -36,6 +36,10 @@ function metadataPriority(metadata: Record<string, unknown>): ItemDraft['priorit
     : undefined;
 }
 
+function metadataInterstitial(metadata: Record<string, unknown>): boolean | undefined {
+  return metadata.interstitial === true ? true : undefined;
+}
+
 function metadataTimeBucket(metadata: Record<string, unknown>): ItemDraft['preferredTimeBucket'] {
   const value = metadata.preferredTimeBucket ?? metadata.timeOfDay;
   return value === 'morning' || value === 'afternoon' || value === 'evening' || value === 'anytime'
@@ -87,6 +91,7 @@ export function createEditDraft(item: Item, context: ItemComposerContext = {}): 
     tags: metadataTags(metadata),
     checklist: readChecklist(metadata),
     priority: metadataPriority(metadata),
+    interstitial: metadataInterstitial(metadata),
     durationMinutes: typeof metadata.durationMinutes === 'number' && metadata.durationMinutes > 0
       ? metadata.durationMinutes
       : 45,
@@ -105,6 +110,8 @@ function mergedMetadata(draft: ItemDraft): Record<string, unknown> {
   else delete metadata.checklist;
   if (draft.priority) metadata.priority = draft.priority;
   else delete metadata.priority;
+  if (draft.interstitial) metadata.interstitial = true;
+  else delete metadata.interstitial;
   metadata.durationMinutes = Math.max(5, Math.min(24 * 60, Math.round(draft.durationMinutes)));
   metadata.preferredTimeBucket = draft.preferredTimeBucket;
   if (draft.scheduledTime) {

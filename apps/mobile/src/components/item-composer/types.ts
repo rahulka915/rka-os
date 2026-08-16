@@ -32,6 +32,7 @@ export type ItemDraft = {
   tags: string[];
   checklist: ChecklistItem[];
   priority?: ItemPriority;
+  interstitial?: boolean;
   durationMinutes: number;
   preferredTimeBucket: TimeOfDay;
   metadata: Record<string, unknown>;
