@@ -787,6 +787,39 @@ export function applyManualOrder<T extends { id: string }>(listKey: string, item
   });
 }
 
+// Shared listKey for Home's Today view manual order (TodayCard.tsx reads
+// this via applyManualOrder) — a single exported constant so callers never
+// re-type the literal and risk drifting out of sync.
+export const TODAY_LIST_KEY = 'home:today';
+
+// Appends itemId to the end of listKey's manual order if it has no saved
+// position yet — a no-op if it's already positioned (e.g. the user already
+// dragged it once). Lets callers that add several items in a deliberate
+// sequence (e.g. the assistant planning a batch of tasks into Today) get
+// that sequence reflected immediately, without requiring a manual drag.
+export function appendToManualOrderIfAbsent(listKey: string, itemId: string): void {
+  const db = getDb();
+  const existing = db.getAllSync<{ position: number }>(
+    `SELECT position FROM itemOrder WHERE listKey = ? AND itemId = ?`,
+    [listKey, itemId]
+  );
+  if (existing.length > 0) return;
+  const maxRow = db.getAllSync<{ maxPos: number | null }>(
+    `SELECT MAX(position) as maxPos FROM itemOrder WHERE listKey = ?`,
+    [listKey]
+  )[0];
+  const position = (maxRow?.maxPos ?? -1) + 1;
+  db.runSync(`INSERT INTO itemOrder (listKey, itemId, position) VALUES (?, ?, ?)`, [listKey, itemId, position]);
+  const userId = getCurrentSyncUserId();
+  if (userId) {
+    const rows = db.getAllSync<{ itemId: string }>(
+      `SELECT itemId FROM itemOrder WHERE listKey = ? ORDER BY position ASC`,
+      [listKey]
+    );
+    pushItemOrderBatchToFirestore(userId, listKey, rows.map((r) => r.itemId)).catch(() => {});
+  }
+}
+
 // ── Tasks screen view (grouping/sort/filter) ────────────────────────────
 // A display preference, not app data — same appSettings-backed pattern as
 // hasSeenRoutinesIntro/markRoutinesIntroSeen. Kept as a plain, versionless
@@ -2055,6 +2088,7 @@ export function planForToday(itemId: string, bucket?: 'anytime' | 'morning' | 'a
   meta.plannedDate = formatDate(new Date());
   if (bucket) meta.preferredTimeBucket = bucket;
   updateItemMetadata(itemId, meta);
+  appendToManualOrderIfAbsent(TODAY_LIST_KEY, itemId);
 }
 
 export function unplanToday(itemId: string): void {

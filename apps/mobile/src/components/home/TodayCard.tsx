@@ -4,12 +4,10 @@ import { NestedReorderableList } from 'react-native-reorderable-list';
 import { LacquerDiscControl } from '../ui/LacquerDiscControl';
 import { DragHandleButton } from '../ui/DragHandleButton';
 import { getThemeColors } from '../../theme';
-import { applyManualOrder } from '../../db/database';
+import { applyManualOrder, TODAY_LIST_KEY } from '../../db/database';
 import { useHapticReorder } from '../../hooks/useHapticReorder';
 import { nonVirtualizedListProps } from '../../utils/nestedReorderableListProps';
 import type { Item } from '../../db/types';
-
-const TODAY_LIST_KEY = 'home:today';
 
 interface TodayCardProps {
   items: Item[];
