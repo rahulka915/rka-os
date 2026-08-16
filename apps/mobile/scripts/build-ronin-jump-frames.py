@@ -7,7 +7,12 @@ docs/superpowers/specs/2026-08-16-ronin-jump-bow-buttons-design.md.
 
 Output: apps/mobile/assets/ronin/journey/jump/ronin-jump-01.png ..
 ronin-jump-0N.png (N auto-detected from the sheet), each on an identical-size
-transparent canvas, head-top-anchored so frame-swapping doesn't jitter.
+transparent canvas. Frames are GROUND-anchored, not head-anchored: each
+frame keeps its true relative vertical position from the original sheet
+(where every pose already shares one baseline), so a pose with a shorter
+silhouette (e.g. legs tucked mid-air, or bent forward) doesn't get padded
+underneath and visually float upward when frame-swapped against a taller
+neighboring pose — that floating read as an unwanted "hop" during playback.
 """
 from __future__ import annotations
 
@@ -25,7 +30,6 @@ MAX_FRAME_COUNT = 12
 PAD_PX = 24
 GREEN_KEY = np.array([0, 255, 0], dtype=np.float32)
 GREEN_TOLERANCE = 90.0  # euclidean RGB distance under which a pixel counts as background
-HEAD_TOP_MARGIN_PX = 20  # distance from canvas top to each frame's topmost foreground pixel
 
 # A "frame" is boy+cat together, but the two aren't always one connected
 # blob (sometimes the cat sits apart from the boy) and adjacent frames can
@@ -140,9 +144,11 @@ def build_frame(
     rgb: np.ndarray,
     mask: np.ndarray,
     box: tuple[slice, slice],
-    canvas_size: int,
+    canvas_width: int,
+    canvas_height: int,
     left_pad: int,
     right_pad: int,
+    paste_y: int,
 ) -> Image.Image:
     row_slice, col_slice = box
     top = max(row_slice.start - PAD_PX, 0)
@@ -166,15 +172,13 @@ def build_frame(
     rgba = np.dstack([corrected_rgb, alpha * 255.0]).astype(np.uint8)
     frame = Image.fromarray(rgba, mode="RGBA")
 
-    # Head-top anchor: topmost foreground row within this crop.
-    foreground_rows = np.where(crop_mask.any(axis=1))[0]
-    head_top_y = int(foreground_rows[0]) if len(foreground_rows) else 0
+    # Horizontal centering is safe to do per-frame (it doesn't affect the
+    # ground-truth vertical position that fixes the floating bug).
     foreground_cols = np.where(crop_mask.any(axis=0))[0]
     center_x = int((foreground_cols[0] + foreground_cols[-1]) / 2) if len(foreground_cols) else frame.width // 2
 
-    canvas = Image.new("RGBA", (canvas_size, canvas_size), (0, 0, 0, 0))
-    paste_x = canvas_size // 2 - center_x
-    paste_y = HEAD_TOP_MARGIN_PX - head_top_y
+    canvas = Image.new("RGBA", (canvas_width, canvas_height), (0, 0, 0, 0))
+    paste_x = canvas_width // 2 - center_x
     canvas.paste(frame, (paste_x, paste_y), frame)
     return canvas
 
@@ -195,17 +199,31 @@ def main() -> None:
         right_pad = max(min(PAD_PX, next_gap // 2), 0)
         pads.append((left_pad, right_pad))
 
-    # Canvas must fit the largest cropped frame plus padding, shared by all
-    # frames so swapping never changes the Image element's own size.
-    max_dim = 0
-    for (row_slice, col_slice), (left_pad, right_pad) in zip(boxes, pads):
-        height = (row_slice.stop - row_slice.start) + PAD_PX * 2
+    # Ground-truth vertical alignment: every pose already shares one
+    # baseline in the original sheet, so preserve each frame's real
+    # top/bottom sheet rows relative to the tightest bounding row range
+    # across the WHOLE sheet, rather than re-anchoring each frame
+    # independently (which discards genuine height differences between
+    # poses — e.g. a crouch vs. a mid-air peak — and turns them into
+    # unwanted vertical pop when frames are swapped).
+    padded_tops = [max(row_slice.start - PAD_PX, 0) for row_slice, _ in boxes]
+    padded_bottoms = [min(row_slice.stop + PAD_PX, rgb.shape[0]) for row_slice, _ in boxes]
+    global_top = min(padded_tops)
+    global_bottom = max(padded_bottoms)
+    canvas_height = global_bottom - global_top
+
+    canvas_width = 0
+    for (_row_slice, col_slice), (left_pad, right_pad) in zip(boxes, pads):
         width = (col_slice.stop - col_slice.start) + left_pad + right_pad
-        max_dim = max(max_dim, height, width)
+        canvas_width = max(canvas_width, width)
+    # Square canvas (matches this sheet family's existing convention, and
+    # keeps RoninWalkCycleSprite's fixed square Image box filling correctly).
+    canvas_size = max(canvas_width, canvas_height)
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    for index, (box, (left_pad, right_pad)) in enumerate(zip(boxes, pads), start=1):
-        frame = build_frame(rgb, mask, box, max_dim, left_pad, right_pad)
+    for index, (box, (left_pad, right_pad), top) in enumerate(zip(boxes, pads, padded_tops), start=1):
+        paste_y = (top - global_top) + (canvas_size - canvas_height) // 2
+        frame = build_frame(rgb, mask, box, canvas_size, canvas_size, left_pad, right_pad, paste_y)
         out_path = OUTPUT_DIR / f"ronin-jump-{index:02d}.png"
         frame.save(out_path)
         print(f"wrote {out_path} ({frame.width}x{frame.height})")

@@ -73,15 +73,26 @@ export function RoninWalkCycleSprite({ style, state, onComplete }: RoninWalkCycl
     const interval = setInterval(() => {
       setFrameIndex((current) => {
         const { frame, didComplete } = getNextSpriteFrame(current, config.frames.length, config.loopMode);
-        if (didComplete) {
-          clearInterval(interval);
-          onCompleteRef.current?.();
-        }
+        if (didComplete) clearInterval(interval);
         return frame;
       });
     }, config.intervalMs);
     return () => clearInterval(interval);
   }, [state]);
+
+  // Fires the parent's onComplete (which sets RoninJourneyPrototype's
+  // activeAction state) from its own effect pass, once frameIndex has
+  // actually committed at the last frame of a 'once' state — calling it
+  // synchronously inside the setFrameIndex updater above (the interval
+  // callback) triggers React's "Cannot update a component while rendering a
+  // different component" warning, since that updater can run during this
+  // component's own render/reducer phase.
+  useEffect(() => {
+    const config = SPRITE_STATES[state];
+    if (config.loopMode === 'once' && frameIndex === config.frames.length - 1) {
+      onCompleteRef.current?.();
+    }
+  }, [frameIndex, state]);
 
   const frames = SPRITE_STATES[state].frames;
   if (frames.length === 0) return null;
