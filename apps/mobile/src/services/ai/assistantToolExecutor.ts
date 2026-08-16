@@ -32,6 +32,9 @@ export function executeAssistantTool(
     switch (name) {
       case 'create_item': {
         const id = createItem(args.type, args.title, 'inbox', args.scheduledDate, args.notes);
+        if (args.type === 'task' && typeof args.durationMinutes === 'number' && args.durationMinutes > 0) {
+          updateItemMetadata(id, { durationMinutes: args.durationMinutes });
+        }
         return { ok: true, result: `Created with id ${id}` };
       }
       case 'update_item': {
