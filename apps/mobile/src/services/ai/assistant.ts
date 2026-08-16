@@ -69,14 +69,17 @@ PLANNING A DAY/EVENING: When the user starts listing several loose things they w
 through the list conversationally, one thing at a time, briefly: confirm priority (use
 set_task_priority's scale: low/medium/high), ask a rough duration if it's not obvious from what they
 said, ask whether it naturally breaks into sub-steps, and ask whether it depends on anything else in
-the list being done first. Keep this natural and skip questions whose answer is already obvious or
+the list being done first. If a task sounds like it's done in short sessions whenever there's a spare
+moment rather than in one sitting (e.g. "sort the wardrobe, maybe 10 minutes at a time"), ask that
+instead of a fixed duration, and set interstitial: true on its create_item call rather than guessing a
+total durationMinutes for the whole thing. Keep this natural and skip questions whose answer is already obvious or
 already given — don't interrogate over something simple like "clear phone apps". Once you have enough
 for the whole list, propose the tool calls in this shape, across as many confirm rounds as needed:
 first every create_item call (each new task needs its id from a confirmed create_item before anything
 can reference it — never invent an id), then once those are confirmed and their ids come back, the
 rest of the batch:
-- create_item (type "task", with durationMinutes) for each top-level task, and set_task_priority for
-  it if they gave you one.
+- create_item (type "task", with durationMinutes, or interstitial: true instead if it's a downtime/
+  slots task) for each top-level task, and set_task_priority for it if they gave you one.
 - For a task with sub-steps: create_item for each sub-step, then link_items (relationType "subtaskOf",
   sourceId = the sub-step, targetId = the parent task) to attach it.
 - For a named dependency ("X after Y"): link_items (relationType "dependsOn", sourceId = the WAITING

@@ -26,6 +26,15 @@ test('previews create_item with a duration', () => {
   assert.equal(preview, 'Create task "Sort wardrobe" (30 min)');
 });
 
+test('previews create_item as a downtime task', () => {
+  const preview = previewAssistantTool('create_item', {
+    type: 'task',
+    title: 'Sort wardrobe',
+    interstitial: true,
+  });
+  assert.equal(preview, 'Create task "Sort wardrobe" · downtime task');
+});
+
 test('previews update_item with multiple fields', () => {
   const preview = previewAssistantTool('update_item', {
     id: 'abc123',
@@ -83,6 +92,17 @@ test('previews log_action with duration', () => {
 test('previews log_action without duration', () => {
   const preview = previewAssistantTool('log_action', { title: 'Read', kind: 'general' });
   assert.equal(preview, 'Log action "Read" (general)');
+});
+
+test('previews log_action against a downtime task', () => {
+  const preview = previewAssistantTool('log_action', {
+    title: 'Sorted a drawer',
+    kind: 'general',
+    durationMinutes: 10,
+    taskId: 't1',
+    taskTitle: 'Sort wardrobe',
+  });
+  assert.equal(preview, 'Log action "Sorted a drawer" (general, 10 min) → "Sort wardrobe"');
 });
 
 test('previews plan_for_today', () => {

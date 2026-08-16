@@ -63,6 +63,7 @@ const ASSISTANT_FUNCTION_DECLARATIONS: AssistantFunctionDeclaration[] = [
         notes: { type: 'string', description: 'Optional notes/description.' },
         scheduledDate: { type: 'string', description: 'Optional ISO date (YYYY-MM-DD) it should appear on.' },
         durationMinutes: { type: 'number', description: 'For tasks: a rough time estimate in minutes, if known/asked about.' },
+        interstitial: { type: 'boolean', description: 'For tasks: true if this is a "downtime" task worked on in short sessions whenever there is spare time, rather than finished in one sitting.' },
       },
       required: ['type', 'title'],
     },
@@ -165,7 +166,7 @@ const ASSISTANT_FUNCTION_DECLARATIONS: AssistantFunctionDeclaration[] = [
   {
     name: 'log_action',
     description:
-      'Log a one-off Action — free-form activity not tied to a task/habit, e.g. practice sessions or general activity. Use for "I did a 20 minute run", "log that I practiced guitar".',
+      'Log a one-off Action — free-form activity not tied to a task/habit, e.g. practice sessions or general activity. Also use this to log a session against a Downtime task (taskId/taskTitle) — e.g. "I did 10 minutes on sorting the wardrobe".',
     parameters: {
       type: 'object',
       properties: {
@@ -173,6 +174,8 @@ const ASSISTANT_FUNCTION_DECLARATIONS: AssistantFunctionDeclaration[] = [
         kind: { type: 'string', enum: ['practice', 'general'], description: '"practice" for skill/deliberate practice, otherwise "general".' },
         durationMinutes: { type: 'number', description: 'Optional duration in minutes.' },
         intensity: { type: 'string', enum: ['low', 'medium', 'high'], description: 'Optional intensity.' },
+        taskId: { type: 'string', description: 'Optional: the id of a Downtime task this session counts toward.' },
+        taskTitle: { type: 'string', description: "The task's title, for the confirmation prompt — required if taskId is set." },
       },
       required: ['title', 'kind'],
     },
@@ -306,6 +309,7 @@ export function previewAssistantTool(name: AssistantToolName, args: Record<strin
     case 'create_item': {
       let base = `Create ${args.type} ${quote(args.title)}`;
       if (args.durationMinutes) base += ` (${args.durationMinutes} min)`;
+      if (args.interstitial) base += ' · downtime task';
       return args.scheduledDate ? `${base}, scheduled ${args.scheduledDate}` : base;
     }
     case 'update_item': {
@@ -330,7 +334,8 @@ export function previewAssistantTool(name: AssistantToolName, args: Record<strin
       return `Log a dose of ${quote(args.medicationTitle)} taken now`;
     case 'log_action': {
       const base = `Log action ${quote(args.title)} (${args.kind}`;
-      return args.durationMinutes ? `${base}, ${args.durationMinutes} min)` : `${base})`;
+      const withDuration = args.durationMinutes ? `${base}, ${args.durationMinutes} min)` : `${base})`;
+      return args.taskTitle ? `${withDuration} → ${quote(args.taskTitle)}` : withDuration;
     }
     case 'plan_for_today': {
       const base = `Add ${quote(args.itemTitle)} to Today`;
