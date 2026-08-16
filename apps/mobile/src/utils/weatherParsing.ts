@@ -82,3 +82,33 @@ const CONDITION_EMOJI: Record<string, string> = {
 export function getWeatherEmoji(conditionCode: string): string {
   return CONDITION_EMOJI[conditionCode] ?? '🌡️';
 }
+
+export type SkyWeatherCategory = 'clear' | 'cloudy' | 'rain';
+
+const SKY_WEATHER_CATEGORIES: Record<string, SkyWeatherCategory> = {
+  Clear: 'clear',
+  MostlyClear: 'clear',
+  PartlyCloudy: 'cloudy',
+  MostlyCloudy: 'cloudy',
+  Cloudy: 'cloudy',
+  Haze: 'cloudy',
+  Fog: 'cloudy',
+  Windy: 'cloudy',
+  Breezy: 'cloudy',
+  Drizzle: 'rain',
+  Rain: 'rain',
+  HeavyRain: 'rain',
+  Thunderstorms: 'rain',
+  Snow: 'rain',
+  HeavySnow: 'rain',
+  Flurries: 'rain',
+};
+
+// Maps WeatherKit's ~16 condition codes down to the 3 painted-scene
+// categories AnimatedSkyBackground supports — see
+// docs/superpowers/specs/2026-08-16-animated-sky-background-design.md §3.
+// Unrecognized codes default to 'clear' rather than throwing, matching this
+// file's existing fail-soft conventions (describeConditionCode/getWeatherEmoji).
+export function getSkyWeatherCategory(conditionCode: string): SkyWeatherCategory {
+  return SKY_WEATHER_CATEGORIES[conditionCode] ?? 'clear';
+}

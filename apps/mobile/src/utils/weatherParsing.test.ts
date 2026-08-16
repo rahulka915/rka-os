@@ -1,7 +1,7 @@
 // @ts-nocheck -- executed directly by Node's TypeScript test runner; the Expo app intentionally omits Node ambient types.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseCurrentWeather, describeConditionCode, getWeatherEmoji } from './weatherParsing.ts';
+import { parseCurrentWeather, describeConditionCode, getWeatherEmoji, getSkyWeatherCategory } from './weatherParsing.ts';
 
 const VALID_CURRENT_WEATHER = {
   asOf: '2026-08-08T16:00:00Z',
@@ -54,4 +54,33 @@ test('describeConditionCode: falls back to splitting PascalCase for an uncurated
 test('getWeatherEmoji: maps a curated code and falls back to a thermometer otherwise', () => {
   assert.equal(getWeatherEmoji('Clear'), '☀️');
   assert.equal(getWeatherEmoji('SomeUnknownCode'), '🌡️');
+});
+
+test('getSkyWeatherCategory: Clear and MostlyClear map to clear', () => {
+  assert.equal(getSkyWeatherCategory('Clear'), 'clear');
+  assert.equal(getSkyWeatherCategory('MostlyClear'), 'clear');
+});
+
+test('getSkyWeatherCategory: cloud/haze/fog/wind codes map to cloudy', () => {
+  assert.equal(getSkyWeatherCategory('PartlyCloudy'), 'cloudy');
+  assert.equal(getSkyWeatherCategory('MostlyCloudy'), 'cloudy');
+  assert.equal(getSkyWeatherCategory('Cloudy'), 'cloudy');
+  assert.equal(getSkyWeatherCategory('Haze'), 'cloudy');
+  assert.equal(getSkyWeatherCategory('Fog'), 'cloudy');
+  assert.equal(getSkyWeatherCategory('Windy'), 'cloudy');
+  assert.equal(getSkyWeatherCategory('Breezy'), 'cloudy');
+});
+
+test('getSkyWeatherCategory: precipitation codes (including snow) map to rain', () => {
+  assert.equal(getSkyWeatherCategory('Drizzle'), 'rain');
+  assert.equal(getSkyWeatherCategory('Rain'), 'rain');
+  assert.equal(getSkyWeatherCategory('HeavyRain'), 'rain');
+  assert.equal(getSkyWeatherCategory('Thunderstorms'), 'rain');
+  assert.equal(getSkyWeatherCategory('Snow'), 'rain');
+  assert.equal(getSkyWeatherCategory('HeavySnow'), 'rain');
+  assert.equal(getSkyWeatherCategory('Flurries'), 'rain');
+});
+
+test('getSkyWeatherCategory: unrecognized codes default to clear', () => {
+  assert.equal(getSkyWeatherCategory('SomeFutureCode'), 'clear');
 });
