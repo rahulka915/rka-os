@@ -13,8 +13,10 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, useReducedMotion } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { itemComposerMaterial } from '../../theme/itemComposer';
+import { getThemeColors } from '../../theme/colors';
 import { fontSize, spacing, radius } from '../../theme/spacing';
+import { useThemeContext } from '../../hooks/useThemeContext';
+import { RiverStoneSurface } from '../riverstone';
 import { askAssistant, resolveAssistantActions, hasAssistant, type PendingAssistantCall } from '../../services/ai/assistant';
 import { parseAssistantMessage } from './parseAssistantMessage';
 import {
@@ -61,7 +63,19 @@ function loadPersistedConversation(): PersistedConversation {
 }
 
 export function AssistantOverlay({ onClose, onOpenItem }: AssistantOverlayProps) {
-  const mat = itemComposerMaterial.dark;
+  const { isDark } = useThemeContext();
+  const c = getThemeColors(isDark);
+  const mat = {
+    background: c.bg,
+    platinum: c.text,
+    platinumMuted: c.textSecondary,
+    accent: c.vermilion,
+    accentSoft: c.vermilionSoft,
+    fill: c.fill,
+    rim: c.separator,
+    onAccent: '#FFFFFF',
+  };
+  const stoneMode = isDark ? 'dark' : 'light';
   const insets = useSafeAreaInsets();
   const reducedMotion = useReducedMotion();
   const scrollRef = useRef<ScrollView>(null);
@@ -82,7 +96,13 @@ export function AssistantOverlay({ onClose, onOpenItem }: AssistantOverlayProps)
   const [keyboardVisible, setKeyboardVisible] = useState(false);
 
   useEffect(() => {
-    const show = Keyboard.addListener('keyboardWillShow', () => setKeyboardVisible(true));
+    const show = Keyboard.addListener('keyboardWillShow', () => {
+      setKeyboardVisible(true);
+      // KeyboardAvoidingView shrinks the scroll viewport without changing its
+      // content size, so onContentSizeChange never fires here on its own —
+      // without this the latest messages end up hidden behind the keyboard.
+      requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
+    });
     const hide = Keyboard.addListener('keyboardWillHide', () => setKeyboardVisible(false));
     return () => {
       show.remove();
@@ -240,7 +260,7 @@ export function AssistantOverlay({ onClose, onOpenItem }: AssistantOverlayProps)
       <View style={styles.header}>
         <View style={styles.headerTitle}>
           <Sparkles size={16} color={mat.accent} strokeWidth={1.75} />
-          <Text style={[styles.title, { color: mat.platinumMuted }]}>Assistant</Text>
+          <Text style={[styles.title, { color: mat.platinumMuted }]}>Sensei</Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           {turns.length > 0 || pending ? (
@@ -258,7 +278,7 @@ export function AssistantOverlay({ onClose, onOpenItem }: AssistantOverlayProps)
             onPress={handleClose}
             style={styles.closeBtn}
             accessibilityRole="button"
-            accessibilityLabel="Close assistant"
+            accessibilityLabel="Close Sensei"
             hitSlop={12}
           >
             <X size={20} color={mat.platinum} strokeWidth={2} />
@@ -298,20 +318,20 @@ export function AssistantOverlay({ onClose, onOpenItem }: AssistantOverlayProps)
                       key={chip.label}
                       onPress={() => submitMessage(chip.prompt)}
                       disabled={busy}
-                      style={{
-                        paddingHorizontal: spacing[4],
-                        paddingVertical: spacing[3],
-                        borderRadius: radius.card,
-                        backgroundColor: mat.surfaceRaised,
-                        borderColor: mat.rim,
-                        borderWidth: 1,
-                      }}
                       accessibilityRole="button"
                       accessibilityLabel={chip.label}
                     >
-                      <Text style={{ color: mat.platinum, fontSize: fontSize.sm, fontFamily: 'Inter_600SemiBold', fontWeight: '600' }}>
-                        {chip.label}
-                      </Text>
+                      <RiverStoneSurface
+                        variant="chip"
+                        mode={stoneMode}
+                        shape="regular"
+                        fill={false}
+                        contentStyle={{ paddingHorizontal: spacing[4], paddingVertical: spacing[3] }}
+                      >
+                        <Text style={{ color: mat.platinum, fontSize: fontSize.sm, fontFamily: 'Inter_600SemiBold', fontWeight: '600' }}>
+                          {chip.label}
+                        </Text>
+                      </RiverStoneSurface>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -321,20 +341,31 @@ export function AssistantOverlay({ onClose, onOpenItem }: AssistantOverlayProps)
           {turns.map((turn, i) => {
             if (turn.kind === 'action-result') {
               return (
-                <View key={i} style={[styles.bubble, { alignSelf: 'flex-start', backgroundColor: mat.accentSoft }]}>
+                <RiverStoneSurface
+                  key={i}
+                  variant="chip"
+                  mode={stoneMode}
+                  shape="regular"
+                  fill={false}
+                  style={[styles.bubbleWrap, styles.bubbleStart]}
+                  contentStyle={styles.bubbleContent}
+                  background={<View style={[StyleSheet.absoluteFill, { backgroundColor: mat.accentSoft }]} />}
+                >
                   <Text style={[styles.bubbleText, { color: mat.platinum }]}>{turn.text}</Text>
-                </View>
+                </RiverStoneSurface>
               );
             }
+            const isUser = turn.role === 'user';
             return (
-              <View
+              <RiverStoneSurface
                 key={i}
-                style={[
-                  styles.bubble,
-                  turn.role === 'user'
-                    ? { alignSelf: 'flex-end', backgroundColor: mat.accentSoft }
-                    : { alignSelf: 'flex-start', backgroundColor: mat.surfaceRaised, borderColor: mat.rim, borderWidth: 1 },
-                ]}
+                variant={isUser ? 'chip' : 'list'}
+                mode={stoneMode}
+                shape="regular"
+                fill={false}
+                style={[styles.bubbleWrap, isUser ? styles.bubbleEnd : styles.bubbleStart]}
+                contentStyle={styles.bubbleContent}
+                background={isUser ? <View style={[StyleSheet.absoluteFill, { backgroundColor: mat.accentSoft }]} /> : undefined}
               >
                 {turn.role === 'model' ? (
                   <Text style={[styles.bubbleText, { color: mat.platinum }]}>
@@ -363,20 +394,17 @@ export function AssistantOverlay({ onClose, onOpenItem }: AssistantOverlayProps)
                 ) : (
                   <Text style={[styles.bubbleText, { color: mat.platinum }]}>{turn.text}</Text>
                 )}
-              </View>
+              </RiverStoneSurface>
             );
           })}
           {pending ? (
-            <View
-              style={{
-                alignSelf: 'stretch',
-                backgroundColor: mat.surfaceRaised,
-                borderColor: mat.rim,
-                borderWidth: 1,
-                borderRadius: radius.card,
-                paddingHorizontal: spacing[5],
-                paddingVertical: spacing[4],
-              }}
+            <RiverStoneSurface
+              variant="card"
+              mode={stoneMode}
+              shape="regular"
+              fill={false}
+              style={styles.pendingWrap}
+              contentStyle={{ paddingHorizontal: spacing[5], paddingVertical: spacing[4] }}
             >
               <Text style={{ color: mat.platinumMuted, marginBottom: spacing[3], fontSize: fontSize.base, fontFamily: 'Inter_600SemiBold', fontWeight: '600' }}>
                 {pending.length > 1 ? 'Review each — tap to include or skip:' : 'Confirm this action:'}
@@ -445,14 +473,14 @@ export function AssistantOverlay({ onClose, onOpenItem }: AssistantOverlayProps)
                   <Text style={{ color: mat.platinum, fontFamily: 'Inter_600SemiBold', fontWeight: '600', fontSize: fontSize.lg }}>Cancel</Text>
                 </TouchableOpacity>
               </View>
-            </View>
+            </RiverStoneSurface>
           ) : null}
           {busy ? (
-            <View style={[styles.bubble, { alignSelf: 'flex-start', backgroundColor: mat.surfaceRaised, borderColor: mat.rim, borderWidth: 1 }]}>
+            <RiverStoneSurface variant="list" mode={stoneMode} shape="regular" fill={false} style={[styles.bubbleWrap, styles.bubbleStart]} contentStyle={styles.bubbleContent}>
               <Text style={[styles.bubbleText, { color: mat.platinumMuted }]}>Thinking…</Text>
-            </View>
+            </RiverStoneSurface>
           ) : null}
-          {error ? <Text style={[styles.errorText, { color: '#e0716b' }]}>{error}</Text> : null}
+          {error ? <Text style={[styles.errorText, { color: c.red }]}>{error}</Text> : null}
         </ScrollView>
 
         <View
@@ -467,21 +495,30 @@ export function AssistantOverlay({ onClose, onOpenItem }: AssistantOverlayProps)
             },
           ]}
         >
-          <TextInput
-            ref={inputRef}
-            value={input}
-            onChangeText={setInput}
-            placeholder={hasAssistant ? 'Ask anything…' : 'Assistant unavailable — Firebase not configured'}
-            placeholderTextColor={mat.platinumMuted}
-            style={[styles.input, { color: mat.platinum, backgroundColor: mat.fill }]}
-            editable={hasAssistant && !busy && !pending}
-            multiline
-            autoCorrect
-            autoCapitalize="sentences"
-            spellCheck
-            keyboardAppearance="dark"
-            onSubmitEditing={handleSend}
-          />
+          <RiverStoneSurface
+            variant="chip"
+            mode={stoneMode}
+            shape="regular"
+            fill={false}
+            style={styles.inputSurface}
+            contentStyle={styles.inputSurfaceContent}
+          >
+            <TextInput
+              ref={inputRef}
+              value={input}
+              onChangeText={setInput}
+              placeholder={hasAssistant ? 'Ask anything…' : 'Sensei unavailable — Firebase not configured'}
+              placeholderTextColor={mat.platinumMuted}
+              style={[styles.input, { color: mat.platinum }]}
+              editable={hasAssistant && !busy && !pending}
+              multiline
+              autoCorrect
+              autoCapitalize="sentences"
+              spellCheck
+              keyboardAppearance={isDark ? 'dark' : 'light'}
+              onSubmitEditing={handleSend}
+            />
+          </RiverStoneSurface>
           <TouchableOpacity
             onPress={handleSend}
             disabled={!hasAssistant || busy || !!pending || !input.trim()}
@@ -510,13 +547,17 @@ const styles = StyleSheet.create({
   headerTitle: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
   title: { fontFamily: 'Inter_600SemiBold', fontSize: fontSize.sm, fontWeight: '600', letterSpacing: 0.5, textTransform: 'uppercase' },
   closeBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  messages: { padding: spacing[5], gap: spacing[3], flexGrow: 1 },
+  messages: { padding: spacing[5], gap: spacing[3] },
   empty: { fontSize: fontSize.base, lineHeight: 22, paddingTop: spacing[8] },
-  bubble: { maxWidth: '85%', borderRadius: radius.card, paddingHorizontal: spacing[4], paddingVertical: spacing[3] },
+  bubbleWrap: { maxWidth: '85%', alignSelf: 'stretch', flexGrow: 0, flexShrink: 0 },
+  bubbleStart: { alignSelf: 'flex-start' },
+  bubbleEnd: { alignSelf: 'flex-end' },
+  bubbleContent: { paddingHorizontal: spacing[4], paddingVertical: spacing[3] },
   bubbleText: { fontSize: fontSize.base, lineHeight: 21 },
   bold: { fontFamily: 'Inter_700Bold', fontWeight: '700' },
   link: { fontFamily: 'Inter_600SemiBold', fontWeight: '600', textDecorationLine: 'underline' },
   errorText: { fontSize: fontSize.sm, paddingTop: spacing[2] },
+  pendingWrap: { alignSelf: 'stretch' },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
@@ -525,13 +566,12 @@ const styles = StyleSheet.create({
     paddingTop: spacing[3],
     borderTopWidth: StyleSheet.hairlineWidth,
   },
+  inputSurface: { flex: 1 },
+  inputSurfaceContent: { paddingHorizontal: spacing[4], paddingVertical: spacing[1] },
   input: {
-    flex: 1,
-    borderRadius: radius.card,
-    paddingHorizontal: spacing[4],
-    paddingVertical: spacing[3],
     fontSize: fontSize.base,
     maxHeight: 120,
+    paddingVertical: spacing[2],
   },
   sendBtn: {
     width: 44,

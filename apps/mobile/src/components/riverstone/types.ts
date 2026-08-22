@@ -57,6 +57,16 @@ export interface RiverStoneSurfaceProps {
 
   testID?: string;
   disabled?: boolean;
+
+  /**
+   * Whether the face fills its container (`flex: 1`) — the default, needed
+   * by fixed-size surfaces (aspectRatio/minHeight cards, FlatList rows).
+   * Set `false` for surfaces that must hug variable-length content instead
+   * (e.g. chat bubbles): with a `flex: 1` face nested in an auto-height
+   * ancestor inside a ScrollView, the surface expands to fill all leftover
+   * scroll space rather than sizing to its content.
+   */
+  fill?: boolean;
 }
 
 export interface RiverStoneMaterialToken {

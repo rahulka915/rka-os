@@ -64,11 +64,16 @@ function RiverStoneSurfaceComponent({
   contentStyle,
   testID,
   disabled = false,
+  fill = true,
 }: RiverStoneSurfaceProps) {
-  const layers = useMemo(
-    () => createRiverStoneLayers(variant, mode, shape),
-    [variant, mode, shape],
-  );
+  const layers = useMemo(() => {
+    const base = createRiverStoneLayers(variant, mode, shape);
+    // See the `fill` prop doc — content-hugging surfaces must not force the
+    // face to flex:1 fill an otherwise auto-height ancestor.
+    if (fill) return base;
+    const { flex: _flex, ...faceWithoutFlex } = base.face;
+    return { ...base, face: faceWithoutFlex };
+  }, [variant, mode, shape, fill]);
   const token = useMemo(
     () => getRiverStoneToken(variant, mode),
     [variant, mode],

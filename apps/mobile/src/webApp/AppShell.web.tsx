@@ -113,7 +113,7 @@ export function AppShell() {
           onPress={() => setAssistantOpen(true)}
           style={styles.assistantFab}
           accessibilityRole="button"
-          accessibilityLabel="Open assistant"
+          accessibilityLabel="Open Sensei"
         >
           <Sparkles size={22} color="#fff" strokeWidth={1.75} />
         </TouchableOpacity>
