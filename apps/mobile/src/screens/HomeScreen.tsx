@@ -14,7 +14,7 @@ import { TodayCard } from '../components/home/TodayCard';
 import { DowntimeShelf } from '../components/home/DowntimeShelf';
 import { HomeTaskRow } from '../components/home/HomeTaskRow';
 import { RoninJourneyPrototype } from '../components/home/RoninJourneyPrototype';
-import { useHomeData, useProjects, useTodayHabits } from '../hooks/useDb';
+import { useHomeData, useProjects, useTasks, useTodayHabits } from '../hooks/useDb';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { useItemComposer } from '../components/item-composer';
 import { useOpenItem } from '../hooks/useOpenItem';
@@ -26,8 +26,12 @@ import {
   getSomedayTaskItems,
   getCompletedItems,
   getRelation,
+  setRelation,
   deleteItem,
   formatDate,
+  planForToday,
+  unplanToday,
+  isPlannedForToday,
 } from '../db/database';
 import { computeTodayJourneyProgress } from '../utils/todayJourneyProgress';
 import { LACQUER_DISC_COMPLETION_DURATION } from '../components/ui/LacquerDiscControl';
@@ -35,6 +39,7 @@ import { UndoToast, type UndoToastState } from '../components/ui/UndoToast';
 import { getThemeColors } from '../theme';
 import { showActionSheet } from '../utils/actionSheet';
 import { groupByScheduledDate } from '../utils/upcomingGrouping';
+import { promptSetDependency } from '../utils/dependencyPrompt';
 import type { Item } from '../db/types';
 
 // Complete/delete/move-to-someday all read as instant (row disappears right
@@ -69,6 +74,9 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress }: HomeScr
   const { inboxCount, todayItems, refresh } = useHomeData();
   const { habits: todayHabits, refresh: refreshHabits } = useTodayHabits();
   const { projects } = useProjects();
+  // Full active-task pool, used only as the candidate list for Today's
+  // "Depends on..." picker — same pool TasksScreen offers.
+  const { tasks: allTasks } = useTasks();
   const [completingIds, setCompletingIds] = useState<Set<string>>(new Set());
   const [activeView, setActiveView] = useState<HomeView>('today');
   const [upcomingItems, setUpcomingItems] = useState<Item[]>([]);
@@ -282,6 +290,73 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress }: HomeScr
     ]);
   }, [handleItemTap, handleItemComplete, refreshHomeSummaries, scheduleUndoableAction]);
 
+  const promptSetProjectHome = useCallback((item: Item) => {
+    if (projects.length === 0) {
+      Alert.alert('No missions yet', 'Create a mission first, then assign tasks to it.');
+      return;
+    }
+    const currentProjectId = getRelation(item.id, 'project');
+    showActionSheet('Move to mission', [
+      ...(currentProjectId ? [{ label: 'Remove from mission', onPress: () => { setRelation(item.id, 'project', null); refresh(); refreshHomeSummaries(); } }] : []),
+      ...projects.map((p) => ({
+        label: p.title,
+        onPress: () => {
+          setRelation(item.id, 'project', p.id);
+          refresh();
+          refreshHomeSummaries();
+        },
+      })),
+    ]);
+  }, [projects, refresh, refreshHomeSummaries]);
+
+  // Today's own "more actions" menu — full parity with TasksScreen's
+  // handleMoreActions (Edit/Complete/Today toggle/Someday-Active/Mission/
+  // Depends on/Delete), just routed through Home's undo-toast pattern for
+  // the destructive/status actions instead of TasksScreen's immediate writes.
+  const handleTodayMoreActions = useCallback((item: Item) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const moveLabel = item.status === 'someday' ? 'Move to Active' : 'Move to Someday';
+    const plannedToday = isPlannedForToday(item);
+    showActionSheet(item.title, [
+      { label: 'Edit', onPress: () => handleItemTap(item) },
+      { label: 'Complete', onPress: () => handleItemComplete(item) },
+      {
+        label: plannedToday ? 'Remove from Today' : 'Add to Today',
+        onPress: () => {
+          scheduleUndoableAction(item.id, 'move', plannedToday ? `Removed "${item.title}" from Today` : `Added "${item.title}" to Today`, () => {
+            plannedToday ? unplanToday(item.id) : planForToday(item.id);
+            refresh();
+            refreshHomeSummaries();
+          });
+        },
+      },
+      {
+        label: moveLabel,
+        onPress: () => {
+          const nextStatus = item.status === 'someday' ? 'active' : 'someday';
+          scheduleUndoableAction(item.id, 'move', `Moved to ${nextStatus === 'someday' ? 'Someday' : 'Active'}`, () => {
+            updateItemStatus(item.id, nextStatus);
+            refresh();
+            refreshHomeSummaries();
+          });
+        },
+      },
+      { label: 'Move to Mission...', onPress: () => promptSetProjectHome(item) },
+      { label: 'Depends on...', onPress: () => promptSetDependency(item, allTasks, () => { refresh(); refreshHomeSummaries(); }) },
+      {
+        label: 'Delete',
+        onPress: () => {
+          scheduleUndoableAction(item.id, 'delete', `"${item.title}" deleted`, () => {
+            deleteItem(item.id);
+            refresh();
+            refreshHomeSummaries();
+          });
+        },
+        destructive: true,
+      },
+    ]);
+  }, [handleItemTap, handleItemComplete, promptSetProjectHome, allTasks, refresh, refreshHomeSummaries, scheduleUndoableAction]);
+
   const renderSimpleRow = (item: Item, subtitle: string) => (
     <TouchableOpacity
       key={item.id}
@@ -401,7 +476,11 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress }: HomeScr
         })}
       </ScrollView>
 
-      <ScrollViewContainer showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 16 }}>
+      {/* paddingBottom clears the floating tab bar tray (App.tsx's tabBarOuter
+          is position:absolute over content) — 16 left the last row hidden
+          behind it, only reachable by rubber-band overscrolling past the
+          natural scroll end. */}
+      <ScrollViewContainer showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
         {/* No `entering` prop at all under Reduce Motion, rather than trusting
             FadeIn's own .reduceMotion(System) config to skip to the final
             frame — that left this view stuck at FadeIn's initial opacity:0
@@ -440,6 +519,7 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress }: HomeScr
           completingIds={completingIds}
           onComplete={handleItemComplete}
           onOpen={handleItemTap}
+          onMoreActions={handleTodayMoreActions}
           isDark={isDark}
         />
 

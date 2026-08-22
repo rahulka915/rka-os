@@ -1,92 +1,108 @@
-import { memo, useEffect, useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { NestedReorderableList } from 'react-native-reorderable-list';
-import { LacquerDiscControl } from '../ui/LacquerDiscControl';
-import { DragHandleButton } from '../ui/DragHandleButton';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import DraggableFlatList, { type RenderItemParams } from 'react-native-draggable-flatlist';
+import { TaskRow } from '../TaskRow';
 import { getThemeColors } from '../../theme';
-import { applyManualOrder, getRelation, TODAY_LIST_KEY } from '../../db/database';
-import { useHapticReorder } from '../../hooks/useHapticReorder';
+import {
+  applyManualOrder,
+  getBlockingTask,
+  getItemWithMetadata,
+  getRelation,
+  setManualOrder,
+  TODAY_LIST_KEY,
+} from '../../db/database';
 import { nonVirtualizedListProps } from '../../utils/nestedReorderableListProps';
 import type { Item } from '../../db/types';
+
+function tickHaptic() {
+  Haptics.selectionAsync();
+}
 
 interface TodayCardProps {
   items: Item[];
   completingIds: Set<string>;
   onComplete: (item: Item) => void;
   onOpen: (item: Item) => void;
+  onMoreActions: (item: Item) => void;
   isDark: boolean;
 }
 
-const TodayTaskRow = memo(function TodayTaskRow({
-  item,
-  isDark,
-  isCompleting,
-  isSubtask,
-  onComplete,
-  onOpen,
-  onMoveUp,
-  onMoveDown,
-}: {
-  item: Item;
-  isDark: boolean;
-  isCompleting: boolean;
-  isSubtask: boolean;
-  onComplete: (item: Item) => void;
-  onOpen: (item: Item) => void;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
-}) {
-  const palette = getThemeColors(isDark);
-  const isOverdue = item.status === 'overdue';
-  return (
-    <View style={[styles.row, { backgroundColor: palette.surface }, isSubtask && styles.subtaskRow]}>
-      <LacquerDiscControl
-        isCompleted={isCompleting}
-        accessibilityLabel={`Complete ${item.title}`}
-        onToggle={() => onComplete(item)}
-      />
-      <TouchableOpacity
-        style={styles.rowContent}
-        activeOpacity={0.7}
-        onPress={() => onOpen(item)}
-      >
-        <Text
-          style={[styles.rowTitle, { color: isOverdue ? palette.red : palette.text }]}
-          numberOfLines={1}
-        >
-          {item.title}
-        </Text>
-      </TouchableOpacity>
-      <DragHandleButton color={palette.textMuted} onMoveUp={onMoveUp} onMoveDown={onMoveDown} />
-    </View>
-  );
-});
-
+// Today's list is just a filtered, drag-reorderable view of the same tasks
+// Tasks shows — it renders the exact same TaskRow component (RiverStoneSurface
+// card, badges, "more" menu) rather than a hand-copied lookalike, same
+// DraggableFlatList mechanics as TasksScreen.
 export function TodayCard({
   items,
   completingIds,
   onComplete,
   onOpen,
+  onMoreActions,
   isDark,
 }: TodayCardProps) {
   const palette = getThemeColors(isDark);
 
   // Manual drag order takes over from here — items land in their
   // last-persisted order (new items with no stored position fall to the
-  // end). Overdue styling stays per-row (see TodayTaskRow), independent of
-  // this order.
+  // end). Local state (not a plain derivation of `items`) so a refresh
+  // triggered elsewhere mid-drag doesn't swap the array out from under
+  // DraggableFlatList's in-progress gesture — same reasoning as TasksScreen.
   const [ordered, setOrdered] = useState<Item[]>([]);
+  const [isReordering, setIsReordering] = useState(false);
   useEffect(() => {
+    if (isReordering) return;
     setOrdered(applyManualOrder(TODAY_LIST_KEY, items));
-  }, [items]);
-  const { onDragStart, onIndexChange, onReorder, moveItem } = useHapticReorder(TODAY_LIST_KEY, ordered, setOrdered);
+  }, [items, isReordering]);
 
-  const subtaskIds = useMemo(() => {
-    const ids = new Set<string>();
+  const handleDragBegin = useCallback(() => {
+    setIsReordering(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  }, []);
+
+  const handlePlaceholderIndexChange = useCallback(() => {
+    tickHaptic();
+  }, []);
+
+  const commitReorder = useCallback((from: number, to: number) => {
+    setOrdered((current) => {
+      if (from < 0 || from >= current.length || to < 0 || to >= current.length || from === to) return current;
+      const next = [...current];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      setManualOrder(TODAY_LIST_KEY, next.map((item) => item.id));
+      return next;
+    });
+  }, []);
+
+  const handleDragEnd = useCallback(({ from, to }: { from: number; to: number }) => {
+    setIsReordering(false);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    commitReorder(from, to);
+  }, [commitReorder]);
+
+  const moveItem = useCallback((itemId: string, direction: 'up' | 'down') => {
+    const from = ordered.findIndex((item) => item.id === itemId);
+    if (from === -1) return;
+    const to = direction === 'up' ? from - 1 : from + 1;
+    Haptics.selectionAsync();
+    commitReorder(from, to);
+  }, [ordered, commitReorder]);
+
+  // Resolved once per list change, same reasoning as TasksScreen's
+  // projectTitleById/blockerIdById — avoids a DB query per row per render.
+  const projectTitleById = useMemo(() => {
+    const map = new Map<string, string | null>();
     for (const item of ordered) {
-      if (getRelation(item.id, 'subtaskOf')) ids.add(item.id);
+      const projectId = getRelation(item.id, 'project');
+      map.set(item.id, projectId ? getItemWithMetadata(projectId)?.title ?? null : null);
     }
-    return ids;
+    return map;
+  }, [ordered]);
+
+  const blockerIdById = useMemo(() => {
+    const map = new Map<string, string | null>();
+    for (const item of ordered) map.set(item.id, getBlockingTask(item.id)?.id ?? null);
+    return map;
   }, [ordered]);
 
   return (
@@ -97,25 +113,41 @@ export function TodayCard({
           <Text style={[styles.emptySub, { color: palette.textSecondary }]}>Enjoy the calm</Text>
         </View>
       ) : (
-        <NestedReorderableList
+        <DraggableFlatList
           data={ordered}
           keyExtractor={(item, index) => item?.id ?? String(index)}
-          renderItem={({ item }: { item: Item }) => (
-            <TodayTaskRow
-              item={item}
-              isDark={isDark}
-              isCompleting={completingIds.has(item.id)}
-              isSubtask={subtaskIds.has(item.id)}
-              onComplete={onComplete}
-              onOpen={onOpen}
-              onMoveUp={() => moveItem(item.id, 'up')}
-              onMoveDown={() => moveItem(item.id, 'down')}
-            />
-          )}
-          onDragStart={onDragStart}
-          onIndexChange={onIndexChange}
-          onReorder={onReorder}
-          scrollable={false}
+          renderItem={({ item, drag, isActive }: RenderItemParams<Item>) => {
+            const index = ordered.findIndex((r) => r.id === item.id);
+            const prevItem = ordered[index - 1] ?? null;
+            const blockerId = blockerIdById.get(item.id) ?? null;
+            const prevBlocksThis = !!blockerId && !!prevItem && blockerId === prevItem.id;
+            const thisBlocksPrev = !!prevItem && (blockerIdById.get(prevItem.id) ?? null) === item.id;
+            const showConnector = !isReordering && (prevBlocksThis || thisBlocksPrev);
+            return (
+              <TaskRow
+                item={item}
+                isDark={isDark}
+                palette={palette}
+                projectTitle={projectTitleById.get(item.id) ?? null}
+                showConnector={showConnector}
+                isCompleting={completingIds.has(item.id)}
+                isActive={isActive}
+                dragEnabled
+                drag={drag}
+                onComplete={onComplete}
+                onOpen={onOpen}
+                onMoreActions={onMoreActions}
+                onMoveUp={() => moveItem(item.id, 'up')}
+                onMoveDown={() => moveItem(item.id, 'down')}
+              />
+            );
+          }}
+          onDragBegin={handleDragBegin}
+          onPlaceholderIndexChange={handlePlaceholderIndexChange}
+          onDragEnd={handleDragEnd}
+          scrollEnabled={false}
+          activationDistance={0}
+          contentContainerStyle={styles.listContent}
           {...nonVirtualizedListProps(ordered.length)}
         />
       )}
@@ -128,29 +160,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
     marginTop: 16,
   },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderRadius: 14,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  rowContent: {
-    flex: 1,
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  subtaskRow: {
-    marginLeft: 24,
-  },
-  // Task/card titles use 600, not 700/800 — one consistent emphasis level
-  // instead of every title shouting louder than the text around it.
-  rowTitle: {
-    fontSize: 16,
-    fontFamily: 'Inter_600SemiBold',
-    fontWeight: '600',
-  },
+  listContent: {},
   empty: {
     paddingVertical: 24,
     alignItems: 'center',
