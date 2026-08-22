@@ -13,6 +13,17 @@ interface SkyLayerViewProps {
   containerWidth: number;
   containerHeight: number;
   reduceMotion: boolean;
+  /** See useLoopingScroll's `active` param — defaults true (always drifting). */
+  active?: boolean;
+  /**
+   * Divides loopDurationMs (i.e. multiplies scroll speed) — LAYER_SCROLL_CONFIG's
+   * base durations (3-20min loops) are tuned for slow ambient drift, not an
+   * actual "running" feel, so isWalking passes a much higher multiplier here
+   * to make the ground layers move fast enough to match the walk-cycle
+   * cadence instead of looking like the character is jogging in place
+   * against a near-static world. Defaults 1 (unmodified ambient speed).
+   */
+  speedMultiplier?: number;
 }
 
 function useSingleLoopingImage(
@@ -21,18 +32,29 @@ function useSingleLoopingImage(
   containerWidth: number,
   containerHeight: number,
   reduceMotion: boolean,
+  active: boolean,
+  speedMultiplier: number,
 ) {
   const config = LAYER_SCROLL_CONFIG[layer];
   const layerWidth = containerWidth * config.widthMultiplier;
   const scrollRangePx = layerWidth - containerWidth;
-  const { primaryStyle, resetStyle } = useLoopingScroll(config.loopDurationMs, RESET_CROSSFADE_MS, scrollRangePx, reduceMotion);
+  const loopDurationMs = config.loopDurationMs / speedMultiplier;
+  // RESET_CROSSFADE_MS (1500ms) is calibrated against the ambient loop
+  // durations (3-20min) — at speedMultiplier's much shorter loops (e.g. a
+  // 3s foreground loop while walking), a fixed 1500ms fade would eat half
+  // the loop and read as a slow dissolve instead of a seamless scroll. Scale
+  // it down by the same multiplier so the fade stays a small, constant
+  // fraction of the loop at any speed; floor it so it's never so short it
+  // snaps instead of dissolving.
+  const resetCrossfadeMs = Math.max(80, RESET_CROSSFADE_MS / speedMultiplier);
+  const { primaryStyle, resetStyle } = useLoopingScroll(loopDurationMs, resetCrossfadeMs, scrollRangePx, reduceMotion, active);
   const imageStyle = { width: layerWidth, height: containerHeight };
   return { primaryStyle, resetStyle, imageStyle, source };
 }
 
-export function SkyLayerView({ layer, sourceA, sourceB, blend, containerWidth, containerHeight, reduceMotion }: SkyLayerViewProps) {
-  const a = useSingleLoopingImage(layer, sourceA, containerWidth, containerHeight, reduceMotion);
-  const b = useSingleLoopingImage(layer, sourceB, containerWidth, containerHeight, reduceMotion);
+export function SkyLayerView({ layer, sourceA, sourceB, blend, containerWidth, containerHeight, reduceMotion, active = true, speedMultiplier = 1 }: SkyLayerViewProps) {
+  const a = useSingleLoopingImage(layer, sourceA, containerWidth, containerHeight, reduceMotion, active, speedMultiplier);
+  const b = useSingleLoopingImage(layer, sourceB, containerWidth, containerHeight, reduceMotion, active, speedMultiplier);
 
   const bucketBStyle = useAnimatedStyle(() => ({ opacity: blend }), [blend]);
 

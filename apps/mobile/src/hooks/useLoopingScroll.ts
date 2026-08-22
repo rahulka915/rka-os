@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Easing, ReduceMotion, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
+import { Easing, ReduceMotion, cancelAnimation, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 
 // Mirrors utils/loopingScroll.ts's computeLoopFrame formula, reimplemented
 // inline here because Reanimated worklets (the useAnimatedStyle callback
@@ -13,12 +13,19 @@ export function useLoopingScroll(
   resetCrossfadeMs: number,
   scrollRangePx: number,
   reduceMotion: boolean,
+  // Product decision (2026-08-16): unlike reduceMotion (which freezes at the
+  // start position), `active=false` freezes the layer wherever its scroll
+  // currently is — used to pause midground/foreground while the ronin sprite
+  // is idle and only resume while it's walking, so the scene doesn't drift
+  // when nothing on screen is moving. Defaults true for layers (like sky)
+  // that should always keep drifting regardless of walking state.
+  active: boolean = true,
 ) {
   const t = useSharedValue(0);
 
   useEffect(() => {
-    if (reduceMotion) {
-      t.value = 0;
+    if (reduceMotion || !active) {
+      cancelAnimation(t);
       return;
     }
     t.value = 0;
@@ -29,7 +36,7 @@ export function useLoopingScroll(
       undefined,
       ReduceMotion.Never,
     );
-  }, [loopDurationMs, reduceMotion, t]);
+  }, [loopDurationMs, reduceMotion, active, t]);
 
   const resetFraction = resetCrossfadeMs / loopDurationMs;
 

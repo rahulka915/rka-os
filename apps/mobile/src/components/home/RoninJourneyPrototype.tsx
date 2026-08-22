@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AccessibilityInfo, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ArrowUp, ChevronsDown } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
@@ -17,6 +17,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { RiverStoneSurface } from '../riverstone';
 import { RoninWalkCycleSprite } from './RoninWalkCycleSprite';
 import type { RoninSpriteState } from './roninSpriteStates';
+import { SkyTestBackground } from '../sky/SkyTestBackground';
 
 // Warm off-white instead of pure #fff — softer against the sunset photo and
 // consistent with the app's dark-mode text tone (theme/colors.ts `text`).
@@ -26,7 +27,7 @@ const JOURNEY_TEXT = '#f5efe4';
 // transparency, so lossless PNG was pure waste (1.7MB vs 278KB at q92
 // with no visible banding in the gradient sky).
 const sunsetTrail = require('../../../assets/ronin/journey/sunset-trail-background-v1.jpg');
-const WALKER_SIZE = 164;
+const WALKER_SIZE = 120;
 
 interface RoninJourneyPrototypeProps {
   completedCount: number;
@@ -42,34 +43,16 @@ interface RoninJourneyPrototypeProps {
 
 export function RoninJourneyPrototype({ completedCount, totalCount, isDark, potentialPercent }: RoninJourneyPrototypeProps) {
   const ratio = totalCount > 0 ? Math.min(completedCount / totalCount, 1) : 0;
-  const progress = useSharedValue(ratio);
   const walkCycle = useSharedValue(0);
   const reaction = useSharedValue(0);
-  // Fraction (0-1) of the *remaining* distance to the path's end covered by
-  // an active press-and-hold preview — never written to progress/ratio
-  // itself, purely a temporary visual offset (see the walking-Ronin spec's
-  // "hold-to-preview-walk" addendum).
-  const previewProgress = useSharedValue(0);
   const [width, setWidth] = useState(0);
   const [reduceMotion, setReduceMotion] = useState(false);
   const [isHolding, setIsHolding] = useState(false);
-  // True only while progress.value is actually animating toward a new ratio
-  // (see the progress useEffect below) — the walk-cycle should play while
-  // the character is really moving, not sit in a standing pose while its
-  // position visibly slides.
-  const [isProgressAnimating, setIsProgressAnimating] = useState(false);
   // Which one-shot sprite animation (if any) is currently playing — takes
   // priority over walking/idle until RoninWalkCycleSprite's onComplete
   // fires and reverts it to null. Only one plays at a time: triggerAction
   // no-ops while this is already non-null.
   const [activeAction, setActiveAction] = useState<'jump' | 'bow' | null>(null);
-  const didMount = useRef(false);
-  const progressAnimationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => () => {
-    if (progressAnimationTimeoutRef.current) clearTimeout(progressAnimationTimeoutRef.current);
-  }, []);
-
   useEffect(() => {
     AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
     const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
@@ -90,23 +73,6 @@ export function RoninJourneyPrototype({ completedCount, totalCount, isDark, pote
       ReduceMotion.Never,
     );
   }, [reduceMotion, walkCycle]);
-
-  useEffect(() => {
-    if (!didMount.current) {
-      progress.value = ratio;
-      didMount.current = true;
-      return;
-    }
-    const duration = reduceMotion ? 1400 : 900;
-    progress.value = withTiming(ratio, {
-      duration,
-      easing: Easing.inOut(Easing.cubic),
-      reduceMotion: ReduceMotion.Never,
-    });
-    setIsProgressAnimating(true);
-    if (progressAnimationTimeoutRef.current) clearTimeout(progressAnimationTimeoutRef.current);
-    progressAnimationTimeoutRef.current = setTimeout(() => setIsProgressAnimating(false), duration);
-  }, [progress, ratio, reduceMotion]);
 
   const playHopReaction = () => {
     reaction.value = 0;
@@ -146,31 +112,22 @@ export function RoninJourneyPrototype({ completedCount, totalCount, isDark, pote
 
   const handleActionComplete = () => setActiveAction(null);
 
-  const handlePressIn = () => {
-    setIsHolding(true);
-    previewProgress.value = withTiming(1, {
-      duration: 1800,
-      easing: Easing.linear,
-      reduceMotion: ReduceMotion.Never,
-    });
-  };
+  const handlePressIn = () => setIsHolding(true);
+  const handlePressOut = () => setIsHolding(false);
 
-  const handlePressOut = () => {
-    setIsHolding(false);
-    previewProgress.value = withTiming(0, {
-      duration: 400,
-      easing: Easing.out(Easing.cubic),
-      reduceMotion: ReduceMotion.Never,
-    });
-  };
-
-  const isWalking = isHolding || isProgressAnimating;
+  const isWalking = isHolding;
   const spriteState: RoninSpriteState = activeAction ?? (isWalking ? 'walking' : 'idle');
 
+  // Character position is deliberately NOT tied to completedCount/totalCount
+  // progress or the hold-preview anymore (product decision, 2026-08-16) — it
+  // stays anchored near a fixed spot (a side-scroller "runs in place" pose)
+  // while the parallax SkyTestBackground layers behind it do the work of
+  // selling forward motion via their own scroll, gated on this same
+  // `isWalking`. `width` is still needed to keep the anchor a fraction of
+  // the card's actual width rather than a hardcoded pixel offset.
+  const WALKER_ANCHOR_FRACTION = 0.32;
   const walkerStyle = useAnimatedStyle(() => {
-    const travel = Math.max(0, width - WALKER_SIZE - 4);
-    const displayProgress = progress.value + previewProgress.value * (1 - progress.value);
-    const pathRise = interpolate(displayProgress, [0, 0.5, 1], [0, -4, -11]);
+    const anchorX = Math.max(0, width - WALKER_SIZE - 4) * WALKER_ANCHOR_FRACTION;
     // The idle/walking breathing bob+rotate runs continuously (it's not
     // gated by isWalking, it's always cycling) — freeze it at 0 while a
     // one-shot Jump/Bow animation is playing, or it visibly bleeds into
@@ -178,8 +135,8 @@ export function RoninJourneyPrototype({ completedCount, totalCount, isDark, pote
     const bob = activeAction ? 0 : interpolate(walkCycle.value, [0, 1], [2, reduceMotion ? 0 : -4]);
     return {
       transform: [
-        { translateX: displayProgress * travel },
-        { translateY: pathRise + bob - reaction.value * 18 },
+        { translateX: anchorX },
+        { translateY: bob - reaction.value * 18 },
         { rotate: `${activeAction || reduceMotion ? 0 : interpolate(walkCycle.value, [0, 1], [-1.2, 1.2])}deg` },
         { scale: 1 + reaction.value * 0.055 },
       ],
@@ -204,7 +161,16 @@ export function RoninJourneyPrototype({ completedCount, totalCount, isDark, pote
       // layer actually fill the card so the absoluteFill Pressable inside
       // it has a real box to fill instead of a 0x0 one.
       contentStyle={styles.content}
-      background={<Image source={sunsetTrail} resizeMode="cover" style={styles.background} />}
+      // TEMP: SkyTestBackground is the single-combo (dusk-clear) art-pipeline
+      // smoke test from docs/superpowers/plans/2026-08-16-scrolling-parallax-sky.md's
+      // Task 3/5 — swap back to <Image source={sunsetTrail} style={styles.background} .../>
+      // or replace with the real AnimatedSkyBackground once the full registry is built.
+      // Deliberately NOT styles.background here: that style's 468-tall/bottom-anchored
+      // box was tuned for the old tall portrait photo's crop, and applying it to these
+      // wide parallax strips (meant to fill the card exactly, not overshoot+crop) was
+      // what caused the "too zoomed in" report — StyleSheet.absoluteFill fills the
+      // actual visible 270px card instead.
+      background={<SkyTestBackground style={StyleSheet.absoluteFill} isWalking={isWalking} />}
     >
       <Pressable
         style={StyleSheet.absoluteFill}
