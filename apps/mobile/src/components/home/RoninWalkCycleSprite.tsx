@@ -15,30 +15,36 @@ const WALK_CYCLE_FRAMES: number[] = [
   require('../../../assets/ronin/journey/walk-cycle/ronin-walk-08.png'),
 ];
 
-// Two camera-angle variants of the same 6-frame breathing/sway loop
-// (new-reference art, 2026-08-16) — RoninWalkCycleSprite randomly picks one
-// each time it enters the 'idle' state, for visual variety. Both arrays
-// must stay the same length (6) since SPRITE_STATES.idle.frames (below) is
-// only used for that shared length/interval/loopMode, not for rendering.
-const IDLE_FRONT34_FRAMES: number[] = [
-  require('../../../assets/ronin/journey/idle-front34/ronin-idle-front34-01.png'),
-  require('../../../assets/ronin/journey/idle-front34/ronin-idle-front34-02.png'),
-  require('../../../assets/ronin/journey/idle-front34/ronin-idle-front34-03.png'),
-  require('../../../assets/ronin/journey/idle-front34/ronin-idle-front34-04.png'),
-  require('../../../assets/ronin/journey/idle-front34/ronin-idle-front34-05.png'),
-  require('../../../assets/ronin/journey/idle-front34/ronin-idle-front34-06.png'),
+// Two straight-on-front idle variants (cuter-reference art, 2026-08-22) —
+// RoninWalkCycleSprite randomly picks one each time it enters the 'idle'
+// state, for visual variety. Replaces the prior front-¾/front pair (dropped
+// entirely, not kept as a third variant — product decision 2026-08-22).
+// Both arrays must stay the same length (8) since SPRITE_STATES.idle.frames
+// (below) is only used for that shared length/interval/loopMode, not for
+// rendering.
+const IDLE_CALM_FRAMES: number[] = [
+  require('../../../assets/ronin/journey/idle-calm/ronin-idle-calm-01.png'),
+  require('../../../assets/ronin/journey/idle-calm/ronin-idle-calm-02.png'),
+  require('../../../assets/ronin/journey/idle-calm/ronin-idle-calm-03.png'),
+  require('../../../assets/ronin/journey/idle-calm/ronin-idle-calm-04.png'),
+  require('../../../assets/ronin/journey/idle-calm/ronin-idle-calm-05.png'),
+  require('../../../assets/ronin/journey/idle-calm/ronin-idle-calm-06.png'),
+  require('../../../assets/ronin/journey/idle-calm/ronin-idle-calm-07.png'),
+  require('../../../assets/ronin/journey/idle-calm/ronin-idle-calm-08.png'),
 ];
 
-const IDLE_FRONT_FRAMES: number[] = [
-  require('../../../assets/ronin/journey/idle-front/ronin-idle-front-01.png'),
-  require('../../../assets/ronin/journey/idle-front/ronin-idle-front-02.png'),
-  require('../../../assets/ronin/journey/idle-front/ronin-idle-front-03.png'),
-  require('../../../assets/ronin/journey/idle-front/ronin-idle-front-04.png'),
-  require('../../../assets/ronin/journey/idle-front/ronin-idle-front-05.png'),
-  require('../../../assets/ronin/journey/idle-front/ronin-idle-front-06.png'),
+const IDLE_ALERT_FRAMES: number[] = [
+  require('../../../assets/ronin/journey/idle-alert/ronin-idle-alert-01.png'),
+  require('../../../assets/ronin/journey/idle-alert/ronin-idle-alert-02.png'),
+  require('../../../assets/ronin/journey/idle-alert/ronin-idle-alert-03.png'),
+  require('../../../assets/ronin/journey/idle-alert/ronin-idle-alert-04.png'),
+  require('../../../assets/ronin/journey/idle-alert/ronin-idle-alert-05.png'),
+  require('../../../assets/ronin/journey/idle-alert/ronin-idle-alert-06.png'),
+  require('../../../assets/ronin/journey/idle-alert/ronin-idle-alert-07.png'),
+  require('../../../assets/ronin/journey/idle-alert/ronin-idle-alert-08.png'),
 ];
 
-const IDLE_VARIANTS: number[][] = [IDLE_FRONT34_FRAMES, IDLE_FRONT_FRAMES];
+const IDLE_VARIANTS: number[][] = [IDLE_CALM_FRAMES, IDLE_ALERT_FRAMES];
 
 // Bow-down-to-pet-the-cat animation, triggered by the Bow button (not by
 // tapping the character — see RoninJourneyPrototype.tsx's triggerAction).
@@ -70,7 +76,7 @@ const SPRITE_STATES: Record<RoninSpriteState, SpriteStateConfig> = {
   // (both IDLE_VARIANTS arrays are the same length) — actual rendering for
   // 'idle' uses the randomly-picked variant in idleVariantFramesRef, set in
   // the state-change effect below, not this array directly.
-  idle: { frames: IDLE_FRONT34_FRAMES, intervalMs: 420, loopMode: 'loop' },
+  idle: { frames: IDLE_CALM_FRAMES, intervalMs: 420, loopMode: 'loop' },
   bow: { frames: BOW_FRAMES, intervalMs: 90, loopMode: 'once' },
   jump: { frames: JUMP_FRAMES, intervalMs: 90, loopMode: 'once' },
 };
