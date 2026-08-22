@@ -2088,6 +2088,7 @@ export function planForToday(itemId: string, bucket?: 'anytime' | 'morning' | 'a
   meta.plannedDate = formatDate(new Date());
   if (bucket) meta.preferredTimeBucket = bucket;
   updateItemMetadata(itemId, meta);
+  if (item.status === 'inbox') updateItemStatus(itemId, 'active');
   appendToManualOrderIfAbsent(TODAY_LIST_KEY, itemId);
 }
 

@@ -90,7 +90,28 @@ export function executeAssistantTool(
       case 'plan_for_today': {
         if (!getItemWithMetadata(args.itemId)) return { ok: false, error: 'Item not found' };
         planForToday(args.itemId, args.bucket);
-        return { ok: true, result: 'Added to Today' };
+        // Re-read after the write and report the item's real resulting state
+        // rather than assuming the call did what it intended — this is what
+        // would have caught the 2026-08-16 bug where plannedDate was stamped
+        // but status stayed 'inbox', so the item silently stayed in Inbox.
+        const after = getItemWithMetadata(args.itemId);
+        return { ok: true, result: `Added to Today (status: ${after?.status ?? 'unknown'})` };
+      }
+      case 'get_item_status': {
+        const item = getItemWithMetadata(args.id);
+        if (!item) return { ok: false, error: 'Item not found' };
+        const meta = item.metadata ? JSON.parse(item.metadata) : {};
+        return {
+          ok: true,
+          result: JSON.stringify({
+            id: item.id,
+            title: item.title,
+            type: item.type,
+            status: item.status,
+            scheduledDate: item.scheduledDate ?? null,
+            plannedDate: meta.plannedDate ?? null,
+          }),
+        };
       }
       case 'create_mission': {
         const id = createItem('project', args.title, 'active', undefined, args.notes);

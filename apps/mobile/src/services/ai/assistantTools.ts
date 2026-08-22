@@ -20,7 +20,12 @@ export type AssistantToolName =
   | 'create_skill'
   | 'create_habit'
   | 'link_items'
-  | 'set_focus';
+  | 'set_focus'
+  | 'get_item_status';
+
+// Tools in this set are read-only — they never show a confirmation card and
+// execute immediately, since there's nothing for the user to approve.
+export const READ_ONLY_TOOL_NAMES: ReadonlySet<AssistantToolName> = new Set(['get_item_status']);
 
 // Firebase AI Logic's function-declaration schema shape (JSON Schema subset).
 interface AssistantFunctionParamSchema {
@@ -296,6 +301,18 @@ const ASSISTANT_FUNCTION_DECLARATIONS: AssistantFunctionDeclaration[] = [
       required: ['label', 'weights'],
     },
   },
+  {
+    name: 'get_item_status',
+    description:
+      "Read an item's CURRENT real status/fields directly from the database. Use this whenever the user questions, doubts, or asks you to verify/check/confirm something you previously said about an item's state (e.g. \"are you sure?\", \"can you check\", \"is it really on Today?\") — never just re-assert from memory or from an earlier tool's response, always re-read it fresh.",
+    parameters: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: "The item's id, from the data you were given." },
+      },
+      required: ['id'],
+    },
+  },
 ];
 
 export const ASSISTANT_TOOL_DECLARATIONS = [{ functionDeclarations: ASSISTANT_FUNCTION_DECLARATIONS as any }];
@@ -370,6 +387,8 @@ export function previewAssistantTool(name: AssistantToolName, args: Record<strin
       const count = Array.isArray(args.weights) ? args.weights.length : 0;
       return `Set focus to ${quote(args.label)} (${count} domain${count === 1 ? '' : 's'})`;
     }
+    case 'get_item_status':
+      return 'Checking current status…';
     default:
       return `Run ${name}`;
   }

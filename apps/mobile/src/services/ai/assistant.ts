@@ -8,7 +8,7 @@
 import { getAI, getGenerativeModel, VertexAIBackend } from 'firebase/ai';
 import { app, hasFirebaseConfig } from '../../lib/firebase';
 import { buildAssistantContext } from './assistantContext';
-import { ASSISTANT_TOOL_DECLARATIONS, previewAssistantTool, type AssistantToolName } from './assistantTools';
+import { ASSISTANT_TOOL_DECLARATIONS, READ_ONLY_TOOL_NAMES, previewAssistantTool, type AssistantToolName } from './assistantTools';
 import { executeAssistantTool } from './assistantToolExecutor';
 
 export const hasAssistant = hasFirebaseConfig && !!app;
@@ -95,6 +95,27 @@ or similar, don't stall or bounce it back — make a concrete recommendation usi
 (e.g. pick the most fitting Domain and say why in one line), then proceed. It's your job to help them
 decide, not just to ask.
 
+TOOL RESULTS REFLECT REAL STATE: a tool response describes the item's actual resulting state after
+the write (e.g. plan_for_today's response includes the item's real status), not just "it ran without
+throwing." Read that state back to the user instead of assuming success — e.g. don't tell the user an
+item is "on Today" unless the response actually shows that. If the user says something you did doesn't
+match what they see on screen, trust them over your own assumption of success: say so plainly, don't
+insist your tool call must have worked. A known instance of this: on 2026-08-16, plan_for_today calls
+reported success but left items with status "inbox", so they stayed visibly in the user's Inbox even
+though they'd also been added to Today — that specific bug is now fixed (plan_for_today also updates
+status), but keep applying the same "verify, don't assume" habit to other tools going forward.
+
+VERIFYING ON REQUEST: whenever the user questions, doubts, or asks you to double-check something you
+said about an item's state ("are you sure?", "can you check", "please check and confirm"), call
+get_item_status on that item and answer from its actual response — never re-assert from memory, from
+an earlier tool result, or from general reasoning about what "should" be true. get_item_status runs
+immediately with no confirmation needed, since it only reads.
+
+IF THE USER SAYS THEY JUST APPLIED A CODE FIX and asks you to retry something that was broken, suggest
+they reload/restart the app first (a Metro/dev-client reload is enough for JS-only changes; a full
+rebuild is only needed for native changes) before retrying the tool call — a stale JS bundle can still
+show the old broken behavior even after the underlying code is fixed.
+
 Be concise and conversational.
 
 Today's date: ${new Date().toISOString().slice(0, 10)}
@@ -127,24 +148,46 @@ function extractFunctionCalls(response: any): Array<{ name: AssistantToolName; a
   return calls.map((c: any) => ({ name: c.name as AssistantToolName, args: c.args ?? {} }));
 }
 
+// A response that is ENTIRELY read-only tool calls (e.g. get_item_status) is
+// executed immediately with no confirmation card — there's nothing for the
+// user to approve — and the loop continues until the model produces text or
+// a response containing at least one mutating call. A mixed batch (read-only
+// + mutating in the same turn) falls through to the normal pending-card path
+// unchanged, since Gemini expects a functionResponse for every call in a turn
+// before it will continue, and a real approval is still needed for the rest.
+async function resolveReadOnlyCallsAndContinue(chat: any, response: any): Promise<AskAssistantResult> {
+  let currentResponse = response;
+  for (;;) {
+    const calls = extractFunctionCalls(currentResponse);
+    if (calls.length === 0) {
+      return { kind: 'text', text: currentResponse.text(), rawHistory: await chat.getHistory() };
+    }
+    if (!calls.every((c) => READ_ONLY_TOOL_NAMES.has(c.name))) {
+      return {
+        kind: 'pending',
+        calls: calls.map((c) => ({ ...c, preview: previewAssistantTool(c.name, c.args) })),
+        rawHistory: await chat.getHistory(),
+      };
+    }
+    const functionResponseParts = calls.map((call) => {
+      const outcome = executeAssistantTool(call.name, call.args);
+      return {
+        functionResponse: {
+          name: call.name,
+          response: outcome.ok ? { result: outcome.result } : { error: outcome.error },
+        },
+      };
+    });
+    const result = await chat.sendMessage(functionResponseParts as any);
+    currentResponse = result.response;
+  }
+}
+
 export async function askAssistant(question: string, priorRawHistory: any[]): Promise<AskAssistantResult> {
   const model = buildModel();
   const chat = model.startChat({ history: priorRawHistory });
   const result = await chat.sendMessage(question);
-  const response = result.response;
-
-  const calls = extractFunctionCalls(response);
-  const rawHistory = await chat.getHistory();
-
-  if (calls.length === 0) {
-    return { kind: 'text', text: response.text(), rawHistory };
-  }
-
-  return {
-    kind: 'pending',
-    calls: calls.map((c) => ({ ...c, preview: previewAssistantTool(c.name, c.args) })),
-    rawHistory,
-  };
+  return resolveReadOnlyCallsAndContinue(chat, result.response);
 }
 
 export async function resolveAssistantActions(
@@ -168,17 +211,5 @@ export async function resolveAssistantActions(
   });
 
   const result = await chat.sendMessage(functionResponseParts as any);
-  const response = result.response;
-  const calls = extractFunctionCalls(response);
-  const newRawHistory = await chat.getHistory();
-
-  if (calls.length === 0) {
-    return { kind: 'text', text: response.text(), rawHistory: newRawHistory };
-  }
-
-  return {
-    kind: 'pending',
-    calls: calls.map((c) => ({ ...c, preview: previewAssistantTool(c.name, c.args) })),
-    rawHistory: newRawHistory,
-  };
+  return resolveReadOnlyCallsAndContinue(chat, result.response);
 }
