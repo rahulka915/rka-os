@@ -1,6 +1,6 @@
 import 'react-native-get-random-values';
 import { useCallback, useState, useEffect, useMemo, useRef } from 'react';
-import { useColorScheme, TouchableOpacity, View, StyleSheet, AppState, Text as RNText, LogBox, Platform } from 'react-native';
+import { useColorScheme, TouchableOpacity, View, StyleSheet, AppState, Text as RNText, LogBox, Platform, Linking } from 'react-native';
 
 // Home and Tasks nest reorderable lists inside react-native-reorderable-list's
 // ScrollViewContainer, which is an Animated.ScrollView rather than a
@@ -226,6 +226,23 @@ function NavigationLayer({
   const handleFabPress = () => openQuickCapture();
 
   const openAssistantOverlay = () => setAssistantOpen(true);
+
+  // rkaos://assistant lets an iPhone Action Button (Settings > Action Button >
+  // Shortcut > Open URL) jump straight into Sensei from anywhere, including
+  // the lock screen — handles both a cold launch (getInitialURL) and the app
+  // already running in the background (addEventListener). Uses React Native's
+  // built-in Linking (already compiled into every dev client) rather than
+  // expo-linking, which needs its own native module and crashed the app with
+  // "Cannot find native module 'ExpoLinking'" on a build that predates it.
+  useEffect(() => {
+    const openIfAssistantLink = (url: string | null) => {
+      if (!url) return;
+      if (url.startsWith('rkaos://assistant')) openAssistantOverlay();
+    };
+    Linking.getInitialURL().then(openIfAssistantLink);
+    const subscription = Linking.addEventListener('url', ({ url }) => openIfAssistantLink(url));
+    return () => subscription.remove();
+  }, []);
 
   // Long-press runs the current screen's distinct create action if it
   // registered one (see useRegisterFabHoldAction); screens with no such
