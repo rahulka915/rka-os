@@ -24,7 +24,7 @@ import { ArchiveList } from './ArchiveScreen';
 import { LensSurface } from '../components/LensSurface';
 import { RiverStoneSurface } from '../components/riverstone';
 import { NativeBottomSheet } from '../components/ui/NativeBottomSheet';
-import { CheckCircle2, MoreHorizontal, Filter, ChevronDownUp } from '../icons';
+import { CheckCircle2, Filter, ChevronDownUp } from '../icons';
 import {
   LacquerDiscControl,
   LACQUER_DISC_COMPLETION_DURATION,
@@ -32,13 +32,9 @@ import {
 import { groupCompletedByDay } from '../utils/completedGrouping';
 import type { Item } from '../db/types';
 import { useItemComposer } from '../components/item-composer';
-import { BlockedBadge } from '../components/BlockedBadge';
-import { DeadlineBadge } from '../components/DeadlineBadge';
-import { RepeatBadge } from '../components/RepeatBadge';
-import { DependencyConnector } from '../components/DependencyConnector';
+import { TaskRow } from '../components/TaskRow';
 import { promptSetDependency } from '../utils/dependencyPrompt';
 import { showActionSheet } from '../utils/actionSheet';
-import { readChecklist, checklistProgress } from '../utils/checklist';
 import { nonVirtualizedListProps } from '../utils/nestedReorderableListProps';
 import {
   buildGroupedRows,
@@ -55,16 +51,6 @@ import {
   type TasksSortBy,
   type TasksFilter,
 } from '../utils/taskViews';
-
-// Item-local, so it never makes a row's height depend on list position.
-function checklistLabel(item: Item): string | null {
-  const entries = readChecklist(item.metadata ? JSON.parse(item.metadata) : {});
-  if (!entries.length) return null;
-  const { done, total } = checklistProgress(entries);
-  return `${done}/${total}`;
-}
-
-const CHECKBOX_CENTER_X = 32; // row paddingHorizontal(10) + half the 44pt disc touch target
 
 type TasksTab = 'tasks' | 'logbook' | 'archive';
 
@@ -100,114 +86,6 @@ function filterSummaryLabel(filter: TasksFilter, projects: Item[]): string {
     case 'dueDate': return filter.mode === 'overdue' ? 'Overdue' : 'Has Due Date';
   }
 }
-
-const TaskRow = memo(function TaskRow({
-  item,
-  isDark,
-  palette,
-  projectTitle,
-  showConnector,
-  isCompleting,
-  isActive,
-  dragEnabled,
-  drag,
-  onComplete,
-  onOpen,
-  onMoreActions,
-  onMoveUp,
-  onMoveDown,
-}: {
-  item: Item;
-  isDark: boolean;
-  palette: ReturnType<typeof getThemeColors>;
-  projectTitle: string | null;
-  showConnector: boolean;
-  isCompleting: boolean;
-  isActive: boolean;
-  dragEnabled: boolean;
-  drag: () => void;
-  onComplete: (item: Item) => void;
-  onOpen: (item: Item) => void;
-  onMoreActions: (item: Item) => void;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
-}) {
-  const blocker = getBlockingTask(item.id);
-  return (
-    <ScaleDecorator activeScale={1.015}>
-      <ShadowDecorator elevation={8} opacity={0.3} radius={10} color="#000000">
-        <View style={styles.cell}>
-          {showConnector && <DependencyConnector isDark={isDark} leftOffset={CHECKBOX_CENTER_X} />}
-          {/* Whole row lifts on a hold, matching Reminders/Things — the
-              checkbox and "more" button are nested touch targets that claim
-              their own taps first, so they never trigger the row's drag.
-              Long-press is a no-op (not just visually disabled) whenever a
-              non-manual sort is active, since sort order overrides drag. */}
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={() => onOpen(item)}
-            onLongPress={dragEnabled ? drag : undefined}
-            delayLongPress={350}
-            disabled={isActive}
-          >
-            <RiverStoneSurface
-              variant="list"
-              mode={isDark ? 'dark' : 'light'}
-              shape="regular"
-              style={styles.rowStone}
-              contentStyle={styles.row}
-            >
-              <LacquerDiscControl
-                isCompleted={isCompleting}
-                accessibilityLabel={blocker ? `${item.title}, blocked by ${blocker.title}` : `Complete ${item.title}`}
-                onToggle={() => onComplete(item)}
-              />
-              <View style={styles.rowContent}>
-                <Text style={[styles.rowTitle, { color: blocker ? palette.textMuted : palette.ivory }]} numberOfLines={1}>{item.title}</Text>
-                {/* Always rendered, even when empty — a row whose meta line
-                    only appears for SOME items is exactly the variable-height
-                    mix that desyncs the drag library's cached row offsets
-                    (the cause of the overlap/gap glitches). Reserving this
-                    slot unconditionally keeps every row's total height
-                    identical regardless of content. */}
-                <View style={styles.metaRow}>
-                  {projectTitle && (
-                    <Text style={[styles.rowSub, { color: palette.greige }]} numberOfLines={1}>{projectTitle}</Text>
-                  )}
-                  {blocker && <BlockedBadge isDark={isDark} title={blocker.title} />}
-                  {item.dueDate && <DeadlineBadge isDark={isDark} dueDate={item.dueDate} />}
-                  {item.rrule && <RepeatBadge isDark={isDark} rrule={item.rrule} />}
-                  {checklistLabel(item) && (
-                    <Text style={[styles.rowSub, { color: palette.greige }]}>{checklistLabel(item)}</Text>
-                  )}
-                </View>
-              </View>
-              <TouchableOpacity
-                onPress={() => onMoreActions(item)}
-                hitSlop={10}
-                style={styles.moreButton}
-                accessible
-                accessibilityLabel="More actions"
-                accessibilityHint={dragEnabled ? 'Opens actions for this task. Use the increment or decrement actions to reorder it.' : 'Opens actions for this task.'}
-                accessibilityRole="button"
-                accessibilityActions={dragEnabled ? [
-                  { name: 'increment', label: 'Move up' },
-                  { name: 'decrement', label: 'Move down' },
-                ] : undefined}
-                onAccessibilityAction={dragEnabled ? (event) => {
-                  if (event.nativeEvent.actionName === 'increment') onMoveUp();
-                  else if (event.nativeEvent.actionName === 'decrement') onMoveDown();
-                } : undefined}
-              >
-                <MoreHorizontal size={20} color={palette.textMuted} strokeWidth={2} />
-              </TouchableOpacity>
-            </RiverStoneSurface>
-          </TouchableOpacity>
-        </View>
-      </ShadowDecorator>
-    </ScaleDecorator>
-  );
-});
 
 const SectionHeaderRow = memo(function SectionHeaderRow({ label, palette }: { label: string; palette: ReturnType<typeof getThemeColors> }) {
   return (
