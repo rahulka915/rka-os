@@ -65,28 +65,46 @@ Animation", §36 "Flipbook Transparency"):
 
 ### 1. Walk cycle (8 frames, side profile)
 
+**Revision note (2026-08-22):** the first attempt at this prompt produced a sheet where frames 2-8 were
+nearly identical mid-stride poses — only frame 1→2 showed a real leg-position change, so the sliced loop
+held almost still for 7 of its 8 frames instead of cycling through a full gait. The fix is spelling out
+each frame's leg/arm position explicitly rather than describing the cycle only in prose, mirroring how
+the original (smooth) pre-redesign walk-cycle sheet visibly alternated leg extension every single frame.
+
 > Use case: style-transfer. Asset type: 8-frame side-profile walk-cycle sprite sheet for a mobile-app
 > character widget. Input image: the supplied canonical chibi ronin reference photo. Primary request:
 > generate one full-body strict side profile view, facing right, showing eight sequential frames of one
-> complete walking stride cycle (contact → down/recoil → passing → up/extension for one leg, then the
-> mirrored sequence for the other leg) so the sheet loops seamlessly from frame 8 back into frame 1.
-> Maintain exact character identity, proportions, and equipment from the reference image across every
-> frame: warm medium-to-deep brown South Asian skin, enormous dark brown/black eyes, thick messy
-> black/dark-brown textured hair, red forehead bandana with two asymmetric tails, dark navy wrap outfit,
-> red waist sash, thin silver necklace with small ornate pendant, sword-side arm with red forearm wrap
-> and black fingerless glove, opposite jewellery-side arm with cream/charcoal wrap, one rudraksha
+> complete walking stride cycle, with each frame's leg and arm positions clearly and visibly DIFFERENT
+> from its neighbors — this is the most important requirement, more important than any single frame's
+> polish. Follow this exact 8-frame pose breakdown, evenly spaced through one full stride (two steps):
+> Frame 1 — front leg (nearer viewer) fully forward and straight, heel striking the ground, back leg
+> fully extended backward and straight, opposite arm swung forward, near arm swung back. Frame 2 — front
+> leg starting to bend and take weight, back leg beginning to lift off the ground and bend at the knee,
+> torso dropped slightly lower (weight-bearing dip). Frame 3 — legs crossing at their closest together
+> (passing position), body at its highest point, both knees bent, this is the vertical midpoint between
+> the two extremes. Frame 4 — the leg that was back is now swinging forward and bent high underneath the
+> body, the other leg straightening behind, arms swapped from frame 1's positions. Frame 5 — mirror of
+> frame 1 with legs swapped: the leg that started back is now fully forward and straight striking the
+> ground, the other leg fully extended backward, arms swapped to match. Frame 6 — mirror of frame 2 with
+> legs swapped. Frame 7 — mirror of frame 3 (passing position again, legs crossing, body at its highest
+> point). Frame 8 — mirror of frame 4 with legs swapped, flowing back into frame 1's exact pose for a
+> seamless loop. Maintain exact character identity, proportions, and equipment from the reference image
+> across every frame: warm medium-to-deep brown South Asian skin, enormous dark brown/black eyes, thick
+> messy black/dark-brown textured hair, red forehead bandana with two asymmetric tails, dark navy wrap
+> outfit, red waist sash, thin silver necklace with small ornate pendant, sword-side arm with red forearm
+> wrap and black fingerless glove, opposite jewellery-side arm with cream/charcoal wrap, one rudraksha
 > bracelet and exactly two simple silver rings, soft charcoal drawstring utility bag on the jewellery
 > side, brown backpack with spiral-ended bedroll, sheathed katana with black/red diamond-pattern grip and
 > antique brass guard, and chunky black leather boots. Compact chibi proportions: very large head, short
-> torso, short limbs. Arms and legs swing naturally with the stride; hair, bandana tails, sash ends, and
-> the utility bag trail slightly with the motion. Character stays at a constant scale and vertical
-> baseline across all eight frames — no zooming or growing/shrinking, only the natural small vertical bob
-> of a walking gait. Style: premium chibi anime/game illustration, confident dark outlines, subtly varied
-> line weight, restrained cel shading, lightly hand-painted texture — matching the supplied reference
-> exactly, not a redesign. Composition: arrange the eight frames left to right in one row, each character
-> centered in its own equal-width cell, consistent scale and head-top anchor across all eight frames,
-> generous even padding, fully visible, no crop. Background: perfectly flat uniform #00FF00 chroma-key
-> green edge to edge across the whole sheet. No green in the subject. No ground line, shadow, scenery,
+> torso, short limbs. Hair, bandana tails, sash ends, and the utility bag trail with the motion. Character
+> stays at a constant scale and a shared ground-line baseline across all eight frames — no zooming or
+> growing/shrinking, only the natural small vertical bob described in the frame breakdown above. Style:
+> premium chibi anime/game illustration, confident dark outlines, subtly varied line weight, restrained
+> cel shading, lightly hand-painted texture — matching the supplied reference exactly, not a redesign.
+> Composition: arrange the eight frames left to right in one row, each character centered in its own
+> equal-width cell, consistent scale and head-top anchor across all eight frames, generous even padding,
+> fully visible, no crop. Background: perfectly flat uniform #00FF00 chroma-key green edge to edge across
+> the whole sheet. No green in the subject. No ground line, shadow, scenery,
 > text, labels, numbers, borders, or watermark.
 
 ### 2. Idle — front-¾ (6 frames)
