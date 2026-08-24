@@ -1,7 +1,8 @@
 {
   "schemaVersion": 1,
   "identityPackVersion": "animation-master-v1",
-  "approvalStatus": "canonical-source-approved",
+  "approvalStatus": "identity-reference-approved-accessory-review-required",
+  "identityReferenceApprovedAt": "2026-08-24",
   "canonicalPortrait": {
     "path": "canonical/ronin-balanced-canonical-v1.png",
     "sha256": "1791b26344a3d91eaf5884fbf1b9d6a15dd1c51599643ef6ce330234813f9014",
@@ -9,11 +10,20 @@
   },
   "pendantReference": {
     "path": "canonical/real-trishul-om-pendant-reference.jpg",
+    "generationCompatibilityPath": "canonical/real-trishul-om-pendant-reference.png",
     "sha256": "93df0370ec5ffa018cc73f4f9c8b76097242eeeaecec8e72138ccc68005deb35",
     "authority": "Pendant geometry only"
   },
   "canvasContract": "templates/canvas-contract.json",
   "sideTerminology": "character-left-character-right",
+  "skinTone": {
+    "method": "measured-linear-srgb-interpolation",
+    "endpointA": "#DB7736",
+    "endpointB": "#A44A17",
+    "interpolationTowardB": 0.7,
+    "approvedBase": "#B55720",
+    "scope": "skin-only; hair, outfit, leather, red fabric, and metal remain unchanged"
+  },
   "identityTraits": [
     "warm medium-to-deep brown South Asian skin",
     "balanced rounded chibi face with large round eyes",
@@ -29,14 +39,14 @@
     "chunky black leather boots"
   ],
   "deliverables": {
-    "animationMaster": null,
-    "turnaround": null,
-    "faceSheet": null,
-    "palette": null,
-    "hairMap": null,
+    "animationMaster": "master/ronin-animation-master-front-three-quarter.png",
+    "turnaround": "turnaround/ronin-turnaround-v1.png",
+    "faceSheet": "face/ronin-face-sheet-v1.png",
+    "palette": "guides/ronin-palette-v1.png",
+    "hairMap": "guides/ronin-hair-map-v1.png",
     "accessorySheet": null,
-    "silhouettes": null,
-    "canvasTemplate": null,
-    "runtimeScaleReview": null
+    "silhouettes": "guides/ronin-silhouettes-v1.png",
+    "canvasTemplate": "templates/ronin-canvas-template-v1.png",
+    "runtimeScaleReview": "guides/ronin-runtime-scale-review-v1.png"
   }
 }

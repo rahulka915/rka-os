@@ -14,6 +14,7 @@ The canonical portrait is an immutable byte-for-byte copy of the approved source
 ## Locked details
 
 - Keep the face at the approved balance: rounded and cute, without the youngest mascot exaggeration.
+- Use the approved warm medium-deep South Asian skin base `#B55720`, measured at 70% from comparison endpoint A (`#DB7736`) toward endpoint B (`#A44A17`). Apply skin-only colour correction; never shift the outfit, hair, leather, reds, or metal with it.
 - Preserve 10–12 stable hair macro-clumps and the irregular outer silhouette; omit independently generated micro-strands.
 - The pendant is a **small silver vertical Trishul–Om hybrid**. It is not a plain Om, plain trident, plain cross, or oversized chest emblem.
 - The jewellery side has one rudraksha bracelet and exactly two simple silver rings.
@@ -26,4 +27,4 @@ The canonical portrait is an immutable byte-for-byte copy of the approved source
 
 ## Approval state
 
-The canonical portrait and pendant source are approved inputs. All derived deliverables remain `null` in `manifest.json` until they are produced and visually approved. Existing runtime sprites stay active until their replacements pass automated validation and side-by-side motion review.
+The canonical portrait and pendant source are approved inputs. The derived animation master, turnaround, expression, palette, hair, silhouette, canvas, and runtime-scale references were approved on 2026-08-24, including the measured 70% A→B skin tone. The accessory overlay sheet is present for a separate identity-critical approval checkpoint. Existing runtime sprites stay active until replacement actions pass automated validation and side-by-side motion review.
