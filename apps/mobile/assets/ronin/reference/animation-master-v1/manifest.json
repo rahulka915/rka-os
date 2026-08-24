@@ -1,8 +1,9 @@
 {
   "schemaVersion": 1,
   "identityPackVersion": "animation-master-v1",
-  "approvalStatus": "identity-reference-approved-accessory-review-required",
+  "approvalStatus": "identity-and-accessory-references-approved",
   "identityReferenceApprovedAt": "2026-08-24",
+  "accessoryReferenceApprovedAt": "2026-08-24",
   "canonicalPortrait": {
     "path": "canonical/ronin-balanced-canonical-v1.png",
     "sha256": "1791b26344a3d91eaf5884fbf1b9d6a15dd1c51599643ef6ce330234813f9014",
@@ -44,7 +45,7 @@
     "faceSheet": "face/ronin-face-sheet-v1.png",
     "palette": "guides/ronin-palette-v1.png",
     "hairMap": "guides/ronin-hair-map-v1.png",
-    "accessorySheet": null,
+    "accessorySheet": "accessories/ronin-accessories-v1.png",
     "silhouettes": "guides/ronin-silhouettes-v1.png",
     "canvasTemplate": "templates/ronin-canvas-template-v1.png",
     "runtimeScaleReview": "guides/ronin-runtime-scale-review-v1.png"
