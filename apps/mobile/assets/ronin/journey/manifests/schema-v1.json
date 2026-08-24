@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rka.local/schemas/ronin-action-v1.json",
+  "title": "Ronin PNG Action Manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "action",
+    "identityPackVersion",
+    "framePrefix",
+    "frameCount",
+    "intervalMs",
+    "loopMode",
+    "canvasContract",
+    "contactFrames",
+    "baselineTolerancePx",
+    "allowSafeAreaOverflow",
+    "overlays"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "action": { "type": "string", "minLength": 1 },
+    "identityPackVersion": { "type": "string", "minLength": 1 },
+    "framePrefix": { "type": "string", "minLength": 1 },
+    "frameCount": { "type": "integer", "minimum": 1 },
+    "intervalMs": { "type": "integer", "minimum": 1 },
+    "loopMode": { "enum": ["loop", "once"] },
+    "canvasContract": { "type": "string", "minLength": 1 },
+    "contactFrames": {
+      "type": "array",
+      "items": { "type": "integer", "minimum": 0 },
+      "uniqueItems": true
+    },
+    "baselineTolerancePx": { "type": "integer", "minimum": 0 },
+    "allowSafeAreaOverflow": { "type": "boolean" },
+    "overlays": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    }
+  }
+}
