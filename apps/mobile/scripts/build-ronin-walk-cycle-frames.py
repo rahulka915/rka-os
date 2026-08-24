@@ -32,10 +32,20 @@ Usage:
         --frame-count 6 \
         --prefix ronin-tap \
         --already-alpha --min-area 1000
+
+    # Fixed-coordinate production sheet: eight authored 640x640 cells.
+    python3 scripts/build-ronin-walk-cycle-frames.py \
+        --source assets/ronin/journey-v2/idle-calm/source/ronin-idle-calm-sheet-v1.png \
+        --output-dir assets/ronin/journey-v2/idle-calm \
+        --frame-count 8 --prefix ronin-idle-calm --already-alpha \
+        --canvas-contract assets/ronin/reference/animation-master-v1/templates/canvas-contract.json \
+        --cell-width 640
 """
 from __future__ import annotations
 
 import argparse
+import json
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -50,6 +60,16 @@ HEAD_TOP_MARGIN_PX = 20  # distance from canvas top to each frame's topmost fore
 EDGE_EROSION_PX = 2  # shrink the foreground mask by this many px before compositing, to drop unreliable green-key edge pixels
 ALPHA_FEATHER_SIGMA = 0.8  # Gaussian blur radius applied to the alpha channel only, softens the eroded edge instead of leaving a hard cutoff
 DESPILL_REACH = 3.5  # despill correction ramps in over this many multiples of GREEN_TOLERANCE, applied by raw distance-to-key, not by alpha
+
+
+@dataclass(frozen=True)
+class CanvasContract:
+    width: int
+    height: int
+    safe_padding: int
+    ground_baseline_y: int
+    root_x: int
+    root_y: int
 
 
 def parse_args() -> argparse.Namespace:
@@ -68,6 +88,20 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=0,
         help="Drop connected components smaller than this many pixels before the frame-count check (useful for --already-alpha sources with antialiasing noise specks).",
+    )
+    parser.add_argument(
+        "--canvas-contract",
+        help="JSON canvas contract for fixed-coordinate production export. Omit to retain legacy auto-sized/head-anchored behaviour.",
+    )
+    parser.add_argument(
+        "--cell-width",
+        type=int,
+        help="Width of each authored frame cell in fixed-coordinate mode. Must match the contract width.",
+    )
+    parser.add_argument(
+        "--allow-safe-area-overflow",
+        action="store_true",
+        help="Allow foreground inside the contract safety padding for actions that explicitly require it.",
     )
     return parser.parse_args()
 
@@ -95,6 +129,26 @@ def load_source_rgba(source_path: Path) -> np.ndarray:
     return np.array(image)
 
 
+def load_canvas_contract(contract_path: Path) -> CanvasContract:
+    raw = json.loads(contract_path.read_text())
+    if raw.get("schemaVersion") != 1:
+        raise ValueError(f"Unsupported canvas contract schemaVersion: {raw.get('schemaVersion')}")
+    root = raw["rootAnchor"]
+    contract = CanvasContract(
+        width=int(raw["width"]),
+        height=int(raw["height"]),
+        safe_padding=int(raw["safePadding"]),
+        ground_baseline_y=int(raw["groundBaselineY"]),
+        root_x=int(root["x"]),
+        root_y=int(root["y"]),
+    )
+    if contract.width <= 0 or contract.height <= 0:
+        raise ValueError("Canvas contract dimensions must be positive")
+    if contract.safe_padding < 0 or contract.safe_padding * 2 >= min(contract.width, contract.height):
+        raise ValueError("Canvas contract safePadding is invalid")
+    return contract
+
+
 def foreground_mask(rgb: np.ndarray) -> np.ndarray:
     distance = np.linalg.norm(rgb.astype(np.float32) - GREEN_KEY, axis=-1)
     return distance > GREEN_TOLERANCE
@@ -118,6 +172,15 @@ def find_character_boxes(
     return entries, labeled
 
 
+def calculate_legacy_canvas_size(entries: list[tuple[tuple[slice, slice], int]]) -> int:
+    max_dim = 0
+    for (row_slice, col_slice), _label_id in entries:
+        height = (row_slice.stop - row_slice.start) + PAD_PX * 2
+        width = (col_slice.stop - col_slice.start) + PAD_PX * 2
+        max_dim = max(max_dim, height, width)
+    return max_dim
+
+
 def despill(rgb: np.ndarray, distance: np.ndarray) -> np.ndarray:
     # Standard green-spill fix: pull green down toward the min of red/blue
     # for any pixel still close to the green key, regardless of whether it
@@ -138,6 +201,57 @@ def despill(rgb: np.ndarray, distance: np.ndarray) -> np.ndarray:
         g,
     )
     return np.stack([r, corrected_g, b], axis=-1)
+
+
+def keyed_rgba(rgb: np.ndarray) -> np.ndarray:
+    mask = foreground_mask(rgb)
+    eroded_mask = binary_erosion(mask, iterations=EDGE_EROSION_PX) if EDGE_EROSION_PX > 0 else mask
+    distance = np.linalg.norm(rgb.astype(np.float32) - GREEN_KEY, axis=-1)
+    alpha = np.clip((distance - GREEN_TOLERANCE * 0.85) / (GREEN_TOLERANCE * 0.15), 0.0, 1.0)
+    alpha[~eroded_mask] = 0.0
+    if ALPHA_FEATHER_SIGMA > 0:
+        alpha = gaussian_filter(alpha, sigma=ALPHA_FEATHER_SIGMA)
+    return np.dstack([despill(rgb, distance), alpha * 255.0]).astype(np.uint8)
+
+
+def validate_safe_area(alpha: np.ndarray, contract: CanvasContract, frame_number: int) -> None:
+    foreground = alpha > 10
+    rows, cols = np.where(foreground)
+    if len(rows) == 0:
+        raise ValueError(f"Frame {frame_number} has no visible foreground")
+    padding = contract.safe_padding
+    if cols.min() < padding or cols.max() >= contract.width - padding or rows.min() < padding or rows.max() >= contract.height - padding:
+        raise ValueError(f"Frame {frame_number} foreground extends outside the {padding}px safe area")
+
+
+def build_fixed_frames(
+    source: np.ndarray,
+    contract: CanvasContract,
+    frame_count: int,
+    cell_width: int,
+    already_alpha: bool,
+    allow_safe_area_overflow: bool,
+) -> list[Image.Image]:
+    if cell_width != contract.width:
+        raise ValueError(f"Fixed cell width {cell_width} must match contract width {contract.width}")
+    if source.shape[0] != contract.height or source.shape[1] != cell_width * frame_count:
+        raise ValueError(
+            f"Fixed sheet must be {cell_width * frame_count}x{contract.height}, got {source.shape[1]}x{source.shape[0]}"
+        )
+
+    frames: list[Image.Image] = []
+    for index in range(frame_count):
+        cell = source[:, index * cell_width : (index + 1) * cell_width]
+        if already_alpha:
+            if cell.shape[-1] != 4:
+                raise ValueError("--already-alpha fixed sheets must have an RGBA channel")
+            rgba = cell.copy()
+        else:
+            rgba = keyed_rgba(cell[..., :3])
+        if not allow_safe_area_overflow:
+            validate_safe_area(rgba[..., 3], contract, index + 1)
+        frames.append(Image.fromarray(rgba, mode="RGBA"))
+    return frames
 
 
 def build_frame(
@@ -221,6 +335,26 @@ def main() -> None:
     source_path = resolve(args.source)
     output_dir = resolve(args.output_dir)
 
+    if args.canvas_contract:
+        if args.cell_width is None:
+            raise ValueError("--cell-width is required with --canvas-contract")
+        contract = load_canvas_contract(resolve(args.canvas_contract))
+        source = load_source_rgba(source_path) if args.already_alpha else load_source_rgb(source_path)
+        frames = build_fixed_frames(
+            source,
+            contract,
+            frame_count=args.frame_count,
+            cell_width=args.cell_width,
+            already_alpha=args.already_alpha,
+            allow_safe_area_overflow=args.allow_safe_area_overflow,
+        )
+        output_dir.mkdir(parents=True, exist_ok=True)
+        for index, frame in enumerate(frames, start=1):
+            out_path = output_dir / f"{args.prefix}-{index:02d}.png"
+            frame.save(out_path)
+            print(f"wrote {out_path} ({frame.width}x{frame.height})")
+        return
+
     source_alpha = None
     if args.already_alpha:
         rgba_source = load_source_rgba(source_path)
@@ -235,11 +369,7 @@ def main() -> None:
 
     # Canvas must fit the largest cropped frame plus padding, shared by every
     # frame so swapping never changes the Image element's own size.
-    max_dim = 0
-    for (row_slice, col_slice), _label_id in entries:
-        height = (row_slice.stop - row_slice.start) + PAD_PX * 2
-        width = (col_slice.stop - col_slice.start) + PAD_PX * 2
-        max_dim = max(max_dim, height, width)
+    max_dim = calculate_legacy_canvas_size(entries)
 
     output_dir.mkdir(parents=True, exist_ok=True)
     for index, (box, label_id) in enumerate(entries, start=1):
