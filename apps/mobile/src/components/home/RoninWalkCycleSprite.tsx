@@ -15,22 +15,18 @@ const WALK_CYCLE_FRAMES: number[] = [
   require('../../../assets/ronin/journey/walk-cycle/ronin-walk-08.png'),
 ];
 
-// Two straight-on-front idle variants (cuter-reference art, 2026-08-22) —
-// RoninWalkCycleSprite randomly picks one each time it enters the 'idle'
-// state, for visual variety. Replaces the prior front-¾/front pair (dropped
-// entirely, not kept as a third variant — product decision 2026-08-22).
-// Both arrays must stay the same length (8) since SPRITE_STATES.idle.frames
-// (below) is only used for that shared length/interval/loopMode, not for
-// rendering.
+// The journey-v2 calm idle is temporarily the only idle variant so the new
+// fixed-canvas identity can be reviewed in the real Home scene without a
+// random legacy frame set obscuring the comparison.
 const IDLE_CALM_FRAMES: number[] = [
-  require('../../../assets/ronin/journey/idle-calm/ronin-idle-calm-01.png'),
-  require('../../../assets/ronin/journey/idle-calm/ronin-idle-calm-02.png'),
-  require('../../../assets/ronin/journey/idle-calm/ronin-idle-calm-03.png'),
-  require('../../../assets/ronin/journey/idle-calm/ronin-idle-calm-04.png'),
-  require('../../../assets/ronin/journey/idle-calm/ronin-idle-calm-05.png'),
-  require('../../../assets/ronin/journey/idle-calm/ronin-idle-calm-06.png'),
-  require('../../../assets/ronin/journey/idle-calm/ronin-idle-calm-07.png'),
-  require('../../../assets/ronin/journey/idle-calm/ronin-idle-calm-08.png'),
+  require('../../../assets/ronin/journey-v2/idle-calm/ronin-idle-calm-01.png'),
+  require('../../../assets/ronin/journey-v2/idle-calm/ronin-idle-calm-02.png'),
+  require('../../../assets/ronin/journey-v2/idle-calm/ronin-idle-calm-03.png'),
+  require('../../../assets/ronin/journey-v2/idle-calm/ronin-idle-calm-04.png'),
+  require('../../../assets/ronin/journey-v2/idle-calm/ronin-idle-calm-05.png'),
+  require('../../../assets/ronin/journey-v2/idle-calm/ronin-idle-calm-06.png'),
+  require('../../../assets/ronin/journey-v2/idle-calm/ronin-idle-calm-07.png'),
+  require('../../../assets/ronin/journey-v2/idle-calm/ronin-idle-calm-08.png'),
 ];
 
 const IDLE_ALERT_FRAMES: number[] = [
@@ -44,7 +40,7 @@ const IDLE_ALERT_FRAMES: number[] = [
   require('../../../assets/ronin/journey/idle-alert/ronin-idle-alert-08.png'),
 ];
 
-const IDLE_VARIANTS: number[][] = [IDLE_CALM_FRAMES, IDLE_ALERT_FRAMES];
+const IDLE_VARIANTS: number[][] = [IDLE_CALM_FRAMES];
 
 // Bow-down-to-pet-the-cat animation, triggered by the Bow button (not by
 // tapping the character — see RoninJourneyPrototype.tsx's triggerAction).
