@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "identityPackVersion": "animation-master-v1",
+  "approvalStatus": "canonical-source-approved",
+  "canonicalPortrait": {
+    "path": "canonical/ronin-balanced-canonical-v1.png",
+    "sha256": "1791b26344a3d91eaf5884fbf1b9d6a15dd1c51599643ef6ce330234813f9014",
+    "immutable": true
+  },
+  "pendantReference": {
+    "path": "canonical/real-trishul-om-pendant-reference.jpg",
+    "sha256": "93df0370ec5ffa018cc73f4f9c8b76097242eeeaecec8e72138ccc68005deb35",
+    "authority": "Pendant geometry only"
+  },
+  "canvasContract": "templates/canvas-contract.json",
+  "sideTerminology": "character-left-character-right",
+  "identityTraits": [
+    "warm medium-to-deep brown South Asian skin",
+    "balanced rounded chibi face with large round eyes",
+    "voluminous irregular black hair with layered macro-clumps",
+    "red forehead bandana with two asymmetric tails",
+    "dark navy wrap outfit and trousers with red waist sash",
+    "sword-side red forearm wrap and black fingerless glove",
+    "jewellery-side cream and charcoal wrap, one rudraksha bracelet, and exactly two silver rings",
+    "small silver vertical Trishul-Om hybrid pendant",
+    "charcoal drawstring utility bag on the jewellery side",
+    "brown backpack with spiral-ended bedroll",
+    "one sheathed katana with black-red diamond grip and antique-brass guard",
+    "chunky black leather boots"
+  ],
+  "deliverables": {
+    "animationMaster": null,
+    "turnaround": null,
+    "faceSheet": null,
+    "palette": null,
+    "hairMap": null,
+    "accessorySheet": null,
+    "silhouettes": null,
+    "canvasTemplate": null,
+    "runtimeScaleReview": null
+  }
+}

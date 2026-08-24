@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "width": 640,
+  "height": 640,
+  "rootAnchor": {
+    "x": 320,
+    "y": 390
+  },
+  "groundBaselineY": 580,
+  "neutralHeadTopY": 72,
+  "safePadding": 32,
+  "displaySizePoints": 120
+}
