@@ -1,80 +1,25 @@
 import { useEffect, useRef, useState } from 'react';
 import { Image, StyleSheet } from 'react-native';
 import type { ImageStyle, StyleProp } from 'react-native';
-import { getNextSpriteFrame, WALK_CYCLE_FRAME_INTERVAL_MS } from '../../utils/walkCycle';
+import { getNextSpriteFrame } from '../../utils/walkCycle';
 import type { RoninSpriteState, SpriteStateConfig } from './roninSpriteStates';
+import { RONIN_SPRITE_CLIPS } from './roninSpriteRegistry';
 
-const WALK_CYCLE_FRAMES: number[] = [
-  require('../../../assets/ronin/journey/walk-cycle/ronin-walk-01.png'),
-  require('../../../assets/ronin/journey/walk-cycle/ronin-walk-02.png'),
-  require('../../../assets/ronin/journey/walk-cycle/ronin-walk-03.png'),
-  require('../../../assets/ronin/journey/walk-cycle/ronin-walk-04.png'),
-  require('../../../assets/ronin/journey/walk-cycle/ronin-walk-05.png'),
-  require('../../../assets/ronin/journey/walk-cycle/ronin-walk-06.png'),
-  require('../../../assets/ronin/journey/walk-cycle/ronin-walk-07.png'),
-  require('../../../assets/ronin/journey/walk-cycle/ronin-walk-08.png'),
-];
-
-// The journey-v2 calm idle is temporarily the only idle variant so the new
-// fixed-canvas identity can be reviewed in the real Home scene without a
-// random legacy frame set obscuring the comparison.
-const IDLE_CALM_FRAMES: number[] = [
-  require('../../../assets/ronin/journey-v2/idle-calm/ronin-idle-calm-01.png'),
-  require('../../../assets/ronin/journey-v2/idle-calm/ronin-idle-calm-02.png'),
-  require('../../../assets/ronin/journey-v2/idle-calm/ronin-idle-calm-03.png'),
-  require('../../../assets/ronin/journey-v2/idle-calm/ronin-idle-calm-04.png'),
-  require('../../../assets/ronin/journey-v2/idle-calm/ronin-idle-calm-05.png'),
-  require('../../../assets/ronin/journey-v2/idle-calm/ronin-idle-calm-06.png'),
-  require('../../../assets/ronin/journey-v2/idle-calm/ronin-idle-calm-07.png'),
-  require('../../../assets/ronin/journey-v2/idle-calm/ronin-idle-calm-08.png'),
-];
-
-const IDLE_ALERT_FRAMES: number[] = [
-  require('../../../assets/ronin/journey/idle-alert/ronin-idle-alert-01.png'),
-  require('../../../assets/ronin/journey/idle-alert/ronin-idle-alert-02.png'),
-  require('../../../assets/ronin/journey/idle-alert/ronin-idle-alert-03.png'),
-  require('../../../assets/ronin/journey/idle-alert/ronin-idle-alert-04.png'),
-  require('../../../assets/ronin/journey/idle-alert/ronin-idle-alert-05.png'),
-  require('../../../assets/ronin/journey/idle-alert/ronin-idle-alert-06.png'),
-  require('../../../assets/ronin/journey/idle-alert/ronin-idle-alert-07.png'),
-  require('../../../assets/ronin/journey/idle-alert/ronin-idle-alert-08.png'),
-];
-
-const IDLE_VARIANTS: number[][] = [IDLE_CALM_FRAMES];
-
-// Bow-down-to-pet-the-cat animation, triggered by the Bow button (not by
-// tapping the character — see RoninJourneyPrototype.tsx's triggerAction).
-const BOW_FRAMES: number[] = [
-  require('../../../assets/ronin/journey/tap-reaction/ronin-tap-01.png'),
-  require('../../../assets/ronin/journey/tap-reaction/ronin-tap-02.png'),
-  require('../../../assets/ronin/journey/tap-reaction/ronin-tap-03.png'),
-  require('../../../assets/ronin/journey/tap-reaction/ronin-tap-04.png'),
-  require('../../../assets/ronin/journey/tap-reaction/ronin-tap-05.png'),
-  require('../../../assets/ronin/journey/tap-reaction/ronin-tap-06.png'),
-];
-
-const JUMP_FRAMES: number[] = [
-  require('../../../assets/ronin/journey/jump/ronin-jump-01.png'),
-  require('../../../assets/ronin/journey/jump/ronin-jump-02.png'),
-  require('../../../assets/ronin/journey/jump/ronin-jump-03.png'),
-  require('../../../assets/ronin/journey/jump/ronin-jump-04.png'),
-  require('../../../assets/ronin/journey/jump/ronin-jump-05.png'),
-  require('../../../assets/ronin/journey/jump/ronin-jump-06.png'),
-];
+const IDLE_VARIANTS: number[][] = [RONIN_SPRITE_CLIPS.calm.frames];
 
 // Single source of truth for every sprite state's playback: which frames,
 // how fast, and whether it loops forever or plays once and holds. Adding a
 // new state (celebration, time-of-day, ...) means adding one entry here and
 // to RoninSpriteState — nothing else in this component changes.
 const SPRITE_STATES: Record<RoninSpriteState, SpriteStateConfig> = {
-  walking: { frames: WALK_CYCLE_FRAMES, intervalMs: WALK_CYCLE_FRAME_INTERVAL_MS, loopMode: 'loop' },
+  walking: { frames: RONIN_SPRITE_CLIPS.walking.frames, intervalMs: RONIN_SPRITE_CLIPS.walking.frameDurationMs, loopMode: 'loop' },
   // frames here is a placeholder used only for SPRITE_STATES.idle.frames.length
   // (both IDLE_VARIANTS arrays are the same length) — actual rendering for
   // 'idle' uses the randomly-picked variant in idleVariantFramesRef, set in
   // the state-change effect below, not this array directly.
-  idle: { frames: IDLE_CALM_FRAMES, intervalMs: 420, loopMode: 'loop' },
-  bow: { frames: BOW_FRAMES, intervalMs: 90, loopMode: 'once' },
-  jump: { frames: JUMP_FRAMES, intervalMs: 90, loopMode: 'once' },
+  idle: { frames: RONIN_SPRITE_CLIPS.calm.frames, intervalMs: RONIN_SPRITE_CLIPS.calm.frameDurationMs, loopMode: 'loop' },
+  bow: { frames: RONIN_SPRITE_CLIPS.bow.frames, intervalMs: RONIN_SPRITE_CLIPS.bow.frameDurationMs, loopMode: 'once' },
+  jump: { frames: RONIN_SPRITE_CLIPS.jump.frames, intervalMs: RONIN_SPRITE_CLIPS.jump.frameDurationMs, loopMode: 'once' },
 };
 
 interface RoninWalkCycleSpriteProps {
