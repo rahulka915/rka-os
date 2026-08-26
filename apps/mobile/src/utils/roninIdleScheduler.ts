@@ -25,8 +25,6 @@ export function selectIdleClip(options: {
   previous: RoninIdleClip | null;
   reduceMotion: boolean;
 }): RoninIdleClip {
-  if (options.reduceMotion) return 'blinkDip';
-
   const eligible = IDLE_CLIP_WEIGHTS.filter(([clip]) => (
     clip !== options.previous
   ));

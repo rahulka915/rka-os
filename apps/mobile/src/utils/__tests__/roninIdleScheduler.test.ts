@@ -1,7 +1,11 @@
 // @ts-nocheck -- executed directly by Node's TypeScript test runner; the Expo app intentionally omits Node ambient types.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { nextIdleDelayMs, selectIdleClip } from '../roninIdleScheduler.ts';
+import {
+  nextIdleDelayMs,
+  selectIdleClip,
+  type RoninIdleClip,
+} from '../roninIdleScheduler.ts';
 
 test('maps the random delay bounds to the inclusive calm interval', () => {
   assert.equal(nextIdleDelayMs(() => 0), 8_000);
@@ -15,26 +19,26 @@ test('never repeats the previous personality clip', () => {
   );
 });
 
-test('omits rare shoulder stretches when Reduce Motion is enabled', () => {
-  assert.notEqual(
-    selectIdleClip({ random: () => 0.99, previous: null, reduceMotion: true }),
-    'shoulderStretch',
-  );
-});
+test('keeps the complete personality library under Reduce Motion', () => {
+  const selected = new Set<RoninIdleClip>();
 
-test('uses only the eyelid blink when Reduce Motion is enabled', () => {
-  for (let value = 0; value <= 10; value += 1) {
-    assert.equal(
-      selectIdleClip({ random: () => value / 10, previous: null, reduceMotion: true }),
-      'blinkDip',
-    );
+  for (let value = 0; value < 100; value += 1) {
+    selected.add(selectIdleClip({ random: () => value / 100, previous: null, reduceMotion: true }));
   }
+
+  assert.deepEqual(selected, new Set([
+    'lookAround',
+    'blinkDip',
+    'adjustWrap',
+    'yawn',
+    'shoulderStretch',
+  ]));
 });
 
-test('allows another restrained blink after the calm interval under Reduce Motion', () => {
-  assert.equal(
-    selectIdleClip({ random: () => 0.5, previous: 'blinkDip', reduceMotion: true }),
-    'blinkDip',
+test('still avoids immediate repeats under Reduce Motion', () => {
+  assert.notEqual(
+    selectIdleClip({ random: () => 0, previous: 'lookAround', reduceMotion: true }),
+    'lookAround',
   );
 });
 

@@ -243,7 +243,7 @@ Dark Mode:
 | `AvatarCompanion.tsx` | Tamagui | Placeholder avatar/initials |
 | `fab/FabControl.tsx` | SVG + Reanimated | Shared layered-vector calligraphy FAB; independent lacquer, washi, ink and brush motion; used by the dock and capture surfaces |
 | `icons/CollectionIcons.tsx` | RN Image wrappers | Transparent PNG collection artwork: Workout kettlebell, Habit prayer beads, To Get furoshiki parcel, Archive scroll chest, Routines steps, Skills nodes, Potential core and Achievements medal |
-| `home/RoninJourneyPrototype.tsx` | River Stone + SVG + Reanimated + PNG frames | Compact Home progress path; runs the 52-frame `assets/ronin/idle-v2/` library with weighted 8–18 second personality idles, walking/action interruption, and blink-only Reduce Motion behaviour |
+| `home/RoninJourneyPrototype.tsx` | River Stone + SVG + Reanimated + PNG frames | Compact Home progress path; runs the 52-frame `assets/ronin/idle-v2/` library with weighted 8–18 second personality idles and walking/action interruption; Reduce Motion retains every idle clip while suppressing extra outer rotation and walk bob |
 | `home/RoninJourneyRiveWalker.tsx` | Rive Nitro runtime | Loads `assets/rka_journey_rig.riv`, autoplays `State Machine 1`, and falls back to the transparent PNG while loading or after a runtime error |
 
 `@rive-app/react-native`, `react-native-nitro-modules`, `assets/rka_journey_rig.riv`, and `RoninJourneyRiveWalker.tsx` remain available for the separate rig experiment, but Home currently mounts `RoninWalkCycleSprite.tsx` and the PNG-frame library described above. Rive contains native code, so regenerate/install the development build before testing the retained Rive renderer; Expo Go cannot run it.

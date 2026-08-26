@@ -7,7 +7,7 @@
 
 - Wired all 52 cleaned `apps/mobile/assets/ronin/idle-v2/` frames into `roninSpriteRegistry.ts` and `RoninWalkCycleSprite.tsx`: calm, look-around, blink, yawn, wrap adjustment and shoulder roll.
 - `RoninJourneyPrototype.tsx` now schedules weighted personality idles after random 8–18 second calm intervals, prevents immediate repeats, returns to calm between clips, and lets walking/jump/bow interrupt immediately. The outer bob/rotation pauses during one-shot sprite clips so motion layers do not fight.
-- Reduce Motion schedules only the eyelid blink. Added pure playback-state tests and tightened the registry test so empty placeholder arrays can no longer pass.
+- Reduce Motion retains all five personality idle clips with the same weighting and no-repeat rule; it only suppresses the extra outer rotation and walk bob. Added pure playback-state tests and tightened the registry test so empty placeholder arrays can no longer pass.
 - Verification: 13 focused scheduler/registry/playback/asset tests pass; the 52-frame asset validator passes at 640×640 with the 580±2px baseline. `tsc --noEmit` reports only the repository's existing `.web.tsx` resolution, database skill-union, and missing `event` map errors; no Ronin integration errors.
 
 ---
