@@ -1,4 +1,4 @@
-export type ItemType = 'area' | 'project' | 'task' | 'habit' | 'medication' | 'supplement' | 'workout-template' | 'workout-block' | 'exercise' | 'workout-session' | 'meal' | 'object' | 'potential-stat' | 'achievement' | 'focus' | 'routine' | 'routine-step' | 'routine-session' | 'skill' | 'backward-plan' | 'potential-attribute';
+export type ItemType = 'area' | 'project' | 'task' | 'habit' | 'medication' | 'supplement' | 'workout-template' | 'workout-block' | 'exercise' | 'workout-session' | 'meal' | 'object' | 'potential-stat' | 'achievement' | 'focus' | 'routine' | 'routine-step' | 'routine-session' | 'skill' | 'backward-plan' | 'potential-attribute' | 'event';
 export type ItemStatus = 'inbox' | 'active' | 'someday' | 'scheduled' | 'due-today' | 'overdue' | 'completed' | 'skipped' | 'archived' | 'cancelled';
 
 // Object's own possession-tracking lifecycle — independent of the generic ItemStatus
