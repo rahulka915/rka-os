@@ -90,3 +90,26 @@ export function formatEventTimeLabel(meta: Pick<EventMeta, 'startTime' | 'endTim
   if (!meta.endTime) return formatClockTime(meta.startTime);
   return `${formatClockTime(meta.startTime)} – ${formatClockTime(meta.endTime)}`;
 }
+
+// db/timelineEntry.ts's buildTimelineEntries (shared by Calendar/Home on both
+// platforms) positions an item purely from generic metadata.time/
+// durationMinutes fields — it has no awareness of EventMeta's own
+// startTime/endTime. Merging these generic fields alongside the EventMeta
+// fields at write time is what makes an event actually show up positioned
+// on the timeline, without touching buildTimelineEntries itself. All-day
+// events (no startTime) intentionally omit `time`, which is exactly what
+// keeps them out of the timed grid (getEntryMinutes returns null) so they
+// can be rendered as a separate all-day strip instead.
+export function toStorableMetadata(meta: EventMeta): Record<string, unknown> {
+  const storable: Record<string, unknown> = { ...meta };
+  if (meta.startTime) {
+    storable.time = meta.startTime;
+    if (meta.endTime) {
+      const [startH, startM] = meta.startTime.split(':').map(Number);
+      const [endH, endM] = meta.endTime.split(':').map(Number);
+      const duration = endH * 60 + endM - (startH * 60 + startM);
+      if (duration > 0) storable.durationMinutes = duration;
+    }
+  }
+  return storable;
+}

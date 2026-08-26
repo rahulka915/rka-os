@@ -101,7 +101,7 @@ function timelineMinutesForPixels(pixels: number): number {
 }
 
 type AccentKey = 'blue' | 'green' | 'orange' | 'purple' | 'red';
-type TimelineLaneId = 'health' | 'focus' | 'study' | 'personal' | 'habits' | 'other';
+type TimelineLaneId = 'health' | 'focus' | 'study' | 'personal' | 'habits' | 'events' | 'other';
 
 const TIMELINE_LANES: ReadonlyArray<{
   id: TimelineLaneId;
@@ -113,6 +113,7 @@ const TIMELINE_LANES: ReadonlyArray<{
   { id: 'study', label: 'Study', accent: 'green' },
   { id: 'personal', label: 'Personal', accent: 'orange' },
   { id: 'habits', label: 'Habits', accent: 'purple' },
+  { id: 'events', label: 'Events', accent: 'purple' },
   { id: 'other', label: 'Other', accent: 'purple' },
 ] as const;
 
@@ -155,6 +156,8 @@ function getTimelineLane(entry: TimelineEntry): TimelineLaneId {
       return 'personal';
     case 'habit':
       return 'habits';
+    case 'event':
+      return 'events';
     default:
       return 'other';
   }
@@ -184,7 +187,7 @@ const TYPE_OPTIONS: Array<{
   value: ItemType;
   label: string;
   accent: AccentKey;
-  icon: 'task' | 'project' | 'habit' | 'medication' | 'workout' | 'meal' | 'area';
+  icon: 'task' | 'project' | 'habit' | 'medication' | 'workout' | 'meal' | 'area' | 'event';
 }> = [
   { value: 'task', label: 'Task', accent: 'blue', icon: 'task' },
   { value: 'project', label: 'Mission', accent: 'purple', icon: 'project' },
@@ -193,6 +196,7 @@ const TYPE_OPTIONS: Array<{
   { value: 'medication', label: 'Medication', accent: 'orange', icon: 'medication' },
   { value: 'workout-template', label: 'Workout', accent: 'red', icon: 'workout' },
   { value: 'meal', label: 'Meal', accent: 'orange', icon: 'meal' },
+  { value: 'event', label: 'Event', accent: 'purple', icon: 'event' },
 ];
 
 function addDays(date: Date, n: number): Date {
@@ -260,6 +264,8 @@ function renderTypeIcon(type: ItemType, color: string, size = 14) {
       return <WorkoutTrainingIcon size={size + 5} color={color} />;
     case 'meal':
       return <Clock size={size} color={color} strokeWidth={1.8} />;
+    case 'event':
+      return <CalendarIcon size={size} color={color} strokeWidth={2} />;
     case 'task':
     default:
       return <ClipboardList size={size} color={color} strokeWidth={1.7} />;
@@ -768,6 +774,10 @@ function DayTimeline({
     ? timelineOffsetForMinutes(currentHour * 60 + currentMinute)
     : null;
   const positionedEntries = useMemo(() => positionTimelineEntries(entries), [entries]);
+  const allDayEntries = useMemo(
+    () => entries.filter((entry) => entry.item.type === 'event' && !parseEventMeta(entry.item.metadata).startTime),
+    [entries],
+  );
   const [createRange, setCreateRange] = useState<{ startMinutes: number; endMinutes: number } | null>(null);
   const createRangeRef = useRef<{ startMinutes: number; endMinutes: number } | null>(null);
   const lastCreateSnapRef = useRef<number | null>(null);
@@ -857,6 +867,23 @@ function DayTimeline({
       style={[s.section, s.daySection]}
       onLayout={(event) => onSectionLayout(event.nativeEvent.layout.y)}
     >
+      {allDayEntries.length > 0 && (
+        <RNView style={s.allDayStrip}>
+          {allDayEntries.map((entry) => (
+            <TouchableOpacity
+              key={entry.item.id}
+              style={[
+                s.allDayChip,
+                { backgroundColor: getAccentSoftColor(palette, 'purple'), borderColor: getAccentColor(palette, 'purple') },
+              ]}
+              onPress={() => onOpenEdit(entry)}
+            >
+              <RNText numberOfLines={1} style={[s.allDayChipText, { color: palette.text }]}>{entry.item.title}</RNText>
+            </TouchableOpacity>
+          ))}
+        </RNView>
+      )}
+
       <RNView style={s.timelineWrap}>
         <GestureDetector gesture={createGesture}>
         <RNView style={[s.timelineContent, { height: TIMELINE_METRICS.hourHeight * 24 }]}>
@@ -1048,7 +1075,11 @@ function DayTimeline({
                   collisionSlot={collisionSlot}
                   icon={renderTypeIcon(entry.item.type, accentColor, 12)}
                   title={entry.item.title}
-                  timeLabel={formatTimelineTimeRange(entryMinutes, entry.durationMinutes)}
+                  timeLabel={
+                    entry.item.type === 'event'
+                      ? formatEventTimeLabel(parseEventMeta(entry.item.metadata))
+                      : formatTimelineTimeRange(entryMinutes, entry.durationMinutes)
+                  }
                   textColor={palette.text}
                   accessibilityLabel={`${entry.item.title}, ${formatTimelineTimeRange(entryMinutes, entry.durationMinutes)}, ${lane.label}`}
                   onPreview={() => onOpenPreview(entry)}
@@ -1778,6 +1809,25 @@ export function CalendarScreen() {
 const s = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  allDayStrip: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  allDayChip: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    maxWidth: 160,
+  },
+  allDayChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
   },
   trayCard: {
     flexDirection: 'row',

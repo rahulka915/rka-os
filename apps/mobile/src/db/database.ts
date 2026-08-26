@@ -42,7 +42,7 @@ import {
   type RoutineSessionMeta,
 } from '../utils/routineMeta';
 import { parseBackwardPlanMeta, type BackwardPlanMeta, type PlacementBehavior, type TravelConfig } from '../utils/backwardPlanMeta';
-import { parseEventMeta, type EventMeta } from '../utils/eventMeta';
+import { parseEventMeta, toStorableMetadata, type EventMeta } from '../utils/eventMeta';
 import type { DailyCheckInAnswers, DailyCheckInPhase } from '../utils/dailyCheckIn';
 import type { PlanBlockRow, PlanBlockStepRow } from './types';
 
@@ -2574,7 +2574,7 @@ export function createEvent(
   repeatsYearly?: boolean,
 ): string {
   const id = createItem('event', title, 'scheduled', date, notes);
-  updateItemMetadata(id, meta as unknown as Record<string, any>);
+  updateItemMetadata(id, toStorableMetadata(meta));
   if (repeatsYearly) updateItem(id, { rrule: 'FREQ=YEARLY' });
   return id;
 }
@@ -2597,7 +2597,7 @@ export function updateEvent(
   if (metaUpdates) {
     const current = getItemWithMetadata(eventId);
     const currentMeta = parseEventMeta(current?.metadata);
-    updateItemMetadata(eventId, { ...currentMeta, ...metaUpdates });
+    updateItemMetadata(eventId, toStorableMetadata({ ...currentMeta, ...metaUpdates }));
   }
 }
 

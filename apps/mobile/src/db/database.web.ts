@@ -60,7 +60,7 @@ import { computeAlertness as computeAlertnessValue, type AlertnessInputs } from 
 import type { RoutineStepMeta } from '../utils/routineMeta';
 import type { BackwardPlanMeta, PlacementBehavior, TravelConfig } from '../utils/backwardPlanMeta';
 import { parseBackwardPlanMeta } from '../utils/backwardPlanMeta';
-import { parseEventMeta, type EventMeta } from '../utils/eventMeta';
+import { parseEventMeta, toStorableMetadata, type EventMeta } from '../utils/eventMeta';
 import {
   getItemsSnapshot,
   getActivityLogsSnapshot,
@@ -2040,7 +2040,7 @@ export function createEvent(
   repeatsYearly?: boolean,
 ): string {
   const id = createItem('event', title, 'scheduled', date, notes);
-  updateItemMetadata(id, meta as unknown as Record<string, any>);
+  updateItemMetadata(id, toStorableMetadata(meta));
   if (repeatsYearly) updateItem(id, { rrule: 'FREQ=YEARLY' });
   return id;
 }
@@ -2063,7 +2063,7 @@ export function updateEvent(
   if (metaUpdates) {
     const current = getItemWithMetadata(eventId);
     const currentMeta = parseEventMeta(current?.metadata);
-    updateItemMetadata(eventId, { ...currentMeta, ...metaUpdates });
+    updateItemMetadata(eventId, toStorableMetadata({ ...currentMeta, ...metaUpdates }));
   }
 }
 

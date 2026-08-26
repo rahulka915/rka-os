@@ -8,6 +8,7 @@ import {
   formatEventTimeLabel,
   REMINDER_OPTIONS,
   ALL_DAY_REMINDER_HOUR,
+  toStorableMetadata,
 } from './eventMeta.ts';
 
 test('parseEventMeta returns {} for null/undefined/empty metadata', () => {
@@ -83,4 +84,24 @@ test('formatEventTimeLabel handles all-day, start-only, and start+end', () => {
 
 test('REMINDER_OPTIONS has the four fixed offsets', () => {
   assert.deepEqual(REMINDER_OPTIONS.map((o) => o.minutesBefore), [15, 30, 60, 1440]);
+});
+
+test('toStorableMetadata adds generic time/durationMinutes for a timed event with an end time', () => {
+  const stored = toStorableMetadata({ startTime: '15:30', endTime: '17:00' });
+  assert.equal(stored.time, '15:30');
+  assert.equal(stored.durationMinutes, 90);
+  assert.equal(stored.startTime, '15:30');
+  assert.equal(stored.endTime, '17:00');
+});
+
+test('toStorableMetadata sets time but omits durationMinutes when there is no end time', () => {
+  const stored = toStorableMetadata({ startTime: '15:30' });
+  assert.equal(stored.time, '15:30');
+  assert.equal('durationMinutes' in stored, false);
+});
+
+test('toStorableMetadata omits time entirely for an all-day event', () => {
+  const stored = toStorableMetadata({});
+  assert.equal('time' in stored, false);
+  assert.equal('durationMinutes' in stored, false);
 });
