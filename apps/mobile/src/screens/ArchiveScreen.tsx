@@ -32,6 +32,7 @@ const TYPE_LABELS: Record<ItemType, string> = {
   skill: 'Skill',
   'backward-plan': 'Plan Backwards',
   'potential-attribute': 'Attribute',
+  event: 'Event',
 };
 
 export function ArchiveScreen() {

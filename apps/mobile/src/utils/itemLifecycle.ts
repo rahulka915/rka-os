@@ -51,6 +51,7 @@ export const ITEM_LIFECYCLE: Record<ItemType, ItemLifecycle> = {
   'workout-session': 'transactional',
   'routine-session': 'transactional',
   meal: 'transactional',
+  event: 'transactional',
 };
 
 export function isStructuralType(type: ItemType): boolean {

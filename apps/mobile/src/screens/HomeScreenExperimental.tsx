@@ -59,6 +59,7 @@ const TYPE_COLORS: Record<ItemType, string> = {
   skill: '#6B7280',
   'backward-plan': '#A8402C',
   'potential-attribute': '#6B7280',
+  event: '#6366F1',
 };
 
 function typeColor(type: ItemType): string {

@@ -42,6 +42,7 @@ import {
   type RoutineSessionMeta,
 } from '../utils/routineMeta';
 import { parseBackwardPlanMeta, type BackwardPlanMeta, type PlacementBehavior, type TravelConfig } from '../utils/backwardPlanMeta';
+import { parseEventMeta, type EventMeta } from '../utils/eventMeta';
 import type { DailyCheckInAnswers, DailyCheckInPhase } from '../utils/dailyCheckIn';
 import type { PlanBlockRow, PlanBlockStepRow } from './types';
 
@@ -2068,6 +2069,35 @@ export function updateItemMetadata(id: string, metadata: Record<string, any>): v
     [JSON.stringify(metadata), Date.now(), id]
   );
   syncItemToRemote(id);
+  syncPendingInstanceMetadata(id, metadata);
+}
+
+// Timeline reads timing fields (time/timeOfDay/preferredTimeBucket/durationMinutes)
+// from an item's pending itemInstances row in preference to the item's own
+// metadata (see timelineEntry.ts's getEntryTiming). Any edit that changes those
+// fields on the item must also refresh the instance, or the Timeline keeps
+// showing whatever was frozen into the instance when it was first scheduled.
+function syncPendingInstanceMetadata(itemId: string, itemMetadata: Record<string, any>): void {
+  const fields: Record<string, unknown> = {};
+  if ('time' in itemMetadata) fields.time = itemMetadata.time;
+  if ('timeOfDay' in itemMetadata) fields.timeOfDay = itemMetadata.timeOfDay;
+  if ('preferredTimeBucket' in itemMetadata) fields.preferredTimeBucket = itemMetadata.preferredTimeBucket;
+  if ('durationMinutes' in itemMetadata) fields.durationMinutes = itemMetadata.durationMinutes;
+  if (Object.keys(fields).length === 0) return;
+
+  const instances = getDb().getAllSync<ItemInstance>(
+    `SELECT * FROM itemInstances WHERE itemId = ? AND status = 'pending'`,
+    [itemId],
+  );
+  if (instances.length === 0) return;
+  const now = Date.now();
+  for (const instance of instances) {
+    const parsed = instance.instanceMetadata ? JSON.parse(instance.instanceMetadata) : {};
+    getDb().runSync(
+      `UPDATE itemInstances SET instanceMetadata = ?, updatedAt = ? WHERE id = ?`,
+      [JSON.stringify({ ...parsed, ...fields }), now, instance.id],
+    );
+  }
 }
 
 export function updateItemTitle(id: string, title: string): void {
@@ -2526,6 +2556,53 @@ export function deleteBackwardPlan(planId: string): void {
   }
   getDb().runSync(`DELETE FROM planBlocks WHERE planId = ?`, [planId]);
   deleteItem(planId);
+}
+
+// --- Calendar Events -------------------------------------------------------
+// An event is an 'items' row (type='event') — title/scheduledDate/notes use
+// the standard item columns, status is always 'scheduled' (events are never
+// completable), rrule is 'FREQ=YEARLY' when the user checks "repeats
+// yearly", and startTime/endTime/location/reminder/device-calendar-link live
+// in metadata as EventMeta (utils/eventMeta.ts). See
+// docs/superpowers/specs/2026-08-26-calendar-events-design.md.
+
+export function createEvent(
+  title: string,
+  date: string,
+  meta: EventMeta = {},
+  notes?: string,
+  repeatsYearly?: boolean,
+): string {
+  const id = createItem('event', title, 'scheduled', date, notes);
+  updateItemMetadata(id, meta as unknown as Record<string, any>);
+  if (repeatsYearly) updateItem(id, { rrule: 'FREQ=YEARLY' });
+  return id;
+}
+
+export function getEvent(eventId: string): Item | null {
+  return getItemWithMetadata(eventId);
+}
+
+export function updateEvent(
+  eventId: string,
+  updates: Partial<{ title: string; date: string | null; notes: string | null; repeatsYearly: boolean }>,
+  metaUpdates?: Partial<EventMeta>,
+): void {
+  if (updates.title !== undefined || updates.date !== undefined || updates.notes !== undefined) {
+    updateItem(eventId, { title: updates.title, scheduledDate: updates.date, notes: updates.notes });
+  }
+  if (updates.repeatsYearly !== undefined) {
+    updateItem(eventId, { rrule: updates.repeatsYearly ? 'FREQ=YEARLY' : null });
+  }
+  if (metaUpdates) {
+    const current = getItemWithMetadata(eventId);
+    const currentMeta = parseEventMeta(current?.metadata);
+    updateItemMetadata(eventId, { ...currentMeta, ...metaUpdates });
+  }
+}
+
+export function deleteEvent(eventId: string): void {
+  deleteItem(eventId);
 }
 
 function nextPlanBlockOrderIndex(planId: string): number {
@@ -3610,12 +3687,11 @@ export function updateTimelineItemTime(id: string, time: string, timeOfDay?: Tim
 
   if (instance) {
     const parsed = instance.instanceMetadata ? JSON.parse(instance.instanceMetadata) : {};
-    const instancePreferredTimeBucket = parsed.preferredTimeBucket ?? preferredTimeBucket;
     updateInstanceMetadata(instance.id, {
       ...parsed,
       time: normalizedTime,
       timeOfDay: nextTimeOfDay,
-      preferredTimeBucket: instancePreferredTimeBucket,
+      preferredTimeBucket,
     });
   }
 }
@@ -3678,10 +3754,9 @@ export function updateTimelineItemSchedule(id: string, scheduledDate?: string, t
 
   if (instance) {
     const instanceMetadata = instance.instanceMetadata ? JSON.parse(instance.instanceMetadata) : {};
-    const instancePreferredTimeBucket = instanceMetadata.preferredTimeBucket ?? preferredTimeBucket;
     getDb().runSync(
       `UPDATE itemInstances SET scheduledDate = ?, instanceMetadata = ?, updatedAt = ? WHERE id = ?`,
-      [scheduledDate, JSON.stringify({ ...instanceMetadata, time: normalizedTime, timeOfDay, preferredTimeBucket: instancePreferredTimeBucket }), now, instance.id],
+      [scheduledDate, JSON.stringify({ ...instanceMetadata, time: normalizedTime, timeOfDay, preferredTimeBucket }), now, instance.id],
     );
   } else {
     getDb().runSync(
@@ -3747,7 +3822,7 @@ export function deleteItem(id: string): void {
 export type GtdDestination =
   | 'today' | 'morning' | 'evening'
   | 'project' | 'area' | 'habit' | 'medication' | 'supplement' | 'object'
-  | 'reference' | 'someday' | 'delete';
+  | 'reference' | 'someday' | 'delete' | 'event';
 
 export function processInboxItem(id: string, destination: GtdDestination): void {
   const db = getDb();
@@ -3798,6 +3873,12 @@ export function processInboxItem(id: string, destination: GtdDestination): void 
       db.runSync(
         'UPDATE items SET type = ?, status = ?, metadata = ?, updatedAt = ? WHERE id = ?',
         ['habit', 'active', JSON.stringify({ ...meta, gtdContext: 'habit' }), now, id]
+      );
+      break;
+    case 'event':
+      db.runSync(
+        'UPDATE items SET type = ?, status = ?, metadata = ?, updatedAt = ? WHERE id = ?',
+        ['event', 'scheduled', JSON.stringify({ ...meta, gtdContext: 'event' }), now, id]
       );
       break;
     case 'medication':
