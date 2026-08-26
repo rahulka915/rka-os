@@ -11,6 +11,7 @@ import { DeadlineBadge } from './DeadlineBadge';
 import { RepeatBadge } from './RepeatBadge';
 import { DependencyConnector } from './DependencyConnector';
 import { readChecklist, checklistProgress } from '../utils/checklist';
+import { parseEventMeta, formatEventTimeLabel } from '../utils/eventMeta';
 import type { Item } from '../db/types';
 
 // Item-local, so it never makes a row's height depend on list position.
@@ -59,7 +60,7 @@ export const TaskRow = memo(function TaskRow({
   onMoveUp: () => void;
   onMoveDown: () => void;
 }) {
-  const blocker = getBlockingTask(item.id);
+  const blocker = item.type === 'event' ? null : getBlockingTask(item.id);
   return (
     <ScaleDecorator activeScale={1.015}>
       <ShadowDecorator elevation={8} opacity={0.3} radius={10} color="#000000">
@@ -84,11 +85,17 @@ export const TaskRow = memo(function TaskRow({
               style={styles.rowStone}
               contentStyle={styles.row}
             >
-              <LacquerDiscControl
-                isCompleted={isCompleting}
-                accessibilityLabel={blocker ? `${item.title}, blocked by ${blocker.title}` : `Complete ${item.title}`}
-                onToggle={() => onComplete(item)}
-              />
+              {item.type === 'event' ? (
+                <View style={styles.eventDot} accessibilityLabel={`Event: ${item.title}`}>
+                  <View style={[styles.eventDotInner, { backgroundColor: palette.purple }]} />
+                </View>
+              ) : (
+                <LacquerDiscControl
+                  isCompleted={isCompleting}
+                  accessibilityLabel={blocker ? `${item.title}, blocked by ${blocker.title}` : `Complete ${item.title}`}
+                  onToggle={() => onComplete(item)}
+                />
+              )}
               <View style={styles.rowContent}>
                 <Text style={[styles.rowTitle, { color: blocker ? palette.textMuted : palette.ivory }]} numberOfLines={1}>{item.title}</Text>
                 {/* Always rendered, even when empty — a row whose meta line
@@ -106,6 +113,11 @@ export const TaskRow = memo(function TaskRow({
                   {item.rrule && <RepeatBadge isDark={isDark} rrule={item.rrule} />}
                   {checklistLabel(item) && (
                     <Text style={[styles.rowSub, { color: palette.greige }]}>{checklistLabel(item)}</Text>
+                  )}
+                  {item.type === 'event' && (
+                    <Text style={[styles.rowSub, { color: palette.greige }]} numberOfLines={1}>
+                      {formatEventTimeLabel(parseEventMeta(item.metadata))}
+                    </Text>
                   )}
                 </View>
               </View>
@@ -187,5 +199,16 @@ const styles = StyleSheet.create({
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  eventDot: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  eventDotInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
 });

@@ -148,7 +148,7 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress }: HomeScr
   const refreshActiveViewList = useCallback((view: HomeView) => {
     const today = formatDate(new Date());
     if (view === 'upcoming') {
-      setUpcomingItems(getUpcomingItems(today).filter((item) => item.type === 'task'));
+      setUpcomingItems(getUpcomingItems(today).filter((item) => item.type === 'task' || item.type === 'event'));
     } else if (view === 'anytime') {
       setAnytimeItems(getAnytimeTaskItems());
     } else if (view === 'someday') {
@@ -388,7 +388,10 @@ export function HomeScreen({ onInboxPress, inboxOpen, onSettingsPress }: HomeScr
   // so a render that doesn't touch these inputs (e.g. a pendingActions-only
   // change in a different view) doesn't re-filter every list from scratch.
   const visibleTodayItems = useMemo(
-    () => todayItems.filter((item) => item.type === 'task' && item.status !== 'completed' && !pendingActions.has(item.id)),
+    () =>
+      todayItems.filter(
+        (item) => (item.type === 'task' || item.type === 'event') && item.status !== 'completed' && !pendingActions.has(item.id),
+      ),
     [todayItems, pendingActions],
   );
   const visibleUpcomingItems = useMemo(
