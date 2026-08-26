@@ -12,6 +12,7 @@ import { PlanBackwardsCountdownWidget } from './PlanBackwardsCountdownWidget';
 import { HabitsQuickLogWidget } from './HabitsQuickLogWidget';
 import { PotentialRing, computeDomains, readFocus } from './PotentialOverview';
 import { webColors, webSpacing, webRadius, webFontSize, webSunset, webDepth } from '../theme/webTheme';
+import { parseEventMeta, formatEventTimeLabel } from '../utils/eventMeta';
 import type { Item } from '../db/types';
 
 const BUCKETS: Array<{ key: 'morningItems' | 'afternoonItems' | 'eveningItems' | 'anytime'; label: string }> = [
@@ -150,20 +151,30 @@ export function HomeScreen({ onNavigate }: HomeScreenProps = {}) {
                 <Text style={styles.sectionLabel}>{label}</Text>
                 {bucketItems.map((item) => {
                   const completed = item.status === 'completed';
+                  const isEvent = item.type === 'event';
                   return (
                     <Pressable key={item.id} style={styles.row} onPress={() => setSelectedId(item.id)}>
-                      <Pressable
-                        onPress={(event) => {
-                          event.stopPropagation();
-                          toggleComplete(item);
-                        }}
-                        style={[styles.checkbox, completed && styles.checkboxDone]}
-                      >
-                        {completed ? <Check size={13} color={webColors.card} strokeWidth={2.5} /> : null}
-                      </Pressable>
+                      {isEvent ? (
+                        <View style={styles.eventDot} />
+                      ) : (
+                        <Pressable
+                          onPress={(event) => {
+                            event.stopPropagation();
+                            toggleComplete(item);
+                          }}
+                          style={[styles.checkbox, completed && styles.checkboxDone]}
+                        >
+                          {completed ? <Check size={13} color={webColors.card} strokeWidth={2.5} /> : null}
+                        </Pressable>
+                      )}
                       <Text style={[styles.rowTitle, completed && styles.rowTitleDone]} numberOfLines={1}>
                         {item.title}
                       </Text>
+                      {isEvent && (
+                        <Text style={styles.eventTime} numberOfLines={1}>
+                          {formatEventTimeLabel(parseEventMeta(item.metadata))}
+                        </Text>
+                      )}
                     </Pressable>
                   );
                 })}
@@ -379,6 +390,18 @@ const styles = StyleSheet.create({
   checkboxDone: {
     backgroundColor: webColors.accent,
     borderColor: webColors.accent,
+  },
+  eventDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: webColors.accent,
+    marginHorizontal: 4,
+  },
+  eventTime: {
+    fontSize: webFontSize.xs,
+    color: webColors.mutedForeground,
+    marginLeft: webSpacing[2],
   },
   rowTitle: {
     fontSize: webFontSize.base,
