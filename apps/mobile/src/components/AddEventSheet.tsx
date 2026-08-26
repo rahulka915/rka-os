@@ -7,7 +7,8 @@ import { BottomSheet } from './ui/BottomSheet';
 import { LacquerDatePicker, LacquerTimePicker } from './item-composer/SchedulePickers';
 import { LocationSearchField } from './LocationSearchField';
 import { createEvent, updateEvent, deleteEvent, formatDate } from '../db/database';
-import { parseEventMeta, type EventMeta } from '../utils/eventMeta';
+import { parseEventMeta, computeReminderFireDate, REMINDER_OPTIONS, type EventMeta } from '../utils/eventMeta';
+import { scheduleReminder, cancelNotification, requestNotificationPermission } from '../hooks/useNotifications';
 import { Clock, MapPin } from '../icons';
 import type { Item } from '../db/types';
 
@@ -88,6 +89,34 @@ export function AddEventSheet({ visible, initialItem, initialDate, onClose, onSa
     const meta: EventMeta = draft.allDay
       ? { ...draft.meta, startTime: undefined, endTime: undefined }
       : draft.meta;
+
+    // Cancel any existing reminder before scheduling a new one — an edit
+    // that changes the date/time/offset must never leave a stale
+    // notification pointing at the old fire time.
+    if (initialItem) {
+      const previousMeta = parseEventMeta(initialItem.metadata);
+      if (previousMeta.reminderNotificationId) {
+        await cancelNotification(previousMeta.reminderNotificationId);
+      }
+    }
+
+    if (meta.reminderMinutesBefore) {
+      const fireDate = computeReminderFireDate(draft.date, meta);
+      if (fireDate) {
+        const granted = await requestNotificationPermission();
+        if (granted) {
+          const seconds = Math.max(1, Math.round((fireDate.getTime() - Date.now()) / 1000));
+          meta.reminderNotificationId = await scheduleReminder(title, 'Event reminder', seconds);
+        } else {
+          meta.reminderNotificationId = undefined;
+        }
+      } else {
+        meta.reminderNotificationId = undefined;
+      }
+    } else {
+      meta.reminderNotificationId = undefined;
+    }
+
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     if (initialItem) {
       updateEvent(
@@ -110,7 +139,9 @@ export function AddEventSheet({ visible, initialItem, initialDate, onClose, onSa
       {
         text: 'Delete',
         style: 'destructive',
-        onPress: () => {
+        onPress: async () => {
+          const meta = parseEventMeta(initialItem.metadata);
+          if (meta.reminderNotificationId) await cancelNotification(meta.reminderNotificationId);
           deleteEvent(initialItem.id);
           onDeleted?.();
           onClose();
@@ -248,6 +279,39 @@ export function AddEventSheet({ visible, initialItem, initialDate, onClose, onSa
         />
       </View>
 
+      <View style={styles.section}>
+        <Text style={[styles.sectionLabel, { color: palette.textTertiary }]}>REMINDER</Text>
+        <View style={styles.reminderRow}>
+          <TouchableOpacity
+            style={[
+              styles.reminderChip,
+              {
+                backgroundColor: !draft.meta.reminderMinutesBefore ? material.accentSoft : 'transparent',
+                borderColor: material.rim,
+              },
+            ]}
+            onPress={() => setDraft((prev) => ({ ...prev, meta: { ...prev.meta, reminderMinutesBefore: undefined } }))}
+          >
+            <Text style={[styles.reminderChipText, { color: palette.text }]}>None</Text>
+          </TouchableOpacity>
+          {REMINDER_OPTIONS.map((option) => (
+            <TouchableOpacity
+              key={option.minutesBefore}
+              style={[
+                styles.reminderChip,
+                {
+                  backgroundColor: draft.meta.reminderMinutesBefore === option.minutesBefore ? material.accentSoft : 'transparent',
+                  borderColor: material.rim,
+                },
+              ]}
+              onPress={() => setDraft((prev) => ({ ...prev, meta: { ...prev.meta, reminderMinutesBefore: option.minutesBefore } }))}
+            >
+              <Text style={[styles.reminderChipText, { color: palette.text }]}>{option.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
       {initialItem && (
         <TouchableOpacity style={styles.deleteRow} onPress={handleDelete}>
           <Text style={[styles.deleteText, { color: palette.red }]}>Delete Event</Text>
@@ -291,6 +355,14 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
   },
   notesInput: { minHeight: 72, textAlignVertical: 'top' },
+  reminderRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  reminderChip: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  reminderChipText: { fontSize: 13, fontFamily: 'Inter_500Medium', fontWeight: '500' },
   deleteRow: { marginTop: 24, alignItems: 'center', paddingVertical: 12 },
   deleteText: { fontSize: 15, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
 });
