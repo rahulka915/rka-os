@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Alert,
@@ -34,12 +34,13 @@ import {
   updateTimelineItemTime,
   updateTimelineItemSchedule,
 } from '../db/database';
-import type { ItemType } from '../db/types';
+import type { Item, ItemType } from '../db/types';
 import type { TimelineEntry } from '../db/database';
 import { computeDropTarget } from '../utils/timelineDayLookup';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors, radius, spacing } from '../theme';
 import {
+  Calendar as CalendarIcon,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
@@ -63,6 +64,9 @@ import { useItemComposer } from '../components/item-composer';
 import { getDeviceEventsForDate, type DeviceCalendarEvent } from '../services/deviceCalendar';
 import { useOpenItem } from '../hooks/useOpenItem';
 import { useNavigation } from '@react-navigation/native';
+import { AddEventSheet } from '../components/AddEventSheet';
+import { useRegisterFabHoldAction } from '../hooks/useFabHoldAction';
+import { formatEventTimeLabel, parseEventMeta } from '../utils/eventMeta';
 
 const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 const CALENDAR_GOLD = '#D4B078';
@@ -1222,6 +1226,24 @@ export function CalendarScreen() {
   }, [isDraggingFromTray, trayOverlayOpacity]);
   const { unscheduledItems, refresh: refreshUnscheduled } = useUnscheduledItems();
 
+  const [addEventVisible, setAddEventVisible] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<Item | undefined>(undefined);
+
+  const openAddEvent = () => {
+    setEditingEvent(undefined);
+    setAddEventVisible(true);
+  };
+
+  const openEditEvent = (item: Item) => {
+    setEditingEvent(item);
+    setAddEventVisible(true);
+  };
+
+  useRegisterFabHoldAction(useCallback(() => {
+    setEditingEvent(undefined);
+    setAddEventVisible(true);
+  }, []));
+
   const openCreate = (targetDateStr: string, time?: string, durationMinutes?: number) => {
     openCapture({
       context: {
@@ -1239,6 +1261,10 @@ export function CalendarScreen() {
   };
 
   const openEdit = (entry: TimelineEntry, entryDateStr: string) => {
+    if (entry.item.type === 'event') {
+      openEditEvent(entry.item);
+      return;
+    }
     const launch = () => openItem({
       item: entry.item,
       context: {
@@ -1266,6 +1292,10 @@ export function CalendarScreen() {
   };
 
   const openPreview = (entry: TimelineEntry, entryDateStr: string) => {
+    if (entry.item.type === 'event') {
+      openEditEvent(entry.item);
+      return;
+    }
     setPreview({ entry, dateStr: entryDateStr });
   };
 
@@ -1632,6 +1662,14 @@ export function CalendarScreen() {
           >
             <Plus size={18} color="#fff8ef" strokeWidth={2.4} />
           </TouchableOpacity>
+          <TouchableOpacity
+            onPress={openAddEvent}
+            style={[s.drawerAddButton, { backgroundColor: palette.blue }]}
+            accessibilityRole="button"
+            accessibilityLabel="Add event"
+          >
+            <CalendarIcon size={18} color="#fff8ef" strokeWidth={2.4} />
+          </TouchableOpacity>
         </RiverStoneSurface>
       ) : null}
 
@@ -1723,6 +1761,15 @@ export function CalendarScreen() {
           onDelete={() => handleDelete(preview.entry, () => setPreview(null))}
         />
       ) : null}
+
+      <AddEventSheet
+        visible={addEventVisible}
+        initialItem={editingEvent}
+        initialDate={dateStr}
+        onClose={() => setAddEventVisible(false)}
+        onSaved={() => refreshAll()}
+        onDeleted={() => refreshAll()}
+      />
 
     </RNView>
   );
