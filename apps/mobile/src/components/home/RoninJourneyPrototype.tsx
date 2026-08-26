@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ArrowUp, ChevronsDown } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
@@ -18,6 +18,9 @@ import { RiverStoneSurface } from '../riverstone';
 import { RoninWalkCycleSprite } from './RoninWalkCycleSprite';
 import type { RoninSpriteState } from './roninSpriteStates';
 import { SkyTestBackground } from '../sky/SkyTestBackground';
+import { nextIdleDelayMs, selectIdleClip } from '../../utils/roninIdleScheduler';
+import type { RoninIdleClip } from '../../utils/roninIdleScheduler';
+import { resolveRoninSpriteState } from './roninIdlePlayback';
 
 // Warm off-white instead of pure #fff — softer against the sunset photo and
 // consistent with the app's dark-mode text tone (theme/colors.ts `text`).
@@ -53,6 +56,8 @@ export function RoninJourneyPrototype({ completedCount, totalCount, isDark, pote
   // fires and reverts it to null. Only one plays at a time: triggerAction
   // no-ops while this is already non-null.
   const [activeAction, setActiveAction] = useState<'jump' | 'bow' | null>(null);
+  const [activeIdle, setActiveIdle] = useState<RoninIdleClip | null>(null);
+  const previousIdleRef = useRef<RoninIdleClip | null>(null);
   useEffect(() => {
     AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
     const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
@@ -106,17 +111,38 @@ export function RoninJourneyPrototype({ completedCount, totalCount, isDark, pote
   const triggerAction = (action: 'jump' | 'bow') => {
     if (activeAction !== null) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setActiveIdle(null);
     setActiveAction(action);
     if (action === 'jump') playHopReaction();
   };
 
-  const handleActionComplete = () => setActiveAction(null);
+  const handlePlaybackComplete = () => {
+    if (activeAction !== null) {
+      setActiveAction(null);
+      return;
+    }
+    setActiveIdle(null);
+  };
 
   const handlePressIn = () => setIsHolding(true);
   const handlePressOut = () => setIsHolding(false);
 
   const isWalking = isHolding;
-  const spriteState: RoninSpriteState = activeAction ?? (isWalking ? 'walking' : 'idle');
+  useEffect(() => {
+    if (isWalking && activeIdle !== null) setActiveIdle(null);
+  }, [activeIdle, isWalking]);
+
+  useEffect(() => {
+    if (activeAction !== null || activeIdle !== null || isWalking) return;
+    const timeout = setTimeout(() => {
+      const nextIdle = selectIdleClip({ previous: previousIdleRef.current, reduceMotion });
+      previousIdleRef.current = nextIdle;
+      setActiveIdle(nextIdle);
+    }, nextIdleDelayMs());
+    return () => clearTimeout(timeout);
+  }, [activeAction, activeIdle, isWalking, reduceMotion]);
+
+  const spriteState: RoninSpriteState = resolveRoninSpriteState({ activeAction, activeIdle, isWalking });
 
   // Character position is deliberately NOT tied to completedCount/totalCount
   // progress or the hold-preview anymore (product decision, 2026-08-16) — it
@@ -132,16 +158,17 @@ export function RoninJourneyPrototype({ completedCount, totalCount, isDark, pote
     // gated by isWalking, it's always cycling) — freeze it at 0 while a
     // one-shot Jump/Bow animation is playing, or it visibly bleeds into
     // those poses (most noticeable as a residual bounce during a bow).
-    const bob = activeAction ? 0 : interpolate(walkCycle.value, [0, 1], [2, reduceMotion ? 0 : -4]);
+    const isOneShotPlaying = activeAction !== null || activeIdle !== null;
+    const bob = isOneShotPlaying ? 0 : interpolate(walkCycle.value, [0, 1], [2, reduceMotion ? 0 : -4]);
     return {
       transform: [
         { translateX: anchorX },
         { translateY: bob - reaction.value * 18 },
-        { rotate: `${activeAction || reduceMotion ? 0 : interpolate(walkCycle.value, [0, 1], [-1.2, 1.2])}deg` },
+        { rotate: `${isOneShotPlaying || reduceMotion ? 0 : interpolate(walkCycle.value, [0, 1], [-1.2, 1.2])}deg` },
         { scale: 1 + reaction.value * 0.055 },
       ],
     };
-  }, [reduceMotion, width, activeAction]);
+  }, [reduceMotion, width, activeAction, activeIdle]);
 
   const progressLabel = totalCount === 0
     ? 'A clear path today'
@@ -209,7 +236,7 @@ export function RoninJourneyPrototype({ completedCount, totalCount, isDark, pote
         </Svg>
 
         <Animated.View pointerEvents="none" style={[styles.walker, walkerStyle]}>
-          <RoninWalkCycleSprite style={styles.walkerImage} state={spriteState} onComplete={handleActionComplete} />
+          <RoninWalkCycleSprite style={styles.walkerImage} state={spriteState} onComplete={handlePlaybackComplete} />
         </Animated.View>
 
         <View style={styles.actionButtonRow}>

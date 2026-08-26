@@ -25,9 +25,10 @@ export function selectIdleClip(options: {
   previous: RoninIdleClip | null;
   reduceMotion: boolean;
 }): RoninIdleClip {
+  if (options.reduceMotion) return 'blinkDip';
+
   const eligible = IDLE_CLIP_WEIGHTS.filter(([clip]) => (
     clip !== options.previous
-    && (!options.reduceMotion || (clip !== 'yawn' && clip !== 'shoulderStretch'))
   ));
   const totalWeight = eligible.reduce((total, [, weight]) => total + weight, 0);
   let selection = Math.min(Math.max(options.random?.() ?? Math.random(), 0), 1) * totalWeight;

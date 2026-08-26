@@ -22,6 +22,22 @@ test('omits rare shoulder stretches when Reduce Motion is enabled', () => {
   );
 });
 
+test('uses only the eyelid blink when Reduce Motion is enabled', () => {
+  for (let value = 0; value <= 10; value += 1) {
+    assert.equal(
+      selectIdleClip({ random: () => value / 10, previous: null, reduceMotion: true }),
+      'blinkDip',
+    );
+  }
+});
+
+test('allows another restrained blink after the calm interval under Reduce Motion', () => {
+  assert.equal(
+    selectIdleClip({ random: () => 0.5, previous: 'blinkDip', reduceMotion: true }),
+    'blinkDip',
+  );
+});
+
 test('gives normal clips more selection weight than rare clips', () => {
   const counts = new Map([
     ['lookAround', 0],

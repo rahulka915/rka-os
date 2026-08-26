@@ -1,8 +1,17 @@
 # RKA OS — Handover Summary
-**Last Updated:** 2026-08-14
+**Last Updated:** 2026-08-26
 **Status:** Native iOS (primary, active) + a *separate, current* desktop web app (`apps/mobile/src/webApp/`, Expo web, built 2026-07-30–08-01, partial screen parity — see `apps/mobile/CLAUDE.md`'s "Desktop Web App" section). The *different, unrelated* Web PWA described in Session 1 below (Vite + React + Dexie.js, repo root) has been fully retired; that section is kept as historical record only. Do not conflate the two — one is dead, one is actively developed.
 
 ---
+## 2026-08-26 — Expanded Ronin PNG idle library wired into Home
+
+- Wired all 52 cleaned `apps/mobile/assets/ronin/idle-v2/` frames into `roninSpriteRegistry.ts` and `RoninWalkCycleSprite.tsx`: calm, look-around, blink, yawn, wrap adjustment and shoulder roll.
+- `RoninJourneyPrototype.tsx` now schedules weighted personality idles after random 8–18 second calm intervals, prevents immediate repeats, returns to calm between clips, and lets walking/jump/bow interrupt immediately. The outer bob/rotation pauses during one-shot sprite clips so motion layers do not fight.
+- Reduce Motion schedules only the eyelid blink. Added pure playback-state tests and tightened the registry test so empty placeholder arrays can no longer pass.
+- Verification: 13 focused scheduler/registry/playback/asset tests pass; the 52-frame asset validator passes at 640×640 with the 580±2px baseline. `tsc --noEmit` reports only the repository's existing `.web.tsx` resolution, database skill-union, and missing `event` map errors; no Ronin integration errors.
+
+---
+
 
 ## 2026-08-15 — Measurable (count/duration) Habits now generate proportional Attribute evidence
 
