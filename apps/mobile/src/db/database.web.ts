@@ -60,6 +60,7 @@ import { computeAlertness as computeAlertnessValue, type AlertnessInputs } from 
 import type { RoutineStepMeta } from '../utils/routineMeta';
 import type { BackwardPlanMeta, PlacementBehavior, TravelConfig } from '../utils/backwardPlanMeta';
 import { parseBackwardPlanMeta } from '../utils/backwardPlanMeta';
+import { parseEventMeta, type EventMeta } from '../utils/eventMeta';
 import {
   getItemsSnapshot,
   getActivityLogsSnapshot,
@@ -364,6 +365,32 @@ export function updateItem(
 
 export function updateItemMetadata(id: string, metadata: Record<string, any>): void {
   write(patchItem(id, { metadata: JSON.stringify(metadata), updatedAt: Date.now() }), 'updateItemMetadata');
+  syncPendingInstanceMetadata(id, metadata);
+}
+
+// Timeline reads timing fields (time/timeOfDay/preferredTimeBucket/durationMinutes)
+// from an item's pending itemInstances row in preference to the item's own
+// metadata (see timelineEntry.ts's getEntryTiming). Any edit that changes those
+// fields on the item must also refresh the instance, or the Timeline keeps
+// showing whatever was frozen into the instance when it was first scheduled.
+function syncPendingInstanceMetadata(itemId: string, itemMetadata: Record<string, any>): void {
+  const fields: Record<string, unknown> = {};
+  if ('time' in itemMetadata) fields.time = itemMetadata.time;
+  if ('timeOfDay' in itemMetadata) fields.timeOfDay = itemMetadata.timeOfDay;
+  if ('preferredTimeBucket' in itemMetadata) fields.preferredTimeBucket = itemMetadata.preferredTimeBucket;
+  if ('durationMinutes' in itemMetadata) fields.durationMinutes = itemMetadata.durationMinutes;
+  if (Object.keys(fields).length === 0) return;
+
+  const instances = getItemInstancesSnapshot().filter((i) => i.itemId === itemId && i.status === 'pending');
+  if (instances.length === 0) return;
+  const now = Date.now();
+  for (const instance of instances) {
+    const parsed = instance.instanceMetadata ? JSON.parse(instance.instanceMetadata) : {};
+    write(
+      putItemInstance({ ...instance, instanceMetadata: JSON.stringify({ ...parsed, ...fields }), updatedAt: now }),
+      'updateItemMetadata'
+    );
+  }
 }
 
 export function setTaskPriority(id: string, priority: 'low' | 'medium' | 'high' | null): void {
@@ -786,7 +813,6 @@ export function updateTimelineItemSchedule(id: string, scheduledDate?: string, t
 
   if (instance) {
     const instanceMetadata = instance.instanceMetadata ? JSON.parse(instance.instanceMetadata) : {};
-    const instancePreferredTimeBucket = instanceMetadata.preferredTimeBucket ?? preferredTimeBucket;
     write(
       putItemInstance({
         ...instance,
@@ -795,7 +821,7 @@ export function updateTimelineItemSchedule(id: string, scheduledDate?: string, t
           ...instanceMetadata,
           time: normalizedTime,
           timeOfDay,
-          preferredTimeBucket: instancePreferredTimeBucket,
+          preferredTimeBucket,
         }),
         updatedAt: now,
       }),
@@ -882,6 +908,7 @@ export function processInboxItem(id: string, destination: GtdDestination): void 
     project: { type: 'project', status: 'active', metadata: JSON.stringify({ ...meta, gtdContext: 'project' }) },
     area: { type: 'area', status: 'active', metadata: JSON.stringify({ ...meta, gtdContext: 'area' }) },
     habit: { type: 'habit', status: 'active', metadata: JSON.stringify({ ...meta, gtdContext: 'habit' }) },
+    event: { type: 'event', status: 'scheduled', metadata: JSON.stringify({ ...meta, gtdContext: 'event' }) },
     medication: {
       type: 'medication',
       status: 'active',
@@ -1999,6 +2026,49 @@ export function updateBackwardPlan(
 
 export function deleteBackwardPlan(planId: string): void {
   deleteItem(planId);
+}
+
+// --- Calendar Events -------------------------------------------------------
+// See database.ts's matching section for the full design note — this is the
+// Firestore-web mirror, same shape as native.
+
+export function createEvent(
+  title: string,
+  date: string,
+  meta: EventMeta = {},
+  notes?: string,
+  repeatsYearly?: boolean,
+): string {
+  const id = createItem('event', title, 'scheduled', date, notes);
+  updateItemMetadata(id, meta as unknown as Record<string, any>);
+  if (repeatsYearly) updateItem(id, { rrule: 'FREQ=YEARLY' });
+  return id;
+}
+
+export function getEvent(eventId: string): Item | null {
+  return getItemWithMetadata(eventId);
+}
+
+export function updateEvent(
+  eventId: string,
+  updates: Partial<{ title: string; date: string | null; notes: string | null; repeatsYearly: boolean }>,
+  metaUpdates?: Partial<EventMeta>,
+): void {
+  if (updates.title !== undefined || updates.date !== undefined || updates.notes !== undefined) {
+    updateItem(eventId, { title: updates.title, scheduledDate: updates.date, notes: updates.notes });
+  }
+  if (updates.repeatsYearly !== undefined) {
+    updateItem(eventId, { rrule: updates.repeatsYearly ? 'FREQ=YEARLY' : null });
+  }
+  if (metaUpdates) {
+    const current = getItemWithMetadata(eventId);
+    const currentMeta = parseEventMeta(current?.metadata);
+    updateItemMetadata(eventId, { ...currentMeta, ...metaUpdates });
+  }
+}
+
+export function deleteEvent(eventId: string): void {
+  deleteItem(eventId);
 }
 
 export function addPlanBlockRoutine(

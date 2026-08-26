@@ -12,7 +12,7 @@ import {
 const ALL_ITEM_TYPES = [
   'area', 'project', 'task', 'habit', 'medication', 'supplement', 'workout-template', 'workout-block',
   'exercise', 'workout-session', 'meal', 'object', 'potential-stat', 'achievement', 'focus',
-  'routine', 'routine-step', 'routine-session', 'skill', 'backward-plan', 'potential-attribute',
+  'routine', 'routine-step', 'routine-session', 'skill', 'backward-plan', 'potential-attribute', 'event',
 ];
 
 test('every ItemType has exactly one lifecycle classification', () => {
