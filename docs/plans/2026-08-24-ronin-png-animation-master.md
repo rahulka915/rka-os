@@ -321,52 +321,9 @@ git add apps/mobile/assets/ronin/reference/animation-master-v1
 git commit -m "feat: add stable Ronin accessory overlays" -m "Co-Authored-By: Codex Haiku 4.5 <noreply@anthropic.com>"
 ```
 
-### Task 6: Produce the Idle-Calm Pilot
+### Task 6: Produce the Idle-Calm Pilot — Superseded
 
-**Files:**
-- Create: `apps/mobile/assets/ronin/journey-v2/idle-calm/source/ronin-idle-calm-sheet-v1.png`
-- Create: `apps/mobile/assets/ronin/journey-v2/idle-calm/manifest.json`
-- Create: `apps/mobile/assets/ronin/journey-v2/idle-calm/ronin-idle-calm-01.png` through `08.png`
-- Create: `apps/mobile/assets/ronin/journey-v2/review/idle-calm-120pt.gif`
-
-**Step 1: Define the eight-frame pose layout**
-
-Use one restrained breathing loop with feet planted, root fixed, and secondary motion limited to chest, hair tips, bandana tails, sash tips, and bag cords. Frames 1 and 8 must transition cleanly.
-
-**Step 2: Generate the full sheet at once**
-
-Reference the whole approved identity pack. Do not reference a prior generated frame as the next frame's source.
-
-**Step 3: Apply approved overlays**
-
-Composite pendant and visible jewellery variants consistently across frames.
-
-**Step 4: Slice using fixed-canvas mode**
-
-Run the builder with the versioned canvas contract and eight 640-pixel cells.
-
-Expected: eight 640×640 transparent frames with no scaling or recentering.
-
-**Step 5: Validate**
-
-Run the action validator against `manifest.json`.
-
-Expected: PASS with no dimension, alpha, naming, safe-area, or baseline errors.
-
-**Step 6: Review animation**
-
-Create a 120-point looping preview plus full-size contact sheet and difference/onion-skin sheet. Reject texture shimmer, face drift, root motion, accessory drift, or loop hitch.
-
-**Step 7: User approval checkpoint**
-
-Do not wire the pilot into the app until approved beside the current idle.
-
-**Step 8: Commit approved pilot assets**
-
-```bash
-git add apps/mobile/assets/ronin/journey-v2/idle-calm
-git commit -m "feat: add Ronin idle animation pilot" -m "Co-Authored-By: Codex Haiku 4.5 <noreply@anthropic.com>"
-```
+The pilot was replaced by the approved 52-frame `assets/ronin/idle-v2/` runtime library. Its obsolete frame sets and runtime state were removed on 2026-08-26; do not recreate or wire the pilot.
 
 ### Task 7: Centralize the Runtime Sprite Registry
 

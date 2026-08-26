@@ -3,7 +3,6 @@ import { WALK_CYCLE_FRAME_INTERVAL_MS } from '../../utils/walkCycle';
 export type RoninSpriteClipName =
   | 'walking'
   | 'calm'
-  | 'legacyAlert'
   | 'lookAround'
   | 'blinkDip'
   | 'yawn'
@@ -100,17 +99,6 @@ const SHOULDER_STRETCH_FRAMES: number[] = [
   require('../../../assets/ronin/idle-v2/shoulder-stretch-10.png'),
 ];
 
-const IDLE_ALERT_FRAMES: number[] = [
-  require('../../../assets/ronin/journey/idle-alert/ronin-idle-alert-01.png'),
-  require('../../../assets/ronin/journey/idle-alert/ronin-idle-alert-02.png'),
-  require('../../../assets/ronin/journey/idle-alert/ronin-idle-alert-03.png'),
-  require('../../../assets/ronin/journey/idle-alert/ronin-idle-alert-04.png'),
-  require('../../../assets/ronin/journey/idle-alert/ronin-idle-alert-05.png'),
-  require('../../../assets/ronin/journey/idle-alert/ronin-idle-alert-06.png'),
-  require('../../../assets/ronin/journey/idle-alert/ronin-idle-alert-07.png'),
-  require('../../../assets/ronin/journey/idle-alert/ronin-idle-alert-08.png'),
-];
-
 const BOW_FRAMES: number[] = [
   require('../../../assets/ronin/journey/tap-reaction/ronin-tap-01.png'),
   require('../../../assets/ronin/journey/tap-reaction/ronin-tap-02.png'),
@@ -132,7 +120,6 @@ const JUMP_FRAMES: number[] = [
 export const RONIN_SPRITE_CLIPS: Record<RoninSpriteClipName, RoninSpriteClip> = {
   walking: { frames: WALK_CYCLE_FRAMES, frameDurationMs: WALK_CYCLE_FRAME_INTERVAL_MS, loops: true, reduceMotionClip: 'walking' },
   calm: { frames: IDLE_CALM_FRAMES, frameDurationMs: 420, loops: true, reduceMotionClip: 'calm' },
-  legacyAlert: { frames: IDLE_ALERT_FRAMES, frameDurationMs: 420, loops: true, reduceMotionClip: 'calm' },
   lookAround: { frames: LOOK_AROUND_FRAMES, frameDurationMs: 180, loops: false, reduceMotionClip: 'calm' },
   blinkDip: { frames: BLINK_DIP_FRAMES, frameDurationMs: 160, loops: false, reduceMotionClip: 'blinkDip' },
   yawn: { frames: YAWN_FRAMES, frameDurationMs: 180, loops: false, reduceMotionClip: 'calm' },

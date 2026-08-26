@@ -52,3 +52,7 @@ test('loads every expanded idle clip from the idle-v2 runtime library', () => {
     );
   }
 });
+
+test('does not retain superseded idle states or frame paths', () => {
+  assert.doesNotMatch(source, /legacyAlert|IDLE_ALERT_FRAMES|journey\/idle-alert|journey\/idle-calm|journey-v2\/idle-calm/);
+});

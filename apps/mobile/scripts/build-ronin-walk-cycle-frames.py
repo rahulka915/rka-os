@@ -33,13 +33,6 @@ Usage:
         --prefix ronin-tap \
         --already-alpha --min-area 1000
 
-    # Fixed-coordinate production sheet: eight authored 640x640 cells.
-    python3 scripts/build-ronin-walk-cycle-frames.py \
-        --source assets/ronin/journey-v2/idle-calm/source/ronin-idle-calm-sheet-v1.png \
-        --output-dir assets/ronin/journey-v2/idle-calm \
-        --frame-count 8 --prefix ronin-idle-calm --already-alpha \
-        --canvas-contract assets/ronin/reference/animation-master-v1/templates/canvas-contract.json \
-        --cell-width 640
 """
 from __future__ import annotations
 

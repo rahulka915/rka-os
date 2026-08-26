@@ -154,21 +154,18 @@ export function RoninJourneyPrototype({ completedCount, totalCount, isDark, pote
   const WALKER_ANCHOR_FRACTION = 0.32;
   const walkerStyle = useAnimatedStyle(() => {
     const anchorX = Math.max(0, width - WALKER_SIZE - 4) * WALKER_ANCHOR_FRACTION;
-    // The idle/walking breathing bob+rotate runs continuously (it's not
-    // gated by isWalking, it's always cycling) — freeze it at 0 while a
-    // one-shot Jump/Bow animation is playing, or it visibly bleeds into
-    // those poses (most noticeable as a residual bounce during a bow).
     const isOneShotPlaying = activeAction !== null || activeIdle !== null;
-    const bob = isOneShotPlaying ? 0 : interpolate(walkCycle.value, [0, 1], [2, reduceMotion ? 0 : -4]);
+    const addsWalkingMotion = isWalking && !isOneShotPlaying && !reduceMotion;
+    const bob = addsWalkingMotion ? interpolate(walkCycle.value, [0, 1], [2, -4]) : 0;
     return {
       transform: [
         { translateX: anchorX },
         { translateY: bob - reaction.value * 18 },
-        { rotate: `${isOneShotPlaying || reduceMotion ? 0 : interpolate(walkCycle.value, [0, 1], [-1.2, 1.2])}deg` },
+        { rotate: `${addsWalkingMotion ? interpolate(walkCycle.value, [0, 1], [-1.2, 1.2]) : 0}deg` },
         { scale: 1 + reaction.value * 0.055 },
       ],
     };
-  }, [reduceMotion, width, activeAction, activeIdle]);
+  }, [reduceMotion, width, activeAction, activeIdle, isWalking]);
 
   const progressLabel = totalCount === 0
     ? 'A clear path today'
