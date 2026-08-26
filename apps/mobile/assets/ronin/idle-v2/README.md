@@ -15,4 +15,6 @@ Every frame preserves the approved warm medium-deep South Asian skin tone, round
 
 Before a clip enters this directory, validate it with `node scripts/validate-ronin-idle-assets.mjs`, inspect an animated preview and contact sheet at 120 points, and obtain visual approval. Check face and texture stability, silhouette, skin tone, pendant/ring/bracelet counts, wrap sides, bag/backpack/sword retention, transparent background, foot anchor, and neutral start/end frames. Keep generated originals and rejected studies outside this runtime directory; do not load them in the app.
 
+Generate future extraction sheets on a uniform saturated chroma-green background rather than transparency or a checkerboard. Preserve approved green originals under `review/approved-green/`, key the green before scaling, remove residual green spill from edge RGB, and inspect extracted frames composited over black, white, and magenta. A frame is not approved if any pale matte or chroma fringe remains around hair, boots, clothing, weapons, or accessories.
+
 During the first three-clip pass, use `node scripts/validate-ronin-idle-assets.mjs --allow-missing-specials`. That option permits only the not-yet-produced `yawn`, `adjust-wrap`, and `shoulder-stretch` frames; it does not relax any validation for frames that exist.
