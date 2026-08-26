@@ -2,6 +2,10 @@
 // deprecated shim pointing at a new object-oriented API — importing from '/legacy' gets
 // the real, working implementation with the exact function signatures used below.
 import * as Calendar from 'expo-calendar/legacy';
+import { buildDeviceCalendarEventInput } from '../utils/deviceCalendarEvent';
+import type { EventMeta } from '../utils/eventMeta';
+
+export { buildDeviceCalendarEventInput };
 
 export interface DeviceCalendarEvent {
   id: string;
@@ -70,4 +74,48 @@ export async function getDeviceEventsForDate(date: Date): Promise<DeviceCalendar
   return events
     .filter((event) => !event.allDay)
     .map((event) => toDeviceEvent(event, startOfDay));
+}
+
+// --- Write path (new, opt-in) ----------------------------------------------
+// Every export above this line is read-only by design (see file header).
+// This section is a deliberate, additive exception scoped to Calendar
+// Events only: one-way, create-only writes, never re-read or updated after
+// creation — see docs/superpowers/specs/2026-08-26-calendar-events-design.md's
+// "Device calendar write" section for the full rationale.
+
+export async function requestCalendarWriteAccess(): Promise<boolean> {
+  const { status } = await Calendar.requestCalendarPermissionsAsync();
+  return status === 'granted';
+}
+
+export async function getCalendarWriteAccessStatus(): Promise<'granted' | 'denied' | 'undetermined'> {
+  const { status } = await Calendar.getCalendarPermissionsAsync();
+  if (status === 'granted') return 'granted';
+  if (status === 'undetermined') return 'undetermined';
+  return 'denied';
+}
+
+export async function createDeviceCalendarEvent(
+  title: string,
+  date: string,
+  meta: EventMeta,
+  notes?: string,
+): Promise<string | undefined> {
+  const granted = await requestCalendarWriteAccess();
+  if (!granted) return undefined;
+  try {
+    const defaultCalendar = await Calendar.getDefaultCalendarAsync();
+    const input = buildDeviceCalendarEventInput(title, date, meta);
+    return await Calendar.createEventAsync(defaultCalendar.id, {
+      title: input.title,
+      startDate: input.startDate,
+      endDate: input.endDate,
+      location: input.location,
+      notes,
+      allDay: !meta.startTime,
+    });
+  } catch {
+    // Fail soft — the RKA-side event is still created regardless (see spec).
+    return undefined;
+  }
 }

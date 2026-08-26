@@ -9,6 +9,7 @@ import { LocationSearchField } from './LocationSearchField';
 import { createEvent, updateEvent, deleteEvent, formatDate } from '../db/database';
 import { parseEventMeta, computeReminderFireDate, REMINDER_OPTIONS, type EventMeta } from '../utils/eventMeta';
 import { scheduleReminder, cancelNotification, requestNotificationPermission } from '../hooks/useNotifications';
+import { createDeviceCalendarEvent, getCalendarWriteAccessStatus } from '../services/deviceCalendar';
 import { Clock, MapPin } from '../icons';
 import type { Item } from '../db/types';
 
@@ -67,6 +68,7 @@ export function AddEventSheet({ visible, initialItem, initialDate, onClose, onSa
   const palette = getThemeColors(isDark);
   const material = getItemComposerMaterial(isDark);
   const [draft, setDraft] = useState<EventDraft>(defaultDraft(initialDate));
+  const [addToDeviceCalendar, setAddToDeviceCalendar] = useState(false);
   const titleRef = useRef<TextInput>(null);
 
   useEffect(() => {
@@ -75,6 +77,11 @@ export function AddEventSheet({ visible, initialItem, initialDate, onClose, onSa
     const t = setTimeout(() => titleRef.current?.focus(), 0);
     return () => clearTimeout(t);
   }, [visible, initialItem, initialDate]);
+
+  useEffect(() => {
+    if (!visible || initialItem) return; // only offer on create, not edit — see spec's create-only scope
+    getCalendarWriteAccessStatus().then((status) => setAddToDeviceCalendar(status === 'granted'));
+  }, [visible, initialItem]);
 
   const canSave = Boolean(draft.title.trim()) && (draft.allDay || Boolean(draft.meta.startTime));
 
@@ -115,6 +122,11 @@ export function AddEventSheet({ visible, initialItem, initialDate, onClose, onSa
       }
     } else {
       meta.reminderNotificationId = undefined;
+    }
+
+    if (!initialItem && addToDeviceCalendar) {
+      const deviceEventId = await createDeviceCalendarEvent(title, draft.date, meta, draft.notes || undefined);
+      if (deviceEventId) meta.deviceCalendarEventId = deviceEventId;
     }
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -311,6 +323,13 @@ export function AddEventSheet({ visible, initialItem, initialDate, onClose, onSa
           ))}
         </View>
       </View>
+
+      {!initialItem && (
+        <View style={[styles.section, styles.rowBetween]}>
+          <Text style={[styles.sectionLabel, { color: palette.textTertiary }]}>ALSO ADD TO IPHONE CALENDAR</Text>
+          <Switch value={addToDeviceCalendar} onValueChange={setAddToDeviceCalendar} />
+        </View>
+      )}
 
       {initialItem && (
         <TouchableOpacity style={styles.deleteRow} onPress={handleDelete}>
