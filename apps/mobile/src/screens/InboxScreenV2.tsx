@@ -8,12 +8,13 @@ import { DependencyConnector } from '../components/DependencyConnector';
 import { useThemeContext } from '../hooks/useThemeContext';
 import { getThemeColors, lineHeight, letterSpacing } from '../theme';
 import { useInbox } from '../hooks/useDb';
-import { updateItemStatus, processInboxItem, getBlockingTask } from '../db/database';
+import { updateItemStatus, processInboxItem, getBlockingTask, getEvent } from '../db/database';
 import { X } from '../icons';
 import { CaptureFAB } from '../components/capture/CaptureFAB';
 import { useItemComposer } from '../components/item-composer';
 import { useOverlayHost } from '../hooks/useOverlayHost';
 import { TriageOverlay } from '../components/triage/TriageOverlay';
+import { AddEventSheet } from '../components/AddEventSheet';
 import type { Item } from '../db/types';
 
 const CHECKBOX_CENTER_X = 38; // TaskSwipeItem's taskRow paddingHorizontal(16) + half the 44pt disc touch target
@@ -109,11 +110,21 @@ export function InboxScreenV2({ visible, onClose }: InboxScreenV2Props) {
     refresh();
   }, [selectedIds, exitSelection, refresh]);
 
+  const [editingEventId, setEditingEventId] = useState<string | null>(null);
+
   const handleClassify = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     Alert.alert('Classify as...', 'This reassigns the entity type, not just when it happens.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Mission', onPress: () => handleBulkProcess('project') },
+      {
+        text: 'Event',
+        onPress: () => {
+          const ids = Array.from(selectedIds);
+          handleBulkProcess('event');
+          if (ids.length === 1) setEditingEventId(ids[0]);
+        },
+      },
       { text: 'Domain', onPress: () => handleBulkProcess('area') },
       { text: 'Habit', onPress: () => handleBulkProcess('habit') },
       { text: 'Medication', onPress: () => handleBulkProcess('medication') },
@@ -121,13 +132,14 @@ export function InboxScreenV2({ visible, onClose }: InboxScreenV2Props) {
       { text: 'Object', onPress: () => handleBulkProcess('object') },
       { text: 'Reference', onPress: () => handleBulkProcess('reference') },
     ]);
-  }, [handleBulkProcess]);
+  }, [handleBulkProcess, selectedIds]);
 
   if (!visible) return null;
 
   const emptyState = inboxItems.length === 0;
 
   return (
+    <>
     <Modal visible={visible} animationType="none" transparent>
       <View style={[s.container, { backgroundColor: palette.bg }]}>
         {/* Header */}
@@ -259,6 +271,14 @@ export function InboxScreenV2({ visible, onClose }: InboxScreenV2Props) {
       </View>
 
     </Modal>
+    <AddEventSheet
+      visible={editingEventId !== null}
+      initialItem={editingEventId ? getEvent(editingEventId) ?? undefined : undefined}
+      onClose={() => setEditingEventId(null)}
+      onSaved={() => { setEditingEventId(null); refresh(); }}
+      onDeleted={() => { setEditingEventId(null); refresh(); }}
+    />
+    </>
   );
 }
 
