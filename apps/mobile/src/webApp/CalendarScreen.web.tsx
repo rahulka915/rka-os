@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { CalendarClock, Check, ChevronLeft, ChevronRight, ListTree, Navigation, Rows3 } from 'lucide-react-native';
 import { useCalendar, useInbox, useTasks } from '../hooks/useDb';
-import { createItem, updateItemStatus, updateTimelineItemSchedule, formatDate } from '../db/database';
+import { createItem, createEvent, updateItemStatus, updateTimelineItemSchedule, formatDate } from '../db/database';
 import { DetailPanel } from './DetailPanel';
 import { ItemDetailForm } from './ItemDetailForm';
+import { AddEventForm } from './AddEventForm.web';
 import { PlanBackwardsScreen } from './PlanBackwardsScreen.web';
 import { UpcomingScreen } from './UpcomingScreen.web';
 import { useDraggableRef, useDropZoneRef } from './hooks/useDomDragAndDrop';
@@ -85,17 +86,22 @@ interface CardProps {
 function CalendarCard({ item, onOpen, onToggleComplete }: CardProps) {
   const ref = useDraggableRef(item.id);
   const completed = item.status === 'completed';
+  const isEvent = item.type === 'event';
   return (
     <Pressable ref={ref} style={styles.card} onPress={() => onOpen(item.id)}>
-      <Pressable
-        onPress={(event) => {
-          event.stopPropagation();
-          onToggleComplete(item);
-        }}
-        style={[styles.checkbox, completed && styles.checkboxDone]}
-      >
-        {completed ? <Check size={12} color={webColors.card} strokeWidth={2.5} /> : null}
-      </Pressable>
+      {isEvent ? (
+        <View style={styles.eventDot} />
+      ) : (
+        <Pressable
+          onPress={(event) => {
+            event.stopPropagation();
+            onToggleComplete(item);
+          }}
+          style={[styles.checkbox, completed && styles.checkboxDone]}
+        >
+          {completed ? <Check size={12} color={webColors.card} strokeWidth={2.5} /> : null}
+        </Pressable>
+      )}
       <Text style={[styles.cardTitle, completed && styles.cardTitleDone]} numberOfLines={1}>
         {item.title}
       </Text>
@@ -296,6 +302,15 @@ export function CalendarScreen() {
     refreshAll();
   };
 
+  const submitEventCapture = () => {
+    const trimmed = captureText.trim();
+    if (!trimmed) return;
+    const id = createEvent(trimmed, viewedDate, {});
+    setCaptureText('');
+    refreshAll();
+    setSelectedId(id);
+  };
+
   const toggleComplete = (item: Item) => {
     updateItemStatus(item.id, item.status === 'completed' ? 'active' : 'completed');
     refreshAll();
@@ -427,6 +442,9 @@ export function CalendarScreen() {
               placeholderTextColor={webColors.mutedForeground}
               style={styles.captureInput}
             />
+            <Pressable onPress={submitEventCapture} style={styles.addEventButton}>
+              <Text style={styles.addEventButtonText}>+ Event</Text>
+            </Pressable>
           </View>
 
           <View style={styles.panes}>
@@ -515,8 +533,17 @@ export function CalendarScreen() {
         </View>
       </DetailPanel>
 
-      <DetailPanel visible={!!selectedItem} onClose={() => setSelectedId(null)} title="Item">
-        {selectedItem ? (
+      <DetailPanel visible={!!selectedItem} onClose={() => setSelectedId(null)} title={selectedItem?.type === 'event' ? 'Event' : 'Item'}>
+        {selectedItem?.type === 'event' ? (
+          <AddEventForm
+            item={selectedItem}
+            onChanged={refreshAll}
+            onDeleted={() => {
+              setSelectedId(null);
+              refreshAll();
+            }}
+          />
+        ) : selectedItem ? (
           <ItemDetailForm
             item={selectedItem}
             onChanged={refreshAll}
@@ -646,17 +673,32 @@ const styles = StyleSheet.create({
     color: webColors.accent,
   },
   captureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: webSpacing[2],
     marginHorizontal: webSpacing[6],
     marginTop: webSpacing[4],
     marginBottom: webSpacing[2],
   },
   captureInput: {
+    flex: 1,
     fontSize: webFontSize.base,
     color: webColors.foreground,
     backgroundColor: webColors.muted,
     borderRadius: webRadius.sm,
     paddingHorizontal: webSpacing[3],
     paddingVertical: webSpacing[3],
+  },
+  addEventButton: {
+    paddingHorizontal: webSpacing[3],
+    paddingVertical: webSpacing[3],
+    borderRadius: webRadius.sm,
+    backgroundColor: webColors.muted,
+  },
+  addEventButtonText: {
+    fontSize: webFontSize.sm,
+    fontWeight: '600',
+    color: webColors.accent,
   },
   panes: {
     flex: 1,
@@ -753,6 +795,13 @@ const styles = StyleSheet.create({
   checkboxDone: {
     backgroundColor: webColors.accent,
     borderColor: webColors.accent,
+  },
+  eventDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: webColors.accent,
+    marginHorizontal: 3,
   },
   cardTitle: {
     fontSize: webFontSize.sm,
